@@ -1,0 +1,13 @@
+.env
+.pyagent/
+__pycache__/
+*.pyc
+.venv/
+.coverage
+coverage.json
+htmlcov/
+.pytest_cache/
+.ruff_cache/
+mutants/
+*.egg-info/
+.idea
