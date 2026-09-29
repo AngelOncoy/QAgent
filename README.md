@@ -26,7 +26,7 @@ tokens por agente y Mutation Score (solo en funciones críticas).
 python -m venv .venv
 .venv\Scripts\activate
 pip install -e .[dev]      # disponible cuando se agregue pyproject.toml
-copy .env.example .env     # completar las claves
+copy .env .env     # completar las claves
 pytest
 ```
 

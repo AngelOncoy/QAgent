@@ -1,0 +1,42 @@
+# PyAgent — configuración del equipo (copiar a config.toml)
+# Las claves NO van aquí: van en .env
+# Fuente de modelos y precios: docs/decisiones/ADR-001-modelos.md
+
+[presupuesto]
+tope_por_corrida_usd = 1.00      # banco propio; subir a 7.00 para repositorios externos
+tope_semestre_usd = 25.00
+
+[reintentos]
+max_intentos = 3
+
+[agentes.planner]
+# Fase de arranque (primeras corridas de EV-01): usar MiMo para medir a bajo costo.
+# Al cumplir el criterio del ADR-001, cambiar a Claude Opus 5.5 (bloque comentado abajo).
+proveedor = "xiaomi"
+modelo = "mimo-v2.6-pro"         # verificar el ID exacto en la consola de Xiaomi
+precio_entrada_usd_m = 0.435
+precio_salida_usd_m = 0.87
+precio_cache_lectura_usd_m = 0.0036
+
+# proveedor = "anthropic"
+# modelo = "claude-opus-5-5"
+# esfuerzo = "max"
+# precio_entrada_usd_m = 4.00
+# precio_salida_usd_m = 20.00
+# precio_cache_lectura_usd_m = 0.20
+
+[agentes.generator]
+proveedor = "xiaomi"
+modelo = "mimo-v2.6-pro"
+precio_entrada_usd_m = 0.435
+precio_salida_usd_m = 0.87
+precio_cache_lectura_usd_m = 0.0036
+
+[agentes.reviewer]
+proveedor = "openai"
+modelo = "gpt-6-luna"            # confirmar el ID exacto en la documentación de OpenAI
+esfuerzo = "max"
+precio_entrada_usd_m = 0.10
+precio_salida_usd_m = 0.50
+precio_cache_lectura_usd_m = 0.01
+# Si la entrada supera 272K tokens, toda la petición cuesta 0.20 / 0.75
