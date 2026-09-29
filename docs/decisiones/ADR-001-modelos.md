@@ -97,18 +97,20 @@ Fórmula por llamada: `costo = tokens_entrada × precio_entrada + tokens_salida 
 |---|---|---|
 | Arranque: banco propio con MiMo como Planner | 5 | US$ 0.45 |
 | EV-01 banco propio con Opus 5.5 (MVP) | 3 | US$ 1.02 |
-| EV-04 control multiagente vs. multimodelo (A con MiMo, B normal) | 2 | US$ 0.43 |
+| EV-04 control multiagente vs. multimodelo (A con MiMo en los 3 agentes, B normal) | 2 | US$ 0.46 |
 | EV-02 repositorio externo | 1 | US$ 6.20 |
 | EV-03 corrida final, 2 repositorios | 2 | US$ 12.40 |
-| **Total** | | **US$ 20.50** |
-| Margen | | US$ 4.50 |
+| **Total** | | **US$ 20.53** |
+| Margen | | US$ 4.47 |
+
+> Solo la corrida A de EV-04 usa MiMo también en el Reviewer (~US$ 0.005 por llamada frente a ~US$ 0.0024 con Luna), por eso cuesta unos US$ 0.12 y no US$ 0.09 como el arranque. En el resto de las corridas el Reviewer es siempre GPT-6 Luna.
 
 El margen sigue siendo ajustado. Por eso:
 
 1. **Elegir repositorios externos pequeños** (≤ 10 módulos) para EV-02 y EV-03. Eso baja cada corrida a unos US$ 3.
 2. **Probar el Planner con menos esfuerzo de razonamiento** en EV-01. Si el razonamiento baja de 12 000 a 4 000 tokens de salida, el costo por módulo con Opus pasa de US$ 0.26 a US$ 0.10.
-3. **Usar caché de prompt** en las instrucciones fijas de cada agente (lectura a 5 % del precio de entrada).
-4. **Tope por corrida en `config.toml`** (HU-08 lo muestra antes de iniciar): US$ 1.00 para el banco y US$ 7.00 para repositorios externos.
+3. **Usar caché de prompt** en las instrucciones fijas de cada agente (lectura al 5 % del precio de entrada en Opus, 10 % en Luna y menos del 1 % en MiMo).
+4. **Tope por corrida en `config.toml`** (HU-08 lo muestra antes de iniciar): US$ 1.00 para el banco y US$ 7.00 para repositorios externos. En el peor caso (3 intentos siempre) un repositorio de 20 módulos llega a unos US$ 7.09, así que el tope puede cortar esa corrida; con repositorios de ≤ 10 módulos no se alcanza.
 
 ## Consecuencias y riesgos
 
