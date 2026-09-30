@@ -1,8 +1,7 @@
-# PyAgent
+# QAgent
 
-Sistema multiagente que genera y valida automáticamente pruebas unitarias
-(pytest) para código Python 3.10+ (funciones y endpoints FastAPI), usando LLMs
-y la metodología GAIA.
+Sistema multiagente que genera y valida automáticamente pruebas pytest para código Python 3.10+ (pruebas unitarias de funciones y pruebas
+de endpoints FastAPI), usando LLMs y la metodología GAIA.
 
 > En desarrollo - Demo no disponible
 
@@ -44,11 +43,12 @@ Para desarrollar sin gastar tokens: `set PYAGENT_FAKE_LLM=1`.
 
 | Carpeta | Contenido |
 |---|---|
-| `src/pyagent/` | Código del sistema (agentes, orquestador, sandbox, app) |
+| `src/pyagent/` | Código del sistema (agentes, orquestador, sandbox, app). El paquete interno se llama `pyagent`. |
 | `contracts/` | JSON Schema de los contratos entre agentes |
-| `docs/` | Arquitectura y decisiones (ADR) |
+| `docs/` | Arquitectura (`arquitectura.md`) y decisiones (`decisiones/ADR-*.md`) |
 | `bench/` | Banco de pruebas con bugs sembrados |
 | `tests/` | Pruebas del propio sistema |
+| `config.toml` | Modelos, precios y topes por agente (se versiona; no contiene claves) |
 
 ## Equipo
 
