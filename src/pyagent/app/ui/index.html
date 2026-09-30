@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PyAgent</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<link href="styles.css" rel="stylesheet">
+</head>
+<body>
+<div class="app">
+
+<!-- ======================= SIDEBAR ======================= -->
+<aside>
+  <div class="brand">
+    <div class="logo"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><rect x="5" y="5" width="14" height="14" rx="2"/><path d="M9 1v4M15 1v4M9 19v4M15 19v4M1 9h4M1 15h4M19 9h4M19 15h4"/></svg></div>
+    <div><b>PyAgent</b><small>Autonomous Test Engine</small></div>
+  </div>
+  <div class="navlbl">Inicio</div>
+  <nav>
+    <a class="on" id="navHome"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7h6l2 2h10v10H3z"/></svg>Proyectos</a>
+  </nav>
+</aside>
+
+<!-- ======================= MAIN ======================= -->
+<main>
+
+<!-- ===== Bienvenida ===== -->
+<section id="s-welcome" class="scroll">
+  <div class="welcome">
+    <h1>Bienvenido a PyAgent</h1>
+    <p>Genera y valida pruebas unitarias (pytest) de tu código Python.<br>Abre una carpeta de tu equipo: tu código no se sube a ningún servicio.</p>
+    <div class="actions">
+      <button class="action" id="btnOpen">
+        <span class="ico"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="1.8"><path d="M3 7h6l2 2h10v10H3z"/></svg></span>
+        Abrir proyecto<small>Carpeta local con código Python</small>
+      </button>
+      <button class="action" disabled title="Próximamente">
+        <span class="ico"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#c084fc" stroke-width="1.8"><circle cx="6" cy="6" r="2.5"/><circle cx="6" cy="18" r="2.5"/><circle cx="18" cy="9" r="2.5"/><path d="M6 8.5v7M18 11.5c0 3-4 3-10 5.5"/></svg></span>
+        Abrir repositorio<small>Próximamente</small>
+      </button>
+    </div>
+    <div class="recents">
+      <h3>Proyectos recientes</h3>
+      <div id="recentList"></div>
+    </div>
+  </div>
+</section>
+
+<!-- ===== Vista previa (placeholder HU-01) ===== -->
+<section id="s-preview" class="hide" style="display:flex;flex-direction:column;flex:1;min-height:0">
+  <div class="topbar">
+    <div class="chip"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7h6l2 2h10v10H3z"/></svg><b>carpeta:</b> <span id="pvChip"></span></div>
+    <div class="stepper">
+      <span class="done"><b>✓</b>Proyecto</span><span class="chev">›</span>
+      <span class="on"><b>2</b>Vista previa</span><span class="chev">›</span>
+      <span><b>3</b>Configuración de pruebas</span><span class="chev">›</span>
+      <span><b>4</b>Ejecución</span>
+    </div>
+  </div>
+  <div class="scroll"><div class="page">
+    <div class="card"><div class="projhead">
+      <span class="t" id="pvName"></span>
+      <span class="pill p-grey mono" id="pvPath"></span>
+      <span class="pill p-grey" id="pvCount"></span>
+      <span class="pill" id="pvReq"></span>
+    </div></div>
+    <div class="card">
+      <h4>Árbol del proyecto y funciones detectadas</h4>
+      <div class="bd hint">Próximamente: el árbol de módulos y la tabla de funciones (AST) llegan en otras historias.</div>
+    </div>
+    <div><button class="btn" id="btnBack">← Volver a la bienvenida</button></div>
+  </div></div>
+</section>
+
+</main>
+</div>
+
+<!-- ===== Modal: confirmar carpeta ===== -->
+<div class="overlay" id="m-open"><div class="modal" role="dialog" aria-labelledby="mOpenTitle">
+  <div class="mhead"><span id="mOpenTitle">Abrir proyecto</span><button class="x" data-close aria-label="Cerrar">×</button></div>
+  <div class="mcontent">
+    <div class="frow"><label>Carpeta</label><div class="val" id="mPath"></div></div>
+    <div class="frow"><label>Archivos .py</label><div class="count" id="mCount"></div></div>
+    <div class="errmsg hide" id="mError"></div>
+    <div class="hint">Solo se lee la carpeta: el código no se importa ni se ejecuta.</div>
+  </div>
+  <div class="mfoot">
+    <button class="btn left" id="btnOtra">Elegir otra carpeta</button>
+    <button class="btn" data-close>Cancelar</button>
+    <button class="btn primary" id="btnConfirm" disabled>Abrir</button>
+  </div>
+</div></div>
+
+<div class="toast" id="toast"></div>
+
+<script src="app.js"></script>
+</body>
+</html>
