@@ -1,7 +1,8 @@
 # PyAgent
 
 Sistema multiagente que genera y valida automáticamente pruebas unitarias
-(pytest) para código Python 3.10+, usando LLMs y la metodología GAIA.
+(pytest) para código Python 3.10+ (funciones y endpoints FastAPI), usando LLMs
+y la metodología GAIA.
 
 > En desarrollo - Demo no disponible
 
@@ -26,8 +27,15 @@ tokens por agente y Mutation Score (solo en funciones críticas).
 python -m venv .venv
 .venv\Scripts\activate
 pip install -e .[dev]      # disponible cuando se agregue pyproject.toml
-copy .env .env     # completar las claves
 pytest
+```
+
+Las claves de IA van en un archivo `.env` en la raíz (nunca se sube al repositorio):
+
+```bash
+ANTHROPIC_API_KEY=
+XIAOMI_API_KEY=
+OPENAI_API_KEY=
 ```
 
 Para desarrollar sin gastar tokens: `set PYAGENT_FAKE_LLM=1`.
