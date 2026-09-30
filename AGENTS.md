@@ -4,7 +4,7 @@ Contexto para asistentes de IA (Claude, Copilot, Cursor, etc.) que trabajen en e
 
 ## Qué es
 
-Sistema multiagente en Python que genera y valida pruebas unitarias pytest para código Python 3.10+.
+Sistema multiagente en Python que genera y valida pruebas unitarias pytest para código Python 3.10+: funciones y endpoints de APIs REST con FastAPI.
 Tres agentes coordinados por un orquestador (metodología GAIA), comunicados **solo por contratos JSON**:
 
 1. **Planner:** analiza el código (AST, firmas, docstrings) y decide los casos de prueba.
@@ -15,7 +15,8 @@ Aplicación de escritorio local (pywebview + backend Python + Docker). No hay se
 
 ## Alcance (no ampliar)
 
-- Solo pruebas **unitarias** con pytest. Nada de frontend, backend, APIs REST, integración ni pruebas de propiedades.
+- Solo pruebas **unitarias** con pytest de **funciones Python** y **endpoints FastAPI** (EP-09). Nada de frontend, pruebas de integración contra servicios reales ni pruebas de propiedades.
+- El análisis estático usa solo el módulo `ast` de la biblioteca estándar; no se integra Graphify (ver `docs/decisiones/ADR-002-graphify.md`).
 - mutmut solo sobre funciones marcadas `critical: true`, nunca sobre el repositorio completo.
 
 ## Comandos
@@ -33,13 +34,14 @@ set PYAGENT_FAKE_LLM=1          # IA simulada: 0 tokens (Windows; en bash: expor
 |---|---|
 | `src/pyagent/agents/` | Planner, Generator, Reviewer |
 | `src/pyagent/orchestrator/` | Máquina de estados de la corrida |
-| `src/pyagent/analysis/` | Analizador AST (estático) |
+| `src/pyagent/analysis/` | Analizador AST (estático): funciones, rutas FastAPI y mapa de llamadas `llama_a`. Interfaz única `analizar(ruta) -> Estructura` |
 | `src/pyagent/sandbox/` | Ejecución en Docker |
 | `src/pyagent/llm/` | Cliente LLM real y simulado; registro de tokens |
 | `src/pyagent/app/` | Interfaz pywebview |
 | `contracts/` | JSON Schema de los contratos entre agentes |
 | `docs/arquitectura.md` | Arquitectura del sistema y modelo GAIA |
-| `docs/decisiones/` | ADR (decisiones técnicas) |
+| `docs/decisiones/` | ADR (decisiones técnicas): ADR-001 modelos por agente, ADR-002 análisis con `ast` |
+| `docs/evidencias/` | Salidas y mediciones de los spikes (ej. `spk-02/`) |
 | `bench/` | Banco de pruebas con bugs sembrados |
 
 ## Reglas que no se rompen
