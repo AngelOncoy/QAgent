@@ -1,7 +1,8 @@
 # PyAgent
 
 Sistema multiagente que genera y valida automáticamente pruebas unitarias
-(pytest) para código Python 3.10+, usando LLMs y la metodología GAIA.
+(pytest) para código Python 3.10+ (funciones y endpoints FastAPI), usando LLMs
+y la metodología GAIA.
 
 > En desarrollo - Demo no disponible
 
