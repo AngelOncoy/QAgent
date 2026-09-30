@@ -40,16 +40,48 @@ Para iniciar la aplicación de escritorio:
 python src/pyagent/app/desktop.py
 ```
 
-## Estructura
+## Estructura del repositorio
 
-| Carpeta | Contenido |
+```text
+QAgent/
+├── .github/
+│   └── pull_request_template.md   Plantilla que GitHub carga en cada PR nuevo
+├── bench/                         Banco de pruebas propio con bugs sembrados (EN-12, EN-16)
+├── contracts/                     JSON Schema de los mensajes entre agentes (EN-01)
+├── docs/
+│   ├── arquitectura.md            Arquitectura del sistema, pipeline y modelo GAIA (EN-01)
+│   └── decisiones/                Decisiones técnicas (ADR)
+│       ├── ADR-001-modelos.md         Modelo por agente, precios y plan de gasto (SPK-01)
+│       └── ADR-002-mapa-de-codigo.md  Análisis con ast frente a Graphify (SPK-02)
+├── src/pyagent/                   Código de QAgent (paquete interno `pyagent`)
+│   ├── agents/                    Planner, Generator y Reviewer (EN-04)
+│   ├── analysis/                  Analizador estático con ast: funciones, endpoints FastAPI, llama_a (EN-02, EN-14)
+│   ├── app/                       Aplicación de escritorio pywebview y puente JS ↔ Python (EN-08)
+│   ├── llm/                       Cliente LLM real y simulado; registro de tokens y costo (EN-05, EN-11)
+│   ├── orchestrator/              Máquina de estados de la corrida (EN-04)
+│   └── sandbox/                   Ejecución de pruebas en Docker, sin red (EN-03)
+├── tests/                         Pruebas del propio sistema, siempre con la IA simulada
+│   └── test_smoke.py              Prueba mínima para verificar que pytest corre; se borra cuando haya tests reales
+├── .gitignore                     Archivos que no se suben (.env, .venv, cachés, .pyagent/, .idea)
+├── AGENTS.md                      Reglas y contexto para asistentes de IA (Claude, Copilot, Cursor)
+├── config.toml                    Modelos, precios, topes de gasto y reintentos por agente (se versiona, sin claves)
+└── README.md                      Este archivo
+```
+
+**Archivos que existen en tu carpeta pero no se suben al repositorio:**
+
+| Archivo o carpeta | Para qué sirve |
 |---|---|
-| `src/pyagent/` | Código del sistema (agentes, orquestador, sandbox, app). El paquete interno se llama `pyagent`. |
-| `contracts/` | JSON Schema de los contratos entre agentes |
-| `docs/` | Arquitectura (`arquitectura.md`) y decisiones (`decisiones/ADR-*.md`) |
-| `bench/` | Banco de pruebas con bugs sembrados |
-| `tests/` | Pruebas del propio sistema |
-| `config.toml` | Modelos, precios y topes por agente (se versiona; no contiene claves) |
+| `.env` | Claves de las APIs de IA. Cada integrante tiene el suyo (ver "Desarrollo"). |
+| `.venv/` | Entorno virtual de Python de cada integrante. |
+| `.pyagent/` | Se crea dentro del proyecto que QAgent analiza: corridas, specs y pruebas aprobadas (EN-07). |
+| `~/.pyagent/recientes.json` | Lista de proyectos recientes de la Bienvenida (HU-01, HU-03). Vive en la carpeta del usuario. |
+
+**Notas:**
+
+- Los archivos `__init__.py` vacíos de `src/pyagent/` indican a Python que cada carpeta es un paquete importable.
+- Los archivos `.gitkeep` solo sirven para que Git guarde carpetas vacías. Se borran cuando la carpeta tenga su primer archivo real.
+- `pyproject.toml` (dependencias e instalación con `pip install -e .[dev]`) se agrega con EN-08.
 
 ## Equipo
 
