@@ -25,20 +25,21 @@ tokens por agente y Mutation Score (solo en funciones críticas).
 
 ```bash
 python -m venv .venv
-.venv\Scripts\activate
-pip install -e .[dev]      # disponible cuando se agregue pyproject.toml
+.venv\Scripts\activate       # en Linux: source .venv/bin/activate
+pip install -r requirements.txt   # en Linux para GUI: pip install "pywebview[qt]"
+copy .env .env              # completar las claves (en Linux: cp .env.example .env)
 pytest
 ```
 
-Las claves de IA van en un archivo `.env` en la raíz (nunca se sube al repositorio):
+Para desarrollar sin gastar tokens: `set PYAGENT_FAKE_LLM=1` (en Linux: `export PYAGENT_FAKE_LLM=1`).
+
+## Ejecución de la aplicación
+
+Para iniciar la aplicación de escritorio:
 
 ```bash
-ANTHROPIC_API_KEY=
-XIAOMI_API_KEY=
-OPENAI_API_KEY=
+python src/pyagent/app/desktop.py
 ```
-
-Para desarrollar sin gastar tokens: `set PYAGENT_FAKE_LLM=1`.
 
 ## Estructura
 
