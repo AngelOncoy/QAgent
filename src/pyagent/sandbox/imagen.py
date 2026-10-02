@@ -46,7 +46,9 @@ def construir_imagen_base(cliente: docker.DockerClient | None = None) -> str:
     contexto = Path(tempfile.mkdtemp(prefix="pyagent-base-"))
     try:
         shutil.copyfile(DOCKERFILE_BASE, contexto / "Dockerfile")
-        _construir(cliente, contexto, IMAGEN_BASE, "No se pudo construir la imagen base")
+        _construir(
+            cliente, contexto, IMAGEN_BASE, "No se pudo construir la imagen base"
+        )
     finally:
         shutil.rmtree(contexto, ignore_errors=True)
     return IMAGEN_BASE
@@ -64,7 +66,9 @@ def etiqueta_para_requirements(contenido: bytes) -> str:
     return f"{REPOSITORIO}:req-{hashlib.sha256(contenido).hexdigest()[:12]}"
 
 
-def preparar_imagen(ruta_proyecto: str | Path, cliente: docker.DockerClient | None = None) -> str:
+def preparar_imagen(
+    ruta_proyecto: str | Path, cliente: docker.DockerClient | None = None
+) -> str:
     """Prepara la imagen con las dependencias del proyecto (paso 1, con red).
 
     Si el proyecto tiene requirements.txt, construye (o reutiliza) una imagen derivada
@@ -121,12 +125,16 @@ def _imagen_existe(cliente: docker.DockerClient, etiqueta: str) -> bool:
     return True
 
 
-def _construir(cliente: docker.DockerClient, contexto: Path, etiqueta: str, mensaje: str) -> None:
+def _construir(
+    cliente: docker.DockerClient, contexto: Path, etiqueta: str, mensaje: str
+) -> None:
     """Construye una imagen y traduce los errores de Docker a `ErrorConstruccionImagen`."""
     try:
         cliente.images.build(path=str(contexto), tag=etiqueta, rm=True, forcerm=True)
     except BuildError as exc:
-        raise ErrorConstruccionImagen(f"{mensaje}: {exc.msg}", _texto_log(exc.build_log)) from exc
+        raise ErrorConstruccionImagen(
+            f"{mensaje}: {exc.msg}", _texto_log(exc.build_log)
+        ) from exc
     except APIError as exc:
         raise ErrorConstruccionImagen(f"{mensaje}: {exc.explanation}") from exc
 

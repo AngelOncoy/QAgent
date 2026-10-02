@@ -63,7 +63,10 @@ def copiar_proyecto(ruta_proyecto: str | Path, destino: str | Path) -> Path:
         raise ErrorSandbox(f"La carpeta del proyecto no existe: {origen}")
     destino = Path(destino)
     shutil.copytree(
-        origen, destino, symlinks=True, ignore=shutil.ignore_patterns(*EXCLUIDOS_DE_LA_COPIA)
+        origen,
+        destino,
+        symlinks=True,
+        ignore=shutil.ignore_patterns(*EXCLUIDOS_DE_LA_COPIA),
     )
     return destino.resolve()
 
@@ -225,7 +228,9 @@ def _crear_contenedor(
             f"No existe la imagen '{imagen}'. Prepárala con preparar_imagen()."
         ) from exc
     except APIError as exc:
-        raise ErrorSandbox(f"Docker no pudo crear el contenedor: {exc.explanation}") from exc
+        raise ErrorSandbox(
+            f"Docker no pudo crear el contenedor: {exc.explanation}"
+        ) from exc
 
 
 def _esperar(contenedor: Any, timeout_s: int) -> tuple[int, bool]:
