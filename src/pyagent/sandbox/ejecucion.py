@@ -144,6 +144,47 @@ def ejecutar_en_sandbox(
         shutil.rmtree(temporal, ignore_errors=True)
 
 
+def ejecutar_pruebas(
+    imagen: str,
+    ruta_proyecto: str | Path,
+    ruta_tests: str | Path,
+    modulo_cov: str,
+    limites: LimitesSandbox = LIMITES_POR_DEFECTO,
+    cliente: docker.DockerClient | None = None,
+) -> ResultadoSandbox:
+    """Ejecuta pytest con cobertura de líneas y ramas dentro del sandbox.
+
+    Args:
+        imagen: etiqueta de la imagen devuelta por `preparar_imagen`.
+        ruta_proyecto: carpeta raíz del proyecto original.
+        ruta_tests: carpeta con los tests generados.
+        modulo_cov: módulo o ruta (relativa al proyecto) a medir con coverage.
+        limites: CPU, memoria y timeout del contenedor.
+        cliente: cliente Docker; si es None se crea uno con `obtener_cliente()`.
+
+    Returns:
+        Resultado con exit code, stdout, stderr y el contenido de coverage.json.
+    """
+    comando = [
+        "pytest",
+        DIR_TESTS,
+        f"--cov={modulo_cov}",
+        "--cov-branch",
+        f"--cov-report=json:{DIR_SALIDA}/coverage.json",
+        "-p",
+        "no:cacheprovider",
+    ]
+    return ejecutar_en_sandbox(
+        imagen,
+        comando,
+        ruta_proyecto,
+        ruta_tests,
+        limites,
+        entorno={"COVERAGE_FILE": f"{DIR_SALIDA}/.coverage"},
+        cliente=cliente,
+    )
+
+
 def _crear_contenedor(
     cliente: docker.DockerClient,
     imagen: str,
