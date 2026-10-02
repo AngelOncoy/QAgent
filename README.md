@@ -32,6 +32,25 @@ pytest
 
 Para desarrollar sin gastar tokens: `set PYAGENT_FAKE_LLM=1` (en Linux: `export PYAGENT_FAKE_LLM=1`).
 
+## Sandbox Docker
+
+Las pruebas generadas se ejecutan solo dentro de un contenedor efímero: sin red, 1 CPU, 256 MB y 60 s como máximo (EN-03).
+Con Docker Desktop abierto, construye una vez la imagen base `pyagent-sandbox:base` (necesita internet):
+
+```bash
+set PYTHONPATH=src            # en Linux: export PYTHONPATH=src
+python -c "from pyagent.sandbox import construir_imagen_base; construir_imagen_base()"
+```
+
+Para probar el sandbox:
+
+```bash
+pytest tests/sandbox                 # todo; las pruebas con Docker se omiten si no está iniciado
+pytest tests/sandbox -m "not docker" # solo pruebas unitarias, sin Docker
+```
+
+Las pruebas con Docker construyen la imagen base si falta (la primera vez tarda unos minutos).
+
 ## Ejecución de la aplicación
 
 Para iniciar la aplicación de escritorio:
@@ -61,6 +80,7 @@ QAgent/
 │   ├── orchestrator/              Máquina de estados de la corrida (EN-04)
 │   └── sandbox/                   Ejecución de pruebas en Docker, sin red (EN-03)
 ├── tests/                         Pruebas del propio sistema, siempre con la IA simulada
+│   ├── sandbox/                   Pruebas del sandbox: unitarias con Docker simulado e integración (`-m docker`)
 │   └── test_smoke.py              Prueba mínima para verificar que pytest corre; se borra cuando haya tests reales
 ├── .gitignore                     Archivos que no se suben (.env, .venv, cachés, .pyagent/, .idea)
 ├── AGENTS.md                      Reglas y contexto para asistentes de IA (Claude, Copilot, Cursor)
