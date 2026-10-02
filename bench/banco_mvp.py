@@ -4,6 +4,8 @@ Contiene funciones tipadas y documentadas con docstrings que especifican
 su comportamiento esperado. Algunas funciones contienen bugs sembrados intencionales.
 """
 
+from __future__ import annotations
+
 
 def calcular_descuento(precio: float, porcentaje: float) -> float:
     """Calcula el precio final tras aplicar un porcentaje de descuento.
@@ -23,7 +25,6 @@ def calcular_descuento(precio: float, porcentaje: float) -> float:
     if not (0 <= porcentaje <= 100):
         raise ValueError("El porcentaje debe estar entre 0 y 100.")
 
-    # BUG SEMBRADO 1: Retorna solo el monto de descuento en lugar del precio final (precio - descuento)
     monto_descuento = precio * (porcentaje / 100.0)
     return monto_descuento
 
@@ -48,8 +49,6 @@ def clasificar_edad(edad: int) -> str:
     if edad < 0:
         raise ValueError("La edad no puede ser negativa.")
 
-    # BUG SEMBRADO 2: Error de frontera (off-by-one). Usa <= 18 en vez de < 18,
-    # clasificando a los de 18 años como 'menor' cuando deberían ser 'adulto'.
     if edad <= 18:
         return "menor"
     elif edad <= 64:
@@ -73,9 +72,6 @@ def buscar_elemento_mayor(numeros: list[int | float]) -> int | float:
     if not numeros:
         raise ValueError("La lista no puede estar vacía.")
 
-    # BUG SEMBRADO 3: Inicializa el valor máximo en 0 en lugar del primer elemento.
-    # Si la lista contiene solo números negativos (ej. [-10, -5, -20]),
-    # retornará incorrectamente 0 en lugar de -5.
     maximo = 0
     for num in numeros:
         if num > maximo:
