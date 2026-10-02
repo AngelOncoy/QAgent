@@ -1,5 +1,5 @@
-# PyAgent — configuración del equipo (copiar a config.toml)
-# Las claves NO van aquí: van en .env
+# QAgent — configuración del equipo (este archivo se versiona y lo comparte todo el equipo)
+# Las claves NO van aquí: van en .env, que no se sube al repositorio
 # Fuente de modelos y precios: docs/decisiones/ADR-001-modelos.md
 
 [presupuesto]

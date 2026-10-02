@@ -4,7 +4,9 @@ Contexto para asistentes de IA (Claude, Copilot, Cursor, etc.) que trabajen en e
 
 ## Qué es
 
-Sistema multiagente en Python que genera y valida pruebas unitarias pytest para código Python 3.10+: funciones y endpoints de APIs REST con FastAPI.
+Sistema multiagente en Python que genera y valida pruebas pytest para código Python 3.10+: pruebas unitarias de funciones y pruebas de endpoints de APIs FastAPI (con `TestClient`, sin red).
+
+**Nombre:** el producto se llama **QAgent**. El paquete interno de Python se mantiene como `pyagent` (`src/pyagent/`, `PYAGENT_FAKE_LLM`, `~/.pyagent/`) para no romper imports; no renombrarlo.
 Tres agentes coordinados por un orquestador (metodología GAIA), comunicados **solo por contratos JSON**:
 
 1. **Planner:** analiza el código (AST, firmas, docstrings) y decide los casos de prueba.
@@ -15,8 +17,9 @@ Aplicación de escritorio local (pywebview + backend Python + Docker). No hay se
 
 ## Alcance (no ampliar)
 
-- Solo pruebas **unitarias** con pytest de **funciones Python** y **endpoints FastAPI** (EP-09). Nada de frontend, pruebas de integración contra servicios reales ni pruebas de propiedades.
-- El análisis estático usa solo el módulo `ast` de la biblioteca estándar; no se integra Graphify (ver `docs/decisiones/ADR-002-graphify.md`).
+- Solo dos tipos de prueba, ambos con pytest: **unitarias de funciones Python** y **de endpoints FastAPI** con `TestClient` dentro del sandbox, sin red y simulando `Depends` (EP-09).
+- Fuera de alcance (Fase 2): integración contra servicios reales, extremo a extremo, carga y estrés, frontend y pruebas de propiedades.
+- El análisis estático usa solo el módulo `ast` de la biblioteca estándar; no se integra Graphify (ver `docs/decisiones/ADR-002-mapa-de-codigo.md`).
 - mutmut solo sobre funciones marcadas `critical: true`, nunca sobre el repositorio completo.
 
 ## Comandos
@@ -48,10 +51,10 @@ set PYAGENT_FAKE_LLM=1          # IA simulada: 0 tokens (Windows; en bash: expor
 
 - **Nunca ejecutar código del usuario ni tests generados fuera del sandbox.** El análisis del código del usuario es solo estático (AST).
 - **Los agentes no se llaman entre sí:** todo pasa por el orquestador y los contratos de `contracts/`. Si cambia un contrato, se actualiza su schema y su test.
-- **El valor esperado de una aserción sale del contrato del Planner** (firma, tipos, docstring), nunca de ejecutar el código.
+- **El valor esperado de una aserción sale del contrato del Planner**: firma, tipos y docstring de una función, o la declaración de la ruta (`response_model`, `status_code`, modelos Pydantic) de un endpoint. Nunca de ejecutar el código.
 - **Nunca relajar ni borrar aserciones para que un test pase.**
 - **Claves solo en `.env`.** Nunca en código, logs, tests, commits ni dentro del contenedor.
-- **Modelos y precios solo desde `config.toml`**, nunca hardcodeados (ver `docs/decisiones/ADR-001-modelos.md`).
+- **Modelos y precios solo desde `config.toml`** (se versiona, sin claves), nunca hardcodeados (ver `docs/decisiones/ADR-001-modelos.md`).
 - **Tests del sistema con la IA simulada:** ningún test de `tests/` debe llamar a una API real.
 
 ## Estilo de código
