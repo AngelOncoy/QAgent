@@ -1,7 +1,14 @@
 """Módulo principal de la aplicación de escritorio con pywebview."""
 
 import os
+import sys
+
 import webview
+
+# Al ejecutar desktop.py directamente, src/ no está en el path: se agrega para importar pyagent.
+_SRC = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+if _SRC not in sys.path:
+    sys.path.insert(0, _SRC)
 
 
 class DesktopAPI:
@@ -37,6 +44,21 @@ class DesktopAPI:
         # Emite un evento hacia la interfaz JS
         self.emit_event("log", {"message": f"Corrida iniciada en perfil '{profile}'"})
         return {"status": "started", "folder": folder_path, "profile": profile}
+
+    def estado_sandbox(self) -> dict:
+        """Devuelve el estado del sandbox Docker para el indicador de la barra lateral.
+
+        Returns:
+            dict: `{"estado": "ok" | "sin_imagen" | "no_iniciado" | "no_instalado", "mensaje": str}`.
+        """
+        try:
+            from pyagent.sandbox.estado import estado_docker
+        except ImportError:
+            return {
+                "estado": "no_instalado",
+                "mensaje": "Falta el SDK de Docker para Python: pip install -r requirements.txt",
+            }
+        return estado_docker()
 
     def emit_event(self, event_type: str, data: dict) -> None:
         """Envía un evento desde Python hacia la interfaz JavaScript.

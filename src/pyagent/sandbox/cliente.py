@@ -2,15 +2,10 @@
 
 from __future__ import annotations
 
-import shutil
-
 import docker
 from docker.errors import DockerException
 
-from pyagent.sandbox.modelos import DockerNoDisponible
-
-MENSAJE_NO_INSTALADO = "Docker no está instalado. Instala Docker Desktop para ejecutar las pruebas en el sandbox."
-MENSAJE_NO_INICIADO = "Docker Desktop no está iniciado. Ábrelo, espera a que termine de arrancar y vuelve a intentar."
+from pyagent.sandbox.modelos import DockerNoDisponible, clasificar_docker_caido
 
 
 def obtener_cliente() -> docker.DockerClient:
@@ -26,12 +21,6 @@ def obtener_cliente() -> docker.DockerClient:
         cliente = docker.from_env()
         cliente.ping()
     except DockerException as exc:
-        raise DockerNoDisponible(_mensaje_docker_caido()) from exc
+        _, mensaje = clasificar_docker_caido()
+        raise DockerNoDisponible(mensaje) from exc
     return cliente
-
-
-def _mensaje_docker_caido() -> str:
-    """Elige el mensaje según si el ejecutable de Docker existe en el sistema."""
-    if shutil.which("docker") is None:
-        return MENSAJE_NO_INSTALADO
-    return MENSAJE_NO_INICIADO

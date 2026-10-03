@@ -13,10 +13,13 @@ import docker
 from docker.errors import APIError, BuildError, ImageNotFound
 
 from pyagent.sandbox.cliente import obtener_cliente
-from pyagent.sandbox.modelos import ErrorConstruccionImagen, ImagenNoEncontrada
+from pyagent.sandbox.modelos import (
+    IMAGEN_BASE,
+    REPOSITORIO,
+    ErrorConstruccionImagen,
+    ImagenNoEncontrada,
+)
 
-REPOSITORIO = "pyagent-sandbox"
-IMAGEN_BASE = f"{REPOSITORIO}:base"
 DOCKERFILE_BASE = Path(__file__).with_name("Dockerfile")
 
 DOCKERFILE_DERIVADO = f"""\
