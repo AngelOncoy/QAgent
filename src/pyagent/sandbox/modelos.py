@@ -2,8 +2,26 @@
 
 from __future__ import annotations
 
+import shutil
 from dataclasses import dataclass
 from typing import Any
+
+REPOSITORIO = "pyagent-sandbox"
+IMAGEN_BASE = f"{REPOSITORIO}:base"
+
+MENSAJE_NO_INSTALADO = "Docker no está instalado. Instala Docker Desktop para ejecutar las pruebas en el sandbox."
+MENSAJE_NO_INICIADO = "Docker Desktop no está iniciado. Ábrelo, espera a que termine de arrancar y vuelve a intentar."
+
+
+def clasificar_docker_caido() -> tuple[str, str]:
+    """Clasifica por qué Docker no responde, según si su ejecutable existe en el sistema.
+
+    Returns:
+        Tupla (estado, mensaje) con estado "no_instalado" o "no_iniciado".
+    """
+    if shutil.which("docker") is None:
+        return "no_instalado", MENSAJE_NO_INSTALADO
+    return "no_iniciado", MENSAJE_NO_INICIADO
 
 
 @dataclass(frozen=True)

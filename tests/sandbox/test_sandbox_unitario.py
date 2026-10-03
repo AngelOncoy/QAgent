@@ -21,6 +21,7 @@ from pyagent.sandbox import (
     ejecucion,
     ejecutar_en_sandbox,
     ejecutar_pruebas,
+    modelos,
     obtener_cliente,
     preparar_imagen,
 )
@@ -404,8 +405,8 @@ def test_error_de_pip_da_mensaje_claro_con_log(proyecto):
 @pytest.mark.parametrize(
     ("ejecutable", "mensaje"),
     [
-        (None, modulo_cliente.MENSAJE_NO_INSTALADO),
-        ("C:/docker.exe", modulo_cliente.MENSAJE_NO_INICIADO),
+        (None, modelos.MENSAJE_NO_INSTALADO),
+        ("C:/docker.exe", modelos.MENSAJE_NO_INICIADO),
     ],
 )
 def test_docker_no_disponible_da_mensaje_claro(ejecutable, mensaje):
@@ -413,7 +414,7 @@ def test_docker_no_disponible_da_mensaje_claro(ejecutable, mensaje):
         patch.object(
             modulo_cliente.docker, "from_env", side_effect=DockerException("pipe")
         ),
-        patch.object(modulo_cliente.shutil, "which", return_value=ejecutable),
+        patch.object(modelos.shutil, "which", return_value=ejecutable),
         pytest.raises(DockerNoDisponible) as error,
     ):
         obtener_cliente()
