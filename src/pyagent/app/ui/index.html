@@ -1674,7 +1674,7 @@ function showOpenReal(info) {
   ['openPathRow','openCountRow','openOther'].forEach(id => $(id).classList.remove('hide'));
   $('openPath').value = info.ruta || '';
   const n = info.cantidad_py || 0;
-  $('openCount').textContent = `${n} ${n === 1 ? 'archivo' : 'archivos'} .py`;
+  $('openCount').textContent = `${n} ${n === 1 ? 'archivo' : 'archivos'} .py` + (info.rama ? ` · rama ${info.rama}` : '');
   $('openHint').textContent = info.ok ? 'Solo se analizarán los .py fuera de tests/, entornos virtuales y carpetas ocultas.' : info.error;
   $('openHint').className = 'hint' + (info.ok ? '' : ' err');
   $('openOk').disabled = !info.ok;
@@ -1707,7 +1707,8 @@ async function confirmOpenReal() {
     const info = await window.pywebview.api.abrir_proyecto(realFolder);
     if (!info.ok) { showOpenReal(info); return; }
     closeModal(); realFolder = null;
-    loadProject(info.nombre, 'local', info.ruta);
+    // Sin repositorio Git no hay rama que mostrar.
+    loadProject(info.nombre, 'local', info.ruta, info.rama || '—');
     toast(`Proyecto abierto: <span class="mono">${escHtml(info.ruta)}</span>`);
   } catch (err) {
     console.error("Error al abrir el proyecto:", err);

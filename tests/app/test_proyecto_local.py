@@ -8,7 +8,11 @@ from pathlib import Path
 import pytest
 
 from pyagent.analysis import analizar_proyecto
-from pyagent.app.proyecto_local import SIN_ARCHIVOS_PY, inspeccionar_carpeta
+from pyagent.app.proyecto_local import (
+    SIN_ARCHIVOS_PY,
+    detectar_rama,
+    inspeccionar_carpeta,
+)
 
 
 def _crear(
@@ -33,6 +37,7 @@ def test_carpeta_con_py_es_valida(tmp_path: Path) -> None:
         "ruta": os.path.abspath(proyecto),
         "cantidad_py": 2,
         "error": None,
+        "rama": None,
     }
 
 
@@ -138,3 +143,38 @@ def test_carpeta_sin_permisos_da_error_claro(
 
     assert resultado["ok"] is False
     assert resultado["error"].startswith("No hay permisos para leer la carpeta:")
+
+
+def test_detecta_la_rama_actual_desde_git_head(tmp_path: Path) -> None:
+    _crear(tmp_path, "app.py")
+    _crear(tmp_path, ".git/HEAD", "ref: refs/heads/feat/hu-01-abrir\n")
+
+    assert inspeccionar_carpeta(str(tmp_path))["rama"] == "feat/hu-01-abrir"
+
+
+def test_head_separado_devuelve_commit_corto(tmp_path: Path) -> None:
+    _crear(tmp_path, ".git/HEAD", "f1e200e" + "a" * 33 + "\n")
+
+    assert detectar_rama(tmp_path) == "f1e200e"
+
+
+def test_git_como_archivo_gitdir(tmp_path: Path) -> None:
+    _crear(tmp_path, "repo-real/worktrees/wt/HEAD", "ref: refs/heads/develop\n")
+    proyecto = tmp_path / "wt"
+    _crear(proyecto, ".git", "gitdir: ../repo-real/worktrees/wt\n")
+
+    assert detectar_rama(proyecto) == "develop"
+
+
+@pytest.mark.parametrize("head", [None, "", "basura", "ref: refs/heads/"])
+def test_sin_repositorio_o_head_invalido_no_hay_rama(
+    tmp_path: Path, head: str | None
+) -> None:
+    _crear(tmp_path, "app.py")
+    if head is not None:
+        _crear(tmp_path, ".git/HEAD", head)
+
+    resultado = inspeccionar_carpeta(str(tmp_path))
+
+    assert resultado["ok"] is True
+    assert resultado["rama"] is None
