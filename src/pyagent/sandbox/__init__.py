@@ -10,6 +10,7 @@ from pyagent.sandbox.ejecucion import (
     ejecutar_en_sandbox,
     ejecutar_pruebas,
 )
+from pyagent.sandbox.estado import estado_docker
 from pyagent.sandbox.imagen import IMAGEN_BASE, construir_imagen_base, preparar_imagen
 from pyagent.sandbox.modelos import (
     LIMITES_POR_DEFECTO,
@@ -34,6 +35,7 @@ __all__ = [
     "copiar_proyecto",
     "ejecutar_en_sandbox",
     "ejecutar_pruebas",
+    "estado_docker",
     "obtener_cliente",
     "preparar_imagen",
 ]
