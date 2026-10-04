@@ -773,7 +773,9 @@ reintentos_max = 3                  # regla del proyecto, no se cambia
 <div class="overlay" id="m-open"><div class="modal">
   <div class="mhead">Seleccionar carpeta del proyecto<button class="x" onclick="closeModal()">×</button></div>
   <div class="mcontent">
-    <div class="frow"><label>Ubicación</label><input class="inp" value="E:\Proyectos" readonly></div>
+    <div class="frow" id="openLocRow"><label>Ubicación</label><input class="inp" value="E:\Proyectos" readonly></div>
+    <div class="frow hide" id="openPathRow"><label>Carpeta</label><input class="inp" id="openPath" readonly></div>
+    <div class="frow hide" id="openCountRow"><label>Contenido</label><span class="mono" id="openCount"></span></div>
     <div class="fs" id="fsList">
       <div data-p="ecommerce-core">📁 ecommerce-core</div>
       <div data-p="banco-pruebas-mvp">📁 banco-pruebas-mvp</div>
@@ -781,7 +783,7 @@ reintentos_max = 3                  # regla del proyecto, no se cambia
     </div>
     <div class="hint" id="openHint">En la app real se abre el diálogo nativo de Windows/macOS/Linux.</div>
   </div>
-  <div class="mfoot"><button class="btn" onclick="closeModal()">Cancelar</button><button class="btn primary" id="openOk" disabled onclick="confirmOpen()">Abrir</button></div>
+  <div class="mfoot"><button class="btn" onclick="closeModal()">Cancelar</button><button class="btn hide" id="openOther" onclick="handleOpenFolder()">Elegir otra carpeta</button><button class="btn primary" id="openOk" disabled onclick="confirmOpen()">Abrir</button></div>
 </div></div>
 
 <!-- Abrir repositorio: URL (sin GitHub OAuth) -->
@@ -916,7 +918,10 @@ document.querySelectorAll('#fsList div').forEach(d => d.onclick = () => {
   $('openHint').className = 'hint' + (bad?' err':'');
   $('openOk').disabled = bad;
 });
-function confirmOpen(){ closeModal(); loadProject(pickedFolder,'local','E:\\Proyectos\\'+pickedFolder); }
+function confirmOpen(){
+  if (realFolder) { confirmOpenReal(); return; }
+  closeModal(); loadProject(pickedFolder,'local','E:\\Proyectos\\'+pickedFolder);
+}
 
 function vUrl(){
   const v = $('url').value.trim();
@@ -1651,24 +1656,67 @@ function doExport(){
 function toast(html){ const t = $('toast'); t.innerHTML = I('checkc','#34d399',16) + '<span>' + html + '</span>'; t.classList.add('show'); clearTimeout(t._h); t._h = setTimeout(()=>t.classList.remove('show'), 5200); }
 
 /* ================= Conexión con Python (pywebview) ================= */
+// HU-01: carpeta real elegida en el diálogo nativo (null = modal simulado del navegador).
+let realFolder = null;
+const OPEN_HINT_DEMO = 'En la app real se abre el diálogo nativo de Windows/macOS/Linux.';
+const escHtml = t => String(t).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+// Restaura el modal #m-open a su modo simulado (navegador sin pywebview).
+function resetOpenModal() {
+  realFolder = null; pickedFolder = null;
+  ['openLocRow','fsList'].forEach(id => $(id).classList.remove('hide'));
+  ['openPathRow','openCountRow','openOther'].forEach(id => $(id).classList.add('hide'));
+  document.querySelectorAll('#fsList div').forEach(x => x.classList.remove('sel'));
+  $('openHint').textContent = OPEN_HINT_DEMO; $('openHint').className = 'hint';
+  $('openOk').disabled = true;
+}
+
+// Muestra en #m-open la carpeta real inspeccionada por Python: ruta, N archivos .py y error si lo hay.
+function showOpenReal(info) {
+  realFolder = info.ok ? info.ruta : null;
+  ['openLocRow','fsList'].forEach(id => $(id).classList.add('hide'));
+  ['openPathRow','openCountRow','openOther'].forEach(id => $(id).classList.remove('hide'));
+  $('openPath').value = info.ruta || '';
+  const n = info.cantidad_py || 0;
+  $('openCount').textContent = `${n} ${n === 1 ? 'archivo' : 'archivos'} .py` + (info.rama ? ` · rama ${info.rama}` : '');
+  $('openHint').textContent = info.ok ? 'Solo se analizarán los .py fuera de tests/, entornos virtuales y carpetas ocultas.' : info.error;
+  $('openHint').className = 'hint' + (info.ok ? '' : ' err');
+  $('openOk').disabled = !info.ok;
+  openModal('m-open');
+}
+
 async function handleOpenFolder() {
   if (window.pywebview && window.pywebview.api) {
     try {
-      // Llama directamente al método Python DesktopAPI.select_folder()
+      // Diálogo nativo de carpetas (DesktopAPI.select_folder); si se cancela, no pasa nada.
       const folderPath = await window.pywebview.api.select_folder();
-      if (folderPath) {
-        // Obtiene el nombre de la carpeta (ej. ecommerce-core)
-        const folderName = folderPath.replace(/\\/g, '/').split('/').filter(Boolean).pop() || folderPath;
-        // Carga el proyecto en la interfaz gráfica
-        loadProject(folderName, 'local', folderPath);
-        toast(`Carpeta seleccionada: <span class="mono">${folderPath}</span>`);
-      }
+      if (!folderPath) return;
+      const info = await window.pywebview.api.inspeccionar_carpeta(folderPath);
+      showOpenReal(info);
     } catch (err) {
-      console.error("Error al abrir diálogo de carpeta:", err);
+      console.error("Error al abrir la carpeta:", err);
+      showOpenReal({ok: false, ruta: '', cantidad_py: 0, error: 'No se pudo revisar la carpeta. Inténtalo de nuevo.'});
     }
   } else {
     // Si abres el HTML en el navegador sin pywebview, mantiene el modal simulado
+    resetOpenModal();
     openModal('m-open');
+  }
+}
+
+// Revalida la carpeta en Python, la registra en recientes y abre la Vista previa (solo si tiene .py).
+async function confirmOpenReal() {
+  $('openOk').disabled = true;
+  try {
+    const info = await window.pywebview.api.abrir_proyecto(realFolder);
+    if (!info.ok) { showOpenReal(info); return; }
+    closeModal(); realFolder = null;
+    // Sin repositorio Git no hay rama que mostrar.
+    loadProject(info.nombre, 'local', info.ruta, info.rama || '—');
+    toast(`Proyecto abierto: <span class="mono">${escHtml(info.ruta)}</span>`);
+  } catch (err) {
+    console.error("Error al abrir el proyecto:", err);
+    showOpenReal({ok: false, ruta: realFolder, cantidad_py: 0, error: 'No se pudo abrir el proyecto. Inténtalo de nuevo.'});
   }
 }
 

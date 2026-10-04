@@ -67,8 +67,13 @@ def _es_ignorado(nombre_directorio: str) -> bool:
     )
 
 
-def _listar_archivos(raiz: Path) -> list[Path]:
-    """Lista los ``.py`` del proyecto, ordenados por ruta relativa."""
+def listar_archivos_py(raiz: Path) -> list[Path]:
+    """Lista los ``.py`` del proyecto, ordenados por ruta relativa.
+
+    Es el único criterio de qué archivos se analizan: poda las carpetas
+    ignoradas y no entra en carpetas que son enlaces simbólicos. Lo reutiliza
+    la HU-01 para validar una carpeta antes de abrirla.
+    """
     encontrados: list[Path] = []
     for directorio, subdirectorios, archivos in os.walk(raiz):
         subdirectorios[:] = [d for d in subdirectorios if not _es_ignorado(d)]
@@ -241,7 +246,7 @@ def analizar_proyecto(raiz: str | os.PathLike[str]) -> dict[str, Any]:
 
     modulos: list[dict[str, Any]] = []
     errores: list[dict[str, Any]] = []
-    for ruta in _listar_archivos(carpeta):
+    for ruta in listar_archivos_py(carpeta):
         relativa = ruta.relative_to(carpeta).as_posix()
         try:
             modulos.append(_analizar_modulo(ruta, relativa))
