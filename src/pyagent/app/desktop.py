@@ -10,6 +10,8 @@ _SRC = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 if _SRC not in sys.path:
     sys.path.insert(0, _SRC)
 
+from pyagent.app import proyecto_local, recientes
+
 
 class DesktopAPI:
     """Puente de comunicación entre la interfaz JS y el backend Python."""
@@ -80,6 +82,37 @@ class DesktopAPI:
 
         threading.Thread(target=trabajo, name="clonado-git", daemon=True).start()
         return {"iniciado": True}
+
+    def inspeccionar_carpeta(self, ruta: str) -> dict:
+        """Valida la carpeta elegida y cuenta sus archivos ``.py`` (HU-01).
+
+        Returns:
+            dict: ``ok``, ``nombre``, ``ruta``, ``cantidad_py`` y ``error``.
+        """
+        return proyecto_local.inspeccionar_carpeta(ruta)
+
+    def abrir_proyecto(self, ruta: str) -> dict:
+        """Revalida la carpeta y, si tiene ``.py``, la registra en recientes (HU-01).
+
+        Una carpeta sin ``.py`` nunca se registra.
+
+        Returns:
+            dict: El resultado de ``inspeccionar_carpeta``; si no se pudo
+            guardar en recientes, ``ok`` es False con el motivo en ``error``.
+        """
+        proyecto = proyecto_local.inspeccionar_carpeta(ruta)
+        if not proyecto["ok"]:
+            return proyecto
+        try:
+            recientes.registrar(proyecto["nombre"], "local", proyecto["ruta"])
+        except OSError:
+            return {
+                **proyecto,
+                "ok": False,
+                "error": "No se pudo guardar el proyecto en Proyectos recientes "
+                f"({recientes.ruta_por_defecto()}).",
+            }
+        return proyecto
 
     def start_run(self, folder_path: str, profile: str = "deep") -> dict:
         """Inicia la corrida del sistema sobre el proyecto seleccionado."""
