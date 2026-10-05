@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "generated_test.schema.json",
+  "title": "generated_test",
+  "description": "Test pytest escrito por el Generator para un objetivo (función o endpoint) en un intento.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "objetivo", "intento", "codigo", "casos_cubiertos"],
+  "properties": {
+    "version": { "const": "1" },
+    "objetivo": { "type": "string", "minLength": 1 },
+    "intento": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 3,
+      "description": "Número de intento; máximo 3 por objetivo."
+    },
+    "codigo": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Código pytest completo. Debe pasar ast.parse antes de entregarse."
+    },
+    "casos_cubiertos": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": { "type": "string", "pattern": "^[a-z0-9_]+$" },
+      "description": "Ids de los casos del planner_contract que cubre el test."
+    }
+  }
+}

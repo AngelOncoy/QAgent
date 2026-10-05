@@ -5,8 +5,9 @@ Permite desarrollar y ejecutar pruebas unitarias con consumo estricto de 0 token
 
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, ClassVar
 
 
 @dataclass
@@ -24,20 +25,49 @@ class RespuestaLLM:
 class FakeLLMClient:
     """Simulador de LLM que devuelve respuestas grabadas y reporta 0 tokens."""
 
-    RESPUESTAS_GRABADAS = {
-        "planner": (
-            '{"modulo": "modulo_simulado.py", "tipo": "funcion", '
-            '"casos": [{"id": "caso_1", "entrada": [10], "valor_esperado": 20, '
-            '"origen": "docstring"}]}'
+    # Respuestas que cumplen los contratos de contracts/ (EN-01): el Planner devuelve una
+    # lista de planner_contract.v2 por módulo y el Reviewer un review_result.
+    RESPUESTAS_GRABADAS: ClassVar[dict[str, str]] = {
+        "planner": json.dumps(
+            [
+                {
+                    "version": "2",
+                    "modulo": "modulo_simulado.py",
+                    "huella": "0" * 64,
+                    "tipo": "funcion",
+                    "objetivo": "duplicar",
+                    "firma": "(x: int) -> int",
+                    "critical": False,
+                    "llama_a": [],
+                    "casos": [
+                        {
+                            "id": "caso_1",
+                            "entrada": {"x": 10},
+                            "valor_esperado": 20,
+                            "origen": "docstring",
+                        }
+                    ],
+                }
+            ]
         ),
         "generator": (
-            "import pytest\n\n"
-            "def test_generado():\n"
-            "    assert True\n"
+            "from modulo_simulado import duplicar\n\n\n"
+            "def test_caso_1():\n"
+            "    assert duplicar(10) == 20\n"
         ),
-        "reviewer": (
-            '{"decision": "accept", "laundering_detectado": false, '
-            '"cobertura": 100, "feedback": "Test aprobado en sandbox."}'
+        "reviewer": json.dumps(
+            {
+                "version": "1",
+                "objetivo": "duplicar",
+                "intento": 1,
+                "estado_sandbox": "ok",
+                "cobertura": {"lineas": 100.0, "ramas": 100.0},
+                "laundering_detectado": False,
+                "tipo_fallo": None,
+                "hash_error": None,
+                "decision": "accept",
+                "feedback": "Test aprobado en sandbox.",
+            }
         ),
     }
 
@@ -55,8 +85,7 @@ class FakeLLMClient:
             RespuestaLLM: Objeto con contenido grabado y 0 tokens consumidos.
         """
         contenido = self.RESPUESTAS_GRABADAS.get(
-            rol.lower(),
-            f"Respuesta simulada para prompt: {prompt[:30]}..."
+            rol.lower(), f"Respuesta simulada para prompt: {prompt[:30]}..."
         )
 
         return RespuestaLLM(

@@ -1,0 +1,7 @@
+{
+  "version": "1",
+  "objetivo": "calcular_descuento",
+  "intento": 1,
+  "codigo": "import pytest\n\nfrom tienda.precios import calcular_descuento\n\n\ndef test_descuento_normal():\n    assert calcular_descuento(100.0, 20.0) == pytest.approx(80.0)\n\n\ndef test_porcentaje_invalido():\n    with pytest.raises(ValueError):\n        calcular_descuento(100.0, 150.0)\n",
+  "casos_cubiertos": ["descuento_normal", "porcentaje_invalido"]
+}
