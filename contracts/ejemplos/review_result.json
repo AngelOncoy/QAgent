@@ -1,0 +1,12 @@
+{
+  "version": "1",
+  "objetivo": "calcular_descuento",
+  "intento": 1,
+  "estado_sandbox": "ok",
+  "cobertura": { "lineas": 100.0, "ramas": 100.0 },
+  "laundering_detectado": false,
+  "tipo_fallo": null,
+  "hash_error": null,
+  "decision": "accept",
+  "feedback": "Test aprobado: las aserciones coinciden con el contrato."
+}
