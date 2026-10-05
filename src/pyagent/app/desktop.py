@@ -40,6 +40,49 @@ class DesktopAPI:
             return folder_path
         return None
 
+    def destino_clonado(self, url: str) -> dict:
+        """Valida la URL y propone la carpeta destino del clonado (HU-02).
+
+        Returns:
+            dict: ``{"ok": bool, "destino": str, "formato": str}``.
+        """
+        from pyagent.app import clonador
+
+        if not clonador.validar_url(url):
+            return {"ok": False, "destino": "", "formato": clonador.FORMATO_URL}
+        destino = str(clonador.destino_por_defecto(url))
+        return {"ok": True, "destino": destino, "formato": clonador.FORMATO_URL}
+
+    def clonar_repositorio(
+        self, url: str, rama: str, destino: str, superficial: bool = True
+    ) -> dict:
+        """Inicia ``git clone`` en un hilo para no bloquear la interfaz (HU-02).
+
+        El avance llega a la interfaz con eventos ``clonado_avance`` y el final con
+        ``clonado_fin`` (el resultado de ``clonador.clonar``).
+
+        Returns:
+            dict: ``{"iniciado": True}``.
+        """
+        import threading
+        from dataclasses import asdict
+
+        from pyagent.app import clonador
+
+        def avanzar(porcentaje: int | None, linea: str) -> None:
+            self.emit_event(
+                "clonado_avance", {"porcentaje": porcentaje, "linea": linea}
+            )
+
+        def trabajo() -> None:
+            resultado = clonador.clonar(
+                url, rama, destino, superficial, al_avanzar=avanzar
+            )
+            self.emit_event("clonado_fin", asdict(resultado))
+
+        threading.Thread(target=trabajo, name="clonado-git", daemon=True).start()
+        return {"iniciado": True}
+
     def inspeccionar_carpeta(self, ruta: str) -> dict:
         """Valida la carpeta elegida y cuenta sus archivos ``.py`` (HU-01).
 
