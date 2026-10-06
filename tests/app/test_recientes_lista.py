@@ -166,3 +166,4 @@ def test_ultima_corrida_con_tipo_invalido_se_ignora(archivo: Path) -> None:
     archivo.write_text(json.dumps([{**valida, "ultima_corrida": 5}]), encoding="utf-8")
 
     assert recientes.listar(archivo)[0]["ultima_corrida"] is None
+    

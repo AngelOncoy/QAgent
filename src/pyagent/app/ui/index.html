@@ -792,16 +792,17 @@ reintentos_max = 3                  # regla del proyecto, no se cambia
   <div class="mcontent" id="cloneForm">
     <div class="frow"><label>Control de versiones</label><select class="inp" style="width:120px"><option>Git</option></select></div>
     <div class="frow"><label>URL</label><div><input class="inp" id="url" placeholder="https://github.com/usuario/repositorio.git" oninput="vUrl()"><div class="hint" id="urlHint">Repositorio público por HTTPS (GitHub, GitLab, Bitbucket).</div></div></div>
-    <div class="frow"><label>Rama</label><input class="inp" id="branch" value="main" style="width:180px"></div>
-    <div class="frow"><label>Directorio</label><input class="inp" id="dir" value="E:\Proyectos\"></div>
-    <label class="chk"><input type="checkbox" checked> Clonado superficial (<span class="mono">--depth 1</span>): solo el último commit</label>
+    <div class="frow"><label>Rama</label><div><input class="inp" id="branch" value="main" style="width:180px" oninput="vUrl()"><div class="hint err hide" id="branchHint">Nombre de rama no válido.</div></div></div>
+    <div class="frow"><label>Directorio</label><input class="inp" id="dir" value="" placeholder="Se completa al escribir la URL" oninput="dirEditado=true;vUrl()"></div>
+    <label class="chk"><input type="checkbox" id="shallow" checked> Clonado superficial (<span class="mono">--depth 1</span>): solo el último commit</label>
   </div>
   <div class="mcontent hide" id="cloneProg">
     <div style="font-weight:600" id="cloneTitle">Clonando…</div>
     <div class="progress"><i id="cloneBar"></i></div>
     <div class="log" id="cloneLog"></div>
   </div>
-  <div class="mfoot"><button class="btn" onclick="closeModal()">Cancelar</button><button class="btn primary" id="cloneOk" disabled onclick="doClone()">Clonar</button></div>
+  <div class="mcontent hide" id="cloneErr"><div class="hint err" id="cloneErrTxt" style="font-size:13px"></div></div>
+  <div class="mfoot"><button class="btn" id="cloneCancel" onclick="closeModal()">Cancelar</button><button class="btn primary" id="cloneOk" disabled onclick="doClone()">Clonar</button></div>
 </div></div>
 
 <!-- Exportar informe (HU-020) -->
@@ -907,7 +908,8 @@ document.querySelectorAll('#views a').forEach(a => a.onclick = () => {
 
 /* ---------------- Modales ---------------- */
 function openModal(id){ $(id).classList.add('show'); }
-function closeModal(){ document.querySelectorAll('.overlay').forEach(o=>o.classList.remove('show')); clearInterval(cloneTimer); resetClone(); }
+function closeModal(){ if(clonando) return; // no se cierra a mitad de un clonado
+  document.querySelectorAll('.overlay').forEach(o=>o.classList.remove('show')); clearInterval(cloneTimer); resetClone(); }
 document.querySelectorAll('.overlay').forEach(o => o.addEventListener('click', e => { if(e.target===o) closeModal(); }));
 
 let pickedFolder = null;
@@ -924,41 +926,80 @@ function confirmOpen(){
   closeModal(); loadProject(pickedFolder,'local','E:\\Proyectos\\'+pickedFolder);
 }
 
-function vUrl(){
-  const v = $('url').value.trim();
-  const ok = /^https:\/\/[\w.-]+\/[\w.-]+\/[\w.-]+?(\.git)?\/?$/.test(v);
-  $('urlHint').textContent = v && !ok ? 'URL no válida. Formato esperado: https://github.com/usuario/repositorio.git' : 'Repositorio público por HTTPS (GitHub, GitLab, Bitbucket).';
+/* Clonar repositorio (HU-02): misma validación que pyagent.app.clonador */
+const RE_URL_GIT = /^https:\/\/[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?(?:\.[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?)+\/[A-Za-z0-9_][A-Za-z0-9._-]*\/[A-Za-z0-9_][A-Za-z0-9._-]*$/;
+const RE_RAMA_GIT = /^[A-Za-z0-9_][A-Za-z0-9._\/-]*$/;
+const FORMATO_URL = 'https://<sitio>/<usuario>/<repositorio>(.git)';
+let dirEditado = false, clonando = false, cloneTimer;
+const hayPy = () => !!(window.pywebview && window.pywebview.api && window.pywebview.api.clonar_repositorio);
+const ramaValida = b => RE_RAMA_GIT.test(b) && !/\.\.|\/\/|\/\.|[\/.]$|\.lock$/.test(b);
+const nombreRepo = u => u.split('/').pop().replace(/\.git$/,'');
+async function vUrl(){
+  const v = $('url').value, b = $('branch').value;
+  const ok = RE_URL_GIT.test(v), okB = ramaValida(b);
+  $('urlHint').textContent = v && !ok ? 'URL no válida. Formato esperado: ' + FORMATO_URL : 'Repositorio público por HTTPS (GitHub, GitLab, Bitbucket).';
   $('urlHint').className = 'hint' + (v && !ok ? ' err':'');
-  if(ok) $('dir').value = 'E:\\Proyectos\\' + v.replace(/\.git\/?$/,'').split('/').pop();
-  $('cloneOk').disabled = !ok;
+  $('branchHint').classList.toggle('hide', okB);
+  if(ok && !dirEditado){
+    if(hayPy()){
+      try { const r = await window.pywebview.api.destino_clonado(v); if(r.ok && !dirEditado && $('url').value===v) $('dir').value = r.destino; }
+      catch(err){ console.error('Error al calcular el destino del clonado:', err); }
+    } else $('dir').value = 'E:\\Proyectos\\' + nombreRepo(v);
+  }
+  $('cloneOk').disabled = clonando || !ok || !okB || !$('dir').value.trim();
 }
-let cloneTimer;
-function resetClone(){ $('cloneForm').classList.remove('hide'); $('cloneProg').classList.add('hide'); $('cloneLog').innerHTML=''; $('cloneBar').style.width='0'; }
+function resetClone(){
+  if(clonando) return;
+  $('cloneForm').classList.remove('hide'); $('cloneProg').classList.add('hide'); $('cloneErr').classList.add('hide');
+  $('cloneLog').innerHTML=''; $('cloneBar').style.width='0'; $('cloneTitle').textContent='Clonando…';
+  $('cloneCancel').disabled = false; vUrl();
+}
+function logClone(txt){ const l = $('cloneLog'), d = document.createElement('div'); d.textContent = txt; l.appendChild(d); l.scrollTop = l.scrollHeight; }
 function doClone(){
-  const url = $('url').value.trim(), br = $('branch').value || 'main';
-  $('cloneForm').classList.add('hide'); $('cloneProg').classList.remove('hide'); $('cloneOk').disabled = true;
-  const steps = [
-    `$ git clone --depth 1 --branch ${br} ${url}`,
-    `Cloning into '${$('dir').value}'...`,
-    'Receiving objects: 100% (212/212), 88.4 KiB, done.',
-    'Resolving deltas: 100% (31/31), done.',
-    '✓ Clonado completo. Detectando archivos Python…',
-    '✓ 7 archivos .py · requirements.txt encontrado'];
+  const url = $('url').value, br = $('branch').value, dir = $('dir').value.trim(), shallow = $('shallow').checked;
+  $('cloneForm').classList.add('hide'); $('cloneErr').classList.add('hide'); $('cloneProg').classList.remove('hide'); $('cloneOk').disabled = true;
+  $('cloneLog').innerHTML = ''; $('cloneBar').style.width = '0'; $('cloneTitle').textContent = 'Clonando…';
+  logClone(`$ git clone ${shallow?'--depth 1 ':''}--branch ${br} ${url} ${dir}`);
+  if(hayPy()){
+    clonando = true; $('cloneCancel').disabled = true;
+    window.pywebview.api.clonar_repositorio(url, br, dir, shallow).catch(err => finClonado({ok:false, error:String(err)}));
+    return;
+  }
+  // Sin pywebview (HTML abierto en el navegador): clonado simulado del demo
+  const steps = [`Cloning into '${dir}'...`, 'Receiving objects: 100% (212/212), 88.4 KiB, done.', 'Resolving deltas: 100% (31/31), done.'];
   let i = 0;
   cloneTimer = setInterval(() => {
-    $('cloneLog').innerHTML += steps[i] + '<br>'; $('cloneBar').style.width = ((i+1)/steps.length*100)+'%'; i++;
-    if(i===steps.length){ clearInterval(cloneTimer); $('cloneTitle').textContent='Listo';
-      setTimeout(() => { const name = url.replace(/\.git\/?$/,'').split('/').pop(); closeModal(); loadProject(name,'git',url,br); }, 600); }
+    logClone(steps[i]); $('cloneBar').style.width = ((i+1)/steps.length*100)+'%'; i++;
+    if(i===steps.length){ clearInterval(cloneTimer); finClonado({ok:true, destino:dir}); }
   }, 450);
+}
+function avanceClonado(d){
+  if(typeof d.porcentaje === 'number') $('cloneBar').style.width = d.porcentaje + '%';
+  const l = $('cloneLog'), ult = l.lastElementChild;
+  // git reescribe la misma línea (\r) mientras avanza: se actualiza en vez de agregar otra
+  if(ult && d.linea.includes('%') && ult.textContent.split(':')[0] === d.linea.split(':')[0]) ult.textContent = d.linea;
+  else logClone(d.linea);
+}
+function finClonado(r){
+  clonando = false; $('cloneCancel').disabled = false;
+  if(!r.ok){
+    // Se muestra el motivo junto al formulario para corregir y reintentar
+    $('cloneErrTxt').textContent = r.error || 'Error desconocido al clonar.';
+    $('cloneErr').classList.remove('hide'); $('cloneForm').classList.remove('hide'); $('cloneProg').classList.add('hide');
+    vUrl(); return;
+  }
+  $('cloneTitle').textContent = 'Listo'; $('cloneBar').style.width = '100%';
+  const url = $('url').value, br = $('branch').value;
+  setTimeout(() => { closeModal(); loadProject(nombreRepo(url), 'git', url, br, r.destino); toast(`Repositorio clonado en <span class="mono">${r.destino}</span>`); }, 600);
 }
 
 /* ---------------- Vista previa ---------------- */
-function loadProject(name, src, where, br='main'){
+function loadProject(name, src, where, br='main', ruta=''){
   if(!apiRec()) demoRegistrar(name, src, where);
   document.querySelectorAll('.repoName').forEach(e=>e.textContent=name);
   document.querySelectorAll('.repoLbl').forEach(e=>e.textContent = src==='git' ? where.replace('https://','').replace(/\.git$/,'') : where);
   document.querySelectorAll('.brLbl').forEach(e=>e.textContent=br); $('branchLbl').textContent = br;
-  monitorStarted = false; projectPath = src==='git' ? 'E:\\Proyectos\\' + name : where;
+  monitorStarted = false; projectPath = ruta ? ruta : src==='git' ? 'E:\\Proyectos\\' + name : where;
   renderTree(); renderProfiles(); go('preview');
 }
 function renderTree(){
@@ -1727,6 +1768,10 @@ window.onPyAgentEvent = function(event) {
   console.log("[Python Event]", event);
   if (event.type === 'log') {
     toast(`Python: ${event.data.message}`);
+  } else if (event.type === 'clonado_avance') {
+    avanceClonado(event.data);
+  } else if (event.type === 'clonado_fin') {
+    finClonado(event.data);
   }
 };
 
@@ -1814,7 +1859,7 @@ async function abrirReciente(i){
     catch (err) { console.error("Error al abrir el reciente:", err); info = {ok:false, error:'No se pudo abrir el proyecto. Inténtalo de nuevo.'}; }
   }
   if(!info.ok){ toast(escHtml(info.error || 'No se pudo abrir el proyecto.')); cargarRecientes(); return; }
-  loadProject(info.nombre, info.origen, info.origen==='git' && info.url ? info.url : info.ruta, info.rama || '—');
+  loadProject(info.nombre, info.origen, info.origen==='git' && info.url ? info.url : info.ruta, info.rama || '—', info.ruta);
 }
 async function quitarReciente(i){
   const r = RECIENTES[i]; if(!r) return;
