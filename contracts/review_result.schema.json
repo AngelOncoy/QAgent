@@ -1,0 +1,89 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "review_result.schema.json",
+  "title": "review_result",
+  "description": "Veredicto del Reviewer/Executor sobre un intento: resultado del sandbox, guardrail de laundering y decisión.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "version",
+    "objetivo",
+    "intento",
+    "estado_sandbox",
+    "cobertura",
+    "laundering_detectado",
+    "tipo_fallo",
+    "hash_error",
+    "decision",
+    "feedback"
+  ],
+  "properties": {
+    "version": { "const": "1" },
+    "objetivo": { "type": "string", "minLength": 1 },
+    "intento": { "type": "integer", "minimum": 1, "maximum": 3 },
+    "estado_sandbox": {
+      "enum": ["ok", "fallo", "timeout", "oom", "error"],
+      "description": "ok = pytest pasó; fallo = pytest falló; timeout/oom/error = problema del sandbox."
+    },
+    "cobertura": {
+      "oneOf": [
+        { "type": "null" },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["lineas", "ramas"],
+          "properties": {
+            "lineas": { "type": "number", "minimum": 0, "maximum": 100 },
+            "ramas": { "type": ["number", "null"], "minimum": 0, "maximum": 100 }
+          }
+        }
+      ],
+      "description": "Porcentajes de coverage.py; null si no se generó coverage.json."
+    },
+    "laundering_detectado": { "type": "boolean" },
+    "tipo_fallo": {
+      "enum": ["error_test", "bug_codigo", null],
+      "description": "error_test = el test está mal escrito; bug_codigo = el código no cumple lo que declara."
+    },
+    "hash_error": {
+      "type": ["string", "null"],
+      "pattern": "^[0-9a-f]{8,64}$",
+      "description": "Hash del error normalizado; si se repite, la decisión es stalled."
+    },
+    "decision": { "enum": ["accept", "retry", "bug_detectado", "stalled"] },
+    "feedback": { "type": "string" }
+  },
+  "allOf": [
+    {
+      "description": "Solo se acepta un test que pasó en el sandbox y sin laundering.",
+      "if": { "properties": { "decision": { "const": "accept" } } },
+      "then": {
+        "properties": {
+          "estado_sandbox": { "const": "ok" },
+          "laundering_detectado": { "const": false }
+        }
+      }
+    },
+    {
+      "description": "Solo se reintenta un test mal escrito y si queda al menos un intento.",
+      "if": { "properties": { "decision": { "const": "retry" } } },
+      "then": {
+        "properties": {
+          "tipo_fallo": { "const": "error_test" },
+          "intento": { "maximum": 2 },
+          "feedback": { "minLength": 1 }
+        }
+      }
+    },
+    {
+      "description": "Un bug del código se reporta y no se reintenta (reintentarlo sería Assertion Laundering).",
+      "if": { "properties": { "decision": { "const": "bug_detectado" } } },
+      "then": {
+        "properties": {
+          "tipo_fallo": { "const": "bug_codigo" },
+          "feedback": { "minLength": 1 }
+        }
+      }
+    }
+  ]
+}

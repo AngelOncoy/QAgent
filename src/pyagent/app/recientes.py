@@ -1,9 +1,13 @@
-"""Proyectos recientes (HU-03).
+"""Registro de proyectos recientes en ``~/.pyagent/recientes.json`` — HU-01.
 
-Guarda y lee ``~/.pyagent/recientes.json``. La Bienvenida muestra hasta
-``MAX_VISIBLES`` proyectos, del más reciente al más antiguo.
-Solo lee el sistema de archivos: nunca ejecuta código del usuario.
+Formato del archivo: una lista JSON (más reciente primero) de entradas
+``{"nombre", "origen", "ruta", "url", "ultima_apertura"}``.
+
+La HU-03 agrega ``listar`` (hasta 10, con ``encontrada``), ``abrir``, ``quitar``
+y ``registrar_corrida``. Esta última guarda el campo opcional ``ultima_corrida``,
+que ``registrar`` conserva al volver a abrir un proyecto.
 """
+
 from __future__ import annotations
 
 import json
@@ -13,129 +17,212 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-MAX_VISIBLES = 10
-MAX_GUARDADOS = 50
+MAXIMO_RECIENTES = 50
+MAXIMO_VISIBLES = 10
 ORIGENES = ("local", "git")
+CAMPOS = ("nombre", "origen", "ruta", "url", "ultima_apertura")
+CAMPO_CORRIDA = (
+    "ultima_corrida"  # opcional: solo existe si el proyecto tuvo una corrida
+)
 
 
 def ruta_por_defecto() -> Path:
-    """Ubicación del archivo de recientes: ``~/.pyagent/recientes.json``."""
+    """Devuelve la ubicación del archivo de recientes en el home del usuario."""
     return Path.home() / ".pyagent" / "recientes.json"
 
 
-def _archivo(archivo: str | Path | None) -> Path:
-    return Path(archivo) if archivo else ruta_por_defecto()
+def _clave(ruta: str) -> str:
+    """Normaliza una ruta para compararla (Windows no distingue mayúsculas)."""
+    return os.path.normcase(os.path.normpath(ruta))
 
 
-def _clave(ruta: str | Path) -> str:
-    """Clave para comparar rutas (en Windows no distingue mayúsculas)."""
-    return os.path.normcase(os.path.normpath(str(ruta)))
-
-
-def _valida(d: Any) -> bool:
+def _es_entrada_valida(entrada: Any) -> bool:
+    """Indica si una entrada leída del archivo tiene el formato esperado."""
+    if not isinstance(entrada, dict) or any(c not in entrada for c in CAMPOS):
+        return False
+    textos = ("nombre", "ruta", "ultima_apertura")
     return (
-        isinstance(d, dict)
-        and isinstance(d.get("nombre"), str)
-        and isinstance(d.get("ruta"), str)
-        and d.get("origen") in ORIGENES
-        and isinstance(d.get("ultima_apertura"), str)
+        all(isinstance(entrada[c], str) and entrada[c] for c in textos)
+        and entrada["origen"] in ORIGENES
+        and (entrada["url"] is None or isinstance(entrada["url"], str))
     )
 
 
-def cargar(archivo: str | Path | None = None) -> list[dict[str, Any]]:
-    """Lee la lista completa (más reciente primero). Tolera archivo ausente o dañado."""
+def cargar(archivo: str | os.PathLike[str] | None = None) -> list[dict[str, Any]]:
+    """Lee la lista completa de proyectos recientes, más reciente primero.
+
+    Tolera un archivo ausente, ilegible o dañado (devuelve lista vacía) y
+    descarta las entradas inválidas. Nunca lanza excepciones.
+
+    Args:
+        archivo: Ruta del JSON; por defecto ``ruta_por_defecto()``.
+    """
+    destino = Path(archivo) if archivo is not None else ruta_por_defecto()
     try:
-        datos = json.loads(_archivo(archivo).read_text(encoding="utf-8"))
+        datos = json.loads(destino.read_text(encoding="utf-8"))
     except (OSError, ValueError):
         return []
-    return [d for d in datos if _valida(d)] if isinstance(datos, list) else []
+    if not isinstance(datos, list):
+        return []
+    return [_normalizar(e) for e in datos if _es_entrada_valida(e)]
 
 
-def _guardar(lista: list[dict[str, Any]], archivo: str | Path | None) -> None:
-    destino = _archivo(archivo)
+def _normalizar(entrada: dict[str, Any]) -> dict[str, Any]:
+    """Deja solo los campos conocidos; ``ultima_corrida`` únicamente si es un texto."""
+    limpia = {c: entrada[c] for c in CAMPOS}
+    corrida = entrada.get(CAMPO_CORRIDA)
+    if isinstance(corrida, str) and corrida:
+        limpia[CAMPO_CORRIDA] = corrida
+    return limpia
+
+
+def _escribir(destino: Path, entradas: list[dict[str, Any]]) -> None:
+    """Escribe el JSON de forma atómica (temporal en la misma carpeta + replace)."""
     destino.parent.mkdir(parents=True, exist_ok=True)
-    fd, tmp = tempfile.mkstemp(dir=destino.parent, suffix=".tmp")
+    descriptor, temporal = tempfile.mkstemp(
+        dir=destino.parent, prefix=".recientes-", suffix=".tmp"
+    )
     try:
-        with os.fdopen(fd, "w", encoding="utf-8") as f:
-            json.dump(lista, f, ensure_ascii=False, indent=2)
-        os.replace(tmp, destino)  # escritura atómica
+        with os.fdopen(descriptor, "w", encoding="utf-8") as salida:
+            json.dump(entradas, salida, ensure_ascii=False, indent=2)
+        os.replace(temporal, destino)
     except BaseException:
-        Path(tmp).unlink(missing_ok=True)
+        Path(temporal).unlink(missing_ok=True)
         raise
 
 
 def registrar(
     nombre: str,
     origen: str,
-    ruta: str | Path,
+    ruta: str,
     url: str | None = None,
-    archivo: str | Path | None = None,
+    archivo: str | os.PathLike[str] | None = None,
     ahora: datetime | None = None,
 ) -> None:
-    """Agrega el proyecto al inicio de la lista (o lo sube si ya estaba)."""
+    """Agrega un proyecto al inicio de los recientes (o lo sube si ya estaba).
+
+    Args:
+        nombre: Nombre visible del proyecto.
+        origen: ``"local"`` o ``"git"``.
+        ruta: Carpeta del proyecto en disco.
+        url: URL del repositorio (solo para ``origen="git"``).
+        archivo: Ruta del JSON; por defecto ``ruta_por_defecto()``.
+        ahora: Momento de la apertura; por defecto, la hora local actual (con zona horaria).
+
+    Raises:
+        ValueError: si ``origen`` no es válido o falta ``nombre`` o ``ruta``.
+        OSError: si no se puede escribir el archivo.
+    """
     if origen not in ORIGENES:
-        raise ValueError(f"origen inválido: {origen!r} (use 'local' o 'git')")
-    ruta = str(ruta)
-    entrada = {
+        raise ValueError(f"Origen no válido: {origen!r}. Use 'local' o 'git'.")
+    if not nombre or not ruta:
+        raise ValueError("El nombre y la ruta del proyecto son obligatorios.")
+
+    destino = Path(archivo) if archivo is not None else ruta_por_defecto()
+    momento = (ahora or datetime.now().astimezone()).isoformat(timespec="seconds")
+    nueva = {
         "nombre": nombre,
         "origen": origen,
         "ruta": ruta,
         "url": url,
-        "ultima_apertura": (ahora or datetime.now()).isoformat(timespec="seconds"),
+        "ultima_apertura": momento,
     }
-    resto = [d for d in cargar(archivo) if _clave(d["ruta"]) != _clave(ruta)]
-    _guardar([entrada, *resto][:MAX_GUARDADOS], archivo)
+    clave = _clave(ruta)
+    previas = cargar(destino)
+    anterior = next((e for e in previas if _clave(e["ruta"]) == clave), None)
+    if anterior and CAMPO_CORRIDA in anterior:
+        nueva[CAMPO_CORRIDA] = anterior[
+            CAMPO_CORRIDA
+        ]  # reabrir no borra la última corrida
+    resto = [e for e in previas if _clave(e["ruta"]) != clave]
+    _escribir(destino, [nueva, *resto][:MAXIMO_RECIENTES])
 
 
-def ultima_corrida(ruta: str | Path) -> str | None:
-    """Fecha ISO de la corrida más reciente en ``<ruta>/.pyagent/runs/``, o None."""
-    runs = Path(ruta) / ".pyagent" / "runs"
+def _existe(ruta: str) -> bool:
+    """Indica si la carpeta del proyecto sigue en su lugar."""
     try:
-        marcas = [d.stat().st_mtime for d in runs.iterdir() if d.is_dir()]
+        return Path(ruta).is_dir()
     except OSError:
-        return None
-    if not marcas:
-        return None
-    return datetime.fromtimestamp(max(marcas)).isoformat(timespec="seconds")
+        return False
 
 
 def listar(
-    limite: int = MAX_VISIBLES, archivo: str | Path | None = None
+    archivo: str | os.PathLike[str] | None = None, limite: int = MAXIMO_VISIBLES
 ) -> list[dict[str, Any]]:
-    """Proyectos para la Bienvenida, con ``estado`` 'ok' o 'no_encontrada'."""
-    salida = []
-    for d in cargar(archivo)[:limite]:
-        existe = Path(d["ruta"]).is_dir()
-        salida.append(
-            {
-                "nombre": d["nombre"],
-                "origen": d["origen"],
-                "ruta": d["ruta"],
-                "url": d.get("url"),
-                "ultima_apertura": d["ultima_apertura"],
-                "ultima_corrida": ultima_corrida(d["ruta"]) if existe else None,
-                "estado": "ok" if existe else "no_encontrada",
-            }
-        )
-    return salida
+    """Devuelve los ``limite`` proyectos más recientes para la Bienvenida (HU-03).
+
+    Cada entrada trae ``ultima_corrida`` (``None`` si no hubo corridas) y
+    ``encontrada`` (``False`` si la carpeta ya no existe). Nunca lanza excepciones.
+    """
+    return [
+        {**e, CAMPO_CORRIDA: e.get(CAMPO_CORRIDA), "encontrada": _existe(e["ruta"])}
+        for e in cargar(archivo)[:limite]
+    ]
 
 
-def quitar(ruta: str | Path, archivo: str | Path | None = None) -> bool:
-    """Quita un proyecto de la lista (no borra nada del disco). True si estaba."""
-    lista = cargar(archivo)
-    nueva = [d for d in lista if _clave(d["ruta"]) != _clave(ruta)]
-    if len(nueva) == len(lista):
+def abrir(ruta: str, archivo: str | os.PathLike[str] | None = None) -> dict[str, Any]:
+    """Reabre un proyecto reciente: comprueba la carpeta y lo sube al inicio.
+
+    Returns:
+        ``{"ok": True, "proyecto": entrada}`` o ``{"ok": False, "motivo", "error"}``
+        con motivo ``"no_en_lista"`` o ``"no_encontrada"``.
+
+    Raises:
+        OSError: si no se puede escribir el archivo.
+    """
+    entrada = next(
+        (e for e in cargar(archivo) if _clave(e["ruta"]) == _clave(ruta)), None
+    )
+    if entrada is None:
+        return {
+            "ok": False,
+            "motivo": "no_en_lista",
+            "error": "El proyecto no está en Proyectos recientes.",
+        }
+    if not _existe(entrada["ruta"]):
+        return {
+            "ok": False,
+            "motivo": "no_encontrada",
+            "error": f"La carpeta ya no existe: {entrada['ruta']}",
+        }
+    registrar(
+        entrada["nombre"], entrada["origen"], entrada["ruta"], entrada["url"], archivo
+    )
+    return {"ok": True, "proyecto": cargar(archivo)[0]}
+
+
+def quitar(ruta: str, archivo: str | os.PathLike[str] | None = None) -> bool:
+    """Quita un proyecto de la lista (nunca borra su carpeta). ``False`` si no estaba.
+
+    Raises:
+        OSError: si no se puede escribir el archivo.
+    """
+    destino = Path(archivo) if archivo is not None else ruta_por_defecto()
+    entradas = cargar(destino)
+    resto = [e for e in entradas if _clave(e["ruta"]) != _clave(ruta)]
+    if len(resto) == len(entradas):
         return False
-    _guardar(nueva, archivo)
+    _escribir(destino, resto)
     return True
 
 
-def abrir(ruta: str | Path, archivo: str | Path | None = None) -> dict[str, Any]:
-    """Valida un reciente y lo sube al inicio. Devuelve ``{ok, ...}`` para la interfaz."""
-    entrada = next((d for d in cargar(archivo) if _clave(d["ruta"]) == _clave(ruta)), None)
-    if entrada is None:
-        return {"ok": False, "error": "no_registrada"}
-    if not Path(entrada["ruta"]).is_dir():
-        return {"ok": False, "error": "no_encontrada"}
-    registrar(entrada["nombre"], entrada["origen"], entrada["ruta"], entrada.get("url"), archivo)
-    return {"ok": True, "proyecto": entrada}
+def registrar_corrida(
+    ruta: str,
+    fecha: datetime | None = None,
+    archivo: str | os.PathLike[str] | None = None,
+) -> bool:
+    """Guarda la fecha de la última corrida del proyecto (la llama EN-07 al cerrar una).
+
+    Returns:
+        ``False`` si el proyecto no está en la lista.
+    """
+    destino = Path(archivo) if archivo is not None else ruta_por_defecto()
+    entradas = cargar(destino)
+    for e in entradas:
+        if _clave(e["ruta"]) == _clave(ruta):
+            e[CAMPO_CORRIDA] = (fecha or datetime.now().astimezone()).isoformat(
+                timespec="seconds"
+            )
+            _escribir(destino, entradas)
+            return True
+    return False

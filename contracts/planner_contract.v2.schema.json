@@ -1,0 +1,81 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "planner_contract.v2.schema.json",
+  "title": "planner_contract.v2",
+  "description": "Contrato del Planner para UNA función o endpoint. El Planner devuelve una lista de estos contratos por módulo; el Generator recibe uno solo.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "modulo", "huella", "tipo", "objetivo", "firma", "critical", "casos"],
+  "properties": {
+    "version": { "const": "2" },
+    "modulo": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Ruta del módulo relativa a la raíz del proyecto, ej. tienda/precios.py."
+    },
+    "huella": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$",
+      "description": "SHA-256 del módulo calculado por el analizador (EN-02). Sirve para la caché de specs (HU-24)."
+    },
+    "tipo": { "enum": ["funcion", "endpoint"] },
+    "objetivo": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Nombre de la función (calcular_descuento) o método y ruta del endpoint (GET /items/{id})."
+    },
+    "firma": { "type": "string", "minLength": 1 },
+    "critical": {
+      "type": "boolean",
+      "description": "true = se aplica mutation testing (mutmut) a este objetivo."
+    },
+    "llama_a": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "uniqueItems": true,
+      "description": "Funciones del proyecto que el objetivo llama; el Generator las simula con mocks."
+    },
+    "casos": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/caso" }
+    }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "tipo": { "const": "funcion" } } },
+      "then": { "properties": { "objetivo": { "pattern": "^[A-Za-z_][A-Za-z0-9_]*$" } } }
+    },
+    {
+      "if": { "properties": { "tipo": { "const": "endpoint" } } },
+      "then": { "properties": { "objetivo": { "pattern": "^(GET|POST|PUT|PATCH|DELETE) /" } } }
+    }
+  ],
+  "$defs": {
+    "caso": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "entrada", "origen"],
+      "anyOf": [{ "required": ["valor_esperado"] }, { "required": ["excepcion"] }],
+      "properties": {
+        "id": { "type": "string", "pattern": "^[a-z0-9_]+$" },
+        "descripcion": { "type": "string" },
+        "entrada": {
+          "description": "Argumentos de la función, o método/ruta/body de la petición para un endpoint."
+        },
+        "valor_esperado": {
+          "description": "Valor esperado. Sale del contrato (oráculo), nunca de ejecutar el código."
+        },
+        "excepcion": {
+          "type": "string",
+          "pattern": "^[A-Za-z_][A-Za-z0-9_.]*$",
+          "description": "Excepción esperada (ej. ValueError) cuando el caso debe fallar."
+        },
+        "origen": {
+          "enum": ["firma", "tipo", "docstring", "response_model", "status_code", "modelo_pydantic"],
+          "description": "De dónde sale el valor esperado. No existe la opción 'ejecucion' a propósito."
+        }
+      }
+    }
+  }
+}

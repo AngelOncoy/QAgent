@@ -1,0 +1,26 @@
+{
+  "version": "2",
+  "modulo": "tienda/precios.py",
+  "huella": "f6b02d52a7e2ac5840090f1c8ae57e74de26fd81799635065e984e5b278f9da7",
+  "tipo": "funcion",
+  "objetivo": "calcular_descuento",
+  "firma": "(precio: float, porcentaje: float) -> float",
+  "critical": true,
+  "llama_a": [],
+  "casos": [
+    {
+      "id": "descuento_normal",
+      "descripcion": "Aplica el porcentaje al precio",
+      "entrada": { "precio": 100.0, "porcentaje": 20.0 },
+      "valor_esperado": 80.0,
+      "origen": "docstring"
+    },
+    {
+      "id": "porcentaje_invalido",
+      "descripcion": "Un porcentaje mayor a 100 lanza ValueError",
+      "entrada": { "precio": 100.0, "porcentaje": 150.0 },
+      "excepcion": "ValueError",
+      "origen": "docstring"
+    }
+  ]
+}
