@@ -146,6 +146,21 @@ class DesktopAPI:
         except OSError:
             return False
 
+    def obtener_vista_previa(self, ruta: str) -> dict:
+        """Obtiene la vista previa del proyecto analizado por AST (HU-04).
+
+        Devuelve los módulos priorizados (primero los que tienen más funciones
+        con ramas), los errores de sintaxis y el resumen de métricas e
+        inconsistencias según el JSON de EN-02.
+        """
+        from pyagent.app import vista_previa
+
+        return vista_previa.generar_vista_previa(ruta)
+
+    def analizar_proyecto(self, ruta: str) -> dict:
+        """Alias de obtener_vista_previa para la interfaz JavaScript (HU-04)."""
+        return self.obtener_vista_previa(ruta)
+
     def start_run(self, folder_path: str, profile: str = "deep") -> dict:
         """Inicia la corrida del sistema sobre el proyecto seleccionado."""
         print(f"[Python] Iniciando corrida en '{folder_path}' con perfil '{profile}'")
