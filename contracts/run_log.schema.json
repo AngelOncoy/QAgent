@@ -1,0 +1,198 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "run_log.schema.json",
+  "title": "run_log",
+  "description": "Archivos de una corrida en .pyagent/runs/<run_id>/: log.json (cada llamada a la IA, tipo 'log') y results.json (métricas por función, tipo 'results').",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "version",
+    "tipo",
+    "run_id",
+    "fecha",
+    "proyecto",
+    "perfil",
+    "modelos",
+    "estado_final",
+    "motivo_fallo",
+    "es_simulado"
+  ],
+  "properties": {
+    "version": { "const": "1" },
+    "tipo": { "enum": ["log", "results"] },
+    "run_id": {
+      "type": "string",
+      "pattern": "^[0-9]{8}-[0-9]{6}-[0-9a-f]{4}$",
+      "description": "AAAAMMDD-HHMMSS-xxxx; es también el nombre de la carpeta de la corrida."
+    },
+    "fecha": { "type": "string", "minLength": 1, "description": "Inicio de la corrida, ISO 8601." },
+    "proyecto": { "type": "string", "minLength": 1 },
+    "perfil": { "type": "string", "minLength": 1 },
+    "modelos": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["planner", "generator", "reviewer"],
+      "properties": {
+        "planner": { "$ref": "#/$defs/modelo" },
+        "generator": { "$ref": "#/$defs/modelo" },
+        "reviewer": { "$ref": "#/$defs/modelo" }
+      }
+    },
+    "estado_final": { "enum": ["fin", "fallo_controlado"] },
+    "motivo_fallo": { "type": ["string", "null"] },
+    "es_simulado": { "type": "boolean", "description": "true si todas las llamadas usaron la IA simulada." },
+    "llamadas": { "type": "array", "items": { "$ref": "#/$defs/llamada" } },
+    "totales_por_agente": {
+      "type": "object",
+      "propertyNames": { "$ref": "#/$defs/agente" },
+      "additionalProperties": { "$ref": "#/$defs/total_agente" }
+    },
+    "total_tokens": { "type": "integer", "minimum": 0 },
+    "total_costo_usd": { "type": "number", "minimum": 0 },
+    "objetivos": { "type": "array", "items": { "$ref": "#/$defs/objetivo" } },
+    "resumen": { "$ref": "#/$defs/resumen" }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "tipo": { "const": "log" } } },
+      "then": {
+        "required": ["llamadas", "totales_por_agente", "total_tokens", "total_costo_usd"],
+        "properties": { "objetivos": false, "resumen": false }
+      }
+    },
+    {
+      "if": { "properties": { "tipo": { "const": "results" } } },
+      "then": {
+        "required": ["objetivos", "resumen"],
+        "properties": { "llamadas": false, "totales_por_agente": false, "total_tokens": false, "total_costo_usd": false }
+      }
+    }
+  ],
+  "$defs": {
+    "agente": { "enum": ["planner", "generator", "reviewer"] },
+    "tokens": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["prompt_tokens", "completion_tokens"],
+      "properties": {
+        "prompt_tokens": { "type": "integer", "minimum": 0 },
+        "completion_tokens": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "modelo": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["proveedor", "modelo", "precio_entrada_usd_m", "precio_salida_usd_m"],
+      "properties": {
+        "proveedor": { "type": "string", "minLength": 1 },
+        "modelo": { "type": "string", "minLength": 1 },
+        "precio_entrada_usd_m": { "type": "number", "minimum": 0 },
+        "precio_salida_usd_m": { "type": "number", "minimum": 0 }
+      }
+    },
+    "llamada": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "agente",
+        "funcion",
+        "intento",
+        "modelo",
+        "prompt_tokens",
+        "completion_tokens",
+        "costo_usd",
+        "es_simulado",
+        "hora"
+      ],
+      "properties": {
+        "agente": { "$ref": "#/$defs/agente" },
+        "funcion": { "type": ["string", "null"], "description": "null en las llamadas del Planner (planifica el módulo completo)." },
+        "intento": { "type": ["integer", "null"], "minimum": 1, "maximum": 3 },
+        "modelo": { "type": "string", "minLength": 1 },
+        "prompt_tokens": { "type": "integer", "minimum": 0 },
+        "completion_tokens": { "type": "integer", "minimum": 0 },
+        "costo_usd": { "type": "number", "minimum": 0 },
+        "es_simulado": { "type": "boolean" },
+        "hora": { "type": "string", "minLength": 1 }
+      }
+    },
+    "total_agente": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["prompt_tokens", "completion_tokens", "costo_usd", "llamadas"],
+      "properties": {
+        "prompt_tokens": { "type": "integer", "minimum": 0 },
+        "completion_tokens": { "type": "integer", "minimum": 0 },
+        "costo_usd": { "type": "number", "minimum": 0 },
+        "llamadas": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "objetivo": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["modulo", "funcion", "critical", "decision", "metricas"],
+      "properties": {
+        "modulo": { "type": "string", "minLength": 1 },
+        "funcion": { "type": "string", "minLength": 1 },
+        "critical": { "type": "boolean" },
+        "decision": {
+          "enum": ["accept", "bug_detectado", "stalled", null],
+          "description": "null si la corrida terminó en fallo controlado antes del veredicto."
+        },
+        "metricas": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "paso",
+            "cobertura_lineas",
+            "cobertura_ramas",
+            "iteraciones",
+            "tokens_por_agente",
+            "mutation_score"
+          ],
+          "properties": {
+            "paso": { "type": "boolean", "description": "Pass Rate de la función: el último test corrió sin error en el sandbox." },
+            "cobertura_lineas": { "type": ["number", "null"], "minimum": 0, "maximum": 100 },
+            "cobertura_ramas": { "type": ["number", "null"], "minimum": 0, "maximum": 100 },
+            "iteraciones": { "type": "integer", "minimum": 0, "maximum": 3 },
+            "tokens_por_agente": {
+              "type": "object",
+              "propertyNames": { "$ref": "#/$defs/agente" },
+              "additionalProperties": { "$ref": "#/$defs/tokens" }
+            },
+            "mutation_score": {
+              "type": ["number", "null"],
+              "minimum": 0,
+              "maximum": 100,
+              "description": "Solo funciones critical: true; null hasta que EN-09 ejecute mutmut."
+            }
+          }
+        }
+      }
+    },
+    "resumen": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "total_funciones",
+        "aceptadas",
+        "bugs_detectados",
+        "stalled",
+        "sin_veredicto",
+        "pass_rate",
+        "cobertura_lineas_promedio",
+        "costo_total_usd"
+      ],
+      "properties": {
+        "total_funciones": { "type": "integer", "minimum": 0 },
+        "aceptadas": { "type": "integer", "minimum": 0 },
+        "bugs_detectados": { "type": "integer", "minimum": 0 },
+        "stalled": { "type": "integer", "minimum": 0 },
+        "sin_veredicto": { "type": "integer", "minimum": 0 },
+        "pass_rate": { "type": "number", "minimum": 0, "maximum": 100, "description": "% de funciones cuyo último test pasó." },
+        "cobertura_lineas_promedio": { "type": ["number", "null"], "minimum": 0, "maximum": 100 },
+        "costo_total_usd": { "type": "number", "minimum": 0 }
+      }
+    }
+  }
+}

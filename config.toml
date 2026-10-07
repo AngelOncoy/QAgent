@@ -10,8 +10,7 @@ tope_semestre_usd = 25.00
 max_intentos = 3
 
 [agentes.planner]
-# Fase de arranque (primeras corridas de EV-01): usar MiMo para medir a bajo costo.
-# Al cumplir el criterio del ADR-001, cambiar a Claude Opus 5.5 (bloque comentado abajo).
+
 proveedor = "xiaomi"
 modelo = "mimo-v2.6-pro"         # verificar el ID exacto en la consola de Xiaomi
 precio_entrada_usd_m = 0.435
