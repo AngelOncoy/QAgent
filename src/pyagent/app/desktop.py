@@ -17,11 +17,11 @@ class DesktopAPI:
     """Puente de comunicación entre la interfaz JS y el backend Python."""
 
     def __init__(self) -> None:
-        self.window: webview.Window | None = None
+        self._window: webview.Window | None = None
 
     def set_window(self, window: webview.Window) -> None:
         """Asigna la instancia de la ventana activa."""
-        self.window = window
+        self._window = window
 
     def select_folder(self) -> str | None:
         """Abre el diálogo nativo del sistema operativo para seleccionar una carpeta.
@@ -29,11 +29,11 @@ class DesktopAPI:
         Returns:
             str | None: Ruta absoluta de la carpeta seleccionada, o None si se canceló.
         """
-        if not self.window:
+        if not self._window:
             return None
 
         # webview.FOLDER_DIALOG abre el selector de carpetas nativo (Windows/Linux/Mac)
-        result = self.window.create_file_dialog(webview.FOLDER_DIALOG)
+        result = self._window.create_file_dialog(webview.FOLDER_DIALOG)
         if result and len(result) > 0:
             folder_path = result[0]
             print(f"[Python] Carpeta seleccionada: {folder_path}")
@@ -175,12 +175,12 @@ class DesktopAPI:
             event_type: Nombre del evento ('log', 'progress', etc.).
             data: Carga útil con la información del evento.
         """
-        if self.window:
+        if self._window:
             # Invoca la función receptora definida en el window de JavaScript
             import json
 
             payload = json.dumps({"type": event_type, "data": data})
-            self.window.evaluate_js(
+            self._window.evaluate_js(
                 f"window.onPyAgentEvent && window.onPyAgentEvent({payload});"
             )
 
