@@ -1,0 +1,66 @@
+{
+  "version": "1",
+  "tipo": "results",
+  "run_id": "20261007-153012-a1b2",
+  "fecha": "2026-10-07T15:30:12-05:00",
+  "proyecto": "C:/Users/dev/tienda",
+  "perfil": "deep",
+  "modelos": {
+    "planner": {
+      "proveedor": "xiaomi",
+      "modelo": "mimo-v2.6-pro",
+      "precio_entrada_usd_m": 0.435,
+      "precio_salida_usd_m": 0.87
+    },
+    "generator": {
+      "proveedor": "xiaomi",
+      "modelo": "mimo-v2.6-pro",
+      "precio_entrada_usd_m": 0.435,
+      "precio_salida_usd_m": 0.87
+    },
+    "reviewer": {
+      "proveedor": "openai",
+      "modelo": "gpt-6-luna",
+      "precio_entrada_usd_m": 0.1,
+      "precio_salida_usd_m": 0.5
+    }
+  },
+  "estado_final": "fin",
+  "motivo_fallo": null,
+  "es_simulado": true,
+  "objetivos": [
+    {
+      "modulo": "modulo_simulado.py",
+      "funcion": "duplicar",
+      "critical": false,
+      "decision": "accept",
+      "metricas": {
+        "paso": true,
+        "cobertura_lineas": 100.0,
+        "cobertura_ramas": 100.0,
+        "iteraciones": 2,
+        "tokens_por_agente": {
+          "generator": {
+            "prompt_tokens": 1600,
+            "completion_tokens": 600
+          },
+          "reviewer": {
+            "prompt_tokens": 1200,
+            "completion_tokens": 200
+          }
+        },
+        "mutation_score": null
+      }
+    }
+  ],
+  "resumen": {
+    "total_funciones": 1,
+    "aceptadas": 1,
+    "bugs_detectados": 0,
+    "stalled": 0,
+    "sin_veredicto": 0,
+    "pass_rate": 100.0,
+    "cobertura_lineas_promedio": 100.0,
+    "costo_total_usd": 0.0024385
+  }
+}

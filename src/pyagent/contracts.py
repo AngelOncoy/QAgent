@@ -18,7 +18,8 @@ DIR_CONTRATOS = Path(__file__).resolve().parents[2] / "contracts"
 PLANNER = "planner_contract.v2"
 GENERATED_TEST = "generated_test"
 REVIEW_RESULT = "review_result"
-CONTRATOS = (PLANNER, GENERATED_TEST, REVIEW_RESULT)
+RUN_LOG = "run_log"
+CONTRATOS = (PLANNER, GENERATED_TEST, REVIEW_RESULT, RUN_LOG)
 
 
 class ContratoInvalido(ValueError):

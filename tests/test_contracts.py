@@ -15,6 +15,7 @@ from pyagent.contracts import (
     GENERATED_TEST,
     PLANNER,
     REVIEW_RESULT,
+    RUN_LOG,
     ContratoInvalido,
     cargar_schema,
     es_valido,
@@ -37,9 +38,23 @@ def test_schema_es_json_schema_valido(nombre: str) -> None:
     Draft202012Validator.check_schema(cargar_schema(nombre))
 
 
-@pytest.mark.parametrize("nombre", CONTRATOS)
-def test_ejemplo_cumple_su_contrato(nombre: str) -> None:
-    dato = ejemplo(nombre)
+# (contrato, archivo de contracts/ejemplos/): run_log tiene un ejemplo por tipo.
+EJEMPLOS = [
+    (PLANNER, PLANNER),
+    (GENERATED_TEST, GENERATED_TEST),
+    (REVIEW_RESULT, REVIEW_RESULT),
+    (RUN_LOG, "run_log.log"),
+    (RUN_LOG, "run_log.results"),
+]
+
+
+def test_cada_contrato_tiene_ejemplo() -> None:
+    assert {contrato for contrato, _ in EJEMPLOS} == set(CONTRATOS)
+
+
+@pytest.mark.parametrize(("nombre", "archivo"), EJEMPLOS)
+def test_ejemplo_cumple_su_contrato(nombre: str, archivo: str) -> None:
+    dato = ejemplo(archivo)
     assert validar(nombre, dato) is dato
 
 

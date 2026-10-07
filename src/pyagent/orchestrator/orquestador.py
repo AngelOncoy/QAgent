@@ -140,6 +140,7 @@ class Orquestador:
             self._transicionar(Estado.FALLO_CONTROLADO, funcion)
             self._emitir("orquestador", funcion, f"Fallo controlado: {motivo}", "fallo")
 
+        self.tracker.fijar_contexto(None, None)
         return ResultadoCorrida(
             modulo=self._archivo or "",
             estado_final=self._estado,
@@ -154,6 +155,7 @@ class Orquestador:
 
     def _planificar(self, modulo: dict[str, Any]) -> list[Contrato]:
         self._emitir("planner", None, "Planificando módulo")
+        self.tracker.fijar_contexto(None, None)  # el plan es por módulo
         plan = self._llamar("planner", self.planner.planificar, modulo)
         if not isinstance(plan, list):
             raise FalloControlado("El Planner no devolvió una lista de contratos")
@@ -205,6 +207,7 @@ class Orquestador:
     ) -> Contrato:
         objetivo = contrato["objetivo"]
         self._emitir("generator", objetivo, f"Generando test (intento {intento})")
+        self.tracker.fijar_contexto(objetivo, intento)
         test = self._llamar(
             "generator", self.generator.generar, contrato, intento, feedback
         )
@@ -219,6 +222,7 @@ class Orquestador:
         self._emitir(
             "reviewer", objetivo, f"Ejecutando en sandbox (intento {test['intento']})"
         )
+        self.tracker.fijar_contexto(objetivo, test["intento"])
         revision = self._llamar(
             "reviewer", self.reviewer.revisar, contrato, test, test_anterior
         )
