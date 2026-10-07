@@ -33,6 +33,13 @@ EXCLUIDOS_DE_LA_COPIA = (
     "node_modules",
     ".env",
     ".env.*",
+    # Otros archivos de credenciales que nunca deben entrar al contenedor (HU-13).
+    "*.pem",
+    "*.key",
+    "id_rsa*",
+    "id_ed25519*",
+    ".netrc",
+    ".pypirc",
 )
 
 DIR_PROYECTO = "/work/proyecto"
@@ -48,7 +55,8 @@ AlTerminar = Callable[[Path, Path], None]
 def copiar_proyecto(ruta_proyecto: str | Path, destino: str | Path) -> Path:
     """Copia el proyecto a `destino` sin carpetas pesadas ni secretos.
 
-    Excluye `.git`, entornos virtuales, `.pyagent`, cachés, `node_modules` y archivos `.env`.
+    Excluye `.git`, entornos virtuales, `.pyagent`, cachés, `node_modules`, archivos `.env`
+    y otros archivos de credenciales (llaves `.pem`/`.key`/SSH, `.netrc`, `.pypirc`).
     Los enlaces simbólicos se copian como enlaces, sin seguirlos.
 
     Args:
@@ -186,6 +194,27 @@ def ejecutar_pruebas(
         entorno={"COVERAGE_FILE": f"{DIR_SALIDA}/.coverage"},
         cliente=cliente,
     )
+
+
+def clasificar_resultado(resultado: ResultadoSandbox) -> str:
+    """Traduce un resultado del sandbox al `estado_sandbox` del contrato review_result.
+
+    Args:
+        resultado: resultado devuelto por `ejecutar_en_sandbox` o `ejecutar_pruebas`.
+
+    Returns:
+        "timeout", "oom", "ok" (pytest pasó), "fallo" (pytest falló, código 1) o
+        "error" (cualquier otro código: error de colección, uso o interno).
+    """
+    if resultado.timed_out:
+        return "timeout"
+    if resultado.oom_killed:
+        return "oom"
+    if resultado.exit_code == 0:
+        return "ok"
+    if resultado.exit_code == 1:
+        return "fallo"
+    return "error"
 
 
 def _crear_contenedor(
