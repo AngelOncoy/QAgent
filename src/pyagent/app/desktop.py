@@ -2,6 +2,7 @@
 
 import os
 import sys
+from pathlib import Path
 
 import webview
 
@@ -11,6 +12,9 @@ if _SRC not in sys.path:
     sys.path.insert(0, _SRC)
 
 from pyagent.app import proyecto_local, recientes
+
+# Interfaz web (HTML/CSS/JS), separada del backend: <raíz del repo>/frontend/
+FRONTEND_DIR = Path(__file__).resolve().parents[3] / "frontend"
 
 
 class DesktopAPI:
@@ -217,16 +221,12 @@ class DesktopAPI:
 
 def main() -> None:
     """Punto de entrada de la aplicación de escritorio."""
-    html_path = os.path.join(
-        os.path.dirname(__file__),
-        "ui",
-        "index.html",  # Asegúrate de que coincida con el nombre de tu archivo
-    )
+    html_path = str(FRONTEND_DIR / "index.html")
 
     api = DesktopAPI()
 
     window = webview.create_window(
-        title="PyAgent — Autonomous Test Engine",
+        title="QAgent — Autonomous Test Engine",
         url=html_path,
         js_api=api,
         width=1400,

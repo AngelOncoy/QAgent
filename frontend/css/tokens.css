@@ -1,0 +1,28 @@
+/* tokens.css — ÚNICA fuente de verdad visual de QAgent.
+   Para cambiar colores, tipografía o logo se edita solo este archivo. */
+
+:root{
+  --bg:#0a0f1c; --side:#0d1424; --panel:#111a2d; --panel2:#0f1729; --inset:#0b1222;
+  --line:#1f2a40; --line2:#2a3854; --txt:#e2e8f0; --mut:#8b9ab4; --dim:#5b6a86;
+  --blue:#3b82f6; --blue-t:#93c5fd; --blue-s:#172c55;
+  --purple:#a855f7; --purple-t:#d8b4fe; --purple-s:#2f1a4d;
+  --green:#22c55e; --green-t:#86efac; --green-s:#0f3322;
+  --red:#f43f5e; --red-t:#fda4af; --red-s:#3a0f1c;
+  --amber:#f59e0b; --amber-t:#fcd34d; --amber-s:#3a2708;
+  --mono:var(--fuente-mono); --sans:var(--fuente-ui);
+}
+
+/* Marca (tomada del logo: assets/logo/) */
+:root{
+  --marca-1:#e6b8f2; --marca-2:#9d8cf7; --marca-3:#3f63ff;
+  --marca-gradiente:linear-gradient(135deg,var(--marca-1),var(--marca-3));
+  --fondo-marca:#0a0524;
+  --logo-icono:url('../assets/logo/qagent-icono.svg');
+  --logo-completo:url('../assets/logo/qagent-logo.svg');
+}
+
+/* Tipografía */
+:root{
+  --fuente-ui:'Inter',system-ui,sans-serif;
+  --fuente-mono:'JetBrains Mono',ui-monospace,Consolas,monospace;
+}
