@@ -77,7 +77,7 @@ Para ver solo la interfaz, sin Python, abre `frontend/index.html` en el navegado
 
 ## Personalizar la interfaz
 
-La interfaz (`frontend/`) es HTML, CSS y JavaScript sin compilación, con un componente por pantalla. Colores, tipografía y logo se cambian en un solo lugar, `frontend/css/tokens.css`, y el logo vive en `frontend/assets/logo/`. La guía completa (estructura, cómo agregar un componente, qué falta migrar a tokens) está en [`frontend/README.md`](frontend/README.md).
+La interfaz (`frontend/`) es HTML, CSS y JavaScript sin compilación, con un componente por pantalla. Colores, tipografía y logo se cambian en un solo lugar, `frontend/css/tokens.css`, y el logo vive en `frontend/assets/logo/`. La guía completa (estructura, cómo agregar un componente, reglas de los tokens de color) está en [`frontend/README.md`](frontend/README.md).
 
 ## Estructura del repositorio
 

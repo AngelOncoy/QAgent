@@ -96,3 +96,62 @@ def test_no_quedan_colores_de_marca_sueltos_en_el_logo_de_la_barra_lateral() -> 
     )
     assert 'class="logo"' in html
     assert "<svg" not in html.split('class="logo"')[1].split("</div>")[0]
+
+
+# ---------- colores: todo vive en css/tokens.css ----------
+
+_COLOR = re.compile(
+    r"#[0-9a-fA-F]{8}\b|#[0-9a-fA-F]{6}\b|#[0-9a-fA-F]{3}\b|rgba?\([^)]*\)|hsla?\([^)]*\)"
+)
+_BASE64 = re.compile(r"base64,[A-Za-z0-9+/=]+")
+
+
+def _archivos_de_interfaz() -> list[Path]:
+    """CSS, JS y HTML del frontend, salvo tokens.css y los recursos (assets/)."""
+    return [
+        p
+        for p in FRONTEND.rglob("*")
+        if p.suffix in {".css", ".js", ".html"}
+        and p.name != "tokens.css"
+        and "assets" not in p.relative_to(FRONTEND).parts
+    ]
+
+
+def test_no_hay_colores_sueltos_fuera_de_tokens() -> None:
+    """Colores hexadecimales, rgb() o hsl() solo en css/tokens.css; los demás usan var(--token)."""
+    sueltos = []
+    for archivo in _archivos_de_interfaz():
+        texto = _BASE64.sub("", archivo.read_text(encoding="utf-8"))
+        for color in _COLOR.findall(texto):
+            sueltos.append(f"{archivo.relative_to(FRONTEND).as_posix()}: {color}")
+    assert sueltos == []
+
+
+def test_todo_token_usado_esta_definido_en_tokens_css() -> None:
+    """Cada var(--x) sin valor alternativo apunta a una variable declarada en tokens.css."""
+    tokens = (FRONTEND / "css" / "tokens.css").read_text(encoding="utf-8")
+    definidos = set(re.findall(r"(--[a-z0-9-]+)\s*:", tokens))
+    usados: dict[str, str] = {}
+    for archivo in _archivos_de_interfaz() + [FRONTEND / "css" / "tokens.css"]:
+        texto = _BASE64.sub("", archivo.read_text(encoding="utf-8"))
+        for token in re.findall(r"var\((--[a-z0-9-]+)\s*\)", texto):
+            usados.setdefault(token, archivo.relative_to(FRONTEND).as_posix())
+    indefinidos = {t: a for t, a in usados.items() if t not in definidos}
+    assert indefinidos == {}
+
+
+def test_los_estados_de_la_corrida_definen_su_halo_como_token() -> None:
+    """No se concatenan sufijos de opacidad a un color: cada estado trae su halo (--*-a20)."""
+    datos = (FRONTEND / "js" / "datos-corrida.js").read_text(encoding="utf-8")
+    estados = re.findall(
+        r"^\s{2}(\w+):\{c:'var\(--[a-z0-9-]+\)', halo:'var\(--[a-z0-9-]+-a20\)'",
+        datos,
+        re.MULTILINE,
+    )
+    assert sorted(estados) == [
+        "low_mutation",
+        "passed",
+        "rejected_laundering",
+        "rejected_oracle",
+        "stuck",
+    ]

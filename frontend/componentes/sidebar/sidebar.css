@@ -11,14 +11,14 @@ aside{width:236px;background:var(--side);border-right:1px solid var(--line);disp
 .seq .it .pill{margin-left:auto}
 nav a{display:flex;align-items:center;gap:10px;margin:2px 8px;padding:9px 10px;border-radius:8px;color:var(--mut);cursor:pointer;font-size:12.5px;text-decoration:none}
 nav a:hover{background:var(--panel)}
-nav a.on{background:var(--blue);color:#fff}
+nav a.on{background:var(--blue);color:var(--white)}
 nav a.off{opacity:.4;cursor:not-allowed}
 nav a .pill{margin-left:auto}
-nav a.on .pill{background:rgba(255,255,255,.16);color:#fff;border-color:transparent}
+nav a.on .pill{background:var(--white-a16);color:var(--white);border-color:transparent}
 .sidefoot{margin-top:auto}
 .runner{margin:12px;padding:10px;border:1px solid var(--line);border-radius:8px;background:var(--panel2);font-size:11px}
 .runner .row{display:flex;justify-content:space-between;gap:6px;margin:2px 0;color:var(--mut);white-space:nowrap}
 .runner b{color:var(--txt);font-weight:600}
 .runner .sbhelp{align-items:center}
-.runner .sbhelp button{font-family:var(--mono);font-size:10px;padding:2px 8px;border-radius:5px;border:1px solid #6b1d31;background:var(--red-s);color:var(--red-t);cursor:pointer}
+.runner .sbhelp button{font-family:var(--mono);font-size:10px;padding:2px 8px;border-radius:5px;border:1px solid var(--red-b);background:var(--red-s);color:var(--red-t);cursor:pointer}
 .sidebottom{display:flex;justify-content:space-between;padding:12px 16px;border-top:1px solid var(--line);color:var(--mut);font-size:11.5px}

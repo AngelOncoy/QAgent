@@ -6,7 +6,7 @@
 .actions{display:flex;gap:30px;margin-top:38px}
 .action{display:flex;flex-direction:column;align-items:center;gap:12px;cursor:pointer;background:none;border:0;color:var(--txt);font-family:var(--mono);font-size:12px}
 .action .ico{width:64px;height:64px;border-radius:12px;display:grid;place-items:center;border:1px solid var(--line2);background:var(--panel);transition:.15s}
-.action:hover .ico{transform:translateY(-2px);border-color:var(--blue);box-shadow:0 6px 24px rgba(59,130,246,.25)}
+.action:hover .ico{transform:translateY(-2px);border-color:var(--blue);box-shadow:0 6px 24px var(--blue-500-a25)}
 .action small{color:var(--dim);font-size:10px;max-width:150px;line-height:1.4}
 .recents{width:560px;max-width:100%;margin-top:40px;text-align:left}
 .recents h3{font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--dim);margin-bottom:8px}

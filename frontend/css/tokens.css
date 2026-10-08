@@ -3,12 +3,12 @@
 
 :root{
   --bg:#0a0f1c; --side:#0d1424; --panel:#111a2d; --panel2:#0f1729; --inset:#0b1222;
-  --line:#1f2a40; --line2:#2a3854; --txt:#e2e8f0; --mut:#8b9ab4; --dim:#5b6a86;
-  --blue:#3b82f6; --blue-t:#93c5fd; --blue-s:#172c55;
-  --purple:#a855f7; --purple-t:#d8b4fe; --purple-s:#2f1a4d;
-  --green:#22c55e; --green-t:#86efac; --green-s:#0f3322;
-  --red:#f43f5e; --red-t:#fda4af; --red-s:#3a0f1c;
-  --amber:#f59e0b; --amber-t:#fcd34d; --amber-s:#3a2708;
+  --line:#1f2a40; --line2:#2a3854; --txt:var(--slate-200); --mut:var(--slate-300-c); --dim:#5b6a86;
+  --blue:var(--blue-500); --blue-t:var(--blue-300); --blue-s:#172c55;
+  --purple:var(--purple-500); --purple-t:var(--purple-300); --purple-s:#2f1a4d;
+  --green:#22c55e; --green-t:var(--green-300); --green-s:#0f3322;
+  --red:var(--rose-500); --red-t:var(--rose-300); --red-s:#3a0f1c;
+  --amber:var(--amber-500); --amber-t:var(--amber-300); --amber-s:#3a2708;
   --mono:var(--fuente-mono); --sans:var(--fuente-ui);
 }
 
@@ -25,4 +25,54 @@
 :root{
   --fuente-ui:'Inter',system-ui,sans-serif;
   --fuente-mono:'JetBrains Mono',ui-monospace,Consolas,monospace;
+}
+
+/* Paleta: todos los colores que usan los componentes (valores de la paleta de Tailwind y propios del proyecto).
+   Los sufijos -aNN son el mismo color con NN % de opacidad y -c marca un valor propio, fuera de Tailwind.
+   Los tokens de estructura de arriba (--blue-t, --red-t…) apuntan a estos cuando el valor coincide. */
+:root{
+  --white:#ffffff;
+  --white-a02:rgba(255,255,255,0.02); --white-a16:rgba(255,255,255,0.16);
+  --black-a35:rgba(0,0,0,0.35); --black-a50:rgba(0,0,0,0.5); --black-a60:rgba(0,0,0,0.6);
+  --slate-200:#e2e8f0; --slate-300:#cbd5e1; --slate-300-c:#8b9ab4; --slate-400:#94a3b8; --slate-500:#64748b;
+  --slate-600:#475569; --slate-700:#334155; --slate-800:#1e293b; --slate-900:#0f172a; --slate-950:#020617;
+  --slate-800-a25:rgba(30,41,59,0.25); --slate-800-a50:rgba(30,41,59,0.5); --slate-900-a90:rgba(15,23,42,0.9);
+  --slate-950-a60:rgba(2,6,23,0.6); --slate-950-a90:rgba(2,6,23,0.9);
+  --red-b:#6b1d31; --red-200:#fecaca; --red-400:#f87171; --red-600:#dc2626;
+  --red-900-a60:rgba(127,29,29,0.6);
+  --rose-100:#ffe4e6; --rose-200:#fecdd3; --rose-300:#fda4af; --rose-400:#fb7185; --rose-500:#f43f5e;
+  --rose-600:#e11d48; --rose-700:#be123c; --rose-800:#9f1239; --rose-950:#4c0519;
+  --rose-200-a90:rgba(254,205,211,0.9); --rose-500-a20:rgba(244,63,94,0.2); --rose-500-a40:rgba(244,63,94,0.4); --rose-800-a60:rgba(159,18,57,0.6);
+  --rose-800-a80:rgba(159,18,57,0.8); --rose-900-a40:rgba(136,19,55,0.4); --rose-900-a50:rgba(136,19,55,0.5);
+  --rose-900-a70:rgba(136,19,55,0.7); --rose-900-a90:rgba(136,19,55,0.9); --rose-950-a30:rgba(76,5,25,0.3);
+  --rose-950-a40:rgba(76,5,25,0.4); --rose-950-a50:rgba(76,5,25,0.5); --rose-950-a80:rgba(76,5,25,0.8);
+  --rose-950-a90:rgba(76,5,25,0.9);
+  --orange-100:#ffedd5; --orange-200:#fed7aa; --orange-300:#fdba74; --orange-400:#fb923c; --orange-400-c:#d97757;
+  --orange-500:#f97316; --orange-700:#c2410c; --orange-950:#431407;
+  --orange-500-a20:rgba(249,115,22,0.2); --orange-700-a80:rgba(194,65,12,0.8); --orange-900-a90:rgba(124,45,18,0.9); --orange-950-a40:rgba(67,20,7,0.4);
+  --orange-950-a80:rgba(67,20,7,0.8);
+  --amber-b:#6b4a10; --amber-300:#fcd34d; --amber-400:#fbbf24; --amber-500:#f59e0b; --amber-700:#b45309;
+  --amber-800:#92400e; --amber-950:#451a03;
+  --amber-500-a20:rgba(245,158,11,0.2); --amber-800-a60:rgba(146,64,14,0.6); --amber-800-a80:rgba(146,64,14,0.8); --amber-950-a35:rgba(69,26,3,0.35);
+  --amber-950-a40:rgba(69,26,3,0.4); --amber-950-a80:rgba(69,26,3,0.8);
+  --green-b:#1b5a3a; --green-300:#86efac;
+  --emerald-300:#6ee7b7; --emerald-400:#34d399; --emerald-500:#10b981; --emerald-600:#059669;
+  --emerald-500-a20:rgba(16,185,129,0.2); --emerald-500-a30:rgba(16,185,129,0.3);
+  --emerald-700-a60:rgba(4,120,87,0.6); --emerald-800-a50:rgba(6,95,70,0.5); --emerald-800-a80:rgba(6,95,70,0.8);
+  --emerald-950-a20:rgba(2,44,34,0.2); --emerald-950-a80:rgba(2,44,34,0.8);
+  --teal-400:#2dd4bf;
+  --blue-b:#24457f; --blue-300:#93c5fd; --blue-400:#60a5fa; --blue-500:#3b82f6; --blue-600:#2563eb;
+  --blue-900-c:#080d19;
+  --blue-500-a06:rgba(59,130,246,0.06); --blue-500-a25:rgba(59,130,246,0.25); --blue-700-c-a70:rgba(31,42,64,0.7);
+  --blue-800-a40:rgba(30,64,175,0.4); --blue-800-a60:rgba(30,64,175,0.6); --blue-900-c-a70:rgba(8,13,25,0.7);
+  --blue-950-a60:rgba(23,37,84,0.6); --blue-950-a80:rgba(23,37,84,0.8); --blue-950-c-a72:rgba(3,7,18,0.72);
+  --indigo-400:#818cf8; --indigo-500:#6366f1;
+  --indigo-950-a60:rgba(30,27,75,0.6);
+  --purple-b:#4b2a78; --purple-300:#d8b4fe; --purple-400:#c084fc; --purple-500:#a855f7; --purple-900-c:#140d1a;
+  --purple-800-a40:rgba(107,33,168,0.4); --purple-950-a60:rgba(59,7,100,0.6);
+  --fuchsia-200:#f5d0fe; --fuchsia-300:#f0abfc; --fuchsia-400:#e879f9; --fuchsia-500:#d946ef; --fuchsia-600:#c026d3;
+  --fuchsia-700:#a21caf; --fuchsia-800:#86198f; --fuchsia-900-c:#1a0b1c; --fuchsia-900-c2:#1a0d18;
+  --fuchsia-500-a20:rgba(217,70,239,0.2); --fuchsia-950-a35:rgba(74,4,78,0.35); --fuchsia-950-a40:rgba(74,4,78,0.4); --fuchsia-950-a50:rgba(74,4,78,0.5);
+  --fuchsia-950-a60:rgba(74,4,78,0.6); --fuchsia-950-a80:rgba(74,4,78,0.8);
+  --pink-400:#f472b6;
 }

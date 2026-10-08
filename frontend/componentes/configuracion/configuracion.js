@@ -48,7 +48,7 @@ reintentos_max = 3                  # regla del proyecto, no se cambia
 `);
 
 function renderConfig(){
-  $('cfgAgents').innerHTML = ['P','G','R'].map(k => `<tr><td><b style="color:${{P:'#93c5fd',G:'#d8b4fe',R:'#86efac'}[k]}">${AGENTS_CFG[k].name}</b></td><td>${AGENTS_CFG[k].model}</td><td class="mono">US$ ${AGENTS_CFG[k].price.toFixed(2)}</td><td style="font-size:12px;color:var(--mut)">${AGENTS_CFG[k].why}</td></tr>`).join('');
+  $('cfgAgents').innerHTML = ['P','G','R'].map(k => `<tr><td><b style="color:${{P:'var(--blue-300)',G:'var(--purple-300)',R:'var(--green-300)'}[k]}">${AGENTS_CFG[k].name}</b></td><td>${AGENTS_CFG[k].model}</td><td class="mono">US$ ${AGENTS_CFG[k].price.toFixed(2)}</td><td style="font-size:12px;color:var(--mut)">${AGENTS_CFG[k].why}</td></tr>`).join('');
   $('cfgLimits').innerHTML = `
     <div class="c"><span class="i ok">✓</span><div><b>Tope de gasto: S/ ${TOPE_PEN.toFixed(2)} por corrida</b><div class="hint" style="margin:0">La corrida no inicia si el costo estimado lo supera, y se detiene si el gasto real lo alcanza.</div></div></div>
     <div class="c"><span class="i ok">✓</span><div><b>Reintentos: ${MAX_RETRIES} por prueba</b><div class="hint" style="margin:0">Corte anticipado si el mismo error se repite dos veces seguidas.</div></div></div>

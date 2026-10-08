@@ -22,7 +22,7 @@ Además:
 1. **Frontend fuera del backend.** La interfaz pasa a `frontend/` en la raíz. `src/pyagent/` queda como backend; `desktop.py` solo la carga (`FRONTEND_DIR`).
 2. **Un componente por pantalla o modal**, en `frontend/componentes/<carpeta>/`, con su JavaScript (que incluye su HTML como plantilla y se registra con `registrarComponente`) y, si hace falta, su CSS. `index.html` queda como esqueleto con marcadores `data-componente`.
 3. **Scripts clásicos, sin bundler ni módulos ES.** Todos los scripts comparten el ámbito global y su orden de carga es explícito en `index.html`.
-4. **Tokens de diseño en `frontend/css/tokens.css`**: estructura, paleta, marca, tipografía y rutas del logo. El logo se vectoriza en `frontend/assets/logo/`.
+4. **Tokens de diseño en `frontend/css/tokens.css`**: estructura, paleta, marca, tipografía y rutas del logo. Ningún componente escribe colores literales: todos usan `var(--token)`. El logo se vectoriza en `frontend/assets/logo/`.
 5. **Lógica de proyectos en `src/pyagent/proyectos/`** (`clonador`, `proyecto_local`, `recientes`, `vista_previa`), sin dependencia de pywebview. `app/` conserva solo `desktop.py`.
 6. **Pruebas que reflejan `src/`** (`tests/analysis`, `llm`, `proyectos`, `app`, …), sin `sys.path` manual; los marcadores `docker` y `red` se registran una vez en `pyproject.toml`; el runner `python test.py` ejecuta lint, formato y todas las pruebas con la IA simulada. `tests/frontend/` verifica la estructura del frontend.
 7. **`pyproject.toml`** con las dependencias, el extra `dev`, la configuración de pytest y ruff, y el script `qagent`. El paquete se instala en modo editable.
@@ -53,13 +53,13 @@ Además:
 - Los scripts comparten ámbito global: no hay aislamiento entre componentes y el orden de carga importa (lo vigila `tests/frontend/`).
 - El HTML vive dentro de plantillas JavaScript, sin resaltado de HTML en el editor; hay que escapar `` ` `` y `${`.
 - `--logo-icono` usa una ruta relativa a `css/`, por lo que la regla `.logo` debe permanecer en `css/layout.css`.
-- **Migración incompleta a tokens:** quedan unos 260 colores hexadecimales escritos directamente en CSS y JS de los componentes, que un cambio de paleta en `tokens.css` no alcanza.
+- **Colores solo como tokens.** Los 333 colores literales que había en los componentes (hexadecimales y `rgba`) pasaron a una paleta de unos 130 tokens en `tokens.css`, y una prueba (`tests/frontend/`) falla si reaparece uno. Costo: un truco como `` `${color}33` `` (opacidad en hexadecimal) ya no funciona con `var(--…)`; se usan tokens con opacidad (`-aNN`).
 - Las fuentes (Inter, JetBrains Mono) siguen cargándose desde Google Fonts; sin internet se usa la fuente del sistema.
 - El paquete requiere instalación editable: `config.toml` y `contracts/` se buscan relativos a la raíz del repositorio.
 - `python src/pyagent/app/desktop.py` ya no funciona sin instalar el paquete (`pip install -e .[dev]`); se usa `qagent` o `python -m pyagent`.
 
 ## 5. Seguimiento
 
-- Migrar los colores sueltos a variables de `tokens.css`.
 - Incluir las fuentes localmente.
+- Unificar la paleta: hoy hay valores casi iguales con nombres distintos (por ejemplo varios tonos de rojo y de rosa para estados) que podrían reducirse a un conjunto menor.
 - Valorar módulos ES si algún día se abandona `file://` como forma de abrir la demostración.

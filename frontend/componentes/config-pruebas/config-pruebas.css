@@ -28,11 +28,11 @@ table.cmp td.over{color:var(--red-t)}
 .fnblock{margin-bottom:14px}
 .fnblock .fh{display:flex;align-items:center;gap:10px;padding:10px 16px;border-bottom:1px solid var(--line);font-family:var(--mono);font-size:12.5px}
 .doc{font-family:var(--mono);font-size:11px;color:var(--mut);background:var(--inset);border-left:2px solid var(--blue);padding:8px 12px;margin:10px 16px;border-radius:0 6px 6px 0;white-space:pre-wrap}
-.draft{font-size:11px;color:var(--amber-t);background:var(--amber-s);border:1px solid #6b4a10;border-radius:7px;padding:8px 12px}
+.draft{font-size:11px;color:var(--amber-t);background:var(--amber-s);border:1px solid var(--amber-b);border-radius:7px;padding:8px 12px}
 
 
 .envok{display:flex;gap:12px;align-items:center}
 .envdet{margin-top:10px;font-size:12px}.envdet summary{cursor:pointer;color:var(--blue-t);font-size:11.5px}
 .eagents{display:flex;flex-wrap:wrap;gap:6px 14px;margin-top:12px;font-size:11.5px;color:var(--mut)}
 .eagents .ea{display:flex;align-items:center;gap:6px}.eagents .ea i{width:8px;height:8px;border-radius:2px;display:inline-block}
-.eagents .tope{flex-basis:100%;color:#cbd5e1}
+.eagents .tope{flex-basis:100%;color:var(--slate-300)}

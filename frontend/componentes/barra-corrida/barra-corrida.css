@@ -1,5 +1,5 @@
 /* barra-corrida.css — barra superior de la corrida: contexto, progreso y botón LIVE */
-.chip.done{border-color:#1b5a3a;background:var(--green-s);color:var(--green-t)}
+.chip.done{border-color:var(--green-b);background:var(--green-s);color:var(--green-t)}
 .chip .dot{background:var(--amber)}.chip.done .dot{background:var(--green)}
 .live.done{cursor:default;color:var(--green-t)}.live.done i{display:none}
 .mon-top .prog{display:flex;align-items:center;gap:12px;margin-left:auto}
@@ -8,7 +8,7 @@
 .mon-top .prog .num span{color:var(--dim)}
 .bar{width:140px;height:5px;background:var(--line);border-radius:4px;overflow:hidden;margin-top:5px}
 .bar i{display:block;height:100%;background:linear-gradient(90deg,var(--blue),var(--purple))}
-.live{font-family:var(--mono);font-size:11px;font-weight:600;color:var(--green-t);background:var(--green-s);border:1px solid #1b5a3a;border-radius:7px;padding:9px 14px;display:flex;gap:8px;align-items:center;letter-spacing:.05em}
+.live{font-family:var(--mono);font-size:11px;font-weight:600;color:var(--green-t);background:var(--green-s);border:1px solid var(--green-b);border-radius:7px;padding:9px 14px;display:flex;gap:8px;align-items:center;letter-spacing:.05em}
 .live{cursor:pointer}
 .live.paused{color:var(--mut);background:var(--panel);border-color:var(--line2)}
 .live.paused i{background:var(--dim);box-shadow:none;animation:none}

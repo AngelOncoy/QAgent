@@ -227,11 +227,11 @@ const kfmt = t => (t/1000).toFixed(1) + 'k';
 
 /* Estados: un solo catálogo para colores, etiquetas e íconos en todas las vistas */
 const ST = {
-  passed:{c:'#10b981', exec:['checkc','#34d399','s-pass','check','APROBADO'], rep:'APROBADO', repCls:'rs-ok', repIco:'check', mb:'background:#10b981;color:#020617', filter:'Aprobados'},
-  low_mutation:{c:'#f97316', exec:['warn','#fb923c','s-mut','dna','BRECHA MUTACIÓN'], rep:'ALERTA: BRECHA MUTANTES', repCls:'rs-mut', repIco:'dna', mb:'background:#f97316;color:#020617', filter:'Brecha mutación'},
-  rejected_oracle:{c:'#d946ef', exec:['bug','#e879f9','s-orc','bug','ORÁCULO ALTERADO'], rep:'RECHAZADO: ORÁCULO ALTERADO', repCls:'rs-orc', repIco:'bug', mb:'background:#d946ef;color:#fff', filter:'Oráculo alterado'},
-  rejected_laundering:{c:'#f43f5e', exec:['shieldA','#fb7185','s-rej','shieldX','RECHAZADO REVIEWER'], rep:'RECHAZADO: ASSERTION LAUNDERING', repCls:'rs-rej', repIco:'shieldX', mb:'background:#f43f5e;color:#fff', filter:'Rechazado laundering'},
-  stuck:{c:'#f59e0b', exec:['xc','#f43f5e','s-stk','refresh','ESTANCADO (3/3)'], rep:'ESTANCADO (3/3 INTENTOS)', repCls:'rs-stk', repIco:'alertc', mb:'background:#f59e0b;color:#020617', filter:'Estancados 3/3'},
+  passed:{c:'var(--emerald-500)', halo:'var(--emerald-500-a20)', exec:['checkc','var(--emerald-400)','s-pass','check','APROBADO'], rep:'APROBADO', repCls:'rs-ok', repIco:'check', mb:'background:var(--emerald-500);color:var(--slate-950)', filter:'Aprobados'},
+  low_mutation:{c:'var(--orange-500)', halo:'var(--orange-500-a20)', exec:['warn','var(--orange-400)','s-mut','dna','BRECHA MUTACIÓN'], rep:'ALERTA: BRECHA MUTANTES', repCls:'rs-mut', repIco:'dna', mb:'background:var(--orange-500);color:var(--slate-950)', filter:'Brecha mutación'},
+  rejected_oracle:{c:'var(--fuchsia-500)', halo:'var(--fuchsia-500-a20)', exec:['bug','var(--fuchsia-400)','s-orc','bug','ORÁCULO ALTERADO'], rep:'RECHAZADO: ORÁCULO ALTERADO', repCls:'rs-orc', repIco:'bug', mb:'background:var(--fuchsia-500);color:var(--white)', filter:'Oráculo alterado'},
+  rejected_laundering:{c:'var(--rose-500)', halo:'var(--rose-500-a20)', exec:['shieldA','var(--rose-400)','s-rej','shieldX','RECHAZADO REVIEWER'], rep:'RECHAZADO: ASSERTION LAUNDERING', repCls:'rs-rej', repIco:'shieldX', mb:'background:var(--rose-500);color:var(--white)', filter:'Rechazado laundering'},
+  stuck:{c:'var(--amber-500)', halo:'var(--amber-500-a20)', exec:['xc','var(--rose-500)','s-stk','refresh','ESTANCADO (3/3)'], rep:'ESTANCADO (3/3 INTENTOS)', repCls:'rs-stk', repIco:'alertc', mb:'background:var(--amber-500);color:var(--slate-950)', filter:'Estancados 3/3'},
 };
 
 function hl(code){

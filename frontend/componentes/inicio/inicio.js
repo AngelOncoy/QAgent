@@ -7,11 +7,11 @@ registrarComponente('inicio/inicio', `<!-- ===== 1. BIENVENIDA ===== -->
     <p>Genera y valida pruebas unitarias (pytest) de tu código Python.<br>Abre una carpeta de tu equipo o clona un repositorio Git.</p>
     <div class="actions">
       <button class="action" onclick="handleOpenFolder()">
-        <span class="ico"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="1.8"><path d="M3 7h6l2 2h10v10H3z"/></svg></span>
+        <span class="ico"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--blue-400)" stroke-width="1.8"><path d="M3 7h6l2 2h10v10H3z"/></svg></span>
         Abrir proyecto<small>Carpeta local con código Python</small>
       </button>
       <button class="action" onclick="openModal('m-clone')">
-        <span class="ico"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#c084fc" stroke-width="1.8"><circle cx="6" cy="6" r="2.5"/><circle cx="6" cy="18" r="2.5"/><circle cx="18" cy="9" r="2.5"/><path d="M6 8.5v7M18 11.5c0 3-4 3-10 5.5"/></svg></span>
+        <span class="ico"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--purple-400)" stroke-width="1.8"><circle cx="6" cy="6" r="2.5"/><circle cx="6" cy="18" r="2.5"/><circle cx="18" cy="9" r="2.5"/><path d="M6 8.5v7M18 11.5c0 3-4 3-10 5.5"/></svg></span>
         Abrir repositorio<small>Clonar desde una URL Git (HTTPS)</small>
       </button>
     </div>

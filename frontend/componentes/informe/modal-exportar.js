@@ -2,7 +2,7 @@
 // HTML del componente (se monta en el marcador data-componente="informe/modal-exportar" de index.html)
 registrarComponente('informe/modal-exportar', `<!-- Exportar informe (HU-020) -->
 <div class="overlay" id="m-export"><div class="modal" style="width:640px">
-  <div class="mhead"><span class="ico" data-i="download" data-c="#60a5fa"></span> Exportar informe de auditoría · corrida #8841-B<button class="x" onclick="closeModal()">×</button></div>
+  <div class="mhead"><span class="ico" data-i="download" data-c="var(--blue-400)"></span> Exportar informe de auditoría · corrida #8841-B<button class="x" onclick="closeModal()">×</button></div>
   <div class="mcontent">
     <div><label class="l">Formato</label>
       <div class="fmts">

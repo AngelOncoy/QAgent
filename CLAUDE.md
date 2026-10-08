@@ -34,7 +34,7 @@ Detalle completo en `frontend/README.md`. Lo esencial:
 
 - **Un componente = una carpeta** en `frontend/componentes/`, con su `.js` (el HTML va en una plantilla y se registra con `registrarComponente`) y, si hace falta, su `.css`. Se enlaza en `frontend/index.html` con un marcador `data-componente` y los `<link>`/`<script>`.
 - **Scripts clásicos con ámbito global**, sin módulos ES, sin `fetch` de HTML, sin bundler. El orden de los `<script>` importa.
-- **Colores, tipografía y logo se cambian en `frontend/css/tokens.css`.** Para colores nuevos, usar variables, no hexadecimales sueltos (hoy quedan ~260 por migrar).
+- **Colores, tipografía y logo se cambian en `frontend/css/tokens.css`.** Ningún componente lleva colores literales: todo es `var(--token)` (lo exige `tests/frontend/`). Un color nuevo se declara en `tokens.css`; no se concatena texto a un color (`${c}33`), se usa un token con opacidad (`-aNN`).
 - **La regla `.logo` debe permanecer en `css/layout.css`:** `--logo-icono` usa una ruta relativa a `css/`.
 - **Nombres técnicos que no se renombran:** `pyagent-sandbox:base`, `.pyagent/`, el módulo `pyagent` y `window.onPyAgentEvent`.
 - Tras tocar el frontend: `python test.py` (incluye `tests/frontend/`) y, si cambió algo visible, revisar la ventana real con `qagent`.

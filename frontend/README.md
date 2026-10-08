@@ -87,7 +87,8 @@ Todo lo visual se cambia en **`css/tokens.css`**:
 | Grupo | Variables | Uso |
 |---|---|---|
 | Estructura | `--bg`, `--side`, `--panel`, `--panel2`, `--inset`, `--line`, `--line2`, `--txt`, `--mut`, `--dim` | Fondos, bordes y textos |
-| Paleta | `--blue`, `--purple`, `--green`, `--red`, `--amber`, cada una con `-t` (texto) y `-s` (fondo suave) | Estados, pills, acentos |
+| Semánticos de estado | `--blue`, `--purple`, `--green`, `--red`, `--amber`, cada una con `-t` (texto) y `-s` (fondo suave) | Estados, pills, acentos |
+| Paleta | `--<familia>-<tono>` (`--emerald-400`, `--rose-500`, `--slate-950`…), más variantes `-aNN`, `-b` y `-c` (ver abajo) | Todos los colores que usan los componentes |
 | Marca | `--marca-1`, `--marca-2`, `--marca-3`, `--marca-gradiente`, `--fondo-marca` | Colores tomados del logo |
 | Tipografía | `--fuente-ui`, `--fuente-mono` (`--sans` y `--mono` son alias) | Texto de interfaz y de código |
 | Logo | `--logo-icono`, `--logo-completo` | Rutas a los SVG de `assets/logo/` |
@@ -96,9 +97,15 @@ Todo lo visual se cambia en **`css/tokens.css`**:
 
 **Cambiar la tipografía:** editar `--fuente-ui` y `--fuente-mono`. Inter y JetBrains Mono se cargan desde Google Fonts (`<link>` en `index.html`); sin internet la interfaz usa la fuente del sistema.
 
-### Pendiente: colores sueltos
+### Reglas para los colores
 
-Los tokens cubren la estructura, la paleta y la marca, pero quedan unos 260 colores hexadecimales escritos directamente en los CSS y JS de los componentes (sobre todo tonos de estado y de gráficos, como `#34d399` o `#60a5fa`). Cambiar la paleta en `tokens.css` no los alcanza. Migrarlos a variables es una tarea abierta.
+Ningún CSS, JS ni HTML de la interfaz contiene colores literales (`#34d399`, `rgba(…)`): todos son `var(--token)`, y los valores viven solo en `css/tokens.css`. Cambiar un token cambia ese color en toda la aplicación. `tests/frontend/` lo exige: falla si aparece un color suelto o si se usa un `var(--x)` que no está definido.
+
+- **Nombres.** `--<familia>-<tono>` sigue la escala de Tailwind (`--emerald-400`). `-aNN` es el mismo color con NN % de opacidad (`--rose-950-a60`). `-b` es el borde de un estado (`--green-b`, `--red-b`, `--amber-b`, `--blue-b`, `--purple-b`, pareja de `-t` y `-s`). `-c` marca un valor propio del proyecto que no pertenece a la paleta de Tailwind.
+- **Color nuevo.** Declararlo en `tokens.css` y usar `var(--nombre)`. No escribir hexadecimales en los componentes.
+- **No concatenar texto a un color.** Un truco como `` `${color}33` `` (opacidad en hexadecimal) deja de ser válido con `var(--…)`. Usar un token con opacidad: por eso cada estado del catálogo `ST` (`js/datos-corrida.js`) trae su `halo` (`--rose-500-a20`).
+- **Atributos SVG.** `stroke="var(--x)"` y `fill="var(--x)"` funcionan en el navegador de pywebview, y los íconos (`I(nombre, color)`) reciben tokens como cualquier otro color.
+- **Excepción.** Los SVG de `assets/logo/` son archivos independientes y conservan sus propios colores; si cambia la marca hay que actualizarlos junto con `--marca-*`.
 
 ## Nombres técnicos que no se renombran
 

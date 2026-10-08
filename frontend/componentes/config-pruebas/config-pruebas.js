@@ -102,8 +102,8 @@ function calc(){
   const e = estFor(profile), {p, fns, reused, et, tok, cost, saved, savedPen} = e, cap = TOPE_PEN;
   runEstimate = {tok, pen:cost};
   $('eAgents').innerHTML = profile==='reg'
-    ? '<span class="ea"><i style="background:#10b981"></i>Regresión: solo se ejecutan pruebas guardadas · ningún agente llama a la IA</span>'
-    : ['P','G','R'].map(k => `<span class="ea"><i style="background:${{P:'#3b82f6',G:'#a855f7',R:'#10b981'}[k]}"></i>${AGENTS_CFG[k].name}: ~${Math.round(et[k]).toLocaleString('es-PE')} tok · S/ ${(et[k]*AGENTS_CFG[k].price/1e6*FX).toFixed(2)}</span>`).join('')
+    ? '<span class="ea"><i style="background:var(--emerald-500)"></i>Regresión: solo se ejecutan pruebas guardadas · ningún agente llama a la IA</span>'
+    : ['P','G','R'].map(k => `<span class="ea"><i style="background:${{P:'var(--blue-500)',G:'var(--purple-500)',R:'var(--emerald-500)'}[k]}"></i>${AGENTS_CFG[k].name}: ~${Math.round(et[k]).toLocaleString('es-PE')} tok · S/ ${(et[k]*AGENTS_CFG[k].price/1e6*FX).toFixed(2)}</span>`).join('')
       + `<span class="ea tope">Tope por corrida: <b>S/ ${TOPE_PEN.toFixed(2)}</b> · definido por el equipo (ver Configuración)</span>`;
   const noDoc = fns.filter(f=>!f.doc).length, crit = fns.filter(f=>f.crit).length;
   const nMods = MODULES.filter(m=>m.sel).length;

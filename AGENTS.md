@@ -68,7 +68,7 @@ El paquete requiere instalación editable: `config.toml` y `contracts/` se busca
 - **Tests del sistema con la IA simulada:** ningún test de `tests/` debe llamar a una API real.
 - **Los tests no dependen de Docker ni de internet**, salvo los marcados `docker` o `red` (se omiten si no hay). Docker se simula en las demás.
 - **La lógica no depende de la interfaz:** `app/` llama a `proyectos/`, `analysis/`, `sandbox/`…, nunca al revés (la lógica no importa `pyagent.app` ni `webview`).
-- **Frontend:** un componente por pantalla o modal en `frontend/componentes/`; colores, tipografía y logo en `frontend/css/tokens.css` (no hexadecimales sueltos); sin bundler, sin módulos ES ni `fetch` de HTML (ver ADR-003).
+- **Frontend:** un componente por pantalla o modal en `frontend/componentes/`; colores, tipografía y logo en `frontend/css/tokens.css` (sin colores literales: todo es `var(--token)`, lo verifica `tests/frontend/`); sin bundler, sin módulos ES ni `fetch` de HTML (ver ADR-003).
 - **Nombres técnicos fijos:** `pyagent-sandbox:base`, `.pyagent/`, `pyagent` y `window.onPyAgentEvent` no se renombran aunque el producto sea QAgent.
 
 ## Estilo de código
