@@ -555,19 +555,14 @@ pre.code{font-family:var(--mono);font-size:11.5px;line-height:1.6;background:#07
       </div>
     </div>
 
-    <!-- Entorno -->
+    <!-- Entorno (EN-06): config.toml, .env, Docker y Git -->
     <div class="card">
         <h4>Entorno</h4>
         <div class="bd">
-          <div class="envok"><span class="ok" style="font-size:18px">✓</span><div><b>Entorno listo</b><div class="hint" style="margin:2px 0 0">Docker, imagen de pruebas, dependencias y claves de IA verificadas.</div></div></div>
-          <details class="envdet"><summary>Ver detalle</summary>
-            <div class="checks" style="margin-top:8px">
-              <div class="c"><span class="i ok">✓</span><div>Docker Desktop activo · las pruebas corren en un contenedor sin red</div></div>
-              <div class="c"><span class="i ok">✓</span><div>Imagen <span class="mono">pyagent-sandbox:base</span> (Python 3.11 + pytest + coverage + mutmut)</div></div>
-              <div class="c"><span class="i ok">✓</span><div>Dependencias de <span class="mono">requirements.txt</span> instaladas en la imagen (paso con red, antes de ejecutar)</div></div>
-              <div class="c"><span class="i ok">✓</span><div>Claves de IA cargadas desde <span class="mono">.env</span> (configuradas por el equipo)</div></div>
-            </div>
-            <div class="hint">Si algo falla, aquí aparece qué hacer. Ej.: "Docker no está abierto: inícialo y vuelve a intentar" o "Falta una clave de IA: contacta al equipo".</div>
+          <div class="envok"><span id="envIcono" class="ok" style="font-size:18px">…</span><div><b id="envTitulo">Verificando entorno…</b><div class="hint" id="envSub" style="margin:2px 0 0">Configuración, claves de IA, Docker y Git.</div></div><button type="button" class="btn" id="envReintentar" style="margin-left:auto" onclick="verificarEntorno()">Reintentar</button></div>
+          <details class="envdet" id="envDet"><summary>Ver detalle</summary>
+            <div class="checks" id="envChecks" style="margin-top:8px"></div>
+            <div class="hint">Si algo falla, aquí aparece qué hacer. Ej.: "Docker no está abierto: inícialo y vuelve a intentar" o "Falta una clave de IA: contacta al equipo". Las claves nunca se muestran.</div>
           </details>
         </div>
       </div>
@@ -1118,6 +1113,7 @@ async function loadProject(name, src, where, br='main', ruta=''){
   document.querySelectorAll('.repoLbl').forEach(e=>e.textContent = src==='git' ? where.replace('https://','').replace(/\.git$/,'') : where);
   document.querySelectorAll('.brLbl').forEach(e=>e.textContent=br); $('branchLbl').textContent = br;
   monitorStarted = false; 
+  verificarEntorno();  // Docker, Git, config.toml y .env al abrir un proyecto (EN-06)
   projectPath = ruta ? ruta : (src==='git' ? 'E:\\Proyectos\\' + name : where);
 
   if (window.pywebview && window.pywebview.api && (window.pywebview.api.obtener_vista_previa || window.pywebview.api.analizar_proyecto)) {
@@ -1284,7 +1280,8 @@ function calc(){
   $('footMsg').innerHTML = m1; $('toTests').disabled = b1;
   // Pie de la pantalla 3 (perfil y costo)
   let msg = '', block = false;
-  if(!fns.length){ msg = 'No hay funciones seleccionadas: vuelve a la vista previa.'; block = true; }
+  if(!entornoListo){ msg = `<span class="err">${escHtml(entornoMotivo)}</span>`; block = true; }
+  else if(!fns.length){ msg = 'No hay funciones seleccionadas: vuelve a la vista previa.'; block = true; }
   else if(cost>cap){ msg = `<span class="err">El costo estimado supera el tope de S/ ${cap.toFixed(2)} definido por el equipo. Reduce funciones o elige un perfil más liviano.</span>`; block = true; }
   else if(noDoc){ msg = `<span class="warn">⚠ ${noDoc} función(es) sin docstring: se generarán, pero con oráculo débil (se marcará en el informe).</span>`; }
   else msg = profile==='reg' ? 'Regresión: re-ejecuta pruebas guardadas sin IA. (En el demo se muestra la corrida Profunda #8841-B.)' : `Listo: ${fns.length} funciones · perfil ${p.n}.`;
@@ -1350,14 +1347,17 @@ function pushEvent(){
   if(evIdx>=EVENTS.length) finishRun();
 }
 async function startMonitor(){
+  if (!entornoListo) { toast(escHtml(entornoMotivo)); return; }
   if (window.pywebview && window.pywebview.api) {
-    // HU-13: Python verifica Docker antes de iniciar; sin Docker la corrida no arranca
+    // Python verifica Docker (HU-13) y el entorno completo (EN-06) antes de iniciar.
     const r = await window.pywebview.api.start_run(projectPath, profile);
     if (r && r.status === 'docker_no_disponible') {
       toastError(escHtml(r.mensaje));
       actualizarSandbox();
+      verificarEntorno();
       return;
     }
+    if (r && r.status === 'blocked') { await verificarEntorno(); toastError(escHtml(r.motivo)); return; }
   }
   monitorStarted = true; runDone = false; evIdx = 0; shown = []; $('timeline').innerHTML='';
   document.querySelectorAll('#views a[data-v=exec],#views a[data-v=report]').forEach(a=>a.classList.add('off'));
@@ -1963,6 +1963,37 @@ window.onPyAgentEvent = function(event) {
     finClonado(event.data);
   }
 };
+
+/* Estado del entorno (EN-06): config.toml, .env, Docker y Git.
+   Sin pywebview (HTML abierto en el navegador) es una demo y no se bloquea nada. */
+let entornoListo = !(window.pywebview), entornoMotivo = 'Verificando el entorno…';
+const ENV_NOMBRES = {config:'Configuración (config.toml)', claves:'Claves de IA (.env)', docker:'Docker y sandbox', git:'Git'};
+async function verificarEntorno() {
+  if (!(window.pywebview && window.pywebview.api && window.pywebview.api.verificar_entorno)) return;
+  let r;
+  try {
+    r = await window.pywebview.api.verificar_entorno();
+  } catch (err) {
+    console.error("Error al verificar el entorno:", err);
+    r = {listo: false, mensaje: 'No se pudo verificar el entorno. Reinicia la aplicación.', problemas: [], comprobaciones: []};
+  }
+  entornoListo = !!r.listo;
+  entornoMotivo = r.listo ? '' : 'Entorno no listo: ' + r.mensaje;
+  $('envIcono').textContent = r.listo ? '✓' : '✕';
+  $('envIcono').className = r.listo ? 'ok' : 'no';
+  $('envTitulo').textContent = (r.listo ? 'Entorno listo' : 'Entorno no listo') + (r.simulado ? ' · IA simulada' : '');
+  $('envSub').textContent = r.listo
+    ? (r.simulado ? 'IA simulada activa: 0 tokens (US$ 0). Configuración, Docker y Git verificados.'
+                  : 'Configuración, claves de IA, Docker y Git verificados.')
+    : (r.problemas.length ? 'Hay ' + r.problemas.length + ' problema(s). Corrígelos y pulsa Reintentar.' : r.mensaje);
+  const nombres = r.simulado ? {...ENV_NOMBRES, claves:'IA simulada (EN-11)'} : ENV_NOMBRES;
+  $('envChecks').innerHTML = (r.comprobaciones || []).map(c =>
+    `<div class="c"><span class="i ${c.ok ? 'ok' : 'no'}">${c.ok ? '✓' : '✕'}</span><div><b>${escHtml(nombres[c.id] || c.id)}</b><div class="hint" style="margin:2px 0 0">${escHtml(c.mensaje)}</div></div></div>`).join('');
+  $('envDet').open = !r.listo;  // si falla, el detalle se muestra abierto
+  try { calc(); } catch (err) { $('toPlan').disabled = !entornoListo; }
+}
+if (window.pywebview && window.pywebview.api) verificarEntorno();
+else window.addEventListener('pywebviewready', verificarEntorno, {once:true});
 
 /* Indicador de estado del sandbox: consulta a Python al abrir y cada 15 s */
 const SANDBOX_UI = {

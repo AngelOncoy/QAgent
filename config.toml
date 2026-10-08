@@ -9,6 +9,13 @@ tope_semestre_usd = 25.00
 [reintentos]
 max_intentos = 3
 
+# Metas de calidad por corrida (ADR-001: Pass Rate 70–80 %, cobertura de líneas ≥ 60 %,
+# iteraciones promedio < 2)
+[umbrales]
+pass_rate_min = 70               # % de pruebas aprobadas
+cobertura_lineas_min = 60        # % de líneas cubiertas
+iteraciones_promedio_max = 2.0   # intentos promedio por prueba
+
 [agentes.planner]
 
 proveedor = "xiaomi"
