@@ -26,9 +26,10 @@ tokens por agente y Mutation Score (solo en funciones críticas).
 python -m venv .venv
 .venv\Scripts\activate       # en Linux: source .venv/bin/activate
 pip install -e .[dev]       # instalación editable (en Linux para GUI: pip install "pywebview[qt]")
-copy .env.example .env     # completar las claves (en Linux: cp .env.example .env)
 python test.py
 ```
+
+El archivo `.env` (las claves de IA, que no se sube al repositorio) se crea solo la primera vez que abres la aplicación, con las claves vacías: complétalas con las que te dé el equipo.
 
 `pip install -e .[dev]` es obligatorio una vez por máquina: el paquete `pyagent` se instala apuntando a este repositorio, porque `config.toml` y `contracts/` se buscan junto a él.
 
@@ -45,7 +46,7 @@ python test.py -k clonador     # cualquier otro argumento se pasa a pytest
 
 Las pruebas que necesitan Docker (`-m docker`) se omiten solas si Docker Desktop no está iniciado. Las de la interfaz (`tests/frontend/`) comprueban que el frontend esté bien armado: archivos enlazados, componentes registrados y logo presente.
 
-Para ejecutar pytest directamente sin gastar tokens: `set PYAGENT_FAKE_LLM=1` (en Linux: `export PYAGENT_FAKE_LLM=1`).
+Para ver la aplicación con la IA simulada (sin claves ni gasto de tokens), agrega `PYAGENT_FAKE_LLM=1` a tu `.env` o define `set PYAGENT_FAKE_LLM=1` (en Linux: `export PYAGENT_FAKE_LLM=1`) antes de abrirla; con eso no se piden las claves de IA ni hace falta Docker (Git sigue haciendo falta). Lo mismo vale para ejecutar pytest directamente.
 
 ## Sandbox Docker
 

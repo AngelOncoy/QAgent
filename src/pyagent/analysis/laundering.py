@@ -200,9 +200,7 @@ def extraer_aserciones(codigo_fuente: str) -> list[Asercion]:
 # --------------------------------------------------------------------------- #
 
 
-def _formatear_tabla(
-    contrato: list[Asercion], sintetizadas: list[Asercion]
-) -> str:
+def _formatear_tabla(contrato: list[Asercion], sintetizadas: list[Asercion]) -> str:
     """Genera una tabla legible comparando aserciones de contrato vs sintetizadas."""
     lineas: list[str] = []
     lineas.append("Aserción de contrato                    │ Aserción sintetizada")
@@ -295,8 +293,7 @@ def comparar_aserciones(
                     contrato=ac,
                     sintetizada=as_,
                     motivo=(
-                        f"Valor concreto eliminado: == {ac.valor} "
-                        f"→ == (sin valor)"
+                        f"Valor concreto eliminado: == {ac.valor} → == (sin valor)"
                     ),
                 )
             )

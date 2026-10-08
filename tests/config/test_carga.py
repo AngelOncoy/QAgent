@@ -308,3 +308,86 @@ def test_avisos_con_clave_faltante_no_incluyen_las_que_si_estan(tmp_path):
     env = _escribir_env(tmp_path / ".env", ANTHROPIC_API_KEY=SECRETO_A)
     carga = cargar_configuracion(RUTA_CONFIG, env, simulado=False)
     assert SECRETO_A not in " ".join(carga.avisos)
+
+
+# ---------- IA simulada también desde el .env ----------
+
+
+@pytest.fixture
+def sin_variable_del_sistema(monkeypatch):
+    """Quita PYAGENT_FAKE_LLM del entorno del sistema para que decida el .env."""
+    monkeypatch.delenv("PYAGENT_FAKE_LLM", raising=False)
+
+
+def test_el_env_con_ia_simulada_no_exige_claves(tmp_path, sin_variable_del_sistema):
+    ruta = _escribir_env(tmp_path / ".env", PYAGENT_FAKE_LLM="1")
+    carga = cargar_configuracion(RUTA_CONFIG, ruta)
+    assert carga.simulado
+    assert carga.avisos_claves == []
+    assert carga.ok
+
+
+def test_sin_la_bandera_el_env_si_exige_claves(tmp_path, sin_variable_del_sistema):
+    ruta = _escribir_env(tmp_path / ".env", ANTHROPIC_API_KEY=SECRETO_A)
+    carga = cargar_configuracion(RUTA_CONFIG, ruta)
+    assert not carga.simulado
+    assert carga.avisos_claves  # faltan las de los otros proveedores
+
+
+@pytest.mark.parametrize("valor", ["0", "", "si", "true"])
+def test_solo_el_valor_1_activa_la_ia_simulada_en_el_env(
+    tmp_path, sin_variable_del_sistema, valor
+):
+    ruta = _escribir_env(tmp_path / ".env", PYAGENT_FAKE_LLM=valor)
+    assert not carga_mod.simulado_desde_env(ruta)
+
+
+def test_lo_definido_en_el_sistema_manda_sobre_el_env(tmp_path, monkeypatch):
+    ruta = _escribir_env(tmp_path / ".env", PYAGENT_FAKE_LLM="1")
+    monkeypatch.setenv("PYAGENT_FAKE_LLM", "0")
+    assert not carga_mod.modo_simulado(ruta)
+    monkeypatch.setenv("PYAGENT_FAKE_LLM", "1")
+    assert carga_mod.modo_simulado(_escribir_env(tmp_path / "otro.env", OTRA="x"))
+
+
+def test_sin_archivo_env_la_ia_simulada_no_se_activa(
+    tmp_path, sin_variable_del_sistema
+):
+    assert not carga_mod.simulado_desde_env(tmp_path / "no-existe.env")
+    assert not carga_mod.modo_simulado(tmp_path / "no-existe.env")
+
+
+def test_aplicar_simulacion_copia_solo_la_bandera_y_no_las_claves(
+    tmp_path, monkeypatch, sin_variable_del_sistema
+):
+    ruta = _escribir_env(
+        tmp_path / ".env", PYAGENT_FAKE_LLM="1", ANTHROPIC_API_KEY=SECRETO_A
+    )
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+    assert carga_mod.aplicar_simulacion_desde_env(ruta) is True
+    import os
+
+    assert os.environ["PYAGENT_FAKE_LLM"] == "1"
+    assert "ANTHROPIC_API_KEY" not in os.environ  # las claves nunca pasan al entorno
+    monkeypatch.delenv("PYAGENT_FAKE_LLM")  # limpieza de lo que puso la prueba
+
+
+def test_aplicar_simulacion_no_pisa_lo_definido_en_el_sistema(tmp_path, monkeypatch):
+    ruta = _escribir_env(tmp_path / ".env", PYAGENT_FAKE_LLM="1")
+    monkeypatch.setenv("PYAGENT_FAKE_LLM", "0")
+    assert carga_mod.aplicar_simulacion_desde_env(ruta) is False
+    import os
+
+    assert os.environ["PYAGENT_FAKE_LLM"] == "0"
+
+
+def test_el_entorno_con_ia_simulada_en_el_env_solo_pide_docker_y_git(
+    tmp_path, sin_variable_del_sistema
+):
+    ruta = _escribir_env(tmp_path / ".env", PYAGENT_FAKE_LLM="1")
+    listo = {"estado": "ok", "mensaje": "ok"}
+    resultado = verificar_entorno(
+        RUTA_CONFIG, ruta, docker=lambda: listo, git=lambda: listo
+    )
+    assert resultado["simulado"] is True
+    assert resultado["listo"] is True

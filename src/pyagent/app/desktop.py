@@ -176,19 +176,23 @@ class DesktopAPI:
         """Inicia la corrida del sistema sobre el proyecto seleccionado.
 
         Primero verifica que Docker responde (HU-13) y luego que el entorno completo
-        esté listo: config.toml, claves de .env, Docker y Git (EN-06).
+        esté listo: config.toml, claves de .env, Docker y Git (EN-06). Con la IA
+        simulada (PYAGENT_FAKE_LLM=1, en el sistema o en el .env) Docker es opcional:
+        no se ejecuta nada en el sandbox, así que no se exige.
 
         Returns:
             dict: ``{"status": "started", ...}``; si Docker no está disponible,
             ``{"status": "docker_no_disponible", "mensaje": str}``; si falta otra cosa
             del entorno, ``{"status": "blocked", "motivo": str, "problemas": list}``.
         """
+        from pyagent.config import modo_simulado
         from pyagent.sandbox import DockerNoDisponible, verificar_docker
 
-        try:
-            verificar_docker()
-        except DockerNoDisponible as exc:
-            return {"status": "docker_no_disponible", "mensaje": str(exc)}
+        if not modo_simulado():
+            try:
+                verificar_docker()
+            except DockerNoDisponible as exc:
+                return {"status": "docker_no_disponible", "mensaje": str(exc)}
 
         entorno = self.verificar_entorno()
         if not entorno["listo"]:
@@ -237,8 +241,14 @@ class DesktopAPI:
 
 def _registrar_estado_configuracion() -> None:
     """Lee config.toml y .env al iniciar y deja en consola un resumen sin claves (EN-06)."""
-    from pyagent.config import cargar_configuracion, instalar_filtro_logs
+    from pyagent.config import (
+        aplicar_simulacion_desde_env,
+        cargar_configuracion,
+        instalar_filtro_logs,
+    )
 
+    # PYAGENT_FAKE_LLM=1 en el .env también activa la IA simulada para todo el programa.
+    aplicar_simulacion_desde_env()
     carga = cargar_configuracion()
     instalar_filtro_logs(carga.claves)
     if carga.simulado:

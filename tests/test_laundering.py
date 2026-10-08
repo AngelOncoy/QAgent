@@ -266,7 +266,9 @@ class TestSinLaundering:
 
     def test_caso2_mismas_aserciones(self) -> None:
         """Mismas aserciones antes y después → sin laundering (criterio 5 obligatorio)."""
-        resultado = comparar_aserciones(ANTES_Y_DESPUES_IGUALES, ANTES_Y_DESPUES_IGUALES)
+        resultado = comparar_aserciones(
+            ANTES_Y_DESPUES_IGUALES, ANTES_Y_DESPUES_IGUALES
+        )
         assert resultado.es_laundering is False
         assert len(resultado.diferencias) == 0
 
@@ -274,7 +276,9 @@ class TestSinLaundering:
         """1 assert → 3 asserts (más cobertura) → sin laundering."""
         resultado = comparar_aserciones(ANTES_UN_ASSERT, DESPUES_TRES_ASSERTS)
         assert resultado.es_laundering is False
-        assert len(resultado.aserciones_sintetizadas) > len(resultado.aserciones_contrato)
+        assert len(resultado.aserciones_sintetizadas) > len(
+            resultado.aserciones_contrato
+        )
 
     def test_caso6_valor_cambia_tipo_igual(self) -> None:
         """== 2 pasa a == 3 → sin laundering (eq sigue siendo eq)."""
@@ -314,6 +318,7 @@ class TestSinLaundering:
 # Caso 15: extracción correcta de todos los tipos de aserción
 # =========================================================================== #
 
+
 @pytest.mark.parametrize(
     ("codigo", "tipo_esperado", "valor_esperado"),
     [
@@ -329,8 +334,16 @@ class TestSinLaundering:
         ("assert not x", "false", None),
     ],
     ids=[
-        "eq", "ne", "in", "not_in", "is", "is_not",
-        "is_none", "is_not_none", "true", "false",
+        "eq",
+        "ne",
+        "in",
+        "not_in",
+        "is",
+        "is_not",
+        "is_none",
+        "is_not_none",
+        "true",
+        "false",
     ],
 )
 def test_extraccion_clasifica_tipo_correctamente(
@@ -386,7 +399,13 @@ def test_jerarquia_rigor_es_coherente() -> None:
     """Cada tipo definido en RIGOR tiene un valor entero positivo."""
     assert all(isinstance(v, int) and v > 0 for v in RIGOR.values())
     # raises es el más estricto, true/false el menos
-    assert RIGOR["raises"] > RIGOR["eq"] > RIGOR["in"] > RIGOR["is_not_none"] > RIGOR["true"]
+    assert (
+        RIGOR["raises"]
+        > RIGOR["eq"]
+        > RIGOR["in"]
+        > RIGOR["is_not_none"]
+        > RIGOR["true"]
+    )
 
 
 # =========================================================================== #

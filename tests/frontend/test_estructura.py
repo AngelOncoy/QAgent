@@ -241,3 +241,17 @@ def test_un_analisis_fallido_en_la_app_real_no_muestra_modulos_de_ejemplo() -> N
     rama_real, _rama_demo = cuerpo.split("} else {\n    aplicarResumenDemo();", 1)
     assert "aplicarResumenDemo" not in rama_real
     assert "vaciarVistaPrevia()" in rama_real
+
+
+# ---------- toda la interfaz vive en frontend/ ----------
+
+
+def test_no_hay_archivos_de_interfaz_fuera_de_frontend() -> None:
+    """HTML, CSS y JS solo existen en frontend/: el backend (src/) no guarda pantallas ni demos."""
+    src = FRONTEND.parent / "src"
+    sueltos = sorted(
+        p.relative_to(src.parent).as_posix()
+        for p in src.rglob("*")
+        if p.suffix in {".html", ".htm", ".css", ".js"}
+    )
+    assert sueltos == []
