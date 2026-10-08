@@ -7,6 +7,7 @@ sin colgar la corrida y devolviendo lo que se alcanzó a procesar.
 
 from __future__ import annotations
 
+import copy
 import threading
 import time
 from collections.abc import Callable
@@ -26,6 +27,12 @@ MAX_INTENTOS_CONTRATO = 3  # tope de generated_test/review_result (EN-01)
 TIMEOUT_PASO_POR_DEFECTO_S = 120.0  # mayor que el timeout del sandbox (60 s)
 SANDBOX_FALLIDO = frozenset({"timeout", "error"})
 DECISIONES_FINALES = frozenset({"accept", "bug_detectado", "stalled"})
+LIMITE_INTENTOS = "limite_intentos"  # motivos del corte (HU-14)
+ERROR_REPETIDO = "error_repetido"
+_TEXTO_MOTIVO = {
+    LIMITE_INTENTOS: "límite de intentos",
+    ERROR_REPETIDO: "mismo error repetido",
+}
 
 
 class FalloControlado(Exception):
@@ -46,6 +53,7 @@ class ResultadoObjetivo:
     intentos: int = 0
     cobertura: dict[str, Any] | None = None
     laundering_detectado: bool = False
+    motivo_estancado: str | None = None
     revisiones: list[Contrato] = field(default_factory=list)
 
 
@@ -67,6 +75,37 @@ class ResultadoCorrida:
         datos["estado_final"] = self.estado_final.value
         datos["traza_estados"] = [e.value for e in self.traza_estados]
         return datos
+
+
+def decidir_corte(
+    decision: str,
+    intento: int,
+    tope: int,
+    hash_actual: str | None,
+    hash_anterior: str | None,
+) -> tuple[str, str | None]:
+    """Aplica la Regla 2 (HU-14) a la decisión del Reviewer.
+
+    Corta en `stalled` si el hash del error se repite respecto del intento anterior
+    (y no es null) o si se llegó al tope de intentos. Un `stalled` del Reviewer se
+    clasifica con la misma regla.
+
+    Returns:
+        (decisión final, motivo): el motivo es `error_repetido`, `limite_intentos`
+        o None si la decisión no es `stalled`.
+    """
+    if decision not in ("retry", "stalled"):
+        return decision, None
+    if hash_actual is not None and hash_actual == hash_anterior:
+        return "stalled", ERROR_REPETIDO
+    if decision == "stalled" or intento >= tope:
+        return "stalled", LIMITE_INTENTOS
+    return "retry", None
+
+
+def etiqueta_estancado(intento: int, motivo: str) -> str:
+    """Texto para la interfaz, ej. "Estancado 3/3 · límite de intentos"."""
+    return f"Estancado {intento}/{MAX_INTENTOS_CONTRATO} · {_TEXTO_MOTIVO[motivo]}"
 
 
 class Orquestador:
@@ -175,32 +214,53 @@ class Orquestador:
         objetivo = contrato["objetivo"]
         resultado = ResultadoObjetivo(objetivo=objetivo, critical=contrato["critical"])
         objetivos.append(resultado)
-        intento, feedback, test_anterior = 1, None, None
+        tope = min(self.max_intentos, MAX_INTENTOS_CONTRATO)  # nunca más de 3
+        intento, feedback, test_anterior, hash_anterior = 1, None, None, None
 
         while True:
             self._transicionar(Estado.GENERAR, objetivo)
-            test = self._generar(contrato, intento, feedback)
+            # Copia del contrato original del Planner: lo que un agente haga con su
+            # copia no llega a los intentos siguientes (HU-14, criterio 3).
+            test = self._generar(copy.deepcopy(contrato), intento, feedback)
             self._transicionar(Estado.EJECUTAR_REVISAR, objetivo)
-            revision = self._revisar(contrato, test, test_anterior)
+            revision = self._revisar(copy.deepcopy(contrato), test, test_anterior, tope)
 
             resultado.intentos = intento
             resultado.revisiones.append(revision)
             resultado.cobertura = revision["cobertura"]
             resultado.laundering_detectado |= revision["laundering_detectado"]
-            decision = revision["decision"]
+            decision, motivo = decidir_corte(
+                revision["decision"],
+                intento,
+                tope,
+                revision["hash_error"],
+                hash_anterior,
+            )
 
-            if decision == "retry" and intento >= self.max_intentos:
-                decision = "stalled"  # max_intentos de config.toml menor que 3
             if decision in DECISIONES_FINALES:
                 resultado.decision = decision
-                self._emitir(
-                    "reviewer", objetivo, f"Veredicto: {decision}", "veredicto"
-                )
+                resultado.motivo_estancado = motivo
+                self._emitir_veredicto(objetivo, decision, intento, motivo)
                 return
 
             self._transicionar(Estado.REINTENTAR, objetivo)
             self._emitir("reviewer", objetivo, f"Reintento: {revision['feedback']}")
+            # Solo el último error: el feedback anterior se reemplaza, no se acumula.
             intento, feedback, test_anterior = intento + 1, revision["feedback"], test
+            hash_anterior = revision["hash_error"]
+
+    def _emitir_veredicto(
+        self, objetivo: str, decision: str, intento: int, motivo: str | None
+    ) -> None:
+        """Evento final del objetivo; si quedó estancado lleva el intento y el motivo."""
+        datos: dict[str, Any] = {"decision": decision, "intento": intento}
+        mensaje = f"Veredicto: {decision}"
+        if motivo is not None:
+            mensaje = etiqueta_estancado(intento, motivo)
+            datos.update(
+                max_intentos=MAX_INTENTOS_CONTRATO, motivo=motivo, etiqueta=mensaje
+            )
+        self._emitir("reviewer", objetivo, mensaje, "veredicto", datos)
 
     def _generar(
         self, contrato: Contrato, intento: int, feedback: str | None
@@ -216,7 +276,11 @@ class Orquestador:
         return test
 
     def _revisar(
-        self, contrato: Contrato, test: Contrato, test_anterior: Contrato | None
+        self,
+        contrato: Contrato,
+        test: Contrato,
+        test_anterior: Contrato | None,
+        tope: int,
     ) -> Contrato:
         objetivo = contrato["objetivo"]
         self._emitir(
@@ -226,6 +290,13 @@ class Orquestador:
         revision = self._llamar(
             "reviewer", self.reviewer.revisar, contrato, test, test_anterior
         )
+        if (
+            isinstance(revision, dict)
+            and revision.get("decision") == "retry"
+            and test["intento"] >= tope
+        ):
+            # Pedir otro intento sobre el tope no rompe la corrida: se corta (HU-14).
+            revision = {**revision, "decision": "stalled"}
         self._validar(contracts.REVIEW_RESULT, revision, "reviewer")
         self._coherente(revision, objetivo, test["intento"], "reviewer")
         if revision["estado_sandbox"] in SANDBOX_FALLIDO:
@@ -285,7 +356,12 @@ class Orquestador:
             )
 
     def _emitir(
-        self, agente: str, funcion: str | None, mensaje: str, tipo: str = "agente"
+        self,
+        agente: str,
+        funcion: str | None,
+        mensaje: str,
+        tipo: str = "agente",
+        datos: dict[str, Any] | None = None,
     ) -> None:
         self.bus.emitir(
             Evento(
@@ -295,6 +371,7 @@ class Orquestador:
                 mensaje=mensaje,
                 estado=self._estado.value,
                 tipo=tipo,
+                datos=datos,
             )
         )
 

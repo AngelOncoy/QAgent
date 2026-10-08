@@ -8,6 +8,7 @@ from typing import Any
 
 from pyagent.llm import FakeLLMClient, TokenTracker
 from pyagent.sandbox.modelos import ErrorSandbox
+from pyagent.sandbox.normalizacion import hash_error
 
 MODULO = {
     "ruta": "modulo_simulado.py",
@@ -145,3 +146,48 @@ class ReviewerColgado:
     def revisar(self, contrato: dict, test: dict, test_anterior: dict | None) -> dict:
         time.sleep(self.segundos)
         return {}
+
+
+class ReviewerConErrores:
+    """Simula pytest fallando con los errores dados, uno por intento (HU-14).
+
+    Un error es un traceback simulado: se devuelve `retry` con su `hash_error`
+    calculado con la normalización real. `None` en la lista es un test que pasó.
+    La decisión de cortar la toma el orquestador, no este Reviewer.
+    """
+
+    def __init__(self, errores: list[str | None]) -> None:
+        self.errores = list(errores)
+        self.contratos: list[dict] = []
+
+    def revisar(self, contrato: dict, test: dict, test_anterior: dict | None) -> dict:
+        self.contratos.append(contrato)
+        error = self.errores.pop(0)
+        if error is None:
+            return veredicto(contrato["objetivo"], test["intento"], "accept")
+        return veredicto(
+            contrato["objetivo"],
+            test["intento"],
+            "retry",
+            hash_error=hash_error(error),
+            feedback=error,
+        )
+
+
+class GeneratorEspia(GeneratorSimulado):
+    """Generator que guarda copia de lo que recibe y luego daña su contrato.
+
+    Sirve para comprobar que cada intento recibe el contrato original del Planner
+    y solo el último feedback, aunque un agente modifique lo que se le pasó.
+    """
+
+    def __init__(self, tracker: TokenTracker) -> None:
+        super().__init__(tracker)
+        self.contratos: list[dict] = []
+
+    def generar(self, contrato: dict, intento: int, feedback: str | None) -> dict:
+        self.contratos.append(json.loads(json.dumps(contrato)))
+        test = super().generar(contrato, intento, feedback)
+        contrato["casos"].clear()  # un agente que muta su entrada
+        contrato["objetivo_modificado"] = True
+        return test
