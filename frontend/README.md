@@ -129,4 +129,6 @@ La interfaz tiene un **modo demostración**: sin pywebview (abriendo `index.html
 | Controles «reiniciar demo» y «completar corrida» | Ocultos | Visibles |
 | Monitor, Ejecución, Informe, Historial y Configuración del sistema | **Datos simulados** (ver abajo) | Datos simulados |
 
+Cada paso del Monitor, la pausa y el fin de la corrida se envían además a la consola de Python (`registrar_evento` del puente), que los imprime con hora en la terminal donde se abrió la aplicación.
+
 **Pendiente:** Monitor, Ejecución, Informe, Historial y Configuración del sistema todavía se alimentan de datos simulados (`js/datos-corrida.js` y los `EVENTS` del monitor, la corrida «#8841-B», el historial de ejemplo, los precios de ejemplo de `AGENTS_CFG`), incluso en la aplicación real, porque el orquestador aún no está conectado a la interfaz: `start_run` solo comprueba Docker y emite un aviso. Conectarlos exige enviar eventos reales desde Python (`emit_event`) y leer las corridas guardadas en `.pyagent/runs/`. `tests/frontend/` impide que los datos de ejemplo vuelvan a colarse en las pantallas del flujo real.

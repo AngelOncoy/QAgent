@@ -53,6 +53,8 @@ const SANDBOX_UI = {
   sin_imagen:   {dot:'dot amber', txt:'warn', label:'Falta imagen base',     ayuda:''},
   no_iniciado:  {dot:'dot red',   txt:'no',   label:'Sandbox no disponible', ayuda:'Abre Docker Desktop'},
   no_instalado: {dot:'dot red',   txt:'no',   label:'Sandbox no disponible', ayuda:'Instala Docker Desktop'},
+  // Con la IA simulada no se ejecuta nada en el sandbox: que Docker falte no es un fallo.
+  opcional:     {dot:'dot grey',  txt:'neutro', label:'Opcional (IA simulada)', ayuda:''},
 };
 let sandboxConsultando = false;
 async function actualizarSandbox() {
@@ -62,11 +64,13 @@ async function actualizarSandbox() {
   sandboxConsultando = true;
   try {
     const r = await window.pywebview.api.estado_sandbox();
-    const ui = SANDBOX_UI[r && r.estado] || SANDBOX_UI.no_iniciado;
+    // IA simulada y Docker sin responder (o sin imagen): se muestra como opcional, no como error.
+    const clave = r && r.simulado && r.estado !== 'ok' ? 'opcional' : r && r.estado;
+    const ui = SANDBOX_UI[clave] || SANDBOX_UI.no_iniciado;
     $('sbDot').className = ui.dot;
     $('sbEstado').className = ui.txt;
     $('sbTxt').textContent = ui.label;
-    $('sbRow').title = ui === SANDBOX_UI.ok ? '' : (r && r.mensaje) || '';
+    $('sbRow').title = ui === SANDBOX_UI.ok ? '' : (ui === SANDBOX_UI.opcional ? 'No se usa con la IA simulada. ' : '') + ((r && r.mensaje) || '');
     $('sbAyudaTxt').textContent = ui.ayuda;
     $('sbAyuda').title = (r && r.mensaje) || '';
     $('sbAyuda').style.display = ui.ayuda ? '' : 'none';

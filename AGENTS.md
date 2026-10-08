@@ -44,7 +44,7 @@ El paquete requiere instalación editable: `config.toml` y `contracts/` se busca
 | `src/pyagent/analysis/` | Analizador AST (estático): funciones, rutas FastAPI y mapa de llamadas `llama_a`. Interfaz única `analizar(ruta) -> Estructura` |
 | `src/pyagent/sandbox/` | Ejecución en Docker |
 | `src/pyagent/llm/` | Cliente LLM real y simulado; registro de tokens |
-| `src/pyagent/app/` | Puente pywebview (`desktop.py`): recibe acciones de la interfaz y le envía eventos. Sin lógica de negocio |
+| `src/pyagent/app/` | Puente pywebview (`desktop.py`): recibe acciones de la interfaz y le envía eventos, y bitácora de la corrida en la consola (`bitacora.py`). Sin lógica de negocio |
 | `src/pyagent/config/` | Carga de `config.toml` y `.env`, auditoría de claves (nunca se muestran) y verificación del entorno: configuración, claves, Docker y Git (EN-06) |
 | `src/pyagent/proyectos/` | Lógica de proyectos: abrir, clonar, recientes y vista previa. No depende de pywebview |
 | `frontend/` | Interfaz HTML/CSS/JS sin build: un componente por pantalla en `componentes/`, tokens de diseño en `css/tokens.css`, logo en `assets/logo/`. Ver `frontend/README.md` |

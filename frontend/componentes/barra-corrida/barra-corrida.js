@@ -19,5 +19,6 @@ function togglePause(){
   paused = !paused;
   $('liveBtn').classList.toggle('paused', paused);
   $('liveTxt').innerHTML = paused ? 'PAUSADO' : 'LIVE<br>AGENTS';
+  registrarEnPython({tipo:'control', agente:'Monitor', mensaje: paused ? 'Corrida pausada' : 'Corrida reanudada'});
   clearInterval(monTimer); if(!paused) monTimer = setInterval(pushEvent, 900);
 }

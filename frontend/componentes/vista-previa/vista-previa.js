@@ -256,6 +256,7 @@ async function verificarEntorno() {
   $('envChecks').innerHTML = (r.comprobaciones || []).map(c =>
     `<div class="c"><span class="i ${c.ok ? 'ok' : 'no'}">${c.ok ? '✓' : '✕'}</span><div><b>${escHtml(nombres[c.id] || c.id)}</b><div class="hint" style="margin:2px 0 0">${escHtml(c.mensaje)}</div></div></div>`).join('');
   $('envDet').open = !r.listo;  // si falla, el detalle se muestra abierto
+  actualizarSandbox();  // el indicador de la barra lateral se pone al día con el mismo resultado
   try { calc(); } catch (err) { $('toPlan').disabled = !entornoListo; }
 }
 

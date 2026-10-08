@@ -53,6 +53,11 @@ const EVENTS = [
 ];
 const RUN_TOTAL = 9;
 let monitorStarted=false, runDone=false, monTimer=null, agoTimer=null, shown=[], evIdx=0;
+// Cada paso del Monitor también se imprime, con hora, en la consola de Python (solo en la app de escritorio).
+function registrarEnPython(evento){
+  const api = window.pywebview && window.pywebview.api;
+  if(api && api.registrar_evento) api.registrar_evento(evento).catch(() => {});
+}
 function pushEvent(){
   if(evIdx>=EVENTS.length){ finishRun(); return; }
   const e = {...EVENTS[evIdx], born:Date.now()}; shown.push(e); evIdx++;
@@ -61,6 +66,8 @@ function pushEvent(){
   $('progBar').style.width = (e.p/RUN_TOTAL*100)+'%';
   $('evCount').textContent = shown.length;
   const [tag,cls] = TAG[e.a];
+  registrarEnPython({tipo:e.a, agente:tag, archivo:e.f, funcion:e.fn, progreso:`${e.p}/${RUN_TOTAL}`,
+    mensaje: e.t + (e.guard ? ` [${e.guard[0]}: ${e.guard[1]}]` : '')});
   const div = document.createElement('div');
   div.className = 'ev' + ({guard:' alert', watch:' alert watch', oracle:' alert oracle', stuck:' alert watch'}[e.a] || '');
   div.innerHTML = `<div class="node">${ICON[e.a]}</div><div class="box">
@@ -99,6 +106,7 @@ async function startMonitor(){
 }
 function finishRun(){
   if(runDone) return; runDone = true; clearInterval(monTimer);
+  registrarEnPython({tipo:'fin', agente:'Corrida #' + RUN_ID, mensaje:`completada: ${RUN_TOTAL} funciones procesadas`});
   $('ctxChip').className = 'chip done'; $('ctxLbl').textContent = 'Corrida #' + RUN_ID + ':'; $('curFile').textContent = 'completada';
   $('liveBtn').className = 'live done'; $('liveTxt').innerHTML = '✓ COMPLETADO';
   $('skipBtn').classList.add('hide');
@@ -107,4 +115,7 @@ function finishRun(){
   d.innerHTML = `<span>Corrida #${RUN_ID} completada: ${RUN_TOTAL} funciones procesadas.</span><button class="btn" style="margin-left:auto" onclick="go('exec')">Ver ejecución de pruebas</button><button class="btn primary" onclick="go('report')">Ver reporte final →</button>`;
   $('timeline').after(d);
 }
-function skipRun(){ while(!runDone) pushEvent(); }
+function skipRun(){
+  registrarEnPython({tipo:'control', agente:'Monitor', mensaje:'Completar la corrida de golpe'});
+  while(!runDone) pushEvent();
+}

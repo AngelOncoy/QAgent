@@ -74,6 +74,22 @@ Para iniciar la aplicación de escritorio (tras `pip install -e .[dev]`):
 qagent                  # o: python -m pyagent
 ```
 
+### Ver los logs de la corrida
+
+La aplicación imprime cada paso de la corrida, con hora, en la terminal donde la abriste (`qagent`):
+
+```text
+17:57:20 INFO    Corrida iniciada en 'C:/proyectos/demo' con perfil 'deep' (IA simulada)
+17:57:21 INFO    [Generator Agent] services/pricing.py :: calculate_discount() — Generando suite pytest… (0/9)
+17:57:27 WARNING [Reviewer / Sandbox Guard] services/inventory.py :: reserve_stock_atomic() — Aserciones rechazadas… (1/9)
+17:57:27 INFO    [Corrida #8841-B] completada: 9 funciones procesadas
+```
+
+- `INFO` son los pasos normales; `WARNING` son las alertas (aserciones debilitadas, valor esperado no trazable, calidad baja, intentos agotados) y los avisos de que la corrida no pudo iniciar.
+- También se registran el inicio y el bloqueo de la corrida, la pausa, la reanudación y el fin.
+- Las claves de `.env` nunca aparecen: el registro pasa por el filtro de claves de EN-06.
+- Hoy los pasos son los de la simulación del Monitor; cuando se conecte el orquestador real saldrán por el mismo camino los pasos reales.
+
 Para ver solo la interfaz, sin Python, abre `frontend/index.html` en el navegador: funciona en modo demostración con datos simulados.
 
 ## Personalizar la interfaz

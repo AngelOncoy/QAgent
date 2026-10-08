@@ -255,3 +255,33 @@ def test_no_hay_archivos_de_interfaz_fuera_de_frontend() -> None:
         if p.suffix in {".html", ".htm", ".css", ".js"}
     )
     assert sueltos == []
+
+
+# ---------- indicador del sandbox con la IA simulada ----------
+
+
+def test_el_indicador_del_sandbox_distingue_la_ia_simulada() -> None:
+    """Con IA simulada y Docker sin responder, el indicador es neutro (punto gris), no un error."""
+    js = (FRONTEND / "componentes" / "sidebar" / "sidebar.js").read_text(
+        encoding="utf-8"
+    )
+    assert "opcional:" in js and "r.simulado" in js
+    estilos = (FRONTEND / "css" / "componentes.css").read_text(encoding="utf-8")
+    assert ".dot.grey" in estilos and ".neutro" in estilos
+
+
+# ---------- bitácora de la corrida en la consola de Python ----------
+
+
+def test_cada_paso_del_monitor_se_envia_a_la_consola_de_python() -> None:
+    """El monitor, el fin de la corrida y la pausa llaman a registrar_evento del puente."""
+    monitor = (FRONTEND / "componentes" / "monitor" / "monitor.js").read_text(
+        encoding="utf-8"
+    )
+    barra = (FRONTEND / "componentes" / "barra-corrida" / "barra-corrida.js").read_text(
+        encoding="utf-8"
+    )
+    assert "api.registrar_evento" in monitor
+    # un envío por cada paso, por el fin, por «completar» y por la pausa
+    assert monitor.count("registrarEnPython(") >= 4
+    assert "registrarEnPython(" in barra
