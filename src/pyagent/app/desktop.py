@@ -161,8 +161,33 @@ class DesktopAPI:
         """Alias de obtener_vista_previa para la interfaz JavaScript (HU-04)."""
         return self.obtener_vista_previa(ruta)
 
+    def verificar_entorno(self) -> dict:
+        """Verifica config.toml, claves de .env, Docker y Git (EN-06).
+
+        Se vuelve a leer todo en cada llamada, así que el usuario puede corregir el
+        `.env` y pulsar Reintentar sin reiniciar la aplicación. Nunca devuelve claves.
+
+        Returns:
+            dict: `listo`, `mensaje`, `problemas` y `comprobaciones` (ver
+            `pyagent.config.verificar_entorno`).
+        """
+        from pyagent.config import verificar_entorno
+
+        return verificar_entorno()
+
     def start_run(self, folder_path: str, profile: str = "deep") -> dict:
-        """Inicia la corrida del sistema sobre el proyecto seleccionado."""
+        """Inicia la corrida del sistema sobre el proyecto seleccionado.
+
+        Si el entorno no está listo (falta una clave o un valor, Docker o Git), no
+        inicia y devuelve `{"status": "blocked", "motivo": ...}` (EN-06).
+        """
+        entorno = self.verificar_entorno()
+        if not entorno["listo"]:
+            return {
+                "status": "blocked",
+                "motivo": entorno["mensaje"],
+                "problemas": entorno["problemas"],
+            }
         print(f"[Python] Iniciando corrida en '{folder_path}' con perfil '{profile}'")
         # Emite un evento hacia la interfaz JS
         self.emit_event("log", {"message": f"Corrida iniciada en perfil '{profile}'"})
@@ -200,8 +225,25 @@ class DesktopAPI:
             )
 
 
+def _registrar_estado_configuracion() -> None:
+    """Lee config.toml y .env al iniciar y deja en consola un resumen sin claves (EN-06)."""
+    from pyagent.config import cargar_configuracion, instalar_filtro_logs
+
+    carga = cargar_configuracion()
+    instalar_filtro_logs(carga.claves)
+    if carga.simulado:
+        print("[Python] IA simulada activa (PYAGENT_FAKE_LLM=1): 0 tokens, no se usan claves.")
+    if carga.ok:
+        print("[Python] Configuración cargada: config.toml y claves en orden.")
+    else:
+        print("[Python] Configuración incompleta: no se podrán iniciar corridas.")
+        for aviso in carga.avisos:
+            print(f"[Python]   - {aviso}")
+
+
 def main() -> None:
     """Punto de entrada de la aplicación de escritorio."""
+    _registrar_estado_configuracion()
     html_path = os.path.join(
         os.path.dirname(__file__),
         "ui",
