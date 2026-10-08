@@ -6,14 +6,16 @@ Paso 2 (sin red): `ejecutar_pruebas` corre pytest + coverage sobre una copia del
 
 from pyagent.sandbox.cliente import obtener_cliente
 from pyagent.sandbox.ejecucion import (
+    clasificar_resultado,
     copiar_proyecto,
     ejecutar_en_sandbox,
     ejecutar_pruebas,
 )
-from pyagent.sandbox.estado import estado_docker
+from pyagent.sandbox.estado import estado_docker, verificar_docker
 from pyagent.sandbox.imagen import IMAGEN_BASE, construir_imagen_base, preparar_imagen
 from pyagent.sandbox.modelos import (
     LIMITES_POR_DEFECTO,
+    MENSAJE_DOCKER_CERRADO,
     DockerNoDisponible,
     ErrorConstruccionImagen,
     ErrorSandbox,
@@ -25,12 +27,14 @@ from pyagent.sandbox.modelos import (
 __all__ = [
     "IMAGEN_BASE",
     "LIMITES_POR_DEFECTO",
+    "MENSAJE_DOCKER_CERRADO",
     "DockerNoDisponible",
     "ErrorConstruccionImagen",
     "ErrorSandbox",
     "ImagenNoEncontrada",
     "LimitesSandbox",
     "ResultadoSandbox",
+    "clasificar_resultado",
     "construir_imagen_base",
     "copiar_proyecto",
     "ejecutar_en_sandbox",
@@ -38,4 +42,5 @@ __all__ = [
     "estado_docker",
     "obtener_cliente",
     "preparar_imagen",
+    "verificar_docker",
 ]

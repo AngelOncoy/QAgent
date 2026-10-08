@@ -162,7 +162,22 @@ class DesktopAPI:
         return self.obtener_vista_previa(ruta)
 
     def start_run(self, folder_path: str, profile: str = "deep") -> dict:
-        """Inicia la corrida del sistema sobre el proyecto seleccionado."""
+        """Inicia la corrida del sistema sobre el proyecto seleccionado.
+
+        Antes de iniciar verifica que Docker responde (HU-13): sin Docker no se inicia
+        nada y la interfaz muestra el mensaje devuelto.
+
+        Returns:
+            dict: ``{"status": "started", ...}`` o, si Docker no está disponible,
+            ``{"status": "docker_no_disponible", "mensaje": str}``.
+        """
+        from pyagent.sandbox import DockerNoDisponible, verificar_docker
+
+        try:
+            verificar_docker()
+        except DockerNoDisponible as exc:
+            return {"status": "docker_no_disponible", "mensaje": str(exc)}
+
         print(f"[Python] Iniciando corrida en '{folder_path}' con perfil '{profile}'")
         # Emite un evento hacia la interfaz JS
         self.emit_event("log", {"message": f"Corrida iniciada en perfil '{profile}'"})
@@ -225,4 +240,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-    

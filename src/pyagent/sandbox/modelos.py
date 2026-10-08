@@ -11,6 +11,8 @@ IMAGEN_BASE = f"{REPOSITORIO}:base"
 
 MENSAJE_NO_INSTALADO = "Docker no está instalado. Instala Docker Desktop para ejecutar las pruebas en el sandbox."
 MENSAJE_NO_INICIADO = "Docker Desktop no está iniciado. Ábrelo, espera a que termine de arrancar y vuelve a intentar."
+# HU-13 (criterio 3): texto exacto que ve el usuario si intenta iniciar una corrida sin Docker.
+MENSAJE_DOCKER_CERRADO = "Docker no está abierto: inícialo y vuelve a intentar"
 
 
 def clasificar_docker_caido() -> tuple[str, str]:
