@@ -155,3 +155,39 @@ def test_los_estados_de_la_corrida_definen_su_halo_como_token() -> None:
         "rejected_oracle",
         "stuck",
     ]
+
+
+# ---------- fuentes: locales, sin depender de internet ----------
+
+
+def test_la_interfaz_no_depende_de_recursos_externos() -> None:
+    """index.html y los CSS no cargan nada de internet (fuentes, estilos ni scripts)."""
+    externos = [r for r in ESTILOS + SCRIPTS if r.startswith(("http:", "https:", "//"))]
+    css = [p.read_text(encoding="utf-8") for p in (FRONTEND / "css").glob("*.css")]
+    externos += [
+        u for texto in css for u in re.findall(r"url\(['\"]?(https?:[^)'\"]+)", texto)
+    ]
+    assert externos == []
+
+
+def test_las_fuentes_declaradas_existen_y_tienen_licencia() -> None:
+    fuentes_css = (FRONTEND / "css" / "fuentes.css").read_text(encoding="utf-8")
+    rutas = re.findall(r"url\('([^']+)'\)", fuentes_css)
+    assert rutas
+    assert [r for r in rutas if not (FRONTEND / "css" / r).resolve().is_file()] == []
+    licencias = {p.name for p in (FRONTEND / "assets" / "fuentes").glob("LICENSE-*")}
+    assert licencias == {"LICENSE-Inter-OFL.txt", "LICENSE-JetBrainsMono-OFL.txt"}
+
+
+def test_las_familias_de_los_tokens_tienen_su_font_face() -> None:
+    """La primera familia de --fuente-ui y --fuente-mono está declarada en fuentes.css."""
+    tokens = (FRONTEND / "css" / "tokens.css").read_text(encoding="utf-8")
+    fuentes_css = (FRONTEND / "css" / "fuentes.css").read_text(encoding="utf-8")
+    declaradas = set(re.findall(r"font-family:'([^']+)'", fuentes_css))
+    principales = re.findall(r"--fuente-(?:ui|mono):'([^']+)'", tokens)
+    assert len(principales) == 2
+    assert set(principales) <= declaradas
+
+
+def test_fuentes_css_se_carga_antes_que_los_tokens() -> None:
+    assert ESTILOS.index("css/fuentes.css") < ESTILOS.index("css/tokens.css")

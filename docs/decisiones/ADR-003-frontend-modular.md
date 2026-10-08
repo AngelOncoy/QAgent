@@ -54,12 +54,11 @@ Además:
 - El HTML vive dentro de plantillas JavaScript, sin resaltado de HTML en el editor; hay que escapar `` ` `` y `${`.
 - `--logo-icono` usa una ruta relativa a `css/`, por lo que la regla `.logo` debe permanecer en `css/layout.css`.
 - **Colores solo como tokens.** Los 333 colores literales que había en los componentes (hexadecimales y `rgba`) pasaron a una paleta de unos 130 tokens en `tokens.css`, y una prueba (`tests/frontend/`) falla si reaparece uno. Costo: un truco como `` `${color}33` `` (opacidad en hexadecimal) ya no funciona con `var(--…)`; se usan tokens con opacidad (`-aNN`).
-- Las fuentes (Inter, JetBrains Mono) siguen cargándose desde Google Fonts; sin internet se usa la fuente del sistema.
+- Las fuentes (Inter y JetBrains Mono, ~140 KB en `woff2`, licencia OFL) viajan en `frontend/assets/fuentes/`: la interfaz no depende de internet. Añadir pesos o alfabetos implica incluir más archivos.
 - El paquete requiere instalación editable: `config.toml` y `contracts/` se buscan relativos a la raíz del repositorio.
 - `python src/pyagent/app/desktop.py` ya no funciona sin instalar el paquete (`pip install -e .[dev]`); se usa `qagent` o `python -m pyagent`.
 
 ## 5. Seguimiento
 
-- Incluir las fuentes localmente.
 - Unificar la paleta: hoy hay valores casi iguales con nombres distintos (por ejemplo varios tonos de rojo y de rosa para estados) que podrían reducirse a un conjunto menor.
 - Valorar módulos ES si algún día se abandona `file://` como forma de abrir la demostración.

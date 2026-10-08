@@ -94,7 +94,7 @@ QAgent/
 │       ├── ADR-002-mapa-de-codigo.md  Análisis con ast frente a Graphify (SPK-02)
 │       └── ADR-003-frontend-modular.md  Frontend separado y modular por componentes
 ├── frontend/                      Interfaz HTML/CSS/JS sin compilación (ver frontend/README.md)
-│   ├── assets/logo/               Logo vectorizado (completo e ícono)
+│   ├── assets/                    Logo vectorizado (logo/) y fuentes Inter y JetBrains Mono (fuentes/)
 │   ├── componentes/               Un componente por pantalla o modal: inicio, vista previa, monitor, informe…
 │   ├── css/                       tokens.css (colores, tipografía, logo), layout.css y componentes.css
 │   ├── js/                        Utilidades, estado, navegación y arranque

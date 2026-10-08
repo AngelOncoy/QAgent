@@ -17,8 +17,11 @@ Decisión de diseño: [ADR-003](../docs/decisiones/ADR-003-frontend-modular.md).
 ```text
 frontend/
 ├── index.html            Esqueleto: <div data-componente="..."> y la lista de <link>/<script>
-├── assets/logo/          qagent-icono.svg (solo el hexágono) · qagent-logo.svg (completo)
+├── assets/
+│   ├── logo/             qagent-icono.svg (solo el hexágono) · qagent-logo.svg (completo)
+│   └── fuentes/          Inter y JetBrains Mono (woff2, subconjunto latino) con sus licencias OFL
 ├── css/
+│   ├── fuentes.css       @font-face de las fuentes locales (se carga antes que tokens.css)
 │   ├── tokens.css        Colores, tipografía y logo: la única fuente de verdad visual
 │   ├── layout.css        Reset, área principal, barra superior, botones y logo
 │   └── componentes.css   Piezas compartidas: modales, tarjetas, tablas, pills, toast
@@ -93,9 +96,9 @@ Todo lo visual se cambia en **`css/tokens.css`**:
 | Tipografía | `--fuente-ui`, `--fuente-mono` (`--sans` y `--mono` son alias) | Texto de interfaz y de código |
 | Logo | `--logo-icono`, `--logo-completo` | Rutas a los SVG de `assets/logo/` |
 
-**Cambiar el logo:** reemplazar los SVG de `assets/logo/` (mismos nombres) o cambiar las rutas en `tokens.css`. La barra lateral lo usa con `.logo`, que **debe seguir en `css/layout.css`**: la ruta de `--logo-icono` es relativa a `css/`, y si esa regla se mueve a la carpeta de un componente la imagen deja de resolverse. En `qagent-logo.svg` el texto usa la fuente Poppins; sin ella cae a Segoe UI.
+**Cambiar el logo:** reemplazar los SVG de `assets/logo/` (mismos nombres) o cambiar las rutas en `tokens.css`. La barra lateral lo usa con `.logo`, que **debe seguir en `css/layout.css`**: la ruta de `--logo-icono` es relativa a `css/`, y si esa regla se mueve a la carpeta de un componente la imagen deja de resolverse. En `qagent-logo.svg` el texto usa la fuente Poppins, que no se incluye (el SVG se dibuja como imagen y no hereda las fuentes de la página): sin ella cae a Segoe UI.
 
-**Cambiar la tipografía:** editar `--fuente-ui` y `--fuente-mono`. Inter y JetBrains Mono se cargan desde Google Fonts (`<link>` en `index.html`); sin internet la interfaz usa la fuente del sistema.
+**Cambiar la tipografía:** las fuentes van incluidas en el proyecto (`assets/fuentes/`, unos 140 KB, licencia OFL): la interfaz no depende de internet. Para cambiar de fuente, reemplazar los `woff2`, actualizar los `@font-face` de `css/fuentes.css` y el nombre de la familia en `--fuente-ui` / `--fuente-mono` de `tokens.css`. Hoy se incluyen Inter (400, 500, 600, 700) y JetBrains Mono (400, 600), con el subconjunto latino, que cubre el español; otro alfabeto requeriría añadir su subconjunto. Un peso que no esté incluido (el 800, por ejemplo) se resuelve al más cercano.
 
 ### Reglas para los colores
 
