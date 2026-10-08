@@ -55,7 +55,7 @@ const PROFILES = [
   {k:'deep', n:'Profundo', d:'Estándar + mutation testing (mutmut) solo sobre funciones críticas.', tok:14000, t:1.2, m:['Todo lo anterior','Mutation Score'], pill:'p-purple'},
   {k:'reg', n:'Regresión', d:'Vuelve a ejecutar las pruebas ya aprobadas y guardadas, sin llamar a ninguna IA. Las funciones cuyo código cambió quedan marcadas para una corrida nueva.', tok:0, t:0.2, m:['Pass Rate','Cobertura vs. anterior'], pill:'p-green'},
 ];
-const HAS_PRIOR_RUN = true; // simula corridas previas de este proyecto (ver Historial)
+let HAS_PRIOR_RUN = true;   // ¿el proyecto abierto ya tuvo una corrida? (dato real en la app; simulado en la demostración)
 // Estado de los specs guardados en .pyagent/specs/: 'reuse' = el código no cambió (huella igual), 'stale' = cambió → se regenera
 const SPEC_STATUS = {'services/pricing.py':'reuse','services/inventory.py':'reuse','services/payments.py':'reuse','services/shipping.py':'reuse','services/cart.py':'stale','services/discounts.py':'stale'};
 const PLANNER_SHARE = 0.28;   // parte del costo por función que corresponde al Planner (se ahorra al reutilizar el spec)

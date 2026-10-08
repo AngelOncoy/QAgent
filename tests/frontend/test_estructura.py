@@ -191,3 +191,53 @@ def test_las_familias_de_los_tokens_tienen_su_font_face() -> None:
 
 def test_fuentes_css_se_carga_antes_que_los_tokens() -> None:
     assert ESTILOS.index("css/fuentes.css") < ESTILOS.index("css/tokens.css")
+
+
+# ---------- datos de ejemplo: solo en la demostración y en la corrida simulada ----------
+
+# Pantallas del flujo real (antes de la corrida): no deben llevar datos de ejemplo escritos a mano.
+_FLUJO_REAL = [
+    "vista-previa/vista-previa",
+    "config-pruebas/config-pruebas",
+    "barra-corrida/barra-corrida",
+]
+_EJEMPLOS = [
+    "ecommerce-core",
+    "retail-ai",
+    "a8f91",
+    "8841-B",
+    "8791-A",
+    "En el demo",
+    "Python 3.11 detectado",
+    "requirements.txt ✓",
+    "cart.py, discounts.py",
+]
+
+
+@pytest.mark.parametrize("componente", _FLUJO_REAL)
+def test_el_flujo_real_no_lleva_datos_de_ejemplo(componente: str) -> None:
+    """El nombre del proyecto, el commit, las corridas previas, etc. salen del backend, no del HTML."""
+    texto = (FRONTEND / "componentes" / f"{componente}.js").read_text(encoding="utf-8")
+    assert [e for e in _EJEMPLOS if e in texto] == []
+
+
+def test_la_barra_de_demo_esta_oculta_por_defecto() -> None:
+    """«Reiniciar demo» solo se muestra sin pywebview (inicio.js la revela en modo demostración)."""
+    assert re.search(r'<div class="demo hide" id="barraDemo">', INDEX)
+    inicio = (FRONTEND / "componentes" / "inicio" / "inicio.js").read_text(
+        encoding="utf-8"
+    )
+    assert "barraDemo" in inicio
+
+
+def test_un_analisis_fallido_en_la_app_real_no_muestra_modulos_de_ejemplo() -> None:
+    """En la rama de pywebview, si el análisis falla se vacía la vista previa (no aplicarResumenDemo)."""
+    js = (FRONTEND / "componentes" / "vista-previa" / "vista-previa.js").read_text(
+        encoding="utf-8"
+    )
+    cuerpo = js[
+        js.index("async function loadProject") : js.index("function vaciarVistaPrevia")
+    ]
+    rama_real, _rama_demo = cuerpo.split("} else {\n    aplicarResumenDemo();", 1)
+    assert "aplicarResumenDemo" not in rama_real
+    assert "vaciarVistaPrevia()" in rama_real

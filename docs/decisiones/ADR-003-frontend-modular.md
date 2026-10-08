@@ -36,6 +36,7 @@ Además:
 | **Módulos ES (`import`/`export`)** | Descartada: bloqueados con `file://` en WebView2 y obligan a reescribir los `onclick="…"` del HTML. |
 | **Un `.html` por componente cargado con `fetch`** | Probada y descartada. Funcionaba en la aplicación, pero `fetch` no funciona con `file://`: abrir `index.html` con doble clic dejaba de servir y la demo exigía levantar un servidor HTTP. |
 | **Un `.html` por componente unido con un script de compilación** | Descartada: añade un paso que hay que recordar ejecutar. |
+| **Que pywebview sirva la carpeta por su servidor HTTP interno (pasar la ruta como `url`)** | Descartada tras detectar un fallo intermitente: ese servidor admite 5 conexiones en cola y, al abrir la ventana con ~40 archivos, rechaza algunas peticiones (`ERR_CONNECTION_REFUSED`); 6 de 8 arranques en frío perdían estilos o scripts. Con `file://` fueron 0 de 18. |
 | **HTML del componente como plantilla dentro de su `.js` (elegida)** | Funciona con `file://` y con pywebview sin servidor propio; cada componente sigue siendo una carpeta autocontenida. |
 
 ## 4. Consecuencias
@@ -53,12 +54,13 @@ Además:
 - Los scripts comparten ámbito global: no hay aislamiento entre componentes y el orden de carga importa (lo vigila `tests/frontend/`).
 - El HTML vive dentro de plantillas JavaScript, sin resaltado de HTML en el editor; hay que escapar `` ` `` y `${`.
 - `--logo-icono` usa una ruta relativa a `css/`, por lo que la regla `.logo` debe permanecer en `css/layout.css`.
-- **Colores solo como tokens.** Los 333 colores literales que había en los componentes (hexadecimales y `rgba`) pasaron a una paleta de unos 130 tokens en `tokens.css`, y una prueba (`tests/frontend/`) falla si reaparece uno. Costo: un truco como `` `${color}33` `` (opacidad en hexadecimal) ya no funciona con `var(--…)`; se usan tokens con opacidad (`-aNN`).
+- **Colores solo como tokens.** Los 333 colores literales que había en los componentes (hexadecimales y `rgba`) pasaron a una paleta en `tokens.css` (119 tokens tras unificar los colores casi iguales: a menos de ΔE 3 entre sí, imperceptible sobre los fondos de la interfaz; eran 130), y una prueba (`tests/frontend/`) falla si reaparece uno. Costo: un truco como `` `${color}33` `` (opacidad en hexadecimal) ya no funciona con `var(--…)`; se usan tokens con opacidad (`-aNN`).
 - Las fuentes (Inter y JetBrains Mono, ~140 KB en `woff2`, licencia OFL) viajan en `frontend/assets/fuentes/`: la interfaz no depende de internet. Añadir pesos o alfabetos implica incluir más archivos.
+- La ventana carga `index.html` como URL `file://` (no como ruta ni con `http_server`) por el fallo intermitente descrito en la tabla anterior; la prueba `tests/app/test_desktop_arranque.py` lo impide.
 - El paquete requiere instalación editable: `config.toml` y `contracts/` se buscan relativos a la raíz del repositorio.
 - `python src/pyagent/app/desktop.py` ya no funciona sin instalar el paquete (`pip install -e .[dev]`); se usa `qagent` o `python -m pyagent`.
 
 ## 5. Seguimiento
 
-- Unificar la paleta: hoy hay valores casi iguales con nombres distintos (por ejemplo varios tonos de rojo y de rosa para estados) que podrían reducirse a un conjunto menor.
+- Unificar más la paleta requiere cambios visibles y es decisión de diseño. Candidatos que quedaron (ΔE entre paréntesis): `slate-400` frente a `--mut` (3,4), `orange-950` frente a `amber-950` (3,8), `purple-900-c` frente a `fuchsia-900-c` (4,3), `red-400` frente a `rose-400` (5,8), y varios niveles de opacidad de `rose-950`, `rose-900` y `fuchsia-950` (3,1 a 5,9). Los pares `slate-200`/`slate-300` y `green-300`/`emerald-300` (4,9 y 5,3) son niveles de gris y matices de verde distintos a propósito.
 - Valorar módulos ES si algún día se abandona `file://` como forma de abrir la demostración.

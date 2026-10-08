@@ -87,7 +87,7 @@ function renderExec(){
                     <div class="lbl"><span>Aserción de Contrato (Planner)</span><span style="color:var(--emerald-400)">Esperado estricto</span></div>
                     <div class="bx" style="color:var(--emerald-300)">${esc(fn.cmp.original)}</div>
                     <div class="lbl" style="padding-top:3px"><span>Aserción Sintetizada (Generator)</span><span style="color:${audLbl[1]};font-weight:700">${audLbl[2]}</span></div>
-                    <div class="bx ${fn.cmp.state==='clean'?'':'bad'}" style="${fn.cmp.state==='oracle'?'border-color:var(--fuchsia-700);color:var(--fuchsia-300);background:var(--fuchsia-950-a35)':fn.cmp.state==='weak'?'border-color:var(--amber-700);color:var(--amber-300);background:var(--amber-950-a35)':''}">${esc(fn.cmp.modified)}</div>
+                    <div class="bx ${fn.cmp.state==='clean'?'':'bad'}" style="${fn.cmp.state==='oracle'?'border-color:var(--fuchsia-700);color:var(--fuchsia-300);background:var(--fuchsia-950-a40)':fn.cmp.state==='weak'?'border-color:var(--amber-700);color:var(--amber-300);background:var(--amber-950-a35)':''}">${esc(fn.cmp.modified)}</div>
                   </div></div>
               </div>
             </div></div>` : ''}

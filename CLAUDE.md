@@ -37,7 +37,8 @@ Detalle completo en `frontend/README.md`. Lo esencial:
 - **Colores, tipografía y logo se cambian en `frontend/css/tokens.css`.** Ningún componente lleva colores literales: todo es `var(--token)` (lo exige `tests/frontend/`). Un color nuevo se declara en `tokens.css`; no se concatena texto a un color (`${c}33`), se usa un token con opacidad (`-aNN`).
 - **La regla `.logo` debe permanecer en `css/layout.css`:** `--logo-icono` usa una ruta relativa a `css/`.
 - **Nombres técnicos que no se renombran:** `pyagent-sandbox:base`, `.pyagent/`, el módulo `pyagent` y `window.onPyAgentEvent`.
-- Tras tocar el frontend: `python test.py` (incluye `tests/frontend/`) y, si cambió algo visible, revisar la ventana real con `qagent`.
+- La ventana carga `index.html` como URL `file://`; no cambiarlo a una ruta ni activar `http_server` (el servidor interno de pywebview rechaza conexiones al abrir y deja la interfaz sin estilos; ver `frontend/README.md`).
+- Tras tocar el frontend: `python test.py` (incluye `tests/frontend/`) y revisar la **ventana real** (`qagent`), no solo el navegador. Un fallo de carga es intermitente: probar varios arranques en frío, porque las peticiones rechazadas no aparecen en el log del servidor y contar respuestas 200 no basta.
 
 ## Pruebas
 

@@ -83,5 +83,8 @@ async function quitarReciente(i){
 // Se llama desde main.js cuando el HTML del componente ya está montado.
 function iniciarInicio(){
   window.addEventListener('pywebviewready', cargarRecientes);
-  setTimeout(() => { demoListo = true; if(!apiRec()) cargarRecientes(); }, 500);   // sin pywebview: modo demo
+  setTimeout(() => {   // sin pywebview: modo demostración (lista simulada y controles de la demo)
+    demoListo = true;
+    if(!apiRec()){ cargarRecientes(); $('barraDemo').classList.remove('hide'); }
+  }, 500);
 }

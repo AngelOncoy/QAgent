@@ -55,6 +55,8 @@ frontend/
 
 Son scripts clásicos que comparten el ámbito global (por eso los `onclick="…"` del HTML pueden llamar a las funciones). No hay `import`/`export`, ni `fetch` de HTML, ni bundler: así funciona con `file://` y con pywebview sin servidor propio.
 
+**La ventana carga `index.html` como URL `file://`** (`desktop.py`, `FRONTEND_DIR.../index.html` con `.as_uri()`). No hay que pasar la ruta como texto ni activar `http_server`: el servidor HTTP interno de pywebview tiene una cola de 5 conexiones y, al abrir la ventana (decenas de CSS, JS y fuentes a la vez), rechaza peticiones al azar; la interfaz queda sin estilos o sin scripts de forma intermitente. `tests/app/test_desktop_arranque.py` lo vigila.
+
 ## Anatomía de un componente
 
 ```text
@@ -105,7 +107,7 @@ Todo lo visual se cambia en **`css/tokens.css`**:
 Ningún CSS, JS ni HTML de la interfaz contiene colores literales (`#34d399`, `rgba(…)`): todos son `var(--token)`, y los valores viven solo en `css/tokens.css`. Cambiar un token cambia ese color en toda la aplicación. `tests/frontend/` lo exige: falla si aparece un color suelto o si se usa un `var(--x)` que no está definido.
 
 - **Nombres.** `--<familia>-<tono>` sigue la escala de Tailwind (`--emerald-400`). `-aNN` es el mismo color con NN % de opacidad (`--rose-950-a60`). `-b` es el borde de un estado (`--green-b`, `--red-b`, `--amber-b`, `--blue-b`, `--purple-b`, pareja de `-t` y `-s`). `-c` marca un valor propio del proyecto que no pertenece a la paleta de Tailwind.
-- **Color nuevo.** Declararlo en `tokens.css` y usar `var(--nombre)`. No escribir hexadecimales en los componentes.
+- **Color nuevo.** Antes de crearlo, buscar en `tokens.css` uno casi igual y reutilizarlo: la paleta ya se unificó y dos colores a menos de ΔE 3 (diferencia imperceptible sobre los fondos de la interfaz) no se distinguen. Si hace falta uno nuevo, declararlo en `tokens.css` y usar `var(--nombre)`; no escribir hexadecimales en los componentes.
 - **No concatenar texto a un color.** Un truco como `` `${color}33` `` (opacidad en hexadecimal) deja de ser válido con `var(--…)`. Usar un token con opacidad: por eso cada estado del catálogo `ST` (`js/datos-corrida.js`) trae su `halo` (`--rose-500-a20`).
 - **Atributos SVG.** `stroke="var(--x)"` y `fill="var(--x)"` funcionan en el navegador de pywebview, y los íconos (`I(nombre, color)`) reciben tokens como cualquier otro color.
 - **Excepción.** Los SVG de `assets/logo/` son archivos independientes y conservan sus propios colores; si cambia la marca hay que actualizarlos junto con `--marca-*`.
@@ -113,3 +115,18 @@ Ningún CSS, JS ni HTML de la interfaz contiene colores literales (`#34d399`, `r
 ## Nombres técnicos que no se renombran
 
 Aunque el producto se llama QAgent, estos identificadores son del backend y se mantienen: la imagen Docker `pyagent-sandbox:base`, la carpeta `.pyagent/` (y `~/.pyagent/`), el módulo `pyagent` y la función `window.onPyAgentEvent`, que invoca `desktop.py`.
+
+## Datos reales y datos simulados
+
+La interfaz tiene un **modo demostración**: sin pywebview (abriendo `index.html` en el navegador) todo funciona con datos de ejemplo. En la aplicación de escritorio, lo que se muestra sale del backend o no se muestra:
+
+| Pantalla | Con pywebview (aplicación real) | Sin pywebview (demostración) |
+|---|---|---|
+| Inicio | Proyectos recientes reales (`~/.pyagent/recientes.json`) | Lista simulada de 11 proyectos |
+| Vista previa | Nombre, rama (solo si hay Git), módulos, funciones y consistencias del análisis AST. Si el análisis falla, aviso de error y lista vacía | Proyecto de ejemplo `ecommerce-core` |
+| Entorno | Estado real del sandbox (Docker e imagen base) | «Modo demostración» |
+| Configuración de pruebas | El perfil Regresión solo está disponible si el proyecto ya tuvo una corrida | Disponible |
+| Controles «reiniciar demo» y «completar corrida» | Ocultos | Visibles |
+| Monitor, Ejecución, Informe, Historial y Configuración del sistema | **Datos simulados** (ver abajo) | Datos simulados |
+
+**Pendiente:** Monitor, Ejecución, Informe, Historial y Configuración del sistema todavía se alimentan de datos simulados (`js/datos-corrida.js` y los `EVENTS` del monitor, la corrida «#8841-B», el historial de ejemplo, los precios de ejemplo de `AGENTS_CFG`), incluso en la aplicación real, porque el orquestador aún no está conectado a la interfaz: `start_run` solo comprueba Docker y emite un aviso. Conectarlos exige enviar eventos reales desde Python (`emit_event`) y leer las corridas guardadas en `.pyagent/runs/`. `tests/frontend/` impide que los datos de ejemplo vuelvan a colarse en las pantallas del flujo real.

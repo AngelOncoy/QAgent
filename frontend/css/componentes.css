@@ -2,7 +2,7 @@
 /* Modal */
 .overlay{position:fixed;inset:0;background:var(--blue-950-c-a72);display:none;align-items:center;justify-content:center;z-index:20}
 .overlay.show{display:flex}
-.modal{width:600px;max-width:calc(100vw - 32px);background:var(--panel2);border:1px solid var(--line2);border-radius:12px;box-shadow:0 20px 60px var(--black-a60)}
+.modal{width:600px;max-width:calc(100vw - 32px);background:var(--panel2);border:1px solid var(--line2);border-radius:12px;box-shadow:0 20px 60px var(--black-a50)}
 .mhead{display:flex;align-items:center;gap:10px;padding:14px 18px;border-bottom:1px solid var(--line);font-weight:600;font-size:14px}
 .mhead .x{margin-left:auto;cursor:pointer;color:var(--mut);background:none;border:0;font-size:18px}
 .mcontent{padding:20px;display:flex;flex-direction:column;gap:14px}

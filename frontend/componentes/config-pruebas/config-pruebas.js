@@ -3,7 +3,7 @@
 registrarComponente('config-pruebas/config-pruebas', `<!-- ===== 3. CONFIGURACIÓN DE PRUEBAS (nueva) ===== -->
 <section id="s-tests" class="hide" style="display:flex;flex-direction:column;flex:1;min-height:0">
   <div class="topbar">
-    <div class="chip"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7h6l2 2h10v10H3z"/></svg><b>repo:</b> <span class="repoLbl">github.com/retail-ai/ecommerce-core</span></div>
+    <div class="chip"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7h6l2 2h10v10H3z"/></svg><b>repo:</b> <span class="repoLbl"></span></div>
     <div class="stepper">
       <span class="done"><b>✓</b>Proyecto</span><span class="chev">›</span>
       <span class="done"><b>✓</b>Vista previa</span><span class="chev">›</span>
@@ -82,7 +82,7 @@ function renderProfiles(){
       <b>${p.n}</b>${p.k==='reg'&&HAS_PRIOR_RUN?'<span class="pill p-green" style="margin-left:6px">sin IA</span>':''}<p>${p.d}</p>
       <div class="foot"><span class="pill ${p.pill}">${p.tok? '~'+p.tok.toLocaleString('es-PE')+' tokens/fn':'0 tokens'}</span>${p.m.map(x=>`<span class="pill p-grey">${x}</span>`).join('')}</div>
       <div class="pcost"><span>Costo aprox.</span><b class="${over?'over':''}">S/ ${e.cost.toFixed(2)}</b><span>· ${e.time} min</span></div>
-      ${locked?`<div class="why">Requiere una corrida previa de este proyecto.</div>`:(p.k==='reg'?`<div class="hint" style="margin-top:8px">6 pruebas aprobadas guardadas en .pyagent/tests/ (última: corrida #8791-A). En el demo se simula la corrida Profunda.</div>`:'')}
+      ${locked?`<div class="why">Requiere una corrida previa de este proyecto.</div>`:(p.k==='reg'?`<div class="hint" style="margin-top:8px">Re-ejecuta sin IA las pruebas aprobadas guardadas en .pyagent/tests/ en la última corrida del proyecto.</div>`:'')}
     </div>`;}).join('');
 }
 function renderCompare(){
@@ -128,7 +128,7 @@ function calc(){
   if(!fns.length){ msg = 'No hay funciones seleccionadas: vuelve a la vista previa.'; block = true; }
   else if(cost>cap){ msg = `<span class="err">El costo estimado supera el tope de S/ ${cap.toFixed(2)} definido por el equipo. Reduce funciones o elige un perfil más liviano.</span>`; block = true; }
   else if(noDoc){ msg = `<span class="warn">⚠ ${noDoc} función(es) sin docstring: se generarán, pero con oráculo débil (se marcará en el informe).</span>`; }
-  else msg = profile==='reg' ? 'Regresión: re-ejecuta pruebas guardadas sin IA. (En el demo se muestra la corrida Profunda #8841-B.)' : `Listo: ${fns.length} funciones · perfil ${p.n}.`;
+  else msg = profile==='reg' ? 'Regresión: re-ejecuta pruebas guardadas sin IA.' : `Listo: ${fns.length} funciones · perfil ${p.n}.`;
   $('footMsg2').innerHTML = msg; $('toPlan').disabled = block;
   renderProfiles(); renderCompare();
 }

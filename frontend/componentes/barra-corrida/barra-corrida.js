@@ -2,7 +2,7 @@
 // HTML del componente (se monta en el marcador data-componente="barra-corrida/barra-corrida" de index.html)
 registrarComponente('barra-corrida/barra-corrida', `<!-- ===== Barra compartida Monitor / Ejecución / Reporte ===== -->
   <div class="topbar mon-top hide" id="runTop">
-    <div class="chip"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7h6l2 2h10v10H3z"/></svg><b>repo:</b> <span class="repoLbl">github.com/retail-ai/ecommerce-core</span></div>
+    <div class="chip"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7h6l2 2h10v10H3z"/></svg><b>repo:</b> <span class="repoLbl"></span></div>
     <span class="chev">›</span>
     <div class="chip amber" id="ctxChip"><span class="dot"></span><span><span id="ctxLbl">Analizando:</span><br><span id="curFile">services/pricing.py</span></span></div>
     <div class="prog">

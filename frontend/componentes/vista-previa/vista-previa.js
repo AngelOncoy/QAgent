@@ -3,7 +3,7 @@
 registrarComponente('vista-previa/vista-previa', `<!-- ===== 2. VISTA PREVIA Y CONFIGURACIÓN ===== -->
 <section id="s-preview" class="hide" style="display:flex;flex-direction:column;flex:1;min-height:0">
   <div class="topbar">
-    <div class="chip"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7h6l2 2h10v10H3z"/></svg><b>repo:</b> <span class="repoLbl">github.com/retail-ai/ecommerce-core</span></div>
+    <div class="chip"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7h6l2 2h10v10H3z"/></svg><b>repo:</b> <span class="repoLbl"></span></div>
     <div class="stepper">
       <span class="done"><b>✓</b>Proyecto</span><span class="chev">›</span>
       <span class="on"><b>2</b>Vista previa</span><span class="chev">›</span>
@@ -15,26 +15,22 @@ registrarComponente('vista-previa/vista-previa', `<!-- ===== 2. VISTA PREVIA Y C
 
     <!-- Datos del proyecto -->
     <div class="card"><div class="projhead">
-      <span class="t repoName">ecommerce-core</span>
-      <span class="pill p-purple">Git · rama <span class="brLbl">main</span></span>
-      <span class="pill p-grey" id="projCommit">commit a8f91</span>
-      <span class="pill p-blue" id="projPyVer">Python 3.11 detectado</span>
-      <span class="pill p-grey" id="projFnsResumen">7 archivos .py · 19 funciones públicas</span>
-      <span class="pill p-grey" id="projReqs">requirements.txt ✓</span>
-      <span class="pill p-green" id="projSpecs" title="Guardados en .pyagent/specs/ por corridas anteriores">♻ 6 specs guardados: 4 vigentes · 2 desactualizados (cart.py, discounts.py cambiaron)</span>
+      <span class="t repoName"></span>
+      <span class="pill p-purple hide" id="projRama">Git · rama <span class="brLbl"></span></span>
+      <span class="pill p-grey" id="projFnsResumen"></span>
     </div></div>
 
     <!-- Resumen del proyecto (análisis estático AST — HU-04 / EN-02) -->
     <div class="card" id="cardResumen">
       <h4>Resumen del proyecto <span class="pill p-blue">Análisis AST (EN-02)</span></h4>
       <div class="bd" style="display:flex;gap:24px;flex-wrap:wrap;align-items:center" id="resumenContenido">
-        <div><div class="hint" style="margin:0;text-transform:uppercase;font-size:10px;color:var(--dim)">Módulos encontrados</div><b class="mono" style="font-size:18px" id="resumenModulos">7</b></div>
-        <div><div class="hint" style="margin:0;text-transform:uppercase;font-size:10px;color:var(--dim)">Funciones públicas</div><b class="mono" style="font-size:18px" id="resumenFunciones">19</b></div>
+        <div><div class="hint" style="margin:0;text-transform:uppercase;font-size:10px;color:var(--dim)">Módulos encontrados</div><b class="mono" style="font-size:18px" id="resumenModulos">0</b></div>
+        <div><div class="hint" style="margin:0;text-transform:uppercase;font-size:10px;color:var(--dim)">Funciones públicas</div><b class="mono" style="font-size:18px" id="resumenFunciones">0</b></div>
         <div><div class="hint" style="margin:0;text-transform:uppercase;font-size:10px;color:var(--dim)">Errores (no analizables)</div><b class="mono" style="font-size:18px" id="resumenErrores">0</b></div>
         <div style="margin-left:auto;display:flex;gap:10px;flex-wrap:wrap;align-items:center">
-          <span class="pill p-amber" id="resumenSinDoc" title="el valor esperado no tendrá fuente (oráculo débil)">⚠ 2 sin docstring (10.5%)</span>
-          <span class="pill p-grey" id="resumenSinTipos">1 sin tipos (5.3%)</span>
-          <span class="pill p-grey" id="resumenConAlguna">2 con alguna inconsistencia (10.5%)</span>
+          <span class="pill p-amber" id="resumenSinDoc" title="el valor esperado no tendrá fuente (oráculo débil)"></span>
+          <span class="pill p-grey" id="resumenSinTipos"></span>
+          <span class="pill p-grey" id="resumenConAlguna"></span>
         </div>
       </div>
     </div>
@@ -42,7 +38,7 @@ registrarComponente('vista-previa/vista-previa', `<!-- ===== 2. VISTA PREVIA Y C
     <!-- Árbol + funciones -->
     <div class="grid2">
       <div class="card">
-        <h4>Árbol del proyecto <span class="pill p-grey" id="modCount">2 módulos</span></h4>
+        <h4>Árbol del proyecto <span class="pill p-grey" id="modCount"></span></h4>
         <div class="bd tree" id="tree"></div>
         <div class="hint" style="padding:0 16px 14px">Solo se analizan los módulos marcados. Menos módulos = menos tokens del Planner.</div>
       </div>
@@ -63,16 +59,7 @@ registrarComponente('vista-previa/vista-previa', `<!-- ===== 2. VISTA PREVIA Y C
     <div class="card">
         <h4>Entorno</h4>
         <div class="bd">
-          <div class="envok"><span class="ok" style="font-size:18px">✓</span><div><b>Entorno listo</b><div class="hint" style="margin:2px 0 0">Docker, imagen de pruebas, dependencias y claves de IA verificadas.</div></div></div>
-          <details class="envdet"><summary>Ver detalle</summary>
-            <div class="checks" style="margin-top:8px">
-              <div class="c"><span class="i ok">✓</span><div>Docker Desktop activo · las pruebas corren en un contenedor sin red</div></div>
-              <div class="c"><span class="i ok">✓</span><div>Imagen <span class="mono">pyagent-sandbox:base</span> (Python 3.11 + pytest + coverage + mutmut)</div></div>
-              <div class="c"><span class="i ok">✓</span><div>Dependencias de <span class="mono">requirements.txt</span> instaladas en la imagen (paso con red, antes de ejecutar)</div></div>
-              <div class="c"><span class="i ok">✓</span><div>Claves de IA cargadas desde <span class="mono">.env</span> (configuradas por el equipo)</div></div>
-            </div>
-            <div class="hint">Si algo falla, aquí aparece qué hacer. Ej.: "Docker no está abierto: inícialo y vuelve a intentar" o "Falta una clave de IA: contacta al equipo".</div>
-          </details>
+          <div class="envok"><span id="envIco" style="font-size:18px">…</span><div><b id="envTitulo">Comprobando el entorno…</b><div class="hint" id="envAyuda" style="margin:2px 0 0"></div></div><button class="btn" id="envReintentar" style="margin-left:auto" onclick="renderEntorno()">Comprobar de nuevo</button></div>
         </div>
       </div>
 
@@ -178,29 +165,86 @@ async function loadProject(name, src, where, br='main', ruta=''){
   document.querySelectorAll('.repoName').forEach(e=>e.textContent=name);
   document.querySelectorAll('.repoLbl').forEach(e=>e.textContent = src==='git' ? where.replace('https://','').replace(/\.git$/,'') : where);
   document.querySelectorAll('.brLbl').forEach(e=>e.textContent=br); $('branchLbl').textContent = br;
-  monitorStarted = false; 
+  $('projRama').classList.toggle('hide', !br || br === '—');   // sin repositorio Git no hay rama que mostrar
+  monitorStarted = false;
   projectPath = ruta ? ruta : (src==='git' ? 'E:\\Proyectos\\' + name : where);
 
   if (window.pywebview && window.pywebview.api && (window.pywebview.api.obtener_vista_previa || window.pywebview.api.analizar_proyecto)) {
+    // Aplicación real: solo se muestran datos del análisis; si falla, se avisa (nunca se inventan módulos).
     try {
       const fn = window.pywebview.api.obtener_vista_previa || window.pywebview.api.analizar_proyecto;
       const res = await fn(projectPath);
       if (res && res.ok) {
         cargarDatosVistaPrevia(res);
       } else {
-        aplicarResumenDemo();
+        vaciarVistaPrevia();
+        toastError(escHtml((res && res.error) || 'No se pudo analizar el proyecto.'));
       }
     } catch (err) {
       console.error("Error al obtener la vista previa por AST:", err);
-      aplicarResumenDemo();
+      vaciarVistaPrevia();
+      toastError('No se pudo analizar el proyecto. Inténtalo de nuevo.');
     }
   } else {
-    aplicarResumenDemo();
+    aplicarResumenDemo();   // modo demostración (navegador, sin Python)
   }
+  HAS_PRIOR_RUN = await hayCorridaPrevia(ruta);
 
-  renderTree(); 
-  renderProfiles(); 
+  renderTree();
+  renderProfiles();
   go('preview');
+  renderEntorno();
+}
+
+// Sin análisis (fallo en la app real): lista vacía y contadores en cero, sin datos de ejemplo.
+function vaciarVistaPrevia() {
+  MODULES = [];
+  PROYECTO_RESUMEN = null;
+  PROYECTO_ERRORES = [];
+  actualizarResumenUI({ total_modulos: 0, total_funciones_publicas: 0, total_errores: 0 });
+}
+
+// El perfil Regresión solo tiene sentido si el proyecto ya tuvo una corrida: es un dato real
+// (~/.pyagent/recientes.json). En la demostración se simula que sí la hubo.
+async function hayCorridaPrevia(ruta) {
+  if (!(window.pywebview && window.pywebview.api && window.pywebview.api.listar_recientes)) return true;
+  try {
+    const lista = await window.pywebview.api.listar_recientes();
+    const r = lista.find(x => x.ruta === ruta);
+    return !!(r && r.ultima_corrida);
+  } catch (err) {
+    console.error("Error al consultar las corridas previas:", err);
+    return false;
+  }
+}
+
+// Entorno: estado real del sandbox (Docker e imagen base). Sin pywebview no hay nada que verificar.
+const ENTORNO_UI = {
+  ok:           {ico:'✓', cls:'ok',   titulo:'Entorno listo',                    ayuda:'Docker Desktop activo e imagen de pruebas disponible.'},
+  sin_imagen:   {ico:'⚠', cls:'warn', titulo:'Falta la imagen base de pruebas',  ayuda:'Construye la imagen base antes de ejecutar.'},
+  no_iniciado:  {ico:'✗', cls:'no',   titulo:'Docker no está abierto',           ayuda:'Abre Docker Desktop y vuelve a comprobar.'},
+  no_instalado: {ico:'✗', cls:'no',   titulo:'Docker no está disponible',        ayuda:'Instala Docker Desktop.'},
+};
+async function renderEntorno() {
+  const poner = (ico, cls, titulo, ayuda) => {
+    $('envIco').textContent = ico; $('envIco').className = cls;
+    $('envTitulo').textContent = titulo; $('envAyuda').textContent = ayuda;
+  };
+  if (!(window.pywebview && window.pywebview.api && window.pywebview.api.estado_sandbox)) {
+    poner('·', '', 'Modo demostración', 'El entorno (Docker e imagen de pruebas) solo se verifica en la aplicación de escritorio.');
+    $('envReintentar').classList.add('hide');
+    return;
+  }
+  $('envReintentar').classList.remove('hide');
+  poner('…', '', 'Comprobando el entorno…', '');
+  try {
+    const r = await window.pywebview.api.estado_sandbox();
+    const ui = ENTORNO_UI[r && r.estado] || ENTORNO_UI.no_iniciado;
+    poner(ui.ico, ui.cls, ui.titulo, (r && r.mensaje) || ui.ayuda);
+  } catch (err) {
+    console.error("Error al consultar el entorno:", err);
+    poner('✗', 'no', 'No se pudo comprobar el entorno', 'Inténtalo de nuevo.');
+  }
 }
 function renderTree(){
   let h = '';

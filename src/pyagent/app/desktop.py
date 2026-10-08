@@ -214,13 +214,16 @@ class DesktopAPI:
 
 def main() -> None:
     """Punto de entrada de la aplicación de escritorio."""
-    html_path = str(FRONTEND_DIR / "index.html")
+    # Se carga como file:// y no como ruta: con una ruta, pywebview sirve la carpeta con un servidor
+    # HTTP interno cuya cola admite 5 conexiones, y al abrir la ventana (decenas de CSS, JS y fuentes
+    # a la vez) rechaza algunas peticiones al azar y la interfaz queda sin estilos o sin scripts.
+    url = (FRONTEND_DIR / "index.html").as_uri()
 
     api = DesktopAPI()
 
     window = webview.create_window(
         title="QAgent — Autonomous Test Engine",
-        url=html_path,
+        url=url,
         js_api=api,
         width=1400,
         height=900,
