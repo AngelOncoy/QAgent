@@ -11,15 +11,6 @@ import json
 from pathlib import Path
 
 import pytest
-from fakes import (
-    MODULO,
-    GeneratorEspia,
-    GeneratorSimulado,
-    PlannerSimulado,
-    ReviewerConErrores,
-    ReviewerGuionado,
-    veredicto,
-)
 
 from pyagent.contracts import REVIEW_RESULT, RUN_LOG, es_valido
 from pyagent.llm import FakeLLMClient, TokenTracker, cargar_precios
@@ -34,6 +25,15 @@ from pyagent.orchestrator import (
 )
 from pyagent.sandbox.normalizacion import hash_error, normalizar_error
 from pyagent.storage import escribir_corrida
+from tests.orchestrator.fakes import (
+    MODULO,
+    GeneratorEspia,
+    GeneratorSimulado,
+    PlannerSimulado,
+    ReviewerConErrores,
+    ReviewerGuionado,
+    veredicto,
+)
 
 E = Estado
 

@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>QAgent</title>
+<link rel="stylesheet" href="css/fuentes.css">
+<link rel="stylesheet" href="css/tokens.css">
+<link rel="stylesheet" href="css/layout.css">
+<link rel="stylesheet" href="componentes/sidebar/sidebar.css">
+<link rel="stylesheet" href="componentes/inicio/inicio.css">
+<link rel="stylesheet" href="css/componentes.css">
+<link rel="stylesheet" href="componentes/vista-previa/vista-previa.css">
+<link rel="stylesheet" href="componentes/config-pruebas/config-pruebas.css">
+<link rel="stylesheet" href="componentes/informe/informe.css">
+<link rel="stylesheet" href="componentes/informe/modal-exportar.css">
+<link rel="stylesheet" href="componentes/ejecucion/ejecucion.css">
+<link rel="stylesheet" href="componentes/barra-corrida/barra-corrida.css">
+<link rel="stylesheet" href="componentes/monitor/monitor.css">
+</head>
+<body>
+<div class="app">
+
+<div data-componente="sidebar/sidebar"></div>
+
+<!-- ======================= MAIN ======================= -->
+<main>
+
+<div data-componente="inicio/inicio"></div>
+
+<div data-componente="vista-previa/vista-previa"></div>
+
+
+<div data-componente="config-pruebas/config-pruebas"></div>
+
+
+<div data-componente="barra-corrida/barra-corrida"></div>
+
+<div data-componente="monitor/monitor"></div>
+
+<div data-componente="ejecucion/ejecucion"></div>
+
+<div data-componente="informe/informe"></div>
+
+
+<div data-componente="configuracion/configuracion"></div>
+
+<div data-componente="historial/historial"></div>
+
+</main>
+</div>
+
+<!-- ======================= MODALES ======================= -->
+<div data-componente="inicio/modal-abrir"></div>
+
+<div data-componente="inicio/modal-clonar"></div>
+
+<div data-componente="informe/modal-exportar"></div>
+<div class="toast" id="toast"></div>
+
+<div class="demo hide" id="barraDemo"><button onclick="go('welcome')">↺ reiniciar demo</button><button id="skipBtn" class="hide" onclick="skipRun()">⏩ completar corrida</button></div>
+
+
+<script src="js/utils.js"></script>
+<script src="js/estado.js"></script>
+<script src="js/cargador.js"></script>
+<script src="js/navegacion.js"></script>
+<script src="js/iconos.js"></script>
+<script src="js/datos-corrida.js"></script>
+<script src="componentes/sidebar/sidebar.js"></script>
+<script src="componentes/inicio/inicio.js"></script>
+<script src="componentes/inicio/modal-abrir.js"></script>
+<script src="componentes/inicio/modal-clonar.js"></script>
+<script src="componentes/vista-previa/vista-previa.js"></script>
+<script src="componentes/config-pruebas/config-pruebas.js"></script>
+<script src="componentes/barra-corrida/barra-corrida.js"></script>
+<script src="componentes/monitor/monitor.js"></script>
+<script src="componentes/ejecucion/ejecucion.js"></script>
+<script src="componentes/informe/informe.js"></script>
+<script src="componentes/informe/modal-exportar.js"></script>
+<script src="componentes/configuracion/configuracion.js"></script>
+<script src="componentes/historial/historial.js"></script>
+<script src="js/puente-python.js"></script>
+<script src="js/main.js"></script>
+</body>
+</html>

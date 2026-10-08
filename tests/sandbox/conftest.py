@@ -1,16 +1,8 @@
-"""Configuración de las pruebas del sandbox: marcador `docker` y fixtures."""
+"""Fixtures de las pruebas del sandbox (el marcador `docker` está registrado en pytest.ini)."""
 
 from __future__ import annotations
 
-import sys
-from pathlib import Path
-
 import pytest
-
-# El repo no es un paquete instalable todavía: se expone src/ para importar pyagent.
-SRC = Path(__file__).resolve().parents[2] / "src"
-if str(SRC) not in sys.path:
-    sys.path.insert(0, str(SRC))
 
 from pyagent.sandbox import (
     DockerNoDisponible,
@@ -18,13 +10,6 @@ from pyagent.sandbox import (
     obtener_cliente,
 )
 from pyagent.sandbox.imagen import IMAGEN_BASE, _imagen_existe
-
-
-def pytest_configure(config: pytest.Config) -> None:
-    """Registra el marcador de las pruebas que necesitan Docker."""
-    config.addinivalue_line(
-        "markers", "docker: prueba de integración que necesita Docker Desktop iniciado"
-    )
 
 
 @pytest.fixture(scope="session")
