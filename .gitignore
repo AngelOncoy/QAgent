@@ -11,3 +11,6 @@ htmlcov/
 mutants/
 *.egg-info/
 .idea
+# Empaquetado
+build/
+dist/

@@ -1,15 +1,8 @@
 """Módulo principal de la aplicación de escritorio con pywebview."""
 
-import os
-import sys
 from pathlib import Path
 
 import webview
-
-# Al ejecutar desktop.py directamente, src/ no está en el path: se agrega para importar pyagent.
-_SRC = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
-if _SRC not in sys.path:
-    sys.path.insert(0, _SRC)
 
 from pyagent.proyectos import proyecto_local, recientes
 

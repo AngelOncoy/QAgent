@@ -106,20 +106,14 @@ def saludar(nombre: str) -> str:
 
 
 def test_criterio_3_ignora_carpeta_tests_y_pyagent(tmp_path: Path) -> None:
-    _crear_archivo(
-        tmp_path, "app/nucleo.py", "def nucleo() -> int:\n    return 42\n"
-    )
-    _crear_archivo(
-        tmp_path, "tests/test_nucleo.py", "def test_f():\n    assert True\n"
-    )
+    _crear_archivo(tmp_path, "app/nucleo.py", "def nucleo() -> int:\n    return 42\n")
+    _crear_archivo(tmp_path, "tests/test_nucleo.py", "def test_f():\n    assert True\n")
     _crear_archivo(
         tmp_path,
         ".pyagent/specs/nucleo.spec.py",
         "def spec():\n    pass\n",
     )
-    _crear_archivo(
-        tmp_path, "app/tests/test_interno.py", "def test_i():\n    pass\n"
-    )
+    _crear_archivo(tmp_path, "app/tests/test_interno.py", "def test_i():\n    pass\n")
 
     vista = generar_vista_previa(tmp_path)
 
