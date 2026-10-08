@@ -28,9 +28,9 @@ GIT_AUSENTE = {"estado": "no_instalado", "mensaje": "Git no está instalado."}
 def env_completo(tmp_path: Path) -> Path:
     ruta = tmp_path / ".env"
     ruta.write_text(
-        "ANTHROPIC_API_KEY=a-prueba-12345678\n"
-        "OPENAI_API_KEY=o-prueba-12345678\n"
-        "XIAOMI_API_KEY=x-prueba-12345678\n",
+        "ANTHROPIC_API_KEY=a-prueba-1\n"
+        "OPENAI_API_KEY=o-prueba-1\n"
+        "XIAOMI_API_KEY=x-prueba-1\n",
         encoding="utf-8",
     )
     return ruta
@@ -58,9 +58,7 @@ def test_todo_correcto_muestra_entorno_listo(env_completo):
 
 def test_sin_una_clave_no_esta_listo_y_dice_cual(tmp_path):
     env = tmp_path / ".env"
-    env.write_text(
-        "ANTHROPIC_API_KEY=a-prueba-12345678\nXIAOMI_API_KEY=x-prueba-12345678\n"
-    )
+    env.write_text("ANTHROPIC_API_KEY=a-prueba-1\nXIAOMI_API_KEY=x-prueba-1\n")
     r = _verificar(env)
     assert r["listo"] is False
     assert "OPENAI_API_KEY" in r["mensaje"]

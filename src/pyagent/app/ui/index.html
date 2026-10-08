@@ -463,7 +463,7 @@ pre.code{font-family:var(--mono);font-size:11.5px;line-height:1.6;background:#07
 
   <div class="sidefoot">
     <div class="runner">
-      <div class="row" id="sbRow"><b>Sandbox Runner:</b><span id="sbEstado" class="ok"><span id="sbDot" class="dot"></span><span id="sbTxt">docker-py-v4</span></span></div>
+      <div class="row" id="sbRow"><b>Sandbox Runner:</b><span id="sbEstado" class="ok"><span id="sbDot" class="dot"></span><span id="sbTxt">pyagent-sandbox:base</span></span></div>
       <div class="row sbhelp" id="sbAyuda" style="display:none"><span id="sbAyudaTxt" class="no">Abre Docker Desktop</span><button type="button" onclick="actualizarSandbox()">Reintentar</button></div>
       <div class="row"><span>Reintentos max:</span><span>3 por test</span></div>
     </div>
@@ -671,7 +671,7 @@ pre.code{font-family:var(--mono);font-size:11.5px;line-height:1.6;background:#07
 
     <div class="toolbar">
       <div class="tleft"><span class="flbl"><span class='ico' data-i='filter' data-c='#8b9ab4'></span> Filtrar:</span><div id="fbtns"></div></div>
-      <div class="cmd2"><span class='ico' data-i='term' data-c='#60a5fa'></span> docker run --rm --network none docker-py-v4 pytest -v --cov --cov-branch</div>
+      <div class="cmd2"><span class='ico' data-i='term' data-c='#60a5fa'></span> docker run --rm --network none pyagent-sandbox:base pytest -v --cov --cov-branch</div>
     </div>
     <div id="suites"></div>
   </div></div>
@@ -717,7 +717,7 @@ pre.code{font-family:var(--mono);font-size:11.5px;line-height:1.6;background:#07
     <div class="grid2" style="grid-template-columns:1fr 1fr">
       <div class="card"><h4>Límites de cada corrida</h4><div class="bd checks" id="cfgLimits"></div></div>
       <div class="card"><h4>Entorno y datos</h4><div class="bd checks">
-        <div class="c"><span class="i ok">✓</span><div>Sandbox: contenedor <span class="mono">docker-py-v4</span>, <b>sin red</b> y sin acceso a los archivos del equipo</div></div>
+        <div class="c"><span class="i ok">✓</span><div>Sandbox: contenedor <span class="mono">pyagent-sandbox:base</span>, <b>sin red</b> y sin acceso a los archivos del equipo</div></div>
         <div class="c"><span class="i ok">✓</span><div>Claves de IA: cargadas desde <span class="mono">.env</span> · nunca se muestran, nunca se suben al repositorio y nunca entran al sandbox</div></div>
         <div class="c"><span class="i ok">✓</span><div>Resultados, specs y pruebas guardadas: <span class="mono">&lt;proyecto&gt;/.pyagent/</span></div></div>
         <div class="c"><span class="i ok">✓</span><div>Tipo de cambio para costos: S/ 3.37 por US$ (carta del proyecto)</div></div>
@@ -1349,9 +1349,15 @@ function pushEvent(){
 async function startMonitor(){
   if (!entornoListo) { toast(escHtml(entornoMotivo)); return; }
   if (window.pywebview && window.pywebview.api) {
-    // Python vuelve a verificar el entorno: si está bloqueado, la corrida no inicia (EN-06).
+    // Python verifica Docker (HU-13) y el entorno completo (EN-06) antes de iniciar.
     const r = await window.pywebview.api.start_run(projectPath, profile);
-    if (r && r.status === 'blocked') { await verificarEntorno(); toast(escHtml(r.motivo)); return; }
+    if (r && r.status === 'docker_no_disponible') {
+      toastError(escHtml(r.mensaje));
+      actualizarSandbox();
+      verificarEntorno();
+      return;
+    }
+    if (r && r.status === 'blocked') { await verificarEntorno(); toastError(escHtml(r.motivo)); return; }
   }
   monitorStarted = true; runDone = false; evIdx = 0; shown = []; $('timeline').innerHTML='';
   document.querySelectorAll('#views a[data-v=exec],#views a[data-v=report]').forEach(a=>a.classList.add('off'));
@@ -1461,7 +1467,7 @@ const RUN = [
   lines_cov:100, branch_cov:95, mutation_score:92, badge:'CASO NORMAL & LÍMITE', bv:'blue',
   signature:'def calculate_discount(cart_total: float, coupon_code: Optional[str] = None, user_tier: str = "standard") -> float',
   contract:{funcion:'calculate_discount', firma:'(cart_total: float, coupon_code: Optional[str] = None, user_tier: str = "standard") -> float', tipos:{cart_total:'float (>0)', coupon_code:'str | None', user_tier:'Literal["standard", "gold", "vip"]'}, docstring:'Calcula el descuento aplicable considerando cupón estacional y nivel de lealtad.', comportamiento_esperado:['Si cart_total < 0 debe lanzar ValueError("El total no puede ser negativo")','VIP recibe un 15% automático sobre el remanente post-cupón','Cupón "SUMMER20" descuenta 20% flat topeado a $50','Tope estricto: la deducción acumulada total no puede exceder el 40%'], contexto_acotado:['config.DISCOUNT_LIMIT = 0.40','services.users.TierManager']},
-  logs:['$ docker run --rm --network none docker-py-v4 pytest tests/test_pricing.py -v --cov --cov-branch','[sandbox-init] cgroup v2 (cpu=1, mem=256mb) · network=none','test_calculate_discount_normal_vip PASSED','test_calculate_discount_coupon_cap PASSED','test_calculate_discount_negative_raises PASSED','Coverage: lines=100% branches=95% | mutmut: 23/25 mutantes eliminados (92%)'],
+  logs:['$ docker run --rm --network none pyagent-sandbox:base pytest tests/test_pricing.py -v --cov --cov-branch','[sandbox-init] cgroup v2 (cpu=1, mem=256mb) · network=none','test_calculate_discount_normal_vip PASSED','test_calculate_discount_coupon_cap PASSED','test_calculate_discount_negative_raises PASSED','Coverage: lines=100% branches=95% | mutmut: 23/25 mutantes eliminados (92%)'],
   cmp:{original:'assert res == 15.0   # VIP 15%\nassert res == 50.0   # tope del cupón\npytest.raises(ValueError)', modified:'assert res == 15.0\nassert res == 50.0\npytest.raises(ValueError)', state:'clean'},
   diag:null, trace:null,
   code:`import pytest
@@ -1512,7 +1518,7 @@ def test_reserve_stock_insufficient_stock():
   lines_cov:52, branch_cov:40, mutation_score:25, badge:'CASO DE ERROR (GATEWAY)', bv:'rose',
   signature:'def validate_credit_card_token(token: str, gateway_id: str) -> GatewayAuthResponse',
   contract:{funcion:'validate_credit_card_token', firma:'(token: str, gateway_id: str) -> GatewayAuthResponse', tipos:{token:'str (JWT PCI-DSS format)', gateway_id:'str'}, docstring:'Verifica la validez y firma criptográfica del token ante la pasarela bancaria.', comportamiento_esperado:['Valida regex estricto de token token_pci_\\w{24}','Lanza InvalidTokenSignature si la clave pública expira o falla mTLS','Retorna GatewayAuthResponse con status="AUTHORIZED"'], contexto_acotado:['security.pci_crypto','gateways.stripe','config.MTLS_CERTS']},
-  logs:['$ docker run --rm --network none docker-py-v4 pytest tests/test_payments.py -v','Iter 1: ERROR ConnectionRefusedError: 127.0.0.1:8443 (sin red en el sandbox)','Iter 2: ERROR ssl.SSLError: [SSL: CERTIFICATE_VERIFY_FAILED]','Iter 3: ERROR ConnectionRefusedError: 127.0.0.1:8443','Max retries exceeded (3/3). Test execution terminated.'],
+  logs:['$ docker run --rm --network none pyagent-sandbox:base pytest tests/test_payments.py -v','Iter 1: ERROR ConnectionRefusedError: 127.0.0.1:8443 (sin red en el sandbox)','Iter 2: ERROR ssl.SSLError: [SSL: CERTIFICATE_VERIFY_FAILED]','Iter 3: ERROR ConnectionRefusedError: 127.0.0.1:8443','Max retries exceeded (3/3). Test execution terminated.'],
   cmp:{original:'with pytest.raises(InvalidTokenSignature)', modified:'with pytest.raises(InvalidTokenSignature)', state:'clean'},
   diag:'Estancado tras 3/3 intentos: la función abre una conexión real con la pasarela (puerto 8443) y el sandbox se ejecuta sin red por diseño. En ningún intento el Generator creó un mock de gateways.stripe. Requiere intervención humana: agregar un fixture que simule la pasarela.',
   trace:`SandboxExecutionError [Estancado tras 3/3 intentos]:
@@ -1559,7 +1565,7 @@ def test_compute_loyalty_basic():
   lines_cov:94, branch_cov:88, mutation_score:40, badge:'CASO LÍMITE (3x2)', bv:'amber',
   signature:'def apply_bulk_promotion(items: List[CartItem], category_id: int) -> CartSummary',
   contract:{funcion:'apply_bulk_promotion', firma:'(items: List[CartItem], category_id: int) -> CartSummary', tipos:{items:'List[CartItem]', category_id:'int'}, docstring:'Aplica 3x2 en items de la misma categoría especificada.', comportamiento_esperado:['Agrupa por category_id y descuenta la unidad más barata cada 3 items','Carritos vacíos devuelven CartSummary con discount=0 y items_count=0','No altera precios unitarios de productos fuera de la categoría'], contexto_acotado:['models.CartItem','models.CartSummary']},
-  logs:['$ docker run --rm --network none docker-py-v4 pytest tests/test_cart_promo.py -v','Iter 1: test_apply_bulk_promotion_six_items FAILED [expected 20.0, got 10.0]','Iter 2: test_apply_bulk_promotion_six_items PASSED','ORACLE CHECK [Reviewer]: literal 10.0 no es trazable al contrato (esperado 20.0)','Reviewer Verdict: REJECT_TEST -> se reporta POSIBLE DEFECTO en el código fuente'],
+  logs:['$ docker run --rm --network none pyagent-sandbox:base pytest tests/test_cart_promo.py -v','Iter 1: test_apply_bulk_promotion_six_items FAILED [expected 20.0, got 10.0]','Iter 2: test_apply_bulk_promotion_six_items PASSED','ORACLE CHECK [Reviewer]: literal 10.0 no es trazable al contrato (esperado 20.0)','Reviewer Verdict: REJECT_TEST -> se reporta POSIBLE DEFECTO en el código fuente'],
   cmp:{original:'assert summary.total_discount == 20.0   # 6 items -> 2 unidades gratis', modified:'assert summary.total_discount == 10.0   # <- copiado del resultado real', state:'oracle'},
   diag:'Oráculo alterado [Iteración 2/3]: el valor esperado 10.0 no proviene del contrato. Según "descuenta la unidad más barata cada 3 items", 6 items de $10 deben dar 20.0. El Generator copió el resultado actual de la función para que la prueba pase. Se rechaza la prueba y se reporta un POSIBLE DEFECTO en services/cart.py::apply_bulk_promotion (solo aplica la promoción al primer grupo de 3).',
   trace:`Oracle Traceability Check [Iteración 2/3]:
@@ -1878,7 +1884,8 @@ function doExport(){
   closeModal();
   toast(expFmt==='pdf' ? `Informe PDF guardado en ${path} <span style="color:var(--dim)">(simulado en el demo)</span>` : `Informe guardado en ${path} <span style="color:var(--dim)">(el demo lo descarga en tu navegador)</span>`);
 }
-function toast(html){ const t = $('toast'); t.innerHTML = I('checkc','#34d399',16) + '<span>' + html + '</span>'; t.classList.add('show'); clearTimeout(t._h); t._h = setTimeout(()=>t.classList.remove('show'), 5200); }
+function toast(html, icono = I('checkc','#34d399',16), ms = 5200){ const t = $('toast'); t.innerHTML = icono + '<span>' + html + '</span>'; t.classList.add('show'); clearTimeout(t._h); t._h = setTimeout(()=>t.classList.remove('show'), ms); }
+function toastError(html){ toast(html, I('alertc','#f87171',16), 8000); }
 
 /* ================= Conexión con Python (pywebview) ================= */
 // HU-01: carpeta real elegida en el diálogo nativo (null = modal simulado del navegador).
@@ -1990,7 +1997,7 @@ else window.addEventListener('pywebviewready', verificarEntorno, {once:true});
 
 /* Indicador de estado del sandbox: consulta a Python al abrir y cada 15 s */
 const SANDBOX_UI = {
-  ok:           {dot:'dot',       txt:'ok',   label:'docker-py-v4',          ayuda:''},
+  ok:           {dot:'dot',       txt:'ok',   label:'pyagent-sandbox:base',          ayuda:''},
   sin_imagen:   {dot:'dot amber', txt:'warn', label:'Falta imagen base',     ayuda:''},
   no_iniciado:  {dot:'dot red',   txt:'no',   label:'Sandbox no disponible', ayuda:'Abre Docker Desktop'},
   no_instalado: {dot:'dot red',   txt:'no',   label:'Sandbox no disponible', ayuda:'Instala Docker Desktop'},

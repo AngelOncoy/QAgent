@@ -20,6 +20,12 @@ def _entorno(listo: bool) -> dict:
     }
 
 
+@pytest.fixture(autouse=True)
+def _docker_disponible(monkeypatch):
+    """La parte de Docker la cubre HU-13; aquí solo se prueba el bloqueo de EN-06."""
+    monkeypatch.setattr("pyagent.sandbox.verificar_docker", lambda: None)
+
+
 def test_start_run_bloqueado_si_falta_algo(monkeypatch):
     api = DesktopAPI()
     monkeypatch.setattr(api, "verificar_entorno", lambda: _entorno(False))

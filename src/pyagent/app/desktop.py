@@ -178,9 +178,21 @@ class DesktopAPI:
     def start_run(self, folder_path: str, profile: str = "deep") -> dict:
         """Inicia la corrida del sistema sobre el proyecto seleccionado.
 
-        Si el entorno no está listo (falta una clave o un valor, Docker o Git), no
-        inicia y devuelve `{"status": "blocked", "motivo": ...}` (EN-06).
+        Primero verifica que Docker responde (HU-13) y luego que el entorno completo
+        esté listo: config.toml, claves de .env, Docker y Git (EN-06).
+
+        Returns:
+            dict: ``{"status": "started", ...}``; si Docker no está disponible,
+            ``{"status": "docker_no_disponible", "mensaje": str}``; si falta otra cosa
+            del entorno, ``{"status": "blocked", "motivo": str, "problemas": list}``.
         """
+        from pyagent.sandbox import DockerNoDisponible, verificar_docker
+
+        try:
+            verificar_docker()
+        except DockerNoDisponible as exc:
+            return {"status": "docker_no_disponible", "mensaje": str(exc)}
+
         entorno = self.verificar_entorno()
         if not entorno["listo"]:
             return {
@@ -188,6 +200,7 @@ class DesktopAPI:
                 "motivo": entorno["mensaje"],
                 "problemas": entorno["problemas"],
             }
+
         print(f"[Python] Iniciando corrida en '{folder_path}' con perfil '{profile}'")
         # Emite un evento hacia la interfaz JS
         self.emit_event("log", {"message": f"Corrida iniciada en perfil '{profile}'"})
@@ -267,4 +280,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-    

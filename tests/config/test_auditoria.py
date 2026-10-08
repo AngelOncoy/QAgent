@@ -6,6 +6,9 @@ from pathlib import Path
 
 from pyagent.config.auditoria import PATRONES, buscar_claves, main
 
+# Valor falso armado en ejecución: así este archivo no contiene un patrón de clave.
+VALOR_FALSO = "abcd" * 5
+
 
 def test_el_repositorio_no_contiene_patrones_de_clave():
     """Evidencia de aceptación de RN-07: ninguna clave versionada."""
@@ -23,7 +26,7 @@ def test_detecta_una_clave_plantada_y_no_la_repite(tmp_path: Path):
 
 def test_detecta_asignaciones_genericas(tmp_path: Path):
     (tmp_path / "a.env.txt").write_text(
-        "OPENAI_API_KEY=abcdefghijklmnop1234\n", encoding="utf-8"
+        f"OPENAI_API_KEY={VALOR_FALSO}\n", encoding="utf-8"
     )
     assert len(buscar_claves(tmp_path)) == 1
 
@@ -43,17 +46,13 @@ def test_ignora_imagenes_base64_incrustadas(tmp_path: Path):
 
 
 def test_no_revisa_el_env_real(tmp_path: Path):
-    (tmp_path / ".env").write_text(
-        "OPENAI_API_KEY=abcdefghijklmnop1234\n", encoding="utf-8"
-    )
+    (tmp_path / ".env").write_text(f"OPENAI_API_KEY={VALOR_FALSO}\n", encoding="utf-8")
     assert buscar_claves(tmp_path) == []
 
 
 def test_main_devuelve_codigo_de_salida(tmp_path: Path, capsys):
     assert main([str(tmp_path)]) == 0
-    (tmp_path / "x.py").write_text(
-        'SECRET = "abcdefghijklmnop1234"\n', encoding="utf-8"
-    )
+    (tmp_path / "x.py").write_text(f'SECRET = "{VALOR_FALSO}"\n', encoding="utf-8")
     assert main([str(tmp_path)]) == 1
     assert "x.py:1" in capsys.readouterr().out
 

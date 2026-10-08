@@ -6,7 +6,9 @@ import contextlib
 
 from pyagent.sandbox.modelos import (
     IMAGEN_BASE,
+    MENSAJE_DOCKER_CERRADO,
     MENSAJE_NO_INSTALADO,
+    DockerNoDisponible,
     clasificar_docker_caido,
 )
 
@@ -49,6 +51,20 @@ def estado_docker() -> dict[str, str]:
             with contextlib.suppress(Exception):
                 cliente.close()
     return _estado("ok", MENSAJE_OK)
+
+
+def verificar_docker() -> None:
+    """Comprueba que Docker responde antes de iniciar una corrida (HU-13).
+
+    Usa `estado_docker()`, con su timeout corto. Que falte la imagen base no cuenta como
+    Docker cerrado: eso lo resuelve `preparar_imagen`.
+
+    Raises:
+        DockerNoDisponible: con `MENSAJE_DOCKER_CERRADO` si Docker no está instalado,
+            no está iniciado o no responde a tiempo.
+    """
+    if estado_docker()["estado"] in ("no_iniciado", "no_instalado"):
+        raise DockerNoDisponible(MENSAJE_DOCKER_CERRADO)
 
 
 def _estado(estado: str, mensaje: str) -> dict[str, str]:
