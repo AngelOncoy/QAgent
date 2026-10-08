@@ -1,5 +1,28 @@
-// recientes.js — proyectos recientes (HU-03)
-/* ================= Proyectos recientes (HU-03) ================= */
+// inicio.js — pantalla de inicio: proyectos recientes (HU-03)
+// HTML del componente (se monta en el marcador data-componente="inicio/inicio" de index.html)
+registrarComponente('inicio/inicio', `<!-- ===== 1. BIENVENIDA ===== -->
+<section id="s-welcome" class="scroll">
+  <div class="welcome">
+    <h1>Bienvenido a QAgent</h1>
+    <p>Genera y valida pruebas unitarias (pytest) de tu código Python.<br>Abre una carpeta de tu equipo o clona un repositorio Git.</p>
+    <div class="actions">
+      <button class="action" onclick="handleOpenFolder()">
+        <span class="ico"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="1.8"><path d="M3 7h6l2 2h10v10H3z"/></svg></span>
+        Abrir proyecto<small>Carpeta local con código Python</small>
+      </button>
+      <button class="action" onclick="openModal('m-clone')">
+        <span class="ico"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#c084fc" stroke-width="1.8"><circle cx="6" cy="6" r="2.5"/><circle cx="6" cy="18" r="2.5"/><circle cx="18" cy="9" r="2.5"/><path d="M6 8.5v7M18 11.5c0 3-4 3-10 5.5"/></svg></span>
+        Abrir repositorio<small>Clonar desde una URL Git (HTTPS)</small>
+      </button>
+    </div>
+    <div class="recents hide" id="recents">
+      <h3>Proyectos recientes <span class="pill p-grey" id="recCount"></span></h3>
+      <div id="recList"></div>
+    </div>
+  </div>
+</section>
+`);
+
 // App real: DesktopAPI.listar_recientes / abrir_reciente / quitar_reciente (~/.pyagent/recientes.json).
 // Navegador sin pywebview: lista simulada de 11 proyectos; "inventario-api" tiene la carpeta renombrada.
 const apiRec = () => (window.pywebview && window.pywebview.api && window.pywebview.api.listar_recientes) ? window.pywebview.api : null;
@@ -56,5 +79,9 @@ async function quitarReciente(i){
   toast(`"${escHtml(r.nombre)}" se quitó de la lista. La carpeta no se borró.`);
   cargarRecientes();
 }
-window.addEventListener('pywebviewready', cargarRecientes);
-setTimeout(() => { demoListo = true; if(!apiRec()) cargarRecientes(); }, 500);   // sin pywebview: modo demo
+
+// Se llama desde main.js cuando el HTML del componente ya está montado.
+function iniciarInicio(){
+  window.addEventListener('pywebviewready', cargarRecientes);
+  setTimeout(() => { demoListo = true; if(!apiRec()) cargarRecientes(); }, 500);   // sin pywebview: modo demo
+}

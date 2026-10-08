@@ -1,0 +1,21 @@
+/* inicio.css — pantalla de inicio y proyectos recientes */
+/* Welcome */
+.welcome{height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:40px}
+.welcome h1{font-family:var(--mono);font-size:27px;font-weight:600;margin-bottom:12px}
+.welcome p{color:var(--mut);font-family:var(--mono);font-size:13.5px;line-height:1.7}
+.actions{display:flex;gap:30px;margin-top:38px}
+.action{display:flex;flex-direction:column;align-items:center;gap:12px;cursor:pointer;background:none;border:0;color:var(--txt);font-family:var(--mono);font-size:12px}
+.action .ico{width:64px;height:64px;border-radius:12px;display:grid;place-items:center;border:1px solid var(--line2);background:var(--panel);transition:.15s}
+.action:hover .ico{transform:translateY(-2px);border-color:var(--blue);box-shadow:0 6px 24px rgba(59,130,246,.25)}
+.action small{color:var(--dim);font-size:10px;max-width:150px;line-height:1.4}
+.recents{width:560px;max-width:100%;margin-top:40px;text-align:left}
+.recents h3{font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--dim);margin-bottom:8px}
+.proj{display:flex;gap:12px;align-items:center;padding:10px 12px;border-radius:9px;cursor:pointer;border:1px solid transparent}
+.proj:hover{background:var(--panel);border-color:var(--line)}
+.av{width:32px;height:32px;border-radius:8px;display:grid;place-items:center;font-family:var(--mono);font-weight:600;font-size:11px}
+.proj .pth{font-family:var(--mono);font-size:11px;color:var(--mut);margin-top:2px}
+.proj .meta{margin-left:auto;text-align:right;font-family:var(--mono);font-size:10.5px;color:var(--mut)}
+.proj.missing{cursor:default}
+.proj.missing:hover{background:none;border-color:transparent}
+.proj.missing .rinfo{opacity:.6}
+.proj .rm{margin-left:12px;font-size:10.5px;padding:6px 10px;text-transform:none;letter-spacing:0}

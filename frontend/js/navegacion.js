@@ -1,4 +1,4 @@
-// navegacion.js — navegación entre pantallas y modales genéricos
+// navegacion.js — navegación entre pantallas y apertura/cierre de modales
 /* ---------------- Navegación ---------------- */
 function go(v){
   ['welcome','preview','tests','monitor','exec','report','history','config'].forEach(s => $('s-'+s).classList.toggle('hide', s!==v));
@@ -28,19 +28,8 @@ document.querySelectorAll('#views a').forEach(a => a.onclick = () => {
 function openModal(id){ $(id).classList.add('show'); }
 function closeModal(){ if(clonando) return; // no se cierra a mitad de un clonado
   document.querySelectorAll('.overlay').forEach(o=>o.classList.remove('show')); clearInterval(cloneTimer); resetClone(); }
-document.querySelectorAll('.overlay').forEach(o => o.addEventListener('click', e => { if(e.target===o) closeModal(); }));
-
-let pickedFolder = null;
-document.querySelectorAll('#fsList div').forEach(d => d.onclick = () => {
-  document.querySelectorAll('#fsList div').forEach(x=>x.classList.remove('sel')); d.classList.add('sel');
-  pickedFolder = d.dataset.p;
-  const bad = pickedFolder==='landing-web';
-  $('openHint').textContent = bad ? 'Esta carpeta no contiene archivos .py: PyAgent solo analiza código Python 3.10+.' : 'Carpeta: E:\\Proyectos\\'+pickedFolder;
-  $('openHint').className = 'hint' + (bad?' err':'');
-  $('openOk').disabled = bad;
-});
-function confirmOpen(){
-  if (realFolder) { confirmOpenReal(); return; }
-  closeModal(); loadProject(pickedFolder,'local','E:\\Proyectos\\'+pickedFolder);
+// Se llama desde main.js cuando todos los modales ya están montados.
+function iniciarModales(){
+  document.querySelectorAll('.overlay').forEach(o => o.addEventListener('click', e => { if(e.target===o) closeModal(); }));
 }
 

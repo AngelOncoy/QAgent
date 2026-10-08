@@ -1,4 +1,25 @@
-// clonar.js — modal de clonar repositorio (HU-02)
+// modal-clonar.js — modal «Abrir repositorio»: clonar desde URL Git (HU-02)
+// HTML del componente (se monta en el marcador data-componente="inicio/modal-clonar" de index.html)
+registrarComponente('inicio/modal-clonar', `<!-- Abrir repositorio: URL (sin GitHub OAuth) -->
+<div class="overlay" id="m-clone"><div class="modal">
+  <div class="mhead">Clonar repositorio<button class="x" onclick="closeModal()">×</button></div>
+  <div class="mcontent" id="cloneForm">
+    <div class="frow"><label>Control de versiones</label><select class="inp" style="width:120px"><option>Git</option></select></div>
+    <div class="frow"><label>URL</label><div><input class="inp" id="url" placeholder="https://github.com/usuario/repositorio.git" oninput="vUrl()"><div class="hint" id="urlHint">Repositorio público por HTTPS (GitHub, GitLab, Bitbucket).</div></div></div>
+    <div class="frow"><label>Rama</label><div><input class="inp" id="branch" value="main" style="width:180px" oninput="vUrl()"><div class="hint err hide" id="branchHint">Nombre de rama no válido.</div></div></div>
+    <div class="frow"><label>Directorio</label><input class="inp" id="dir" value="" placeholder="Se completa al escribir la URL" oninput="dirEditado=true;vUrl()"></div>
+    <label class="chk"><input type="checkbox" id="shallow" checked> Clonado superficial (<span class="mono">--depth 1</span>): solo el último commit</label>
+  </div>
+  <div class="mcontent hide" id="cloneProg">
+    <div style="font-weight:600" id="cloneTitle">Clonando…</div>
+    <div class="progress"><i id="cloneBar"></i></div>
+    <div class="log" id="cloneLog"></div>
+  </div>
+  <div class="mcontent hide" id="cloneErr"><div class="hint err" id="cloneErrTxt" style="font-size:13px"></div></div>
+  <div class="mfoot"><button class="btn" id="cloneCancel" onclick="closeModal()">Cancelar</button><button class="btn primary" id="cloneOk" disabled onclick="doClone()">Clonar</button></div>
+</div></div>
+`);
+
 /* Clonar repositorio (HU-02): misma validación que pyagent.app.clonador */
 const RE_URL_GIT = /^https:\/\/[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?(?:\.[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?)+\/[A-Za-z0-9_][A-Za-z0-9._-]*\/[A-Za-z0-9_][A-Za-z0-9._-]*$/;
 const RE_RAMA_GIT = /^[A-Za-z0-9_][A-Za-z0-9._\/-]*$/;

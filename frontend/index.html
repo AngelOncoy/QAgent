@@ -6,6 +6,11 @@
 <title>QAgent</title>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="css/tokens.css">
+<link rel="stylesheet" href="css/layout.css">
+<link rel="stylesheet" href="componentes/inicio/inicio.css">
+<link rel="stylesheet" href="css/componentes.css">
+<link rel="stylesheet" href="componentes/vista-previa/vista-previa.css">
+<link rel="stylesheet" href="componentes/config-pruebas/config-pruebas.css">
 <link rel="stylesheet" href="css/base.css">
 </head>
 <body>
@@ -60,172 +65,12 @@
 <!-- ======================= MAIN ======================= -->
 <main>
 
-<!-- ===== 1. BIENVENIDA ===== -->
-<section id="s-welcome" class="scroll">
-  <div class="welcome">
-    <h1>Bienvenido a PyAgent</h1>
-    <p>Genera y valida pruebas unitarias (pytest) de tu código Python.<br>Abre una carpeta de tu equipo o clona un repositorio Git.</p>
-    <div class="actions">
-      <button class="action" onclick="handleOpenFolder()">
-        <span class="ico"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="1.8"><path d="M3 7h6l2 2h10v10H3z"/></svg></span>
-        Abrir proyecto<small>Carpeta local con código Python</small>
-      </button>
-      <button class="action" onclick="openModal('m-clone')">
-        <span class="ico"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#c084fc" stroke-width="1.8"><circle cx="6" cy="6" r="2.5"/><circle cx="6" cy="18" r="2.5"/><circle cx="18" cy="9" r="2.5"/><path d="M6 8.5v7M18 11.5c0 3-4 3-10 5.5"/></svg></span>
-        Abrir repositorio<small>Clonar desde una URL Git (HTTPS)</small>
-      </button>
-    </div>
-    <div class="recents hide" id="recents">
-      <h3>Proyectos recientes <span class="pill p-grey" id="recCount"></span></h3>
-      <div id="recList"></div>
-    </div>
-  </div>
-</section>
+<div data-componente="inicio/inicio"></div>
 
-<!-- ===== 2. VISTA PREVIA Y CONFIGURACIÓN ===== -->
-<section id="s-preview" class="hide" style="display:flex;flex-direction:column;flex:1;min-height:0">
-  <div class="topbar">
-    <div class="chip"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7h6l2 2h10v10H3z"/></svg><b>repo:</b> <span class="repoLbl">github.com/retail-ai/ecommerce-core</span></div>
-    <div class="stepper">
-      <span class="done"><b>✓</b>Proyecto</span><span class="chev">›</span>
-      <span class="on"><b>2</b>Vista previa</span><span class="chev">›</span>
-      <span><b>3</b>Configuración de pruebas</span><span class="chev">›</span>
-      <span><b>4</b>Ejecución</span>
-    </div>
-  </div>
-  <div class="scroll"><div class="page">
-
-    <!-- Datos del proyecto -->
-    <div class="card"><div class="projhead">
-      <span class="t repoName">ecommerce-core</span>
-      <span class="pill p-purple">Git · rama <span class="brLbl">main</span></span>
-      <span class="pill p-grey" id="projCommit">commit a8f91</span>
-      <span class="pill p-blue" id="projPyVer">Python 3.11 detectado</span>
-      <span class="pill p-grey" id="projFnsResumen">7 archivos .py · 19 funciones públicas</span>
-      <span class="pill p-grey" id="projReqs">requirements.txt ✓</span>
-      <span class="pill p-green" id="projSpecs" title="Guardados en .pyagent/specs/ por corridas anteriores">♻ 6 specs guardados: 4 vigentes · 2 desactualizados (cart.py, discounts.py cambiaron)</span>
-    </div></div>
-
-    <!-- Resumen del proyecto (análisis estático AST — HU-04 / EN-02) -->
-    <div class="card" id="cardResumen">
-      <h4>Resumen del proyecto <span class="pill p-blue">Análisis AST (EN-02)</span></h4>
-      <div class="bd" style="display:flex;gap:24px;flex-wrap:wrap;align-items:center" id="resumenContenido">
-        <div><div class="hint" style="margin:0;text-transform:uppercase;font-size:10px;color:var(--dim)">Módulos encontrados</div><b class="mono" style="font-size:18px" id="resumenModulos">7</b></div>
-        <div><div class="hint" style="margin:0;text-transform:uppercase;font-size:10px;color:var(--dim)">Funciones públicas</div><b class="mono" style="font-size:18px" id="resumenFunciones">19</b></div>
-        <div><div class="hint" style="margin:0;text-transform:uppercase;font-size:10px;color:var(--dim)">Errores (no analizables)</div><b class="mono" style="font-size:18px" id="resumenErrores">0</b></div>
-        <div style="margin-left:auto;display:flex;gap:10px;flex-wrap:wrap;align-items:center">
-          <span class="pill p-amber" id="resumenSinDoc" title="el valor esperado no tendrá fuente (oráculo débil)">⚠ 2 sin docstring (10.5%)</span>
-          <span class="pill p-grey" id="resumenSinTipos">1 sin tipos (5.3%)</span>
-          <span class="pill p-grey" id="resumenConAlguna">2 con alguna inconsistencia (10.5%)</span>
-        </div>
-      </div>
-    </div>
-
-    <!-- Árbol + funciones -->
-    <div class="grid2">
-      <div class="card">
-        <h4>Árbol del proyecto <span class="pill p-grey" id="modCount">2 módulos</span></h4>
-        <div class="bd tree" id="tree"></div>
-        <div class="hint" style="padding:0 16px 14px">Solo se analizan los módulos marcados. Menos módulos = menos tokens del Planner.</div>
-      </div>
-      <div class="card">
-        <h4>Funciones detectadas (AST) <span class="pill p-grey" id="fnCount"></span></h4>
-        <table>
-          <thead><tr><th>Función</th><th>Tipada</th><th>Docstring</th><th>Ramas</th><th title="Crítica: se le aplica mutation testing en el perfil Profundo">Crítica</th><th>Incluir</th></tr></thead>
-          <tbody id="fnTable"></tbody>
-        </table>
-        <div class="legend">
-          <span>★ Crítica = ≥ 1 rama if/else o try/except (propuesta por AST, editable)</span>
-          <span class="warn">⚠ Sin docstring: el valor esperado no tendrá fuente; la prueba puede copiar el comportamiento actual</span>
-        </div>
-      </div>
-    </div>
-
-    <!-- Entorno -->
-    <div class="card">
-        <h4>Entorno</h4>
-        <div class="bd">
-          <div class="envok"><span class="ok" style="font-size:18px">✓</span><div><b>Entorno listo</b><div class="hint" style="margin:2px 0 0">Docker, imagen de pruebas, dependencias y claves de IA verificadas.</div></div></div>
-          <details class="envdet"><summary>Ver detalle</summary>
-            <div class="checks" style="margin-top:8px">
-              <div class="c"><span class="i ok">✓</span><div>Docker Desktop activo · las pruebas corren en un contenedor sin red</div></div>
-              <div class="c"><span class="i ok">✓</span><div>Imagen <span class="mono">pyagent-sandbox:base</span> (Python 3.11 + pytest + coverage + mutmut)</div></div>
-              <div class="c"><span class="i ok">✓</span><div>Dependencias de <span class="mono">requirements.txt</span> instaladas en la imagen (paso con red, antes de ejecutar)</div></div>
-              <div class="c"><span class="i ok">✓</span><div>Claves de IA cargadas desde <span class="mono">.env</span> (configuradas por el equipo)</div></div>
-            </div>
-            <div class="hint">Si algo falla, aquí aparece qué hacer. Ej.: "Docker no está abierto: inícialo y vuelve a intentar" o "Falta una clave de IA: contacta al equipo".</div>
-          </details>
-        </div>
-      </div>
-
-  </div></div>
-  <div class="footbar">
-    <span class="msg" id="footMsg"></span>
-    <button class="btn" style="margin-left:auto" onclick="go('welcome')">Cancelar</button>
-    <button class="btn primary" id="toTests" onclick="go('tests')">Continuar: configuración de pruebas →</button>
-  </div>
-</section>
+<div data-componente="vista-previa/vista-previa"></div>
 
 
-<!-- ===== 3. CONFIGURACIÓN DE PRUEBAS (nueva) ===== -->
-<section id="s-tests" class="hide" style="display:flex;flex-direction:column;flex:1;min-height:0">
-  <div class="topbar">
-    <div class="chip"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7h6l2 2h10v10H3z"/></svg><b>repo:</b> <span class="repoLbl">github.com/retail-ai/ecommerce-core</span></div>
-    <div class="stepper">
-      <span class="done"><b>✓</b>Proyecto</span><span class="chev">›</span>
-      <span class="done"><b>✓</b>Vista previa</span><span class="chev">›</span>
-      <span class="on"><b>3</b>Configuración de pruebas</span><span class="chev">›</span>
-      <span><b>4</b>Ejecución</span>
-    </div>
-  </div>
-  <div class="scroll"><div class="page">
-
-    <!-- Alcance elegido en la Vista previa -->
-    <div class="card"><div class="scope" id="scopeSum"></div></div>
-
-    <!-- Perfil de análisis -->
-    <div class="card">
-      <h4>Perfil de análisis <span class="pill p-grey">elige uno · todos generan pruebas unitarias pytest</span></h4>
-      <div class="bd">
-        <div class="profiles" id="profiles"></div>
-        <div class="phase2"><span class="hint" style="margin:0">Fuera del alcance de la Fase 1:</span>
-          <span class="x">Integración</span><span class="x">API REST</span><span class="x">Carga / estrés</span><span class="x">Extremo a extremo</span><span class="pill p-grey">Fase 2</span></div>
-
-      </div>
-    </div>
-
-    <!-- Comparación de los 4 perfiles con la selección actual -->
-    <div class="card">
-      <h4>Comparación de perfiles <span class="pill p-grey">con las funciones que seleccionaste</span></h4>
-      <table class="cmp">
-        <thead><tr><th>Perfil</th><th>Qué genera</th><th>Usa IA</th><th>Mutation testing</th><th>Tokens aprox.</th><th>Costo aprox.</th><th>Tiempo aprox.</th></tr></thead>
-        <tbody id="cmpBody"></tbody>
-      </table>
-      <div class="hint" style="padding:8px 16px 14px">Haz clic en una fila para elegir ese perfil. El costo baja cuando se reutilizan specs vigentes y es cero en Regresión.</div>
-    </div>
-
-    <!-- Costo estimado del perfil elegido -->
-    <div class="card">
-        <h4>Costo estimado <span class="pill p-grey">referencial, se compara con el real al final</span></h4>
-        <div class="bd">
-          <div class="estimate">
-            <div><div class="k">Funciones</div><div class="v" id="eFn">0</div></div>
-            <div><div class="k">Tokens aprox.</div><div class="v" id="eTok">0</div></div>
-            <div><div class="k">Costo aprox.</div><div class="v" id="eCost">S/ 0.00</div></div>
-            <div><div class="k">Tiempo aprox.</div><div class="v" id="eTime">0 min</div></div>
-          </div>
-          <div class="eagents" id="eAgents"></div>
-          <div class="hint" id="eNote" style="margin-top:10px"></div>
-        </div>
-      </div>
-
-  </div></div>
-  <div class="footbar">
-    <span class="msg" id="footMsg2"></span>
-    <button class="btn" style="margin-left:auto" onclick="go('preview')">← Volver a la vista previa</button>
-    <button class="btn primary" id="toPlan" onclick="startMonitor()">Iniciar corrida →</button>
-  </div>
-</section>
+<div data-componente="config-pruebas/config-pruebas"></div>
 
 
 <!-- ===== Barra compartida Monitor / Ejecución / Reporte ===== -->
@@ -370,41 +215,9 @@ reintentos_max = 3                  # regla del proyecto, no se cambia
 </div>
 
 <!-- ======================= MODALES ======================= -->
-<!-- Abrir proyecto: selector de carpetas del SO (simulado) -->
-<div class="overlay" id="m-open"><div class="modal">
-  <div class="mhead">Seleccionar carpeta del proyecto<button class="x" onclick="closeModal()">×</button></div>
-  <div class="mcontent">
-    <div class="frow" id="openLocRow"><label>Ubicación</label><input class="inp" value="E:\Proyectos" readonly></div>
-    <div class="frow hide" id="openPathRow"><label>Carpeta</label><input class="inp" id="openPath" readonly></div>
-    <div class="frow hide" id="openCountRow"><label>Contenido</label><span class="mono" id="openCount"></span></div>
-    <div class="fs" id="fsList">
-      <div data-p="ecommerce-core">📁 ecommerce-core</div>
-      <div data-p="banco-pruebas-mvp">📁 banco-pruebas-mvp</div>
-      <div data-p="landing-web">📁 landing-web <span class="hint" style="margin:0 0 0 auto">sin archivos .py</span></div>
-    </div>
-    <div class="hint" id="openHint">En la app real se abre el diálogo nativo de Windows/macOS/Linux.</div>
-  </div>
-  <div class="mfoot"><button class="btn" onclick="closeModal()">Cancelar</button><button class="btn hide" id="openOther" onclick="handleOpenFolder()">Elegir otra carpeta</button><button class="btn primary" id="openOk" disabled onclick="confirmOpen()">Abrir</button></div>
-</div></div>
+<div data-componente="inicio/modal-abrir"></div>
 
-<!-- Abrir repositorio: URL (sin GitHub OAuth) -->
-<div class="overlay" id="m-clone"><div class="modal">
-  <div class="mhead">Clonar repositorio<button class="x" onclick="closeModal()">×</button></div>
-  <div class="mcontent" id="cloneForm">
-    <div class="frow"><label>Control de versiones</label><select class="inp" style="width:120px"><option>Git</option></select></div>
-    <div class="frow"><label>URL</label><div><input class="inp" id="url" placeholder="https://github.com/usuario/repositorio.git" oninput="vUrl()"><div class="hint" id="urlHint">Repositorio público por HTTPS (GitHub, GitLab, Bitbucket).</div></div></div>
-    <div class="frow"><label>Rama</label><div><input class="inp" id="branch" value="main" style="width:180px" oninput="vUrl()"><div class="hint err hide" id="branchHint">Nombre de rama no válido.</div></div></div>
-    <div class="frow"><label>Directorio</label><input class="inp" id="dir" value="" placeholder="Se completa al escribir la URL" oninput="dirEditado=true;vUrl()"></div>
-    <label class="chk"><input type="checkbox" id="shallow" checked> Clonado superficial (<span class="mono">--depth 1</span>): solo el último commit</label>
-  </div>
-  <div class="mcontent hide" id="cloneProg">
-    <div style="font-weight:600" id="cloneTitle">Clonando…</div>
-    <div class="progress"><i id="cloneBar"></i></div>
-    <div class="log" id="cloneLog"></div>
-  </div>
-  <div class="mcontent hide" id="cloneErr"><div class="hint err" id="cloneErrTxt" style="font-size:13px"></div></div>
-  <div class="mfoot"><button class="btn" id="cloneCancel" onclick="closeModal()">Cancelar</button><button class="btn primary" id="cloneOk" disabled onclick="doClone()">Clonar</button></div>
-</div></div>
+<div data-componente="inicio/modal-clonar"></div>
 
 <!-- Exportar informe (HU-020) -->
 <div class="overlay" id="m-export"><div class="modal" style="width:640px">
@@ -435,15 +248,19 @@ reintentos_max = 3                  # regla del proyecto, no se cambia
 <div class="demo"><button onclick="go('welcome')">↺ reiniciar demo</button><button id="skipBtn" class="hide" onclick="skipRun()">⏩ completar corrida</button></div>
 
 
+<script src="js/utils.js"></script>
 <script src="js/estado.js"></script>
+<script src="js/cargador.js"></script>
 <script src="js/navegacion.js"></script>
-<script src="js/clonar.js"></script>
-<script src="js/vista-previa.js"></script>
+<script src="componentes/inicio/inicio.js"></script>
+<script src="componentes/inicio/modal-abrir.js"></script>
+<script src="componentes/inicio/modal-clonar.js"></script>
+<script src="componentes/vista-previa/vista-previa.js"></script>
+<script src="componentes/config-pruebas/config-pruebas.js"></script>
 <script src="js/monitor.js"></script>
 <script src="js/datos-corrida.js"></script>
 <script src="js/ejecucion-informe.js"></script>
 <script src="js/puente-python.js"></script>
-<script src="js/recientes.js"></script>
 <script src="js/main.js"></script>
 </body>
 </html>

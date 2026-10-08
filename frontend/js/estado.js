@@ -1,5 +1,4 @@
 // estado.js — estado compartido y datos simulados de demostración
-const $ = id => document.getElementById(id);
 /* ---------------- Datos simulados del repositorio ---------------- */
 let MODULES = [
   {path:'services/pricing.py', sel:true, fns:[
@@ -49,92 +48,6 @@ function priorizarModulos(lista) {
 }
 MODULES = priorizarModulos(MODULES);
 
-let PROYECTO_RESUMEN = null;
-let PROYECTO_ERRORES = [];
-
-function aplicarResumenDemo() {
-  const modValidos = MODULES.filter(m => !m.error);
-  const fns = modValidos.flatMap(m => m.fns);
-  const total = fns.length;
-  const sinDoc = fns.filter(f => !f.doc).length;
-  const sinTipos = fns.filter(f => !f.typed).length;
-  const conAlguna = fns.filter(f => !f.doc || !f.typed).length;
-  PROYECTO_RESUMEN = {
-    total_modulos: modValidos.length,
-    total_funciones_publicas: total,
-    total_errores: MODULES.filter(m => m.error).length,
-    inconsistencias: {
-      sin_docstring: { cantidad: sinDoc, porcentaje: total ? +(sinDoc / total * 100).toFixed(1) : 0 },
-      sin_tipos: { cantidad: sinTipos, porcentaje: total ? +(sinTipos / total * 100).toFixed(1) : 0 },
-      con_alguna: { cantidad: conAlguna, porcentaje: total ? +(conAlguna / total * 100).toFixed(1) : 0 }
-    }
-  };
-  PROYECTO_ERRORES = MODULES.filter(m => m.error).map(m => m.error);
-  actualizarResumenUI(PROYECTO_RESUMEN, PROYECTO_ERRORES);
-}
-
-function actualizarResumenUI(resumen, errores = []) {
-  if (!resumen) return;
-  if ($('resumenModulos')) $('resumenModulos').textContent = resumen.total_modulos ?? 0;
-  if ($('resumenFunciones')) $('resumenFunciones').textContent = resumen.total_funciones_publicas ?? 0;
-  if ($('resumenErrores')) $('resumenErrores').textContent = resumen.total_errores ?? (errores ? errores.length : 0);
-  
-  const sd = resumen.inconsistencias?.sin_docstring || { cantidad: 0, porcentaje: 0 };
-  const st = resumen.inconsistencias?.sin_tipos || { cantidad: 0, porcentaje: 0 };
-  const ca = resumen.inconsistencias?.con_alguna || { cantidad: 0, porcentaje: 0 };
-  
-  if ($('resumenSinDoc')) {
-    $('resumenSinDoc').textContent = `⚠ ${sd.cantidad} sin docstring (${sd.porcentaje}%)`;
-    $('resumenSinDoc').className = sd.cantidad > 0 ? 'pill p-amber' : 'pill p-grey';
-  }
-  if ($('resumenSinTipos')) {
-    $('resumenSinTipos').textContent = `${st.cantidad} sin tipos (${st.porcentaje}%)`;
-    $('resumenSinTipos').className = st.cantidad > 0 ? 'pill p-amber' : 'pill p-grey';
-  }
-  if ($('resumenConAlguna')) {
-    $('resumenConAlguna').textContent = `${ca.cantidad} con inconsistencias (${ca.porcentaje}%)`;
-  }
-  if ($('projFnsResumen')) {
-    $('projFnsResumen').textContent = `${resumen.total_modulos} módulos .py · ${resumen.total_funciones_publicas} funciones públicas`;
-  }
-}
-
-function cargarDatosVistaPrevia(res) {
-  if (!res || !res.ok) return;
-  PROYECTO_RESUMEN = res.resumen;
-  PROYECTO_ERRORES = res.errores || [];
-
-  const modulosAST = (res.modulos || []).map(m => {
-    const fns = (m.funciones || []).map(f => ({
-      n: f.nombre,
-      sig: f.firma || '()',
-      typed: f.tipada ? 1 : 0,
-      doc: f.docstring ? 1 : 0,
-      br: f.ramas || 0,
-      crit: f.critica_propuesta ?? ((f.ramas || 0) > 0),
-      inc: true,
-      linea: f.linea
-    }));
-    return {
-      path: m.ruta,
-      sel: true,
-      fns: fns,
-      conRamas: m.funciones_con_ramas ?? fns.filter(f => f.br > 0).length,
-      huella: m.huella
-    };
-  });
-
-  const modulosErr = (res.errores || []).map(e => ({
-    path: e.ruta,
-    sel: false,
-    error: e,
-    fns: [],
-    conRamas: 0
-  }));
-
-  MODULES = [...modulosAST, ...modulosErr];
-  actualizarResumenUI(res.resumen, res.errores);
-}
 
 const PROFILES = [
   {k:'humo', n:'Humo', d:'1 caso feliz por función: ¿se importa y corre con una entrada válida?', tok:4000, t:0.3, m:['Pass Rate'], pill:'p-grey'},

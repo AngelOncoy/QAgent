@@ -1,108 +1,66 @@
-// vista-previa.js — vista previa y configuración de pruebas
-/* ---------------- Vista previa ---------------- */
-async function loadProject(name, src, where, br='main', ruta=''){
-  if(!apiRec()) demoRegistrar(name, src, where);
-  document.querySelectorAll('.repoName').forEach(e=>e.textContent=name);
-  document.querySelectorAll('.repoLbl').forEach(e=>e.textContent = src==='git' ? where.replace('https://','').replace(/\.git$/,'') : where);
-  document.querySelectorAll('.brLbl').forEach(e=>e.textContent=br); $('branchLbl').textContent = br;
-  monitorStarted = false; 
-  projectPath = ruta ? ruta : (src==='git' ? 'E:\\Proyectos\\' + name : where);
+// config-pruebas.js — pantalla de configuración de pruebas: perfiles, comparación de costos y estimación
+// HTML del componente (se monta en el marcador data-componente="config-pruebas/config-pruebas" de index.html)
+registrarComponente('config-pruebas/config-pruebas', `<!-- ===== 3. CONFIGURACIÓN DE PRUEBAS (nueva) ===== -->
+<section id="s-tests" class="hide" style="display:flex;flex-direction:column;flex:1;min-height:0">
+  <div class="topbar">
+    <div class="chip"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7h6l2 2h10v10H3z"/></svg><b>repo:</b> <span class="repoLbl">github.com/retail-ai/ecommerce-core</span></div>
+    <div class="stepper">
+      <span class="done"><b>✓</b>Proyecto</span><span class="chev">›</span>
+      <span class="done"><b>✓</b>Vista previa</span><span class="chev">›</span>
+      <span class="on"><b>3</b>Configuración de pruebas</span><span class="chev">›</span>
+      <span><b>4</b>Ejecución</span>
+    </div>
+  </div>
+  <div class="scroll"><div class="page">
 
-  if (window.pywebview && window.pywebview.api && (window.pywebview.api.obtener_vista_previa || window.pywebview.api.analizar_proyecto)) {
-    try {
-      const fn = window.pywebview.api.obtener_vista_previa || window.pywebview.api.analizar_proyecto;
-      const res = await fn(projectPath);
-      if (res && res.ok) {
-        cargarDatosVistaPrevia(res);
-      } else {
-        aplicarResumenDemo();
-      }
-    } catch (err) {
-      console.error("Error al obtener la vista previa por AST:", err);
-      aplicarResumenDemo();
-    }
-  } else {
-    aplicarResumenDemo();
-  }
+    <!-- Alcance elegido en la Vista previa -->
+    <div class="card"><div class="scope" id="scopeSum"></div></div>
 
-  renderTree(); 
-  renderProfiles(); 
-  go('preview');
-}
-function renderTree(){
-  let h = '';
-  const dirsVistos = new Set();
-  MODULES.forEach((m, i) => {
-    const partes = m.path.split('/');
-    if (partes.length > 1) {
-      const dir = partes.slice(0, -1).join('/') + '/';
-      if (!dirsVistos.has(dir)) {
-        dirsVistos.add(dir);
-        h += `<div class="row dir">📁 ${escHtml(dir)}</div>`;
-      }
-    }
-    const nombreArchivo = partes[partes.length - 1];
-    if (m.error) {
-      h += `<div class="row ind" style="color:var(--red-t)"><span class="mono">📄 ${escHtml(nombreArchivo)}</span><span class="pill p-red" style="margin-left:auto">no se pudo analizar</span></div>`;
-    } else {
-      const fnConRamas = (m.fns || []).filter(f => f.br > 0).length;
-      h += `<div class="row ind"><input type="checkbox" ${m.sel ? 'checked' : ''} onchange="MODULES[${i}].sel=this.checked;renderFns()"> <span class="mono">${escHtml(nombreArchivo)}</span><span class="n" title="${fnConRamas} funciones con ramas">${m.fns.length} fn</span></div>`;
-    }
-  });
-  h += '<div class="row dir ign">📁 tests/ <span class="n">ignorado</span></div>';
-  h += '<div class="row dir ign">📁 .pyagent/ <span class="n">ignorado</span></div>';
-  $('tree').innerHTML = h;
-  renderFns();
-}
-function renderFns(){
-  const sel = MODULES.filter(m => m.sel && !m.error);
-  const totalFns = sel.flatMap(m => m.fns).length;
-  $('modCount').textContent = sel.length + (sel.length === 1 ? ' módulo' : ' módulos');
-  $('fnCount').textContent = totalFns + ' incluidas';
-  let h = '';
-  
-  MODULES.forEach((m, mi) => {
-    if (m.error) {
-      h += `<tr><td colspan="6" style="background:var(--panel2);color:var(--red-t);font-family:var(--mono);font-size:11px;padding:9px 12px">
-        <b>📄 ${escHtml(m.path)}</b> <span class="pill p-red" style="margin-left:8px">no se pudo analizar</span>
-        <div class="sub" style="color:var(--red-t);margin-top:3px">
-          Error de sintaxis (${escHtml(m.error.tipo || 'SyntaxError')}${m.error.linea ? ' en línea ' + m.error.linea : ''}): ${escHtml(m.error.mensaje || 'Error al analizar archivo')}
+    <!-- Perfil de análisis -->
+    <div class="card">
+      <h4>Perfil de análisis <span class="pill p-grey">elige uno · todos generan pruebas unitarias pytest</span></h4>
+      <div class="bd">
+        <div class="profiles" id="profiles"></div>
+        <div class="phase2"><span class="hint" style="margin:0">Fuera del alcance de la Fase 1:</span>
+          <span class="x">Integración</span><span class="x">API REST</span><span class="x">Carga / estrés</span><span class="x">Extremo a extremo</span><span class="pill p-grey">Fase 2</span></div>
+
+      </div>
+    </div>
+
+    <!-- Comparación de los 4 perfiles con la selección actual -->
+    <div class="card">
+      <h4>Comparación de perfiles <span class="pill p-grey">con las funciones que seleccionaste</span></h4>
+      <table class="cmp">
+        <thead><tr><th>Perfil</th><th>Qué genera</th><th>Usa IA</th><th>Mutation testing</th><th>Tokens aprox.</th><th>Costo aprox.</th><th>Tiempo aprox.</th></tr></thead>
+        <tbody id="cmpBody"></tbody>
+      </table>
+      <div class="hint" style="padding:8px 16px 14px">Haz clic en una fila para elegir ese perfil. El costo baja cuando se reutilizan specs vigentes y es cero en Regresión.</div>
+    </div>
+
+    <!-- Costo estimado del perfil elegido -->
+    <div class="card">
+        <h4>Costo estimado <span class="pill p-grey">referencial, se compara con el real al final</span></h4>
+        <div class="bd">
+          <div class="estimate">
+            <div><div class="k">Funciones</div><div class="v" id="eFn">0</div></div>
+            <div><div class="k">Tokens aprox.</div><div class="v" id="eTok">0</div></div>
+            <div><div class="k">Costo aprox.</div><div class="v" id="eCost">S/ 0.00</div></div>
+            <div><div class="k">Tiempo aprox.</div><div class="v" id="eTime">0 min</div></div>
+          </div>
+          <div class="eagents" id="eAgents"></div>
+          <div class="hint" id="eNote" style="margin-top:10px"></div>
         </div>
-      </td></tr>`;
-      return;
-    }
-    if (!m.sel) return;
-    
-    const sp = SPEC_STATUS[m.path];
-    const spTag = sp === 'reuse' 
-      ? '<span class="pill p-green" style="margin-left:8px">♻ spec vigente · Planner se omite</span>' 
-      : sp === 'stale' 
-        ? '<span class="pill p-amber" style="margin-left:8px">↻ código cambió · spec se regenera</span>' 
-        : '<span class="pill p-grey" style="margin-left:8px">sin spec previo</span>';
-    const conRamasCount = (m.fns || []).filter(f => f.br > 0).length;
-    const ramasTag = `<span class="pill p-grey" style="margin-left:6px" title="${conRamasCount} funciones con ramas">${conRamasCount} con ramas</span>`;
-    
-    h += `<tr><td colspan="6" style="background:var(--panel2);font-family:var(--mono);font-size:11px;color:var(--mut)"><b>${escHtml(m.path)}</b>${ramasTag}${spTag}</td></tr>`;
-    m.fns.forEach((f, fi) => {
-      const docHtml = f.doc 
-        ? '<span class="ok">✓</span>' 
-        : '<span class="warn" title="el valor esperado no tendrá fuente (oráculo débil)">⚠ falta</span>';
-      const tipadoHtml = f.typed ? '<span class="ok">✓</span>' : '<span class="no">✗</span>';
-      h += `<tr>
-        <td class="fn">${escHtml(f.n)}<div class="sub">${escHtml(f.sig)}</div></td>
-        <td class="${f.typed ? 'ok' : 'no'}">${tipadoHtml}</td>
-        <td class="${f.doc ? 'ok' : 'warn'}" ${f.doc ? '' : 'title="el valor esperado no tendrá fuente (oráculo débil)"'}>${docHtml}</td>
-        <td class="mono">${f.br}</td>
-        <td><button class="star ${f.crit ? 'on' : ''}" onclick="toggle(${mi},${fi},'crit')">${f.crit ? '★' : '☆'}</button></td>
-        <td><input type="checkbox" ${f.inc ? 'checked' : ''} onchange="toggle(${mi},${fi},'inc')"></td>
-      </tr>`;
-    });
-  });
-  
-  $('fnTable').innerHTML = h || '<tr><td colspan="6" class="hint">Selecciona al menos un módulo.</td></tr>';
-  calc();
-}
-function toggle(mi,fi,k){ MODULES[mi].fns[fi][k] = !MODULES[mi].fns[fi][k]; renderFns(); }
+      </div>
+
+  </div></div>
+  <div class="footbar">
+    <span class="msg" id="footMsg2"></span>
+    <button class="btn" style="margin-left:auto" onclick="go('preview')">← Volver a la vista previa</button>
+    <button class="btn primary" id="toPlan" onclick="startMonitor()">Iniciar corrida →</button>
+  </div>
+</section>
+`);
+
 function estFor(k){
   const p = PROFILES.find(x=>x.k===k);
   const mods = MODULES.filter(m=>m.sel && !m.error);
@@ -164,12 +122,7 @@ function calc(){
     <span class="pill p-grey">★ ${crit} crítica(s)</span>
     ${noDoc?`<span class="pill p-amber">⚠ ${noDoc} sin docstring</span>`:''}
     <button class="btn" onclick="go('preview')">Editar selección</button>`;
-  // Pie de la pantalla 2 (alcance)
-  let m1 = '', b1 = false;
-  if(!fns.length){ m1 = 'Selecciona al menos una función.'; b1 = true; }
-  else if(noDoc){ m1 = `<span class="warn">⚠ ${noDoc} función(es) sin docstring: se generarán, pero con oráculo débil (se marcará en el informe).</span>`; }
-  else m1 = `${fns.length} funciones seleccionadas · siguiente paso: elegir el perfil de pruebas.`;
-  $('footMsg').innerHTML = m1; $('toTests').disabled = b1;
+  renderPieVistaPrevia(fns, noDoc);
   // Pie de la pantalla 3 (perfil y costo)
   let msg = '', block = false;
   if(!fns.length){ msg = 'No hay funciones seleccionadas: vuelve a la vista previa.'; block = true; }
