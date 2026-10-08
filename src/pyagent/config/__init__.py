@@ -8,9 +8,12 @@ from pyagent.config.carga import (
     Presupuesto,
     ResultadoCarga,
     Umbrales,
+    aplicar_simulacion_desde_env,
     cargar_configuracion,
     instalar_filtro_logs,
     leer_env,
+    modo_simulado,
+    simulado_desde_env,
 )
 from pyagent.config.entorno import (
     MENSAJE_IA_SIMULADA,
@@ -29,9 +32,12 @@ __all__ = [
     "Presupuesto",
     "ResultadoCarga",
     "Umbrales",
+    "aplicar_simulacion_desde_env",
     "cargar_configuracion",
     "estado_git",
     "instalar_filtro_logs",
     "leer_env",
+    "modo_simulado",
+    "simulado_desde_env",
     "verificar_entorno",
 ]

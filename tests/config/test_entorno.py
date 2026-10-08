@@ -118,14 +118,34 @@ def test_ia_simulada_por_variable_de_entorno(tmp_path, monkeypatch):
     assert r["listo"] is True and r["simulado"] is True
 
 
-def test_ia_simulada_no_exige_claves_pero_si_docker(tmp_path):
-    assert _verificar(tmp_path / ".env", simulado=True)["listo"] is True
+def test_ia_simulada_no_exige_claves_ni_docker(tmp_path):
+    r = _verificar(tmp_path / ".env", docker=lambda: DOCKER_APAGADO, simulado=True)
+    assert r["listo"] is True
+    assert r["problemas"] == []
+    docker = next(c for c in r["comprobaciones"] if c["id"] == "docker")
+    assert docker["ok"] is True and docker["opcional"] is True
+    assert modulo_entorno.MENSAJE_DOCKER_OPCIONAL in docker["mensaje"]
     assert (
-        _verificar(tmp_path / ".env", docker=lambda: DOCKER_APAGADO, simulado=True)[
-            "listo"
-        ]
-        is False
-    )
+        DOCKER_APAGADO["mensaje"] in docker["mensaje"]
+    )  # se sigue informando qué pasa
+
+
+def test_ia_simulada_con_docker_disponible_no_marca_nada_como_opcional(tmp_path):
+    r = _verificar(tmp_path / ".env", simulado=True)
+    docker = next(c for c in r["comprobaciones"] if c["id"] == "docker")
+    assert docker["ok"] is True and "opcional" not in docker
+
+
+def test_ia_simulada_sigue_exigiendo_git(tmp_path):
+    r = _verificar(tmp_path / ".env", git=lambda: GIT_AUSENTE, simulado=True)
+    assert r["listo"] is False
+    assert GIT_AUSENTE["mensaje"] in r["problemas"]
+
+
+def test_ia_real_sigue_exigiendo_docker(env_completo):
+    r = _verificar(env_completo, docker=lambda: DOCKER_APAGADO, simulado=False)
+    assert r["listo"] is False
+    assert DOCKER_APAGADO["mensaje"] in r["problemas"]
 
 
 def test_config_invalida_bloquea(tmp_path, env_completo):

@@ -4,6 +4,7 @@ from pathlib import Path
 
 import webview
 
+from pyagent.app import bitacora
 from pyagent.proyectos import proyecto_local, recientes
 
 # Interfaz web (HTML/CSS/JS), separada del backend: <raíz del repo>/frontend/
@@ -33,7 +34,7 @@ class DesktopAPI:
         result = self._window.create_file_dialog(webview.FOLDER_DIALOG)
         if result and len(result) > 0:
             folder_path = result[0]
-            print(f"[Python] Carpeta seleccionada: {folder_path}")
+            bitacora.registro.info("Carpeta seleccionada: %s", folder_path)
             return folder_path
         return None
 
@@ -176,29 +177,41 @@ class DesktopAPI:
         """Inicia la corrida del sistema sobre el proyecto seleccionado.
 
         Primero verifica que Docker responde (HU-13) y luego que el entorno completo
-        esté listo: config.toml, claves de .env, Docker y Git (EN-06).
+        esté listo: config.toml, claves de .env, Docker y Git (EN-06). Con la IA
+        simulada (PYAGENT_FAKE_LLM=1, en el sistema o en el .env) Docker es opcional:
+        no se ejecuta nada en el sandbox, así que no se exige.
 
         Returns:
             dict: ``{"status": "started", ...}``; si Docker no está disponible,
             ``{"status": "docker_no_disponible", "mensaje": str}``; si falta otra cosa
             del entorno, ``{"status": "blocked", "motivo": str, "problemas": list}``.
         """
+        from pyagent.config import modo_simulado
         from pyagent.sandbox import DockerNoDisponible, verificar_docker
 
-        try:
-            verificar_docker()
-        except DockerNoDisponible as exc:
-            return {"status": "docker_no_disponible", "mensaje": str(exc)}
+        simulado = modo_simulado()
+        if not simulado:
+            try:
+                verificar_docker()
+            except DockerNoDisponible as exc:
+                bitacora.registro.warning("Corrida no iniciada: %s", exc)
+                return {"status": "docker_no_disponible", "mensaje": str(exc)}
 
         entorno = self.verificar_entorno()
         if not entorno["listo"]:
+            bitacora.registro.warning("Corrida no iniciada: %s", entorno["mensaje"])
             return {
                 "status": "blocked",
                 "motivo": entorno["mensaje"],
                 "problemas": entorno["problemas"],
             }
 
-        print(f"[Python] Iniciando corrida en '{folder_path}' con perfil '{profile}'")
+        bitacora.registro.info(
+            "Corrida iniciada en '%s' con perfil '%s' (%s)",
+            folder_path,
+            profile,
+            "IA simulada" if simulado else "IA real",
+        )
         # Emite un evento hacia la interfaz JS
         self.emit_event("log", {"message": f"Corrida iniciada en perfil '{profile}'"})
         return {"status": "started", "folder": folder_path, "profile": profile}
@@ -207,16 +220,35 @@ class DesktopAPI:
         """Devuelve el estado del sandbox Docker para el indicador de la barra lateral.
 
         Returns:
-            dict: `{"estado": "ok" | "sin_imagen" | "no_iniciado" | "no_instalado", "mensaje": str}`.
+            dict: `{"estado": "ok" | "sin_imagen" | "no_iniciado" | "no_instalado",
+            "mensaje": str, "simulado": bool}`. `simulado` indica que la IA es simulada
+            (PYAGENT_FAKE_LLM=1): ahí no se ejecuta nada en el sandbox y Docker es
+            opcional, así que la interfaz no debe presentar su ausencia como un fallo.
         """
+        from pyagent.config import modo_simulado
+
         try:
             from pyagent.sandbox.estado import estado_docker
         except ImportError:
-            return {
+            estado = {
                 "estado": "no_instalado",
                 "mensaje": "Falta el SDK de Docker para Python: pip install -r requirements.txt",
             }
-        return estado_docker()
+        else:
+            estado = estado_docker()
+        return {**estado, "simulado": modo_simulado()}
+
+    def registrar_evento(self, evento: dict) -> None:
+        """Imprime en la consola de Python un paso de la corrida, con hora.
+
+        La pantalla lo llama con cada evento del Monitor, de modo que la corrida se pueda
+        seguir desde la terminal donde se abrió la aplicación. Nunca muestra claves.
+
+        Args:
+            evento: `{"tipo", "agente", "archivo", "funcion", "mensaje", "progreso"}`
+                (todos opcionales; ver `pyagent.app.bitacora.registrar_evento`).
+        """
+        bitacora.registrar_evento(evento)
 
     def emit_event(self, event_type: str, data: dict) -> None:
         """Envía un evento desde Python hacia la interfaz JavaScript.
@@ -237,20 +269,29 @@ class DesktopAPI:
 
 def _registrar_estado_configuracion() -> None:
     """Lee config.toml y .env al iniciar y deja en consola un resumen sin claves (EN-06)."""
-    from pyagent.config import cargar_configuracion, instalar_filtro_logs
+    from pyagent.config import (
+        aplicar_simulacion_desde_env,
+        cargar_configuracion,
+        instalar_filtro_logs,
+    )
 
+    # PYAGENT_FAKE_LLM=1 en el .env también activa la IA simulada para todo el programa.
+    aplicar_simulacion_desde_env()
     carga = cargar_configuracion()
     instalar_filtro_logs(carga.claves)
+    bitacora.configurar_registro(carga.claves)  # bitácora de la corrida en la consola
     if carga.simulado:
-        print(
-            "[Python] IA simulada activa (PYAGENT_FAKE_LLM=1): 0 tokens, no se usan claves."
+        bitacora.registro.info(
+            "IA simulada activa (PYAGENT_FAKE_LLM=1): 0 tokens, no se usan claves."
         )
     if carga.ok:
-        print("[Python] Configuración cargada: config.toml y claves en orden.")
+        bitacora.registro.info("Configuración cargada: config.toml y claves en orden.")
     else:
-        print("[Python] Configuración incompleta: no se podrán iniciar corridas.")
+        bitacora.registro.warning(
+            "Configuración incompleta: no se podrán iniciar corridas."
+        )
         for aviso in carga.avisos:
-            print(f"[Python]   - {aviso}")
+            bitacora.registro.warning("  - %s", aviso)
 
 
 def main() -> None:

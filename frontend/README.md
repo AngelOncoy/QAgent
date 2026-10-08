@@ -124,9 +124,11 @@ La interfaz tiene un **modo demostración**: sin pywebview (abriendo `index.html
 |---|---|---|
 | Inicio | Proyectos recientes reales (`~/.pyagent/recientes.json`) | Lista simulada de 11 proyectos |
 | Vista previa | Nombre, rama (solo si hay Git), módulos, funciones y consistencias del análisis AST. Si el análisis falla, aviso de error y lista vacía | Proyecto de ejemplo `ecommerce-core` |
-| Entorno | Verificación real de EN-06: `config.toml`, claves de `.env`, Docker y Git. Si falla, bloquea «Continuar» en la configuración de pruebas y el arranque de la corrida | «Modo demostración» |
+| Entorno | Verificación real de EN-06: `config.toml`, claves de `.env`, Docker y Git (con la IA simulada no se piden las claves y Docker es opcional). Si falla, bloquea «Continuar» en la configuración de pruebas y el arranque de la corrida | «Modo demostración» |
 | Configuración de pruebas | El perfil Regresión solo está disponible si el proyecto ya tuvo una corrida | Disponible |
 | Controles «reiniciar demo» y «completar corrida» | Ocultos | Visibles |
 | Monitor, Ejecución, Informe, Historial y Configuración del sistema | **Datos simulados** (ver abajo) | Datos simulados |
+
+Cada paso del Monitor, la pausa y el fin de la corrida se envían además a la consola de Python (`registrar_evento` del puente), que los imprime con hora en la terminal donde se abrió la aplicación.
 
 **Pendiente:** Monitor, Ejecución, Informe, Historial y Configuración del sistema todavía se alimentan de datos simulados (`js/datos-corrida.js` y los `EVENTS` del monitor, la corrida «#8841-B», el historial de ejemplo, los precios de ejemplo de `AGENTS_CFG`), incluso en la aplicación real, porque el orquestador aún no está conectado a la interfaz: `start_run` solo comprueba Docker y emite un aviso. Conectarlos exige enviar eventos reales desde Python (`emit_event`) y leer las corridas guardadas en `.pyagent/runs/`. `tests/frontend/` impide que los datos de ejemplo vuelvan a colarse en las pantallas del flujo real.

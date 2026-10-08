@@ -15,6 +15,7 @@ imprime ni se serializa (RN-07).
 from __future__ import annotations
 
 import logging
+import os
 import re
 import sys
 from collections.abc import Mapping
@@ -33,6 +34,9 @@ else:  # Python 3.10
 RAIZ = Path(__file__).resolve().parents[3]
 RUTA_CONFIG = RAIZ / "config.toml"
 RUTA_ENV = RAIZ / ".env"
+
+# Variable que activa la IA simulada (EN-11): se puede definir en el sistema o en el .env.
+VARIABLE_SIMULADA = "PYAGENT_FAKE_LLM"
 
 #: Variable de `.env` que guarda la clave de cada proveedor de `config.toml`.
 CLAVE_POR_PROVEEDOR = {
@@ -204,6 +208,45 @@ def _limpiar_valor(valor: str) -> str:
     return re.split(r"\s+#", valor, maxsplit=1)[0].strip()
 
 
+def simulado_desde_env(ruta_env: str | Path = RUTA_ENV) -> bool:
+    """True si el `.env` activa la IA simulada con `PYAGENT_FAKE_LLM=1` (EN-11).
+
+    Si el archivo no existe o no se puede leer, la IA simulada no está activa.
+    """
+    try:
+        return leer_env(ruta_env).get(VARIABLE_SIMULADA, "").strip() == "1"
+    except (OSError, UnicodeDecodeError):
+        return False
+
+
+def modo_simulado(ruta_env: str | Path = RUTA_ENV) -> bool:
+    """¿Está activa la IA simulada? Lo definido en el sistema manda sobre el `.env`.
+
+    `PYAGENT_FAKE_LLM` puede ponerse en el entorno del sistema o en el `.env`, que es
+    donde el equipo ya guarda su configuración local. Si el sistema la define (aunque
+    sea en `0`), se respeta esa decisión; si no, se mira el `.env`.
+    """
+    if VARIABLE_SIMULADA in os.environ:
+        return es_modo_simulado()
+    return simulado_desde_env(ruta_env)
+
+
+def aplicar_simulacion_desde_env(ruta_env: str | Path = RUTA_ENV) -> bool:
+    """Si el `.env` activa la IA simulada, lo deja activo para todo el programa.
+
+    El cliente de IA (`pyagent.llm`) solo mira el entorno del sistema, así que al
+    iniciar la aplicación se copia esa única bandera a `os.environ`. Nunca se copian
+    claves. Lo definido en el sistema no se pisa.
+
+    Returns:
+        True si esta llamada activó la IA simulada.
+    """
+    if VARIABLE_SIMULADA in os.environ or not simulado_desde_env(ruta_env):
+        return False
+    os.environ[VARIABLE_SIMULADA] = "1"
+    return True
+
+
 def cargar_configuracion(
     ruta_config: str | Path = RUTA_CONFIG,
     ruta_env: str | Path = RUTA_ENV,
@@ -215,9 +258,9 @@ def cargar_configuracion(
         ruta_config: ruta de `config.toml`.
         ruta_env: ruta de `.env`.
         simulado: True si la IA es simulada (EN-11) y no hacen falta claves; si es
-            None se toma de `PYAGENT_FAKE_LLM`.
+            None se toma de `PYAGENT_FAKE_LLM`, en el sistema o en el `.env`.
     """
-    simulado = es_modo_simulado() if simulado is None else simulado
+    simulado = modo_simulado(ruta_env) if simulado is None else simulado
     avisos_config: list[str] = []
     avisos_claves: list[str] = []
     config = _leer_config(Path(ruta_config), avisos_config)
@@ -235,7 +278,7 @@ def _leer_claves(
         if not crear_env(ruta_env, config):
             avisos.append(
                 f"No existe el archivo .env ({ruta_env}) y no se pudo crear. "
-                "Créalo copiando .env.example y completa las claves que te dé el equipo."
+                "Créalo con las claves que te dé el equipo (una por línea, NOMBRE=valor)."
             )
             return Claves()
         avisos.append(
@@ -277,6 +320,7 @@ def crear_env(ruta: Path, config: Configuracion | None) -> bool:
     lineas = [
         "# Claves de API de QAgent. Completa cada valor con la clave que te dé el equipo.",
         "# Este archivo NO se sube al repositorio (.gitignore) y no debe compartirse.",
+        "# Para ver la simulación sin claves ni Docker, agrega la línea: PYAGENT_FAKE_LLM=1",
         "",
         *(f"{variable}=" for variable in variables_requeridas(config)),
         "",

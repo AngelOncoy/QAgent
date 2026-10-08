@@ -247,14 +247,16 @@ async function verificarEntorno() {
   $('envIcono').textContent = r.listo ? '✓' : '✕';
   $('envIcono').className = r.listo ? 'ok' : 'no';
   $('envTitulo').textContent = (r.listo ? 'Entorno listo' : 'Entorno no listo') + (r.simulado ? ' · IA simulada' : '');
+  const dockerOpcional = (r.comprobaciones || []).some(c => c.id === 'docker' && c.opcional);
   $('envSub').textContent = r.listo
-    ? (r.simulado ? 'IA simulada activa: 0 tokens (US$ 0). Configuración, Docker y Git verificados.'
+    ? (r.simulado ? 'IA simulada activa: 0 tokens (US$ 0). ' + (dockerOpcional ? 'Docker no hace falta; configuración y Git verificados.' : 'Configuración, Docker y Git verificados.')
                   : 'Configuración, claves de IA, Docker y Git verificados.')
     : (r.problemas.length ? 'Hay ' + r.problemas.length + ' problema(s). Corrígelos y pulsa Reintentar.' : r.mensaje);
   const nombres = r.simulado ? {...ENV_NOMBRES, claves:'IA simulada (EN-11)'} : ENV_NOMBRES;
   $('envChecks').innerHTML = (r.comprobaciones || []).map(c =>
     `<div class="c"><span class="i ${c.ok ? 'ok' : 'no'}">${c.ok ? '✓' : '✕'}</span><div><b>${escHtml(nombres[c.id] || c.id)}</b><div class="hint" style="margin:2px 0 0">${escHtml(c.mensaje)}</div></div></div>`).join('');
   $('envDet').open = !r.listo;  // si falla, el detalle se muestra abierto
+  actualizarSandbox();  // el indicador de la barra lateral se pone al día con el mismo resultado
   try { calc(); } catch (err) { $('toPlan').disabled = !entornoListo; }
 }
 

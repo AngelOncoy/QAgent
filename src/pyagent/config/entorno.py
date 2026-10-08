@@ -25,6 +25,9 @@ MENSAJE_IA_SIMULADA = (
     "IA simulada activa (PYAGENT_FAKE_LLM=1): respuestas grabadas, 0 tokens y US$ 0. "
     "No se usan las claves de .env."
 )
+MENSAJE_DOCKER_OPCIONAL = (
+    "Docker no hace falta con la IA simulada: no se ejecuta nada en el sandbox."
+)
 TIMEOUT_GIT_S = 5
 MENSAJE_GIT_AUSENTE = (
     "Git no está instalado o no está en el PATH. Instálalo desde https://git-scm.com "
@@ -98,7 +101,7 @@ def verificar_entorno(
     carga = carga or cargar_configuracion(ruta_config, ruta_env, simulado)
     comprobaciones = [
         *_comprobar_configuracion(carga),
-        _comprobar("docker", docker()),
+        _comprobar_docker(docker(), carga.simulado),
         _comprobar("git", git()),
     ]
     problemas = [
@@ -124,6 +127,16 @@ def _comprobar(identificador: str, estado: dict[str, str]) -> dict[str, Any]:
         "ok": estado["estado"] == "ok",
         "mensaje": estado["mensaje"],
     }
+
+
+def _comprobar_docker(estado: dict[str, str], simulado: bool) -> dict[str, Any]:
+    """Docker es obligatorio, salvo con la IA simulada: ahí se informa pero no bloquea."""
+    comprobacion = _comprobar("docker", estado)
+    if simulado and not comprobacion["ok"]:
+        comprobacion["ok"] = True
+        comprobacion["opcional"] = True
+        comprobacion["mensaje"] = f"{MENSAJE_DOCKER_OPCIONAL} ({estado['mensaje']})"
+    return comprobacion
 
 
 def _comprobar_configuracion(carga: ResultadoCarga) -> list[dict[str, Any]]:

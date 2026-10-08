@@ -18,6 +18,7 @@ nav a.on .pill{background:var(--white-a16);color:var(--white);border-color:trans
 .sidefoot{margin-top:auto}
 .runner{margin:12px;padding:10px;border:1px solid var(--line);border-radius:8px;background:var(--panel2);font-size:11px}
 .runner .row{display:flex;justify-content:space-between;gap:6px;margin:2px 0;color:var(--mut);white-space:nowrap}
+.runner #sbRow{flex-wrap:wrap}   /* el estado largo pasa a la línea siguiente en lugar de salirse del recuadro */
 .runner b{color:var(--txt);font-weight:600}
 .runner .sbhelp{align-items:center}
 .runner .sbhelp button{font-family:var(--mono);font-size:10px;padding:2px 8px;border-radius:5px;border:1px solid var(--red-b);background:var(--red-s);color:var(--red-t);cursor:pointer}

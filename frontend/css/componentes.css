@@ -50,3 +50,5 @@ td .sub{font-family:var(--mono);font-size:10.5px;color:var(--dim)}
 .p-grey{background:var(--panel2);color:var(--mut);border-color:var(--line2)}
 .dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--green);margin-right:5px}
 .dot.amber{background:var(--amber)} .dot.red{background:var(--red)}
+.dot.grey{background:var(--dim)}
+.neutro{color:var(--mut)}

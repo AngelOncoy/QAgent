@@ -28,7 +28,7 @@ Aplicación de escritorio local (pywebview + backend Python + Docker). No hay se
 pip install -e .[dev]           # instalación editable, una vez por máquina (pyproject.toml)
 python test.py                  # lint + formato + TODAS las pruebas (IA simulada, 0 tokens)
 python test.py --rapido         # sin lint y sin pruebas de Docker ni de red
-pytest                          # solo pytest (con IA simulada: set PYAGENT_FAKE_LLM=1; en bash: export)
+pytest                          # solo pytest (con IA simulada: PYAGENT_FAKE_LLM=1 en el .env o set/export en el sistema)
 ruff check . && ruff format .   # lint y formato (bench/ está excluido a propósito)
 qagent                          # abre la aplicación de escritorio (o: python -m pyagent)
 ```
@@ -44,7 +44,7 @@ El paquete requiere instalación editable: `config.toml` y `contracts/` se busca
 | `src/pyagent/analysis/` | Analizador AST (estático): funciones, rutas FastAPI y mapa de llamadas `llama_a`. Interfaz única `analizar(ruta) -> Estructura` |
 | `src/pyagent/sandbox/` | Ejecución en Docker |
 | `src/pyagent/llm/` | Cliente LLM real y simulado; registro de tokens |
-| `src/pyagent/app/` | Puente pywebview (`desktop.py`): recibe acciones de la interfaz y le envía eventos. Sin lógica de negocio |
+| `src/pyagent/app/` | Puente pywebview (`desktop.py`): recibe acciones de la interfaz y le envía eventos, y bitácora de la corrida en la consola (`bitacora.py`). Sin lógica de negocio |
 | `src/pyagent/config/` | Carga de `config.toml` y `.env`, auditoría de claves (nunca se muestran) y verificación del entorno: configuración, claves, Docker y Git (EN-06) |
 | `src/pyagent/proyectos/` | Lógica de proyectos: abrir, clonar, recientes y vista previa. No depende de pywebview |
 | `frontend/` | Interfaz HTML/CSS/JS sin build: un componente por pantalla en `componentes/`, tokens de diseño en `css/tokens.css`, logo en `assets/logo/`. Ver `frontend/README.md` |
@@ -69,7 +69,7 @@ El paquete requiere instalación editable: `config.toml` y `contracts/` se busca
 - **Tests del sistema con la IA simulada:** ningún test de `tests/` debe llamar a una API real.
 - **Los tests no dependen de Docker ni de internet**, salvo los marcados `docker` o `red` (se omiten si no hay). Docker se simula en las demás.
 - **La lógica no depende de la interfaz:** `app/` llama a `proyectos/`, `analysis/`, `sandbox/`…, nunca al revés (la lógica no importa `pyagent.app` ni `webview`).
-- **Frontend:** un componente por pantalla o modal en `frontend/componentes/`; colores, tipografía y logo en `frontend/css/tokens.css` (sin colores literales: todo es `var(--token)`, lo verifica `tests/frontend/`); sin bundler, sin módulos ES ni `fetch` de HTML (ver ADR-003).
+- **Frontend:** toda la interfaz (HTML, CSS y JS) vive en `frontend/`; `src/` no guarda pantallas ni demos (lo verifica `tests/frontend/`). Un componente por pantalla o modal en `frontend/componentes/`; colores, tipografía y logo en `frontend/css/tokens.css` (sin colores literales: todo es `var(--token)`, lo verifica `tests/frontend/`); sin bundler, sin módulos ES ni `fetch` de HTML (ver ADR-003).
 - **Nombres técnicos fijos:** `pyagent-sandbox:base`, `.pyagent/`, `pyagent` y `window.onPyAgentEvent` no se renombran aunque el producto sea QAgent.
 
 ## Estilo de código
