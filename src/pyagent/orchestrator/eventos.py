@@ -27,6 +27,9 @@ class Evento:
         estado: estado de la máquina en el momento del evento.
         tipo: "transicion", "agente", "veredicto", "fallo" o "fin".
         hora: fecha y hora ISO 8601 con zona horaria.
+        datos: detalle opcional; el veredicto de un objetivo trae `decision` e
+            `intento`, y si quedó estancado también `max_intentos`, `motivo` y
+            `etiqueta` (HU-14).
     """
 
     agente: str
@@ -36,6 +39,7 @@ class Evento:
     estado: str
     tipo: str = "agente"
     hora: str = field(default_factory=_ahora)
+    datos: dict[str, Any] | None = None
 
     def a_dict(self) -> dict[str, Any]:
         """Versión serializable a JSON (para la interfaz o el log)."""

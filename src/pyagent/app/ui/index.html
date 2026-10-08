@@ -1514,7 +1514,7 @@ def test_reserve_stock_insufficient_stock():
     res = reserve_stock_atomic("SKU-998", quantity=1000, order_id="ORD-101")
     # Aserción original requerida (Iter 1): assert lock.is_acquired() is True
     assert res is not None  # <-- INCOMPATIBLE CON CONTRATO: Detectado por Reviewer Anti-Laundering`},
- {id:'fn_4', module:'services/payments.py', name:'validate_credit_card_token', methodTag:'PYTEST', critical:true, status:'stuck', iterations:3, time:'510ms', tokens:27600,
+ {id:'fn_4', module:'services/payments.py', name:'validate_credit_card_token', methodTag:'PYTEST', critical:true, status:'stuck', iterations:3, motivo:'limite_intentos', time:'510ms', tokens:27600,
   lines_cov:52, branch_cov:40, mutation_score:25, badge:'CASO DE ERROR (GATEWAY)', bv:'rose',
   signature:'def validate_credit_card_token(token: str, gateway_id: str) -> GatewayAuthResponse',
   contract:{funcion:'validate_credit_card_token', firma:'(token: str, gateway_id: str) -> GatewayAuthResponse', tipos:{token:'str (JWT PCI-DSS format)', gateway_id:'str'}, docstring:'Verifica la validez y firma criptográfica del token ante la pasarela bancaria.', comportamiento_esperado:['Valida regex estricto de token token_pci_\\w{24}','Lanza InvalidTokenSignature si la clave pública expira o falla mTLS','Retorna GatewayAuthResponse con status="AUTHORIZED"'], contexto_acotado:['security.pci_crypto','gateways.stripe','config.MTLS_CERTS']},
@@ -1679,8 +1679,14 @@ const ST = {
   low_mutation:{c:'#f97316', exec:['warn','#fb923c','s-mut','dna','BRECHA MUTACIÓN'], rep:'ALERTA: BRECHA MUTANTES', repCls:'rs-mut', repIco:'dna', mb:'background:#f97316;color:#020617', filter:'Brecha mutación'},
   rejected_oracle:{c:'#d946ef', exec:['bug','#e879f9','s-orc','bug','ORÁCULO ALTERADO'], rep:'RECHAZADO: ORÁCULO ALTERADO', repCls:'rs-orc', repIco:'bug', mb:'background:#d946ef;color:#fff', filter:'Oráculo alterado'},
   rejected_laundering:{c:'#f43f5e', exec:['shieldA','#fb7185','s-rej','shieldX','RECHAZADO REVIEWER'], rep:'RECHAZADO: ASSERTION LAUNDERING', repCls:'rs-rej', repIco:'shieldX', mb:'background:#f43f5e;color:#fff', filter:'Rechazado laundering'},
-  stuck:{c:'#f59e0b', exec:['xc','#f43f5e','s-stk','refresh','ESTANCADO (3/3)'], rep:'ESTANCADO (3/3 INTENTOS)', repCls:'rs-stk', repIco:'alertc', mb:'background:#f59e0b;color:#020617', filter:'Estancados 3/3'},
+  stuck:{c:'#f59e0b', exec:['xc','#f43f5e','s-stk','refresh','ESTANCADO'], rep:'ESTANCADO', repCls:'rs-stk', repIco:'alertc', mb:'background:#f59e0b;color:#020617', filter:'Estancados'},
 };
+/* HU-14: el estancado muestra el intento del corte y el motivo, con el mismo texto que
+   etiqueta_estancado() del orquestador: "Estancado 3/3 · límite de intentos". */
+const MOTIVO_ESTANCADO = {limite_intentos:'límite de intentos', error_repetido:'mismo error repetido'};
+const etiquetaEstancado = fn => `Estancado ${fn.iterations}/3` + (MOTIVO_ESTANCADO[fn.motivo] ? ` · ${MOTIVO_ESTANCADO[fn.motivo]}` : '');
+const stExec = fn => fn.status==='stuck' ? etiquetaEstancado(fn) : ST[fn.status].exec[4];
+const stRep = fn => fn.status==='stuck' ? etiquetaEstancado(fn).toUpperCase() : ST[fn.status].rep;
 
 function hl(code){
   return code.split('\n').map(line => {
@@ -1756,7 +1762,7 @@ function renderExec(){
               ${fn.status==='rejected_oracle'?'<span class="bdg b-orc">Posible bug en el código</span>':''}</div>
             <div class="r"><span>Intento: <b style="color:${fn.iterations>1?'#fbbf24':'#e2e8f0'}">${fn.iterations}/3</b></span>
               <span>${I('clock','#8b9ab4',12)} ${fn.time}</span><span>Cov: <b style="color:#60a5fa">${fn.lines_cov}%</b></span>
-              <span class="sbdg ${s[2]}">${I(s[3],'currentColor',12)} ${s[4]}</span></div>
+              <span class="sbdg ${s[2]}">${I(s[3],'currentColor',12)} ${stExec(fn)}</span></div>
           </div>
           ${open ? `<div class="fnbody">
             ${fn.diag ? `<div class="diag ${diagCls}"><b>${I(fn.status==='rejected_oracle'?'bug':fn.status==='rejected_laundering'?'shieldA':'alertc','currentColor',15)} Diagnóstico del Reviewer Agent:</b><p>${esc(fn.diag)}</p></div>` : ''}
@@ -1808,7 +1814,7 @@ function renderReport(){
   const list = RUN.filter(f => rFilter==='ALL' || (rFilter==='PASSED' ? f.status==='passed' : f.status!=='passed'));
   $('rcards').innerHTML = list.map(fn => {
     const st = ST[fn.status], open = !!rExpanded[fn.id], tab = rTabs[fn.id] || 'contract', warnSt = fn.status!=='passed';
-    const badge = fn.status==='low_mutation' ? `${st.rep} (${fn.mutation_score}%)` : st.rep;
+    const badge = fn.status==='low_mutation' ? `${st.rep} (${fn.mutation_score}%)` : stRep(fn);
     let body = '';
     if(open){
       const tabs = [['contract','file','1. Contrato JSON (Planner)','#60a5fa'],['test','code','2. Test Generado (Pytest)','#c084fc'],['checklist','check','3. Checklist de Verificación','#34d399']];
@@ -1862,12 +1868,12 @@ function buildMarkdown(){
   md += `| Mutation Score (solo ${m.crit} funciones críticas) | ${pct(m.ms,1)} | ≥ ${META.ms}% | ${ok(m.ms>=META.ms)} |\n\n`;
   if(inc('expDetail')){
     md += `## 2. Resultado por función\n\n| Función | Módulo | Estado | Intentos | Cob. líneas | Cob. ramas | Mutation Score | Tokens |\n|---|---|---|---|---|---|---|---|\n`;
-    RUN.forEach(f => md += `| ${f.name} | ${f.module} | ${ST[f.status].rep} | ${f.iterations}/3 | ${f.lines_cov}% | ${f.branch_cov}% | ${f.mutation_score===null?'N/A (no crítica)':f.mutation_score+'%'} | ${f.tokens.toLocaleString('es-PE')} |\n`);
+    RUN.forEach(f => md += `| ${f.name} | ${f.module} | ${stRep(f)} | ${f.iterations}/3 | ${f.lines_cov}% | ${f.branch_cov}% | ${f.mutation_score===null?'N/A (no crítica)':f.mutation_score+'%'} | ${f.tokens.toLocaleString('es-PE')} |\n`);
     md += `\n`;
   }
   md += `## 3. Incidentes\n\n`;
   RUN.filter(f=>f.diag).forEach(f => {
-    md += `### ${f.name} — ${ST[f.status].rep}\n\n${f.diag}\n\n`;
+    md += `### ${f.name} — ${stRep(f)}\n\n${f.diag}\n\n`;
     if(inc('expTrace') && f.trace) md += '```text\n' + f.trace + '\n```\n\n';
   });
   if(inc('expCode')){ md += `## 4. Pruebas generadas\n\n`; RUN.forEach(f => md += `### tests/test_${f.name}.py\n\n\`\`\`python\n${f.code}\n\`\`\`\n\n`); }
