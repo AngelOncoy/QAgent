@@ -11,7 +11,7 @@ _SRC = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 if _SRC not in sys.path:
     sys.path.insert(0, _SRC)
 
-from pyagent.app import proyecto_local, recientes
+from pyagent.proyectos import proyecto_local, recientes
 
 # Interfaz web (HTML/CSS/JS), separada del backend: <raíz del repo>/frontend/
 FRONTEND_DIR = Path(__file__).resolve().parents[3] / "frontend"
@@ -50,7 +50,7 @@ class DesktopAPI:
         Returns:
             dict: ``{"ok": bool, "destino": str, "formato": str}``.
         """
-        from pyagent.app import clonador
+        from pyagent.proyectos import clonador
 
         if not clonador.validar_url(url):
             return {"ok": False, "destino": "", "formato": clonador.FORMATO_URL}
@@ -71,7 +71,7 @@ class DesktopAPI:
         import threading
         from dataclasses import asdict
 
-        from pyagent.app import clonador
+        from pyagent.proyectos import clonador
 
         def avanzar(porcentaje: int | None, linea: str) -> None:
             self.emit_event(
@@ -157,7 +157,7 @@ class DesktopAPI:
         con ramas), los errores de sintaxis y el resumen de métricas e
         inconsistencias según el JSON de EN-02.
         """
-        from pyagent.app import vista_previa
+        from pyagent.proyectos import vista_previa
 
         return vista_previa.generar_vista_previa(ruta)
 

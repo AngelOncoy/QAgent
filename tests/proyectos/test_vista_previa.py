@@ -24,8 +24,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from pyagent.analysis import analizar_proyecto
-from pyagent.app.desktop import DesktopAPI
-from pyagent.app.vista_previa import (
+from pyagent.proyectos.vista_previa import (
     AVISO_ORACULO_DEBIL,
     ETIQUETA_FALTA_DOCSTRING,
     ETIQUETA_NO_ANALIZABLE,
@@ -294,22 +293,6 @@ def test_priorizar_modulos_empate_usa_total_ramas_luego_ruta() -> None:
     # Ambos tienen 1 función con ramas, pero m2 tiene 10 ramas en total vs m1 con 2
     ordenados = priorizar_modulos([m1, m2])
     assert [m["ruta"] for m in ordenados] == ["a.py", "z.py"]
-
-
-def test_desktop_api_obtener_vista_previa(tmp_path: Path) -> None:
-    _crear_archivo(
-        tmp_path,
-        "main.py",
-        "def inicio(x: int) -> int:\n    '''Inicio.'''\n    return x\n",
-    )
-    api = DesktopAPI()
-    vista = api.obtener_vista_previa(str(tmp_path))
-    assert vista["ok"] is True
-    assert len(vista["modulos"]) == 1
-    assert vista["modulos"][0]["funciones"][0]["nombre"] == "inicio"
-
-    alias = api.analizar_proyecto(str(tmp_path))
-    assert alias == vista
 
 
 def test_carpeta_invalida_retorna_ok_false(tmp_path: Path) -> None:

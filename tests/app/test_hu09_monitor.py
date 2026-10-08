@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
-import pytest
+from unittest.mock import patch
 
 from pyagent.app.desktop import DesktopAPI
+from pyagent.sandbox import estado as modulo_estado
 
 
 def test_desktop_api_inicia_corrida_con_perfil_y_evento() -> None:
@@ -18,7 +19,11 @@ def test_desktop_api_inicia_corrida_con_perfil_y_evento() -> None:
 
     api.emit_event = mock_emit  # type: ignore[assignment]
 
-    resultado = api.start_run(folder_path="/ruta/proyecto", profile="deep")
+    # Docker simulado como disponible: la prueba no debe depender de Docker Desktop (HU-13).
+    with patch.object(
+        modulo_estado, "estado_docker", return_value={"estado": "ok", "mensaje": ""}
+    ):
+        resultado = api.start_run(folder_path="/ruta/proyecto", profile="deep")
 
     assert resultado["status"] == "started"
     assert resultado["folder"] == "/ruta/proyecto"

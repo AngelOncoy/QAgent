@@ -8,7 +8,7 @@ from pathlib import Path
 import pytest
 
 from pyagent.analysis import analizar_proyecto
-from pyagent.app.proyecto_local import (
+from pyagent.proyectos.proyecto_local import (
     SIN_ARCHIVOS_PY,
     detectar_rama,
     inspeccionar_carpeta,
@@ -137,7 +137,7 @@ def test_carpeta_sin_permisos_da_error_claro(
     def _denegar(_ruta: object) -> None:
         raise PermissionError("acceso denegado")
 
-    monkeypatch.setattr("pyagent.app.proyecto_local.os.scandir", _denegar)
+    monkeypatch.setattr("pyagent.proyectos.proyecto_local.os.scandir", _denegar)
 
     resultado = inspeccionar_carpeta(str(tmp_path))
 

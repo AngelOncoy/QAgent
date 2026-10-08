@@ -20,7 +20,7 @@ registrarComponente('inicio/modal-clonar', `<!-- Abrir repositorio: URL (sin Git
 </div></div>
 `);
 
-/* Clonar repositorio (HU-02): misma validación que pyagent.app.clonador */
+/* Clonar repositorio (HU-02): misma validación que pyagent.proyectos.clonador */
 const RE_URL_GIT = /^https:\/\/[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?(?:\.[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?)+\/[A-Za-z0-9_][A-Za-z0-9._-]*\/[A-Za-z0-9_][A-Za-z0-9._-]*$/;
 const RE_RAMA_GIT = /^[A-Za-z0-9_][A-Za-z0-9._\/-]*$/;
 const FORMATO_URL = 'https://<sitio>/<usuario>/<repositorio>(.git)';

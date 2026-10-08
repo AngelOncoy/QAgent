@@ -7,15 +7,6 @@ import json
 import time
 
 import pytest
-from fakes import (
-    MODULO,
-    GeneratorSimulado,
-    PlannerSimulado,
-    ReviewerColgado,
-    ReviewerGuionado,
-    ReviewerSandboxCaido,
-    ReviewerSandboxTimeout,
-)
 
 from pyagent.llm import FakeLLMClient, TokenTracker
 from pyagent.orchestrator import (
@@ -25,6 +16,15 @@ from pyagent.orchestrator import (
     Orquestador,
     TransicionInvalida,
     validar_transicion,
+)
+from tests.orchestrator.fakes import (
+    MODULO,
+    GeneratorSimulado,
+    PlannerSimulado,
+    ReviewerColgado,
+    ReviewerGuionado,
+    ReviewerSandboxCaido,
+    ReviewerSandboxTimeout,
 )
 
 E = Estado
