@@ -88,7 +88,7 @@ function iniciarModalAbrir(){
     document.querySelectorAll('#fsList div').forEach(x=>x.classList.remove('sel')); d.classList.add('sel');
     pickedFolder = d.dataset.p;
     const bad = pickedFolder==='landing-web';
-    $('openHint').textContent = bad ? 'Esta carpeta no contiene archivos .py: PyAgent solo analiza código Python 3.10+.' : 'Carpeta: E:\\Proyectos\\'+pickedFolder;
+    $('openHint').textContent = bad ? 'Esta carpeta no contiene archivos .py: QAgent solo analiza código Python 3.10+.' : 'Carpeta: E:\\Proyectos\\'+pickedFolder;
     $('openHint').className = 'hint' + (bad?' err':'');
     $('openOk').disabled = bad;
   });
