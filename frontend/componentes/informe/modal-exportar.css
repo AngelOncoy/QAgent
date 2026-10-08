@@ -1,0 +1,6 @@
+/* modal-exportar.css — modal de exportar informe */
+.fmts{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.fmt{border:1px solid var(--line2);border-radius:10px;padding:11px;cursor:pointer;background:var(--panel)}
+.fmt:hover{border-color:var(--blue)}.fmt.on{border-color:var(--blue);background:var(--blue-s);box-shadow:inset 0 0 0 1px var(--blue)}
+.fmt b{display:block;font-size:13px;margin-bottom:3px}.fmt span{font-size:11px;color:var(--mut);line-height:1.4}
+.expchk{display:flex;flex-direction:column;gap:7px}

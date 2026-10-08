@@ -13,18 +13,18 @@ from pathlib import Path
 from typing import Any
 
 import pytest
-from fakes import (
+
+from pyagent.contracts import RUN_LOG, ContratoInvalido, validar
+from pyagent.llm import TokenTracker, cargar_precios
+from pyagent.orchestrator import Orquestador
+from pyagent.storage import escribir_corrida, nuevo_run_id
+from tests.orchestrator.fakes import (
     MODULO,
     GeneratorSimulado,
     PlannerSimulado,
     ReviewerGuionado,
     ReviewerSandboxTimeout,
 )
-
-from pyagent.contracts import RUN_LOG, ContratoInvalido, validar
-from pyagent.llm import TokenTracker, cargar_precios
-from pyagent.orchestrator import Orquestador
-from pyagent.storage import escribir_corrida, nuevo_run_id
 
 # Tokens que "devuelve la API" en cada llamada, por agente (prompt, completion).
 TOKENS = {"planner": (1500, 400), "generator": (800, 300), "reviewer": (600, 100)}

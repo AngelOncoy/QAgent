@@ -1,0 +1,45 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "qagent"
+version = "0.1.0"
+description = "Sistema multiagente que genera y valida pruebas pytest para código Python 3.10+"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "pywebview>=5.0.0",
+    "docker>=7.1.0",
+    "jsonschema>=4.18",
+    "tomli>=2.0; python_version < '3.11'",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0.0",
+    "ruff>=0.4.0",
+]
+
+[project.scripts]
+qagent = "pyagent.app.desktop:main"
+
+# El paquete interno se llama `pyagent` (no renombrar); el producto es QAgent.
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+"pyagent.sandbox" = ["Dockerfile"]
+
+[tool.pytest.ini_options]
+# src/ para importar `pyagent`; la raíz para importar helpers de las pruebas (`tests.orchestrator.fakes`).
+pythonpath = ["src", "."]
+testpaths = ["tests"]
+markers = [
+    'docker: prueba de integración que necesita Docker Desktop iniciado (omitir con -m "not docker")',
+    'red: prueba de integración que necesita internet (omitir con -m "not red")',
+]
+
+[tool.ruff]
+# bench/ es el banco con bugs sembrados a propósito: no se reformatea ni se "arregla".
+extend-exclude = ["bench"]

@@ -1,16 +1,13 @@
 """Módulo principal de la aplicación de escritorio con pywebview."""
 
-import os
-import sys
+from pathlib import Path
 
 import webview
 
-# Al ejecutar desktop.py directamente, src/ no está en el path: se agrega para importar pyagent.
-_SRC = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
-if _SRC not in sys.path:
-    sys.path.insert(0, _SRC)
+from pyagent.proyectos import proyecto_local, recientes
 
-from pyagent.app import proyecto_local, recientes
+# Interfaz web (HTML/CSS/JS), separada del backend: <raíz del repo>/frontend/
+FRONTEND_DIR = Path(__file__).resolve().parents[3] / "frontend"
 
 
 class DesktopAPI:
@@ -46,7 +43,7 @@ class DesktopAPI:
         Returns:
             dict: ``{"ok": bool, "destino": str, "formato": str}``.
         """
-        from pyagent.app import clonador
+        from pyagent.proyectos import clonador
 
         if not clonador.validar_url(url):
             return {"ok": False, "destino": "", "formato": clonador.FORMATO_URL}
@@ -67,7 +64,7 @@ class DesktopAPI:
         import threading
         from dataclasses import asdict
 
-        from pyagent.app import clonador
+        from pyagent.proyectos import clonador
 
         def avanzar(porcentaje: int | None, linea: str) -> None:
             self.emit_event(
@@ -153,7 +150,7 @@ class DesktopAPI:
         con ramas), los errores de sintaxis y el resumen de métricas e
         inconsistencias según el JSON de EN-02.
         """
-        from pyagent.app import vista_previa
+        from pyagent.proyectos import vista_previa
 
         return vista_previa.generar_vista_previa(ruta)
 
@@ -245,7 +242,9 @@ def _registrar_estado_configuracion() -> None:
     carga = cargar_configuracion()
     instalar_filtro_logs(carga.claves)
     if carga.simulado:
-        print("[Python] IA simulada activa (PYAGENT_FAKE_LLM=1): 0 tokens, no se usan claves.")
+        print(
+            "[Python] IA simulada activa (PYAGENT_FAKE_LLM=1): 0 tokens, no se usan claves."
+        )
     if carga.ok:
         print("[Python] Configuración cargada: config.toml y claves en orden.")
     else:
@@ -257,17 +256,16 @@ def _registrar_estado_configuracion() -> None:
 def main() -> None:
     """Punto de entrada de la aplicación de escritorio."""
     _registrar_estado_configuracion()
-    html_path = os.path.join(
-        os.path.dirname(__file__),
-        "ui",
-        "index.html",  # Asegúrate de que coincida con el nombre de tu archivo
-    )
+    # Se carga como file:// y no como ruta: con una ruta, pywebview sirve la carpeta con un servidor
+    # HTTP interno cuya cola admite 5 conexiones, y al abrir la ventana (decenas de CSS, JS y fuentes
+    # a la vez) rechaza algunas peticiones al azar y la interfaz queda sin estilos o sin scripts.
+    url = (FRONTEND_DIR / "index.html").as_uri()
 
     api = DesktopAPI()
 
     window = webview.create_window(
-        title="PyAgent — Autonomous Test Engine",
-        url=html_path,
+        title="QAgent — Autonomous Test Engine",
+        url=url,
         js_api=api,
         width=1400,
         height=900,

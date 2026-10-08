@@ -110,7 +110,7 @@ flowchart TB
 
 | Contenedor | Tecnología | Responsabilidad | Ítems |
 |---|---|---|---|
-| **Interfaz** | HTML, CSS, JS dentro de pywebview | Pantallas: Bienvenida, Vista previa, Monitor en vivo, Ejecución, Reporte, Historial, Configuración | EN-08, HU-* |
+| **Interfaz** | HTML, CSS, JS dentro de pywebview (carpeta `frontend/`, sin compilación; un componente por pantalla, ver ADR-003) | Pantallas: Bienvenida, Vista previa, Monitor en vivo, Ejecución, Reporte, Historial, Configuración | EN-08, HU-* |
 | **Backend** | Python 3.10+ | Análisis, orquestación, agentes, cálculo de métricas y costo | EN-02 a EN-07, EN-14, EN-15 |
 | **Configuración** | TOML + variables de entorno | Modelos, precios, topes y reintentos (`config.toml`, se versiona); claves de API (`.env`, no se versiona) | EN-06 |
 | **Almacenamiento** | Archivos JSON | `.pyagent/` dentro del proyecto analizado: corridas, specs, pruebas aprobadas. `~/.pyagent/recientes.json`: proyectos recientes | EN-07, HU-01, HU-03 |
@@ -135,6 +135,7 @@ flowchart TB
     end
     subgraph SERV["Servicios"]
         AN["analysis/<br/>funciones (EN-02) · rutas FastAPI y llama_a (EN-14)"]
+        PRY["proyectos/<br/>abrir, clonar, recientes y vista previa (HU-01 a HU-04)"]
         LLM["llm/<br/>cliente real | simulado · tokens y costo (EN-05, EN-11)"]
         SBX["sandbox/<br/>ejecución Docker (EN-03)"]
         STO["almacenamiento .pyagent/ (EN-07)"]
@@ -143,6 +144,8 @@ flowchart TB
     end
 
     BRIDGE --> ORQ
+    BRIDGE --> PRY
+    PRY --> AN
     ORQ --> PL & GE & RE
     ORQ --> AN & STO & CFG & CON
     PL & GE & RE --> LLM
@@ -151,7 +154,8 @@ flowchart TB
 
 | Componente | Carpeta | Responsabilidad | Ítems |
 |---|---|---|---|
-| Puente js_api | `src/pyagent/app/` | Recibe las acciones de la interfaz y le envía eventos. No contiene lógica de negocio. | EN-08, HU-01, HU-03 |
+| Puente js_api | `src/pyagent/app/` | Recibe las acciones de la interfaz (`desktop.py`) y le envía eventos. No contiene lógica de negocio. | EN-08 |
+| Proyectos | `src/pyagent/proyectos/` | Lógica de los proyectos del usuario: abrir una carpeta, clonar un repositorio, lista de recientes y vista previa. Sin dependencia de pywebview. | HU-01 a HU-04 |
 | Orquestador | `src/pyagent/orchestrator/` | Máquina de estados de la corrida: ordena funciones por dependencias (`llama_a`), reparte trabajo, controla reintentos, topes de gasto y fallos. Sin LLM. | EN-04 |
 | Planner | `src/pyagent/agents/` | Diseña casos de prueba y valores esperados por función o endpoint. | HU-11, HU-27 |
 | Generator | `src/pyagent/agents/` | Escribe el test pytest de una función o endpoint. | HU-11, EN-15 |
@@ -159,17 +163,18 @@ flowchart TB
 | Analizador | `src/pyagent/analysis/` | Análisis estático con `ast`: firmas, tipos, docstrings, ramas, rutas FastAPI, `llama_a`, SHA-256. | EN-02, EN-14 |
 | Cliente LLM | `src/pyagent/llm/` | Llama a la API del modelo de cada agente (o a la IA simulada) y registra el `usage`. | EN-05, EN-11 |
 | Sandbox | `src/pyagent/sandbox/` | Prepara la imagen, copia el proyecto y ejecuta pytest, coverage y mutmut. | EN-03, EN-09 |
-| Almacenamiento | por definir en EN-07 | Lee y escribe `.pyagent/runs`, `specs`, `tests`. | EN-07 |
-| Configuración | por definir en EN-06 | Carga `config.toml` y `.env`; verifica Docker y Git. | EN-06 |
+| Almacenamiento | `src/pyagent/storage/` | Lee y escribe `.pyagent/runs`, `specs`, `tests`. | EN-07 |
+| Configuración | `src/pyagent/config/` | Carga `config.toml` y `.env`, audita las claves y verifica Docker y Git. | EN-06 |
 | Contratos | `contracts/` | JSON Schema de cada mensaje; se validan en cada paso. | EN-01 |
 
 ### Reglas de dependencia
 
-1. `app/` solo llama al orquestador.
+1. `app/` solo llama al orquestador y a los servicios (por ejemplo `proyectos/`); no contiene lógica de negocio.
 2. El orquestador puede usar agentes y servicios.
 3. **Los agentes no se importan entre sí** ni importan al orquestador. Solo reciben y devuelven contratos.
 4. Los agentes usan el Cliente LLM; solo el Reviewer usa el Sandbox.
 5. Ningún componente ejecuta el código del usuario fuera del Sandbox.
+6. **Los servicios no dependen de la interfaz:** `proyectos/`, `analysis/`, `sandbox/`, `llm/` y `storage/` nunca importan `pyagent.app` ni pywebview. Así se prueban sin ventana.
 
 ---
 
@@ -506,6 +511,7 @@ Los schemas completos van en `contracts/` y los valida `tests/test_contracts.py`
 | Orquestador determinista, sin LLM | Reglas fijas (reintentos, topes); métricas reproducibles; 0 tokens | Sección 7 |
 | Un modelo por agente | Inteligencia solo donde hay ambigüedad; el Planner concentra el gasto | ADR-001 |
 | Análisis solo con `ast`, sin Graphify | Cubre funciones y FastAPI, 0 tokens, sin dependencias | ADR-002 |
+| Frontend separado, un componente por pantalla, sin bundler ni módulos ES | Cambios por pantalla en lugar de un archivo de 2000 líneas; funciona con `file://` y pywebview sin servidor propio; sin Node ni compilación | ADR-003 |
 | Pruebas de endpoints FastAPI con `TestClient` | Reutiliza el sandbox, pytest y las 5 métricas; integración, extremo a extremo y carga quedan en Fase 2 | Backlog EP-09 |
 | Reintentos solo Generator → Reviewer; bug detectado no se reintenta; orden topológico por `llama_a` | Evita rehacer el plan (el agente más caro) y la cascada de fallos entre funciones | Sección 5.4 |
 | Datos en archivos JSON | Viajan con el proyecto; no requiere base de datos | EN-07 |
