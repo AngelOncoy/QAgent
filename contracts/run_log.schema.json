@@ -130,7 +130,15 @@
     "objetivo": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["modulo", "funcion", "critical", "decision", "metricas"],
+      "required": ["modulo", "funcion", "critical", "decision", "motivo_estancado", "metricas"],
+      "allOf": [
+        {
+          "description": "Una prueba estancada siempre dice por qué se cortó; las demás no tienen motivo (HU-14).",
+          "if": { "properties": { "decision": { "const": "stalled" } } },
+          "then": { "properties": { "motivo_estancado": { "enum": ["limite_intentos", "error_repetido"] } } },
+          "else": { "properties": { "motivo_estancado": { "const": null } } }
+        }
+      ],
       "properties": {
         "modulo": { "type": "string", "minLength": 1 },
         "funcion": { "type": "string", "minLength": 1 },
@@ -138,6 +146,10 @@
         "decision": {
           "enum": ["accept", "bug_detectado", "stalled", null],
           "description": "null si la corrida terminó en fallo controlado antes del veredicto."
+        },
+        "motivo_estancado": {
+          "enum": ["limite_intentos", "error_repetido", null],
+          "description": "Por qué se cortó una prueba stalled: limite_intentos (3 intentos) o error_repetido (mismo hash de error dos veces seguidas). El intento del corte es metricas.iteraciones."
         },
         "metricas": {
           "type": "object",

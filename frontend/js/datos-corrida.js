@@ -66,7 +66,7 @@ def test_reserve_stock_insufficient_stock():
     res = reserve_stock_atomic("SKU-998", quantity=1000, order_id="ORD-101")
     # Aserción original requerida (Iter 1): assert lock.is_acquired() is True
     assert res is not None  # <-- INCOMPATIBLE CON CONTRATO: Detectado por Reviewer Anti-Laundering`},
- {id:'fn_4', module:'services/payments.py', name:'validate_credit_card_token', methodTag:'PYTEST', critical:true, status:'stuck', iterations:3, time:'510ms', tokens:27600,
+ {id:'fn_4', module:'services/payments.py', name:'validate_credit_card_token', methodTag:'PYTEST', critical:true, status:'stuck', iterations:3, motivo:'limite_intentos', time:'510ms', tokens:27600,
   lines_cov:52, branch_cov:40, mutation_score:25, badge:'CASO DE ERROR (GATEWAY)', bv:'rose',
   signature:'def validate_credit_card_token(token: str, gateway_id: str) -> GatewayAuthResponse',
   contract:{funcion:'validate_credit_card_token', firma:'(token: str, gateway_id: str) -> GatewayAuthResponse', tipos:{token:'str (JWT PCI-DSS format)', gateway_id:'str'}, docstring:'Verifica la validez y firma criptográfica del token ante la pasarela bancaria.', comportamiento_esperado:['Valida regex estricto de token token_pci_\\w{24}','Lanza InvalidTokenSignature si la clave pública expira o falla mTLS','Retorna GatewayAuthResponse con status="AUTHORIZED"'], contexto_acotado:['security.pci_crypto','gateways.stripe','config.MTLS_CERTS']},
@@ -231,8 +231,14 @@ const ST = {
   low_mutation:{c:'var(--orange-500)', halo:'var(--orange-500-a20)', exec:['warn','var(--orange-400)','s-mut','dna','BRECHA MUTACIÓN'], rep:'ALERTA: BRECHA MUTANTES', repCls:'rs-mut', repIco:'dna', mb:'background:var(--orange-500);color:var(--slate-950)', filter:'Brecha mutación'},
   rejected_oracle:{c:'var(--fuchsia-500)', halo:'var(--fuchsia-500-a20)', exec:['bug','var(--fuchsia-400)','s-orc','bug','ORÁCULO ALTERADO'], rep:'RECHAZADO: ORÁCULO ALTERADO', repCls:'rs-orc', repIco:'bug', mb:'background:var(--fuchsia-500);color:var(--white)', filter:'Oráculo alterado'},
   rejected_laundering:{c:'var(--rose-500)', halo:'var(--rose-500-a20)', exec:['shieldA','var(--rose-400)','s-rej','shieldX','RECHAZADO REVIEWER'], rep:'RECHAZADO: ASSERTION LAUNDERING', repCls:'rs-rej', repIco:'shieldX', mb:'background:var(--rose-500);color:var(--white)', filter:'Rechazado laundering'},
-  stuck:{c:'var(--amber-500)', halo:'var(--amber-500-a20)', exec:['xc','var(--rose-500)','s-stk','refresh','ESTANCADO (3/3)'], rep:'ESTANCADO (3/3 INTENTOS)', repCls:'rs-stk', repIco:'alertc', mb:'background:var(--amber-500);color:var(--slate-950)', filter:'Estancados 3/3'},
+  stuck:{c:'var(--amber-500)', halo:'var(--amber-500-a20)', exec:['xc','var(--rose-500)','s-stk','refresh','ESTANCADO'], rep:'ESTANCADO', repCls:'rs-stk', repIco:'alertc', mb:'background:var(--amber-500);color:var(--slate-950)', filter:'Estancados'},
 };
+/* HU-14: el estancado muestra el intento del corte y el motivo, con el mismo texto que
+   etiqueta_estancado() del orquestador: "Estancado 3/3 · límite de intentos". */
+const MOTIVO_ESTANCADO = {limite_intentos:'límite de intentos', error_repetido:'mismo error repetido'};
+const etiquetaEstancado = fn => `Estancado ${fn.iterations}/3` + (MOTIVO_ESTANCADO[fn.motivo] ? ` · ${MOTIVO_ESTANCADO[fn.motivo]}` : '');
+const stExec = fn => fn.status==='stuck' ? etiquetaEstancado(fn) : ST[fn.status].exec[4];
+const stRep = fn => fn.status==='stuck' ? etiquetaEstancado(fn).toUpperCase() : ST[fn.status].rep;
 
 function hl(code){
   return code.split('\n').map(line => {

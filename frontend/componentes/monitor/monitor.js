@@ -74,14 +74,17 @@ function pushEvent(){
   if(evIdx>=EVENTS.length) finishRun();
 }
 async function startMonitor(){
+  if (!entornoListo) { toast(escHtml(entornoMotivo)); return; }
   if (window.pywebview && window.pywebview.api) {
-    // HU-13: Python verifica Docker antes de iniciar; sin Docker la corrida no arranca
+    // Python verifica Docker (HU-13) y el entorno completo (EN-06) antes de iniciar.
     const r = await window.pywebview.api.start_run(projectPath, profile);
     if (r && r.status === 'docker_no_disponible') {
       toastError(escHtml(r.mensaje));
       actualizarSandbox();
+      verificarEntorno();
       return;
     }
+    if (r && r.status === 'blocked') { await verificarEntorno(); toastError(escHtml(r.motivo)); return; }
   }
   monitorStarted = true; runDone = false; evIdx = 0; shown = []; $('timeline').innerHTML='';
   document.querySelectorAll('#views a[data-v=exec],#views a[data-v=report]').forEach(a=>a.classList.add('off'));

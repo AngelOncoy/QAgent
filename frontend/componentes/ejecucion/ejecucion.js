@@ -73,7 +73,7 @@ function renderExec(){
               ${fn.status==='rejected_oracle'?'<span class="bdg b-orc">Posible bug en el código</span>':''}</div>
             <div class="r"><span>Intento: <b style="color:${fn.iterations>1?'var(--amber-400)':'var(--slate-200)'}">${fn.iterations}/3</b></span>
               <span>${I('clock','var(--slate-300-c)',12)} ${fn.time}</span><span>Cov: <b style="color:var(--blue-400)">${fn.lines_cov}%</b></span>
-              <span class="sbdg ${s[2]}">${I(s[3],'currentColor',12)} ${s[4]}</span></div>
+              <span class="sbdg ${s[2]}">${I(s[3],'currentColor',12)} ${stExec(fn)}</span></div>
           </div>
           ${open ? `<div class="fnbody">
             ${fn.diag ? `<div class="diag ${diagCls}"><b>${I(fn.status==='rejected_oracle'?'bug':fn.status==='rejected_laundering'?'shieldA':'alertc','currentColor',15)} Diagnóstico del Reviewer Agent:</b><p>${esc(fn.diag)}</p></div>` : ''}

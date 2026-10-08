@@ -186,6 +186,7 @@ def _objetivo(modulo: str, objetivo: Any, tracker: TokenTracker) -> dict[str, An
         "funcion": objetivo.objetivo,
         "critical": objetivo.critical,
         "decision": objetivo.decision,
+        "motivo_estancado": objetivo.motivo_estancado,  # HU-14
         "metricas": {
             "paso": ultima is not None and ultima["estado_sandbox"] == "ok",
             "cobertura_lineas": cobertura.get("lineas"),

@@ -2,15 +2,24 @@
 
 from __future__ import annotations
 
-from unittest.mock import patch
+import pytest
 
 from pyagent.app.desktop import DesktopAPI
-from pyagent.sandbox import estado as modulo_estado
 
 
-def test_desktop_api_inicia_corrida_con_perfil_y_evento() -> None:
+def test_desktop_api_inicia_corrida_con_perfil_y_evento(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     """Verifica que al iniciar corrida la API retorne estado 'started' y emita evento."""
+    # Docker (HU-13) y el entorno (EN-06) se simulan listos: aquí se prueba el monitor.
+    monkeypatch.setattr("pyagent.sandbox.verificar_docker", lambda: None)
     api = DesktopAPI()
+    api.verificar_entorno = lambda: {
+        "listo": True,
+        "mensaje": "Entorno listo",
+        "problemas": [],
+        "comprobaciones": [],
+    }  # type: ignore[method-assign]
     eventos_emitidos = []
 
     # Interceptar emisión de eventos para probar sin interfaz gráfica
@@ -19,11 +28,7 @@ def test_desktop_api_inicia_corrida_con_perfil_y_evento() -> None:
 
     api.emit_event = mock_emit  # type: ignore[assignment]
 
-    # Docker simulado como disponible: la prueba no debe depender de Docker Desktop (HU-13).
-    with patch.object(
-        modulo_estado, "estado_docker", return_value={"estado": "ok", "mensaje": ""}
-    ):
-        resultado = api.start_run(folder_path="/ruta/proyecto", profile="deep")
+    resultado = api.start_run(folder_path="/ruta/proyecto", profile="deep")
 
     assert resultado["status"] == "started"
     assert resultado["folder"] == "/ruta/proyecto"

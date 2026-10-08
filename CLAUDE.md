@@ -23,7 +23,7 @@ ruff check . && ruff format .  # lint y formato (bench/ está excluido a propós
 |---|---|---|
 | `src/pyagent/` | Backend. `app/desktop.py` es solo el puente pywebview; la lógica de proyectos está en `proyectos/` | `docs/arquitectura.md` |
 | `frontend/` | Interfaz HTML/CSS/JS sin build, un componente por pantalla | `frontend/README.md` |
-| `tests/` | Refleja `src/` (`analysis`, `app`, `llm`, `orchestrator`, `proyectos`, `sandbox`, `storage`) más `frontend/` | — |
+| `tests/` | Refleja `src/` (`analysis`, `app`, `config`, `llm`, `orchestrator`, `proyectos`, `sandbox`, `storage`) más `frontend/` | — |
 | `docs/decisiones/` | ADR: modelos (001), análisis con `ast` (002), frontend modular (003) | — |
 
 Regla de dependencia: la interfaz (`app/`) llama a la lógica; la lógica (`proyectos/`, `analysis/`, `sandbox/`…) nunca importa `pyagent.app` ni `webview`.

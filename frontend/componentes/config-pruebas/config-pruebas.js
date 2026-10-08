@@ -125,7 +125,8 @@ function calc(){
   renderPieVistaPrevia(fns, noDoc);
   // Pie de la pantalla 3 (perfil y costo)
   let msg = '', block = false;
-  if(!fns.length){ msg = 'No hay funciones seleccionadas: vuelve a la vista previa.'; block = true; }
+  if(!entornoListo){ msg = `<span class="err">${escHtml(entornoMotivo)}</span>`; block = true; }
+  else if(!fns.length){ msg = 'No hay funciones seleccionadas: vuelve a la vista previa.'; block = true; }
   else if(cost>cap){ msg = `<span class="err">El costo estimado supera el tope de S/ ${cap.toFixed(2)} definido por el equipo. Reduce funciones o elige un perfil más liviano.</span>`; block = true; }
   else if(noDoc){ msg = `<span class="warn">⚠ ${noDoc} función(es) sin docstring: se generarán, pero con oráculo débil (se marcará en el informe).</span>`; }
   else msg = profile==='reg' ? 'Regresión: re-ejecuta pruebas guardadas sin IA.' : `Listo: ${fns.length} funciones · perfil ${p.n}.`;

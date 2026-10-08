@@ -54,7 +54,7 @@ function renderReport(){
   const list = RUN.filter(f => rFilter==='ALL' || (rFilter==='PASSED' ? f.status==='passed' : f.status!=='passed'));
   $('rcards').innerHTML = list.map(fn => {
     const st = ST[fn.status], open = !!rExpanded[fn.id], tab = rTabs[fn.id] || 'contract', warnSt = fn.status!=='passed';
-    const badge = fn.status==='low_mutation' ? `${st.rep} (${fn.mutation_score}%)` : st.rep;
+    const badge = fn.status==='low_mutation' ? `${st.rep} (${fn.mutation_score}%)` : stRep(fn);
     let body = '';
     if(open){
       const tabs = [['contract','file','1. Contrato JSON (Planner)','var(--blue-400)'],['test','code','2. Test Generado (Pytest)','var(--purple-400)'],['checklist','check','3. Checklist de Verificación','var(--emerald-400)']];

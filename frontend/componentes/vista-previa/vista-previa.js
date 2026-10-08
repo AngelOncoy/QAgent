@@ -55,11 +55,15 @@ registrarComponente('vista-previa/vista-previa', `<!-- ===== 2. VISTA PREVIA Y C
       </div>
     </div>
 
-    <!-- Entorno -->
+    <!-- Entorno (EN-06): config.toml, .env, Docker y Git -->
     <div class="card">
         <h4>Entorno</h4>
         <div class="bd">
-          <div class="envok"><span id="envIco" style="font-size:18px">…</span><div><b id="envTitulo">Comprobando el entorno…</b><div class="hint" id="envAyuda" style="margin:2px 0 0"></div></div><button class="btn" id="envReintentar" style="margin-left:auto" onclick="renderEntorno()">Comprobar de nuevo</button></div>
+          <div class="envok"><span id="envIcono" class="ok" style="font-size:18px">…</span><div><b id="envTitulo">Verificando entorno…</b><div class="hint" id="envSub" style="margin:2px 0 0">Configuración, claves de IA, Docker y Git.</div></div><button type="button" class="btn" id="envReintentar" style="margin-left:auto" onclick="verificarEntorno()">Reintentar</button></div>
+          <details class="envdet" id="envDet"><summary>Ver detalle</summary>
+            <div class="checks" id="envChecks" style="margin-top:8px"></div>
+            <div class="hint">Si algo falla, aquí aparece qué hacer. Ej.: "Docker no está abierto: inícialo y vuelve a intentar" o "Falta una clave de IA: contacta al equipo". Las claves nunca se muestran.</div>
+          </details>
         </div>
       </div>
 
@@ -167,6 +171,7 @@ async function loadProject(name, src, where, br='main', ruta=''){
   document.querySelectorAll('.brLbl').forEach(e=>e.textContent=br); $('branchLbl').textContent = br;
   $('projRama').classList.toggle('hide', !br || br === '—');   // sin repositorio Git no hay rama que mostrar
   monitorStarted = false;
+  verificarEntorno();  // Docker, Git, config.toml y .env al abrir un proyecto (EN-06)
   projectPath = ruta ? ruta : (src==='git' ? 'E:\\Proyectos\\' + name : where);
 
   if (window.pywebview && window.pywebview.api && (window.pywebview.api.obtener_vista_previa || window.pywebview.api.analizar_proyecto)) {
@@ -193,7 +198,6 @@ async function loadProject(name, src, where, br='main', ruta=''){
   renderTree();
   renderProfiles();
   go('preview');
-  renderEntorno();
 }
 
 // Sin análisis (fallo en la app real): lista vacía y contadores en cero, sin datos de ejemplo.
@@ -218,33 +222,46 @@ async function hayCorridaPrevia(ruta) {
   }
 }
 
-// Entorno: estado real del sandbox (Docker e imagen base). Sin pywebview no hay nada que verificar.
-const ENTORNO_UI = {
-  ok:           {ico:'✓', cls:'ok',   titulo:'Entorno listo',                    ayuda:'Docker Desktop activo e imagen de pruebas disponible.'},
-  sin_imagen:   {ico:'⚠', cls:'warn', titulo:'Falta la imagen base de pruebas',  ayuda:'Construye la imagen base antes de ejecutar.'},
-  no_iniciado:  {ico:'✗', cls:'no',   titulo:'Docker no está abierto',           ayuda:'Abre Docker Desktop y vuelve a comprobar.'},
-  no_instalado: {ico:'✗', cls:'no',   titulo:'Docker no está disponible',        ayuda:'Instala Docker Desktop.'},
-};
-async function renderEntorno() {
-  const poner = (ico, cls, titulo, ayuda) => {
-    $('envIco').textContent = ico; $('envIco').className = cls;
-    $('envTitulo').textContent = titulo; $('envAyuda').textContent = ayuda;
-  };
-  if (!(window.pywebview && window.pywebview.api && window.pywebview.api.estado_sandbox)) {
-    poner('·', '', 'Modo demostración', 'El entorno (Docker e imagen de pruebas) solo se verifica en la aplicación de escritorio.');
-    $('envReintentar').classList.add('hide');
+/* Estado del entorno (EN-06): config.toml, .env, Docker y Git.
+   Sin pywebview (HTML abierto en el navegador) es una demostración y no se bloquea nada. */
+let entornoListo = !(window.pywebview), entornoMotivo = 'Verificando el entorno…';
+const ENV_NOMBRES = {config:'Configuración (config.toml)', claves:'Claves de IA (.env)', docker:'Docker y sandbox', git:'Git'};
+async function verificarEntorno() {
+  if (!(window.pywebview && window.pywebview.api && window.pywebview.api.verificar_entorno)) {
+    $('envIcono').textContent = '·'; $('envIcono').className = '';
+    $('envTitulo').textContent = 'Modo demostración';
+    $('envSub').textContent = 'El entorno (configuración, claves de IA, Docker y Git) solo se verifica en la aplicación de escritorio.';
+    $('envReintentar').classList.add('hide'); $('envDet').classList.add('hide');
     return;
   }
-  $('envReintentar').classList.remove('hide');
-  poner('…', '', 'Comprobando el entorno…', '');
+  $('envReintentar').classList.remove('hide'); $('envDet').classList.remove('hide');
+  let r;
   try {
-    const r = await window.pywebview.api.estado_sandbox();
-    const ui = ENTORNO_UI[r && r.estado] || ENTORNO_UI.no_iniciado;
-    poner(ui.ico, ui.cls, ui.titulo, (r && r.mensaje) || ui.ayuda);
+    r = await window.pywebview.api.verificar_entorno();
   } catch (err) {
-    console.error("Error al consultar el entorno:", err);
-    poner('✗', 'no', 'No se pudo comprobar el entorno', 'Inténtalo de nuevo.');
+    console.error("Error al verificar el entorno:", err);
+    r = {listo: false, mensaje: 'No se pudo verificar el entorno. Reinicia la aplicación.', problemas: [], comprobaciones: []};
   }
+  entornoListo = !!r.listo;
+  entornoMotivo = r.listo ? '' : 'Entorno no listo: ' + r.mensaje;
+  $('envIcono').textContent = r.listo ? '✓' : '✕';
+  $('envIcono').className = r.listo ? 'ok' : 'no';
+  $('envTitulo').textContent = (r.listo ? 'Entorno listo' : 'Entorno no listo') + (r.simulado ? ' · IA simulada' : '');
+  $('envSub').textContent = r.listo
+    ? (r.simulado ? 'IA simulada activa: 0 tokens (US$ 0). Configuración, Docker y Git verificados.'
+                  : 'Configuración, claves de IA, Docker y Git verificados.')
+    : (r.problemas.length ? 'Hay ' + r.problemas.length + ' problema(s). Corrígelos y pulsa Reintentar.' : r.mensaje);
+  const nombres = r.simulado ? {...ENV_NOMBRES, claves:'IA simulada (EN-11)'} : ENV_NOMBRES;
+  $('envChecks').innerHTML = (r.comprobaciones || []).map(c =>
+    `<div class="c"><span class="i ${c.ok ? 'ok' : 'no'}">${c.ok ? '✓' : '✕'}</span><div><b>${escHtml(nombres[c.id] || c.id)}</b><div class="hint" style="margin:2px 0 0">${escHtml(c.mensaje)}</div></div></div>`).join('');
+  $('envDet').open = !r.listo;  // si falla, el detalle se muestra abierto
+  try { calc(); } catch (err) { $('toPlan').disabled = !entornoListo; }
+}
+
+// Se llama desde main.js cuando el HTML del componente ya está montado.
+function iniciarVistaPrevia(){
+  if (window.pywebview && window.pywebview.api) verificarEntorno();
+  else window.addEventListener('pywebviewready', verificarEntorno, {once:true});
 }
 function renderTree(){
   let h = '';

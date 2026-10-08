@@ -26,7 +26,7 @@ tokens por agente y Mutation Score (solo en funciones críticas).
 python -m venv .venv
 .venv\Scripts\activate       # en Linux: source .venv/bin/activate
 pip install -e .[dev]       # instalación editable (en Linux para GUI: pip install "pywebview[qt]")
-copy .env .env              # completar las claves (en Linux: cp .env.example .env)
+copy .env.example .env     # completar las claves (en Linux: cp .env.example .env)
 python test.py
 ```
 
@@ -103,13 +103,14 @@ QAgent/
 │   ├── agents/                    Planner, Generator y Reviewer (EN-04)
 │   ├── analysis/                  Analizador estático con ast: funciones, endpoints FastAPI, llama_a (EN-02, EN-14)
 │   ├── app/                       Puente pywebview entre la interfaz y Python (EN-08); sin lógica de negocio
+│   ├── config/                    Carga de config.toml y .env, auditoría de claves y verificación del entorno (EN-06)
 │   ├── llm/                       Cliente LLM real y simulado; registro de tokens y costo (EN-05, EN-11)
 │   ├── orchestrator/              Máquina de estados de la corrida (EN-04)
 │   ├── proyectos/                 Abrir, clonar, recientes y vista previa de proyectos (HU-01 a HU-04); sin pywebview
 │   ├── sandbox/                   Ejecución de pruebas en Docker, sin red (EN-03)
 │   └── storage/                   Registro de corridas en `.pyagent/` (EN-07)
 ├── tests/                         Pruebas del propio sistema, siempre con la IA simulada; reflejan src/
-│   ├── analysis/ · app/ · llm/ · orchestrator/ · proyectos/ · storage/
+│   ├── analysis/ · app/ · config/ · llm/ · orchestrator/ · proyectos/ · storage/
 │   ├── sandbox/                   Unitarias con Docker simulado e integración (`-m docker`)
 │   ├── frontend/                  Estructura de la interfaz: archivos enlazados y componentes registrados
 │   └── test_contracts.py          Validación de los contratos JSON

@@ -45,10 +45,11 @@ El paquete requiere instalación editable: `config.toml` y `contracts/` se busca
 | `src/pyagent/sandbox/` | Ejecución en Docker |
 | `src/pyagent/llm/` | Cliente LLM real y simulado; registro de tokens |
 | `src/pyagent/app/` | Puente pywebview (`desktop.py`): recibe acciones de la interfaz y le envía eventos. Sin lógica de negocio |
+| `src/pyagent/config/` | Carga de `config.toml` y `.env`, auditoría de claves (nunca se muestran) y verificación del entorno: configuración, claves, Docker y Git (EN-06) |
 | `src/pyagent/proyectos/` | Lógica de proyectos: abrir, clonar, recientes y vista previa. No depende de pywebview |
 | `frontend/` | Interfaz HTML/CSS/JS sin build: un componente por pantalla en `componentes/`, tokens de diseño en `css/tokens.css`, logo en `assets/logo/`. Ver `frontend/README.md` |
 | `contracts/` | JSON Schema de los contratos entre agentes |
-| `tests/` | Pruebas del sistema; reflejan `src/` (`analysis`, `app`, `llm`, `orchestrator`, `proyectos`, `sandbox`, `storage`) y `tests/frontend/` para la estructura de la interfaz |
+| `tests/` | Pruebas del sistema; reflejan `src/` (`analysis`, `app`, `config`, `llm`, `orchestrator`, `proyectos`, `sandbox`, `storage`) y `tests/frontend/` para la estructura de la interfaz |
 | `test.py` | Ejecuta todas las pruebas con un comando (lint, formato y pytest) |
 | `pyproject.toml` | Dependencias, extra `dev`, configuración de pytest y ruff, script `qagent` |
 | `CLAUDE.md` | Guía específica para Claude Code (importa este archivo) |

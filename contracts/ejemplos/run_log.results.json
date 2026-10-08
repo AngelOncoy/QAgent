@@ -34,6 +34,7 @@
       "funcion": "duplicar",
       "critical": false,
       "decision": "accept",
+      "motivo_estancado": null,
       "metricas": {
         "paso": true,
         "cobertura_lineas": 100.0,

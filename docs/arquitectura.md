@@ -164,7 +164,7 @@ flowchart TB
 | Cliente LLM | `src/pyagent/llm/` | Llama a la API del modelo de cada agente (o a la IA simulada) y registra el `usage`. | EN-05, EN-11 |
 | Sandbox | `src/pyagent/sandbox/` | Prepara la imagen, copia el proyecto y ejecuta pytest, coverage y mutmut. | EN-03, EN-09 |
 | Almacenamiento | `src/pyagent/storage/` | Lee y escribe `.pyagent/runs`, `specs`, `tests`. | EN-07 |
-| Configuración | por definir en EN-06 | Carga `config.toml` y `.env`; verifica Docker y Git. | EN-06 |
+| Configuración | `src/pyagent/config/` | Carga `config.toml` y `.env`, audita las claves y verifica Docker y Git. | EN-06 |
 | Contratos | `contracts/` | JSON Schema de cada mensaje; se validan en cada paso. | EN-01 |
 
 ### Reglas de dependencia

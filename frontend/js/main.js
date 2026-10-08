@@ -4,6 +4,7 @@ iniciarSidebar();
 iniciarModales();
 iniciarModalAbrir();
 iniciarInicio();
+iniciarVistaPrevia();
 
 paintIcons();
 

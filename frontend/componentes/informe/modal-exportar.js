@@ -51,12 +51,12 @@ function buildMarkdown(){
   md += `| Mutation Score (solo ${m.crit} funciones críticas) | ${pct(m.ms,1)} | ≥ ${META.ms}% | ${ok(m.ms>=META.ms)} |\n\n`;
   if(inc('expDetail')){
     md += `## 2. Resultado por función\n\n| Función | Módulo | Estado | Intentos | Cob. líneas | Cob. ramas | Mutation Score | Tokens |\n|---|---|---|---|---|---|---|---|\n`;
-    RUN.forEach(f => md += `| ${f.name} | ${f.module} | ${ST[f.status].rep} | ${f.iterations}/3 | ${f.lines_cov}% | ${f.branch_cov}% | ${f.mutation_score===null?'N/A (no crítica)':f.mutation_score+'%'} | ${f.tokens.toLocaleString('es-PE')} |\n`);
+    RUN.forEach(f => md += `| ${f.name} | ${f.module} | ${stRep(f)} | ${f.iterations}/3 | ${f.lines_cov}% | ${f.branch_cov}% | ${f.mutation_score===null?'N/A (no crítica)':f.mutation_score+'%'} | ${f.tokens.toLocaleString('es-PE')} |\n`);
     md += `\n`;
   }
   md += `## 3. Incidentes\n\n`;
   RUN.filter(f=>f.diag).forEach(f => {
-    md += `### ${f.name} — ${ST[f.status].rep}\n\n${f.diag}\n\n`;
+    md += `### ${f.name} — ${stRep(f)}\n\n${f.diag}\n\n`;
     if(inc('expTrace') && f.trace) md += '```text\n' + f.trace + '\n```\n\n';
   });
   if(inc('expCode')){ md += `## 4. Pruebas generadas\n\n`; RUN.forEach(f => md += `### tests/test_${f.name}.py\n\n\`\`\`python\n${f.code}\n\`\`\`\n\n`); }

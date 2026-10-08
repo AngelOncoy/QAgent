@@ -17,6 +17,14 @@ def api() -> DesktopAPI:
     """Puente con una ventana simulada para capturar los eventos hacia la interfaz."""
     puente = DesktopAPI()
     puente.set_window(MagicMock())
+    # EN-06 también verifica config.toml, .env y Git: aquí se da por listo para
+    # probar solo la parte de Docker (HU-13).
+    puente.verificar_entorno = lambda: {
+        "listo": True,
+        "mensaje": "Entorno listo",
+        "problemas": [],
+        "comprobaciones": [],
+    }  # type: ignore[method-assign]
     return puente
 
 

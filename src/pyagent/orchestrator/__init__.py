@@ -8,15 +8,21 @@ from pyagent.orchestrator.estados import (
 )
 from pyagent.orchestrator.eventos import BusEventos, Evento
 from pyagent.orchestrator.orquestador import (
+    ERROR_REPETIDO,
+    LIMITE_INTENTOS,
     FalloControlado,
     Orquestador,
     ResultadoCorrida,
     ResultadoObjetivo,
     TimeoutPaso,
+    decidir_corte,
+    etiqueta_estancado,
 )
 from pyagent.orchestrator.puertos import Generator, Planner, Reviewer
 
 __all__ = [
+    "ERROR_REPETIDO",
+    "LIMITE_INTENTOS",
     "TRANSICIONES",
     "BusEventos",
     "Estado",
@@ -30,5 +36,7 @@ __all__ = [
     "Reviewer",
     "TimeoutPaso",
     "TransicionInvalida",
+    "decidir_corte",
+    "etiqueta_estancado",
     "validar_transicion",
 ]
