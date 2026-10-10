@@ -65,7 +65,7 @@ def leer_json_objeto(ruta: Path) -> dict[str, Any]:
         texto = ruta.read_text(encoding="utf-8")
     except FileNotFoundError as exc:
         raise DatoNoEncontrado(f"No existe el archivo: {ruta}") from exc
-    except OSError as exc:
+    except (OSError, UnicodeDecodeError) as exc:
         raise DatoCorrupto(f"No se pudo leer {ruta}: {exc}") from exc
     try:
         datos = json.loads(texto)
