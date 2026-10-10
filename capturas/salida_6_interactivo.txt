@@ -1,0 +1,9 @@
+﻿┬┐Es laundering?: True
+Aserci├│n de contrato                    Ôöé Aserci├│n sintetizada
+ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔö╝ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
+with pytest.raises(ValueError):
+    ca..Ôöé with pytest.raises(Exception):
+    cal..
+
+­ƒö┤ ASSERTION LAUNDERING DETECTADO:
+  ÔÜá pytest.raises ampliado: se esperaba 'ValueError', pero se ampli├│ a 'Exception'

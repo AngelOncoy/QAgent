@@ -1,0 +1,48 @@
+﻿Obtaining file:///C:/Users/mateo/Downloads/RememberDebts-API-main/QAgent
+  Installing build dependencies: started
+  Installing build dependencies: finished with status 'done'
+  Checking if build backend supports build_editable: started
+  Checking if build backend supports build_editable: finished with status 'done'
+  Getting requirements to build editable: started
+  Getting requirements to build editable: finished with status 'done'
+  Preparing editable metadata (pyproject.toml): started
+  Preparing editable metadata (pyproject.toml): finished with status 'done'
+Requirement already satisfied: pywebview>=5.0.0 in c:\users\mateo\appdata\local\programs\python\python313\lib\site-packages (from qagent==0.1.0) (6.2.1)
+Requirement already satisfied: docker>=7.1.0 in c:\users\mateo\appdata\local\programs\python\python313\lib\site-packages (from qagent==0.1.0) (7.2.0)
+Requirement already satisfied: jsonschema>=4.18 in c:\users\mateo\appdata\local\programs\python\python313\lib\site-packages (from qagent==0.1.0) (4.26.0)
+Requirement already satisfied: pytest>=8.0.0 in c:\users\mateo\appdata\local\programs\python\python313\lib\site-packages (from qagent==0.1.0) (9.1.1)
+Requirement already satisfied: ruff>=0.4.0 in c:\users\mateo\appdata\local\programs\python\python313\lib\site-packages (from qagent==0.1.0) (0.16.10)
+Requirement already satisfied: pywin32>=304 in c:\users\mateo\appdata\local\programs\python\python313\lib\site-packages (from docker>=7.1.0->qagent==0.1.0) (312)
+Requirement already satisfied: requests>=2.26.0 in c:\users\mateo\appdata\local\programs\python\python313\lib\site-packages (from docker>=7.1.0->qagent==0.1.0) (2.34.2)
+Requirement already satisfied: urllib3>=1.26.0 in c:\users\mateo\appdata\local\programs\python\python313\lib\site-packages (from docker>=7.1.0->qagent==0.1.0) (2.8.0)
+Requirement already satisfied: attrs>=22.2.0 in c:\users\mateo\appdata\local\programs\python\python313\lib\site-packages (from jsonschema>=4.18->qagent==0.1.0) (26.1.0)
+Requirement already satisfied: jsonschema-specifications>=2023.03.6 in c:\users\mateo\appdata\local\programs\python\python313\lib\site-packages (from jsonschema>=4.18->qagent==0.1.0) (2025.9.1)
+Requirement already satisfied: referencing>=0.28.4 in c:\users\mateo\appdata\local\programs\python\python313\lib\site-packages (from jsonschema>=4.18->qagent==0.1.0) (0.37.0)
+Requirement already satisfied: rpds-py>=0.25.0 in c:\users\mateo\appdata\local\programs\python\python313\lib\site-packages (from jsonschema>=4.18->qagent==0.1.0) (2026.9.1)
+Requirement already satisfied: colorama>=0.4 in c:\users\mateo\appdata\roaming\python\python313\site-packages (from pytest>=8.0.0->qagent==0.1.0) (0.4.6)
+Requirement already satisfied: iniconfig>=1.0.1 in c:\users\mateo\appdata\local\programs\python\python313\lib\site-packages (from pytest>=8.0.0->qagent==0.1.0) (2.3.0)
+Requirement already satisfied: packaging>=22 in c:\users\mateo\appdata\roaming\python\python313\site-packages (from pytest>=8.0.0->qagent==0.1.0) (26.1)
+Requirement already satisfied: pluggy<2,>=1.5 in c:\users\mateo\appdata\local\programs\python\python313\lib\site-packages (from pytest>=8.0.0->qagent==0.1.0) (1.6.0)
+Requirement already satisfied: pygments>=2.7.2 in c:\users\mateo\appdata\roaming\python\python313\site-packages (from pytest>=8.0.0->qagent==0.1.0) (2.20.0)
+Requirement already satisfied: pythonnet in c:\users\mateo\appdata\local\programs\python\python313\lib\site-packages (from pywebview>=5.0.0->qagent==0.1.0) (3.2.0)
+Requirement already satisfied: proxy_tools in c:\users\mateo\appdata\local\programs\python\python313\lib\site-packages (from pywebview>=5.0.0->qagent==0.1.0) (0.1.0)
+Requirement already satisfied: bottle in c:\users\mateo\appdata\local\programs\python\python313\lib\site-packages (from pywebview>=5.0.0->qagent==0.1.0) (0.13.4)
+Requirement already satisfied: typing_extensions in c:\users\mateo\appdata\local\programs\python\python313\lib\site-packages (from pywebview>=5.0.0->qagent==0.1.0) (4.16.0)
+Requirement already satisfied: charset_normalizer<4,>=2 in c:\users\mateo\appdata\local\programs\python\python313\lib\site-packages (from requests>=2.26.0->docker>=7.1.0->qagent==0.1.0) (3.5.2)
+Requirement already satisfied: idna<4,>=2.5 in c:\users\mateo\appdata\local\programs\python\python313\lib\site-packages (from requests>=2.26.0->docker>=7.1.0->qagent==0.1.0) (3.20)
+Requirement already satisfied: certifi>=2023.5.7 in c:\users\mateo\appdata\local\programs\python\python313\lib\site-packages (from requests>=2.26.0->docker>=7.1.0->qagent==0.1.0) (2026.7.22)
+Requirement already satisfied: clr_loader<0.4.0,>=0.3.1 in c:\users\mateo\appdata\local\programs\python\python313\lib\site-packages (from pythonnet->pywebview>=5.0.0->qagent==0.1.0) (0.3.1)
+Requirement already satisfied: cffi>=1.17 in c:\users\mateo\appdata\local\programs\python\python313\lib\site-packages (from clr_loader<0.4.0,>=0.3.1->pythonnet->pywebview>=5.0.0->qagent==0.1.0) (2.1.1)
+Requirement already satisfied: pycparser in c:\users\mateo\appdata\local\programs\python\python313\lib\site-packages (from cffi>=1.17->clr_loader<0.4.0,>=0.3.1->pythonnet->pywebview>=5.0.0->qagent==0.1.0) (3.0)
+Building wheels for collected packages: qagent
+  Building editable for qagent (pyproject.toml): started
+  Building editable for qagent (pyproject.toml): finished with status 'done'
+  Created wheel for qagent: filename=qagent-0.1.0-0.editable-py3-none-any.whl size=5636 sha256=167911432f3eb3b310610971b291000d6e9de423fd5c7352ab3082137227d5dd
+  Stored in directory: C:\Users\mateo\AppData\Local\Temp\pip-ephem-wheel-cache-l3j8tthj\wheels\25\12\c0\fcad3fc8811305862ced382981394b57b191cf1b0b42a385ba
+Successfully built qagent
+Installing collected packages: qagent
+Successfully installed qagent-0.1.0
++ pip install -r requirements.txt > ../capturas/salida_0_pip.txt 2>&1
+ 
+[notice] A new release of pip is available: 25.2 -> 26.2.1
+[notice] To update, run: python.exe -m pip install --upgrade pip
