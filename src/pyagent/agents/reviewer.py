@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import ast
+import json
 import tempfile
 from collections.abc import Callable
 from pathlib import Path
@@ -16,6 +17,8 @@ from pyagent.sandbox.normalizacion import hash_error
 
 Ejecutor = Callable[[str, Path, Path, str], ResultadoSandbox]
 
+_NO_LITERAL = object()
+
 _PATRONES_ERROR_TEST = (
     "syntaxerror",
     "indentationerror",
@@ -23,6 +26,11 @@ _PATRONES_ERROR_TEST = (
     "modulenotfounderror",
     "failed to import test module",
     "error at setup",
+    "fixturelookuperror",
+    "invalidspecerror",
+    "name 'pytest' is not defined",
+    "name 'mock' is not defined",
+    "does not have the attribute",
 )
 
 
@@ -79,6 +87,10 @@ class ReviewerAgent:
                 feedback=laundering,
             )
 
+        problema_oraculo = self._validar_oraculo(contrato, codigo)
+        if problema_oraculo is not None:
+            return self._error_test(contrato, intento, problema_oraculo)
+
         with tempfile.TemporaryDirectory(prefix="qagent-reviewer-") as temporal:
             ruta_tests = Path(temporal)
             (ruta_tests / "test_generado.py").write_text(codigo, encoding="utf-8")
@@ -117,7 +129,7 @@ class ReviewerAgent:
                 cobertura,
             )
 
-        if estado == "fallo":
+        if estado == "fallo" and self._es_fallo_asercion(salida):
             return self._resultado(
                 objetivo=contrato["objetivo"],
                 intento=intento,
@@ -130,7 +142,7 @@ class ReviewerAgent:
                 feedback=salida or "La aserción del contrato no se cumplió.",
             )
 
-        tipo_ambiguo = self._clasificar_con_llm(salida)
+        tipo_ambiguo = self._clasificar_con_llm(salida, contrato)
         if tipo_ambiguo == "error_test":
             return self._error_test(contrato, intento, salida, cobertura)
         if tipo_ambiguo == "bug_codigo":
@@ -144,6 +156,22 @@ class ReviewerAgent:
                 hash_actual=hash_error(salida),
                 decision="bug_detectado",
                 feedback=salida or "El código no cumple el contrato.",
+            )
+
+        if estado == "fallo":
+            return self._resultado(
+                objetivo=contrato["objetivo"],
+                intento=intento,
+                estado_sandbox="fallo",
+                cobertura=cobertura,
+                laundering_detectado=False,
+                tipo_fallo=None,
+                hash_actual=hash_error(salida) if salida else None,
+                decision="stalled",
+                feedback=(
+                    salida
+                    or "No se pudo distinguir entre error del test y bug del código."
+                ),
             )
 
         return self._resultado(
@@ -181,6 +209,144 @@ class ReviewerAgent:
     def _decision_reintento(intento: int) -> str:
         return "retry" if intento < 3 else "stalled"
 
+    @classmethod
+    def _validar_oraculo(
+        cls,
+        contrato: dict[str, Any],
+        codigo: str,
+    ) -> str | None:
+        """Comprueba que el test use los valores esperados del Planner."""
+        arbol = ast.parse(codigo)
+
+        evasion = cls._detectar_evasion(arbol)
+        if evasion is not None:
+            return f"Oráculo inválido: {evasion}"
+
+        valores_disponibles = cls._valores_de_aserciones(arbol)
+        excepciones_disponibles = cls._excepciones_esperadas(arbol)
+        cantidad_aserciones = sum(
+            isinstance(nodo, (ast.Assert, ast.With)) for nodo in ast.walk(arbol)
+        )
+        if cantidad_aserciones == 0:
+            return "Oráculo inválido: el test no contiene aserciones."
+
+        for caso in contrato["casos"]:
+            if "valor_esperado" in caso:
+                esperado = caso["valor_esperado"]
+                posicion = cls._buscar_valor(valores_disponibles, esperado)
+                if posicion is None:
+                    return (
+                        f"Oráculo inválido: el caso '{caso['id']}' no comprueba "
+                        f"el valor esperado {esperado!r}."
+                    )
+                valores_disponibles.pop(posicion)
+                continue
+
+            excepcion = caso.get("excepcion")
+            posicion = cls._buscar_excepcion(excepciones_disponibles, excepcion)
+            if posicion is None:
+                return (
+                    f"Oráculo inválido: el caso '{caso['id']}' no comprueba "
+                    f"la excepción {excepcion}."
+                )
+            excepciones_disponibles.pop(posicion)
+
+        return None
+
+    @staticmethod
+    def _valores_de_aserciones(arbol: ast.AST) -> list[Any]:
+        """Extrae los valores comparados en las aserciones del test."""
+        valores: list[Any] = []
+        for nodo in ast.walk(arbol):
+            if not isinstance(nodo, ast.Assert):
+                continue
+            prueba = nodo.test
+            if not isinstance(prueba, ast.Compare):
+                continue
+            for comparador in prueba.comparators:
+                valor = ReviewerAgent._valor_literal(comparador)
+                if valor is not _NO_LITERAL:
+                    valores.append(valor)
+        return valores
+
+    @staticmethod
+    def _valor_literal(nodo: ast.AST) -> Any:
+        """Obtiene un literal o el valor pasado a pytest.approx."""
+        candidato = nodo
+        if (
+            isinstance(nodo, ast.Call)
+            and isinstance(nodo.func, ast.Attribute)
+            and nodo.func.attr == "approx"
+            and nodo.args
+        ):
+            candidato = nodo.args[0]
+        try:
+            return ast.literal_eval(candidato)
+        except (ValueError, TypeError):
+            return _NO_LITERAL
+
+    @staticmethod
+    def _excepciones_esperadas(arbol: ast.AST) -> list[str]:
+        """Extrae las excepciones utilizadas en pytest.raises."""
+        excepciones: list[str] = []
+        for nodo in ast.walk(arbol):
+            if not isinstance(nodo, ast.With):
+                continue
+            for elemento in nodo.items:
+                contexto = elemento.context_expr
+                if (
+                    isinstance(contexto, ast.Call)
+                    and isinstance(contexto.func, ast.Attribute)
+                    and contexto.func.attr == "raises"
+                    and contexto.args
+                ):
+                    excepciones.append(ast.unparse(contexto.args[0]).strip())
+        return excepciones
+
+    @staticmethod
+    def _buscar_valor(valores: list[Any], esperado: Any) -> int | None:
+        for posicion, valor in enumerate(valores):
+            if valor == esperado:
+                return posicion
+        return None
+
+    @staticmethod
+    def _buscar_excepcion(
+        excepciones: list[str],
+        esperada: str | None,
+    ) -> int | None:
+        if esperada is None:
+            return None
+        for posicion, encontrada in enumerate(excepciones):
+            if encontrada == esperada or encontrada.endswith(f".{esperada}"):
+                return posicion
+        return None
+
+    @staticmethod
+    def _detectar_evasion(arbol: ast.AST) -> str | None:
+        """Detecta construcciones que permiten evitar o silenciar el test."""
+        for nodo in ast.walk(arbol):
+            if isinstance(nodo, ast.Try):
+                return "el test contiene try/except que puede ocultar un fallo"
+
+            if isinstance(nodo, ast.Call):
+                funcion = nodo.func
+                nombre = ""
+                if isinstance(funcion, ast.Attribute):
+                    nombre = funcion.attr
+                elif isinstance(funcion, ast.Name):
+                    nombre = funcion.id
+                if nombre in {"skip", "xfail"}:
+                    return f"el test utiliza {nombre}"
+
+            if isinstance(nodo, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                for decorador in nodo.decorator_list:
+                    texto = ast.unparse(decorador)
+                    if "skip" in texto or "xfail" in texto:
+                        return f"el test utiliza el decorador {texto}"
+
+        return None
+
     @staticmethod
     def _comparar_con_anterior(
         test_anterior: dict[str, Any] | None,
@@ -206,7 +372,19 @@ class ReviewerAgent:
             return True
         return "fixture" in texto and "not found" in texto
 
-    def _clasificar_con_llm(self, salida: str) -> str | None:
+    @staticmethod
+    def _es_fallo_asercion(salida: str) -> bool:
+        """Reconoce un fallo claro de una aserción pytest."""
+        texto = salida.lower()
+        return (
+            "assertionerror" in texto or "\nassert " in texto or " - assert " in texto
+        )
+
+    def _clasificar_con_llm(
+        self,
+        salida: str,
+        contrato: dict[str, Any],
+    ) -> str | None:
         if self.cliente is None or not salida:
             return None
 
@@ -216,6 +394,9 @@ Clasifica el siguiente fallo de pytest.
 Responde únicamente con una de estas opciones:
 - error_test: el test tiene un error de sintaxis, import, fixture o mock.
 - bug_codigo: una aserción legítima demuestra que el código no cumple el contrato.
+
+CONTRATO DEL PLANNER:
+{json.dumps(contrato, ensure_ascii=False, indent=2)}
 
 SALIDA DE PYTEST:
 {salida}

@@ -6,7 +6,7 @@ from pathlib import Path
 
 from pyagent import contracts
 from pyagent.agents.reviewer import ReviewerAgent
-from pyagent.llm import TokenTracker
+from pyagent.llm import RespuestaLLM, TokenTracker
 from pyagent.sandbox import ResultadoSandbox
 
 CONTRATO = {
@@ -56,6 +56,24 @@ class EjecutorGrabado:
         assert ruta_tests.joinpath("test_generado.py").exists()
         assert modulo_cov == "calculadora"
         return self.resultado
+
+
+class ClienteClasificador:
+    """Cliente simulado para un fallo que necesita clasificación semántica."""
+
+    def __init__(self, decision: str) -> None:
+        self.decision = decision
+        self.prompts: list[str] = []
+
+    def generar(self, prompt: str, rol: str = "generator") -> RespuestaLLM:
+        self.prompts.append(prompt)
+        return RespuestaLLM(
+            contenido=self.decision,
+            tokens_entrada=20,
+            tokens_salida=2,
+            costo_usd=0.0,
+            modelo="reviewer-prueba",
+        )
 
 
 def sandbox(
@@ -245,3 +263,131 @@ def test_error_test_en_tercer_intento_termina_stalled(tmp_path: Path) -> None:
 
     assert revision["tipo_fallo"] == "error_test"
     assert revision["decision"] == "stalled"
+
+
+def test_primer_intento_con_assert_true_no_se_acepta(tmp_path: Path) -> None:
+    ejecutor = EjecutorGrabado(sandbox(0))
+    reviewer = ReviewerAgent(
+        TokenTracker(), tmp_path, "imagen-prueba", ejecutor=ejecutor
+    )
+    test = {
+        "version": "1",
+        "objetivo": "duplicar",
+        "intento": 1,
+        "codigo": "def test_duplicar():\n    assert True\n",
+        "casos_cubiertos": ["duplica_positivo"],
+    }
+
+    revision = reviewer.revisar(CONTRATO, test, None)
+
+    assert revision["decision"] == "retry"
+    assert revision["tipo_fallo"] == "error_test"
+    assert "valor esperado 4" in revision["feedback"]
+    assert ejecutor.llamadas == 0
+
+
+def test_primer_intento_con_valor_cambiado_no_se_acepta(tmp_path: Path) -> None:
+    ejecutor = EjecutorGrabado(sandbox(0))
+    reviewer = ReviewerAgent(
+        TokenTracker(), tmp_path, "imagen-prueba", ejecutor=ejecutor
+    )
+    test = {
+        "version": "1",
+        "objetivo": "duplicar",
+        "intento": 1,
+        "codigo": (
+            "from calculadora import duplicar\n\n"
+            "def test_duplicar():\n"
+            "    assert duplicar(2) == 5\n"
+        ),
+        "casos_cubiertos": ["duplica_positivo"],
+    }
+
+    revision = reviewer.revisar(CONTRATO, test, None)
+
+    assert revision["decision"] == "retry"
+    assert revision["tipo_fallo"] == "error_test"
+    assert "valor esperado 4" in revision["feedback"]
+    assert ejecutor.llamadas == 0
+
+
+def test_primer_intento_sin_aserciones_no_se_acepta(tmp_path: Path) -> None:
+    ejecutor = EjecutorGrabado(sandbox(0))
+    reviewer = ReviewerAgent(
+        TokenTracker(), tmp_path, "imagen-prueba", ejecutor=ejecutor
+    )
+    test = {
+        "version": "1",
+        "objetivo": "duplicar",
+        "intento": 1,
+        "codigo": (
+            "from calculadora import duplicar\n\n"
+            "def test_duplicar():\n"
+            "    duplicar(2)\n"
+        ),
+        "casos_cubiertos": ["duplica_positivo"],
+    }
+
+    revision = reviewer.revisar(CONTRATO, test, None)
+
+    assert revision["decision"] == "retry"
+    assert revision["tipo_fallo"] == "error_test"
+    assert "no contiene aserciones" in revision["feedback"]
+    assert ejecutor.llamadas == 0
+
+
+def test_name_error_de_pytest_es_error_test(tmp_path: Path) -> None:
+    resultado = sandbox(
+        1,
+        stdout=(
+            "FAILED test_generado.py::test_duplicar\n"
+            "NameError: name 'pytest' is not defined"
+        ),
+    )
+    reviewer = ReviewerAgent(
+        TokenTracker(),
+        tmp_path,
+        "imagen-prueba",
+        ejecutor=EjecutorGrabado(resultado),
+    )
+    test = {
+        "version": "1",
+        "objetivo": "duplicar",
+        "intento": 1,
+        "codigo": CODIGO_VALIDO,
+        "casos_cubiertos": ["duplica_positivo"],
+    }
+
+    revision = reviewer.revisar(CONTRATO, test, None)
+
+    assert revision["tipo_fallo"] == "error_test"
+    assert revision["decision"] == "retry"
+
+
+def test_fallo_ambiguo_consulta_al_reviewer_llm(tmp_path: Path) -> None:
+    cliente = ClienteClasificador("error_test")
+    tracker = TokenTracker()
+    resultado = sandbox(1, stdout="RuntimeError durante la preparación del test")
+    reviewer = ReviewerAgent(
+        tracker,
+        tmp_path,
+        "imagen-prueba",
+        cliente=cliente,
+        ejecutor=EjecutorGrabado(resultado),
+        es_simulado=True,
+    )
+    test = {
+        "version": "1",
+        "objetivo": "duplicar",
+        "intento": 1,
+        "codigo": CODIGO_VALIDO,
+        "casos_cubiertos": ["duplica_positivo"],
+    }
+
+    revision = reviewer.revisar(CONTRATO, test, None)
+
+    assert revision["tipo_fallo"] == "error_test"
+    assert revision["decision"] == "retry"
+    assert len(cliente.prompts) == 1
+    assert "CONTRATO DEL PLANNER" in cliente.prompts[0]
+    assert tracker.llamadas[0].agente == "reviewer"

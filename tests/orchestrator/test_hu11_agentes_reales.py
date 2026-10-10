@@ -60,6 +60,14 @@ def test_duplicar():
     assert duplicar(2) == 4
 """
 
+TEST_IMPORT_ROTO = """\
+from modulo_inexistente import duplicar
+
+
+def test_duplicar():
+    assert duplicar(2) == 4
+"""
+
 
 class ClienteSecuencial:
     """Devuelve respuestas controladas en el orden configurado."""
@@ -96,6 +104,49 @@ class EjecutorExitoso:
         self.llamadas += 1
         codigo = ruta_tests.joinpath("test_generado.py").read_text(encoding="utf-8")
         assert "def test_duplicar():" in codigo
+        return ResultadoSandbox(
+            exit_code=0,
+            stdout="1 passed",
+            stderr="",
+            coverage={
+                "totals": {
+                    "percent_covered": 100.0,
+                    "num_branches": 0,
+                    "covered_branches": 0,
+                }
+            },
+            duracion_s=0.1,
+        )
+
+
+class EjecutorImportLuegoExito:
+    """Primero devuelve ImportError y después una ejecución correcta."""
+
+    def __init__(self) -> None:
+        self.llamadas = 0
+
+    def __call__(
+        self,
+        imagen: str,
+        ruta_proyecto: Path,
+        ruta_tests: Path,
+        modulo_cov: str,
+    ) -> ResultadoSandbox:
+        self.llamadas += 1
+        if self.llamadas == 1:
+            return ResultadoSandbox(
+                exit_code=2,
+                stdout=(
+                    "ImportError while importing test module\n"
+                    "ModuleNotFoundError: No module named 'modulo_inexistente'"
+                ),
+                stderr="",
+                coverage=None,
+                duracion_s=0.1,
+            )
+
+        codigo = ruta_tests.joinpath("test_generado.py").read_text(encoding="utf-8")
+        assert "from calculadora import duplicar" in codigo
         return ResultadoSandbox(
             exit_code=0,
             stdout="1 passed",
@@ -164,3 +215,47 @@ def test_error_de_sintaxis_se_reintenta_y_la_corrida_termina(
         Estado.EJECUTAR_REVISAR,
         Estado.FIN,
     ]
+
+
+def test_error_de_importacion_se_reintenta_y_la_corrida_termina(
+    tmp_path: Path,
+) -> None:
+    tracker = TokenTracker()
+    cliente_planner = ClienteSecuencial([json.dumps(PLAN)], "planner-prueba")
+    cliente_generator = ClienteSecuencial(
+        [TEST_IMPORT_ROTO, TEST_CORREGIDO],
+        "generator-prueba",
+    )
+    ejecutor = EjecutorImportLuegoExito()
+
+    planner = PlannerAgent(cliente_planner, tracker, es_simulado=True)
+    generator = GeneratorAgent(cliente_generator, tracker, es_simulado=True)
+    reviewer = ReviewerAgent(
+        tracker,
+        tmp_path,
+        "imagen-prueba",
+        ejecutor=ejecutor,
+        es_simulado=True,
+    )
+    orquestador = Orquestador(
+        planner,
+        generator,
+        reviewer,
+        tracker=tracker,
+    )
+
+    resultado = orquestador.ejecutar(MODULO)
+
+    assert resultado.estado_final is Estado.FIN
+    assert resultado.motivo_fallo is None
+    [objetivo] = resultado.objetivos
+    assert objetivo.intentos == 2
+    assert objetivo.revisiones[0]["tipo_fallo"] == "error_test"
+    assert objetivo.revisiones[0]["decision"] == "retry"
+    assert "ModuleNotFoundError" in objetivo.revisiones[0]["feedback"]
+    assert objetivo.revisiones[1]["decision"] == "accept"
+    assert objetivo.decision == "accept"
+    assert len(cliente_planner.llamadas) == 1
+    assert len(cliente_generator.llamadas) == 2
+    assert "ModuleNotFoundError" in cliente_generator.llamadas[1][0]
+    assert ejecutor.llamadas == 2
