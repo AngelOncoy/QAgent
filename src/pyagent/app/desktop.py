@@ -4,9 +4,9 @@ from pathlib import Path
 
 import webview
 
-from pyagent.almacenamiento import AlmacenProyecto
+from pyagent.almacenamiento import AlmacenProyecto, recientes
 from pyagent.app import bitacora
-from pyagent.proyectos import proyecto_local, recientes
+from pyagent.proyectos import proyecto_local
 
 # Interfaz web (HTML/CSS/JS), separada del backend: <raíz del repo>/frontend/
 FRONTEND_DIR = Path(__file__).resolve().parents[3] / "frontend"

@@ -135,16 +135,16 @@ flowchart TB
     end
     subgraph SERV["Servicios"]
         AN["analysis/<br/>funciones (EN-02) · rutas FastAPI y llama_a (EN-14)"]
-        PRY["proyectos/<br/>abrir, clonar, recientes y vista previa (HU-01 a HU-04)"]
+        PRY["proyectos/<br/>abrir, clonar y vista previa (HU-01 a HU-04)"]
         LLM["llm/<br/>cliente real | simulado · tokens y costo (EN-05, EN-11)"]
         SBX["sandbox/<br/>ejecución Docker (EN-03)"]
-        STO["almacenamiento .pyagent/ (EN-07)"]
+        STO["almacenamiento/<br/>.pyagent/ y recientes (EN-07)"]
         CFG["configuración (EN-06)"]
         CON["validación de contratos<br/>contracts/*.schema.json (EN-01)"]
     end
 
     BRIDGE --> ORQ
-    BRIDGE --> PRY
+    BRIDGE --> PRY & STO
     PRY --> AN
     ORQ --> PL & GE & RE
     ORQ --> AN & STO & CFG & CON
@@ -155,7 +155,7 @@ flowchart TB
 | Componente | Carpeta | Responsabilidad | Ítems |
 |---|---|---|---|
 | Puente js_api | `src/pyagent/app/` | Recibe las acciones de la interfaz (`desktop.py`) y le envía eventos. No contiene lógica de negocio. | EN-08 |
-| Proyectos | `src/pyagent/proyectos/` | Lógica de los proyectos del usuario: abrir una carpeta, clonar un repositorio, lista de recientes y vista previa. Sin dependencia de pywebview. | HU-01 a HU-04 |
+| Proyectos | `src/pyagent/proyectos/` | Lógica de los proyectos del usuario: abrir una carpeta, clonar un repositorio y vista previa. Sin dependencia de pywebview. | HU-01 a HU-04 |
 | Orquestador | `src/pyagent/orchestrator/` | Máquina de estados de la corrida: ordena funciones por dependencias (`llama_a`), reparte trabajo, controla reintentos, topes de gasto y fallos. Sin LLM. | EN-04 |
 | Planner | `src/pyagent/agents/` | Diseña casos de prueba y valores esperados por función o endpoint. | HU-11, HU-27 |
 | Generator | `src/pyagent/agents/` | Escribe el test pytest de una función o endpoint. | HU-11, EN-15 |
@@ -163,7 +163,8 @@ flowchart TB
 | Analizador | `src/pyagent/analysis/` | Análisis estático con `ast`: firmas, tipos, docstrings, ramas, rutas FastAPI, `llama_a`, SHA-256. | EN-02, EN-14 |
 | Cliente LLM | `src/pyagent/llm/` | Llama a la API del modelo de cada agente (o a la IA simulada) y registra el `usage`. | EN-05, EN-11 |
 | Sandbox | `src/pyagent/sandbox/` | Prepara la imagen, copia el proyecto y ejecuta pytest, coverage y mutmut. | EN-03, EN-09 |
-| Almacenamiento | `src/pyagent/storage/` | Lee y escribe `.pyagent/runs`, `specs`, `tests`. | EN-07 |
+| Almacenamiento | `src/pyagent/almacenamiento/` | `AlmacenProyecto`: crea `.pyagent/` y lee y escribe `runs/<run_id>/run.json`, `specs/` y `tests/` (pruebas aprobadas); `recientes.py`: `~/.pyagent/recientes.json`. Escritura atómica en UTF-8. | EN-07, HU-01, HU-03 |
+| Registro de corridas | `src/pyagent/storage/` | `log.json` y `results.json` de cada corrida, validados contra `run_log.schema.json`. | EN-05 |
 | Configuración | `src/pyagent/config/` | Carga `config.toml` y `.env`, audita las claves y verifica Docker y Git. | EN-06 |
 | Contratos | `contracts/` | JSON Schema de cada mensaje; se validan en cada paso. | EN-01 |
 
@@ -174,7 +175,7 @@ flowchart TB
 3. **Los agentes no se importan entre sí** ni importan al orquestador. Solo reciben y devuelven contratos.
 4. Los agentes usan el Cliente LLM; solo el Reviewer usa el Sandbox.
 5. Ningún componente ejecuta el código del usuario fuera del Sandbox.
-6. **Los servicios no dependen de la interfaz:** `proyectos/`, `analysis/`, `sandbox/`, `llm/` y `storage/` nunca importan `pyagent.app` ni pywebview. Así se prueban sin ventana.
+6. **Los servicios no dependen de la interfaz:** `proyectos/`, `almacenamiento/`, `analysis/`, `sandbox/`, `llm/` y `storage/` nunca importan `pyagent.app` ni pywebview. Así se prueban sin ventana.
 
 ---
 
