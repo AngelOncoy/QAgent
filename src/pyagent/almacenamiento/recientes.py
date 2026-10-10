@@ -6,16 +6,20 @@ Formato del archivo: una lista JSON (más reciente primero) de entradas
 La HU-03 agrega ``listar`` (hasta 10, con ``encontrada``), ``abrir``, ``quitar``
 y ``registrar_corrida``. Esta última guarda el campo opcional ``ultima_corrida``,
 que ``registrar`` conserva al volver a abrir un proyecto.
+
+Vive en ``pyagent.almacenamiento`` (EN-07) junto con ``.pyagent/`` de cada proyecto;
+el formato del archivo no cambió.
 """
 
 from __future__ import annotations
 
 import json
 import os
-import tempfile
 from datetime import datetime
 from pathlib import Path
 from typing import Any
+
+from pyagent.almacenamiento.disco import escribir_json_atomico
 
 MAXIMO_RECIENTES = 50
 MAXIMO_VISIBLES = 10
@@ -78,17 +82,7 @@ def _normalizar(entrada: dict[str, Any]) -> dict[str, Any]:
 
 def _escribir(destino: Path, entradas: list[dict[str, Any]]) -> None:
     """Escribe el JSON de forma atómica (temporal en la misma carpeta + replace)."""
-    destino.parent.mkdir(parents=True, exist_ok=True)
-    descriptor, temporal = tempfile.mkstemp(
-        dir=destino.parent, prefix=".recientes-", suffix=".tmp"
-    )
-    try:
-        with os.fdopen(descriptor, "w", encoding="utf-8") as salida:
-            json.dump(entradas, salida, ensure_ascii=False, indent=2)
-        os.replace(temporal, destino)
-    except BaseException:
-        Path(temporal).unlink(missing_ok=True)
-        raise
+    escribir_json_atomico(destino, entradas)
 
 
 def registrar(

@@ -8,7 +8,7 @@ from pathlib import Path
 
 import pytest
 
-from pyagent.proyectos import recientes
+from pyagent.almacenamiento import recientes
 from pyagent.proyectos.proyecto_local import inspeccionar_carpeta
 
 MOMENTO = datetime(2026, 10, 3, 9, 30, 15, tzinfo=timezone.utc)

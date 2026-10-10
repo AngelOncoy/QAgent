@@ -118,16 +118,17 @@ QAgent/
 │   └── index.html                 Esqueleto con los marcadores de componentes
 ├── src/pyagent/                   Backend de QAgent (paquete interno `pyagent`)
 │   ├── agents/                    Planner, Generator y Reviewer (EN-04)
+│   ├── almacenamiento/            .pyagent/ del proyecto (corridas, specs, pruebas aprobadas) y ~/.pyagent/recientes.json (EN-07)
 │   ├── analysis/                  Analizador estático con ast: funciones, endpoints FastAPI, llama_a (EN-02, EN-14)
 │   ├── app/                       Puente pywebview entre la interfaz y Python (EN-08); sin lógica de negocio
 │   ├── config/                    Carga de config.toml y .env, auditoría de claves y verificación del entorno (EN-06)
 │   ├── llm/                       Cliente LLM real y simulado; registro de tokens y costo (EN-05, EN-11)
 │   ├── orchestrator/              Máquina de estados de la corrida (EN-04)
-│   ├── proyectos/                 Abrir, clonar, recientes y vista previa de proyectos (HU-01 a HU-04); sin pywebview
+│   ├── proyectos/                 Abrir, clonar y vista previa de proyectos (HU-01 a HU-04); sin pywebview
 │   ├── sandbox/                   Ejecución de pruebas en Docker, sin red (EN-03)
-│   └── storage/                   Registro de corridas en `.pyagent/` (EN-07)
+│   └── storage/                   log.json y results.json de cada corrida (EN-05)
 ├── tests/                         Pruebas del propio sistema, siempre con la IA simulada; reflejan src/
-│   ├── analysis/ · app/ · config/ · llm/ · orchestrator/ · proyectos/ · storage/
+│   ├── almacenamiento/ · analysis/ · app/ · config/ · llm/ · orchestrator/ · proyectos/ · storage/
 │   ├── sandbox/                   Unitarias con Docker simulado e integración (`-m docker`)
 │   ├── frontend/                  Estructura de la interfaz: archivos enlazados y componentes registrados
 │   └── test_contracts.py          Validación de los contratos JSON

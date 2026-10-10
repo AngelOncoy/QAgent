@@ -4,8 +4,9 @@ from pathlib import Path
 
 import webview
 
+from pyagent.almacenamiento import AlmacenProyecto, recientes
 from pyagent.app import bitacora
-from pyagent.proyectos import proyecto_local, recientes
+from pyagent.proyectos import proyecto_local
 
 # Interfaz web (HTML/CSS/JS), separada del backend: <raíz del repo>/frontend/
 FRONTEND_DIR = Path(__file__).resolve().parents[3] / "frontend"
@@ -110,6 +111,7 @@ class DesktopAPI:
                 "error": "No se pudo guardar el proyecto en Proyectos recientes "
                 f"({recientes.ruta_por_defecto()}).",
             }
+        _preparar_almacen(proyecto["ruta"])
         return proyecto
 
     def listar_recientes(self) -> list[dict]:
@@ -135,6 +137,8 @@ class DesktopAPI:
             return abierto
         reciente = abierto["proyecto"]
         proyecto = proyecto_local.inspeccionar_carpeta(reciente["ruta"])
+        if proyecto["ok"]:
+            _preparar_almacen(proyecto["ruta"])
         return {**proyecto, "origen": reciente["origen"], "url": reciente["url"]}
 
     def quitar_reciente(self, ruta: str) -> bool:
@@ -182,7 +186,8 @@ class DesktopAPI:
         no se ejecuta nada en el sandbox, así que no se exige.
 
         Returns:
-            dict: ``{"status": "started", ...}``; si Docker no está disponible,
+            dict: ``{"status": "started", ..., "run_id"}`` (``run_id`` es None si el
+            proyecto no tiene ``.pyagent/``); si Docker no está disponible,
             ``{"status": "docker_no_disponible", "mensaje": str}``; si falta otra cosa
             del entorno, ``{"status": "blocked", "motivo": str, "problemas": list}``.
         """
@@ -212,9 +217,15 @@ class DesktopAPI:
             profile,
             "IA simulada" if simulado else "IA real",
         )
+        run_id = _registrar_run(folder_path, simulado)
         # Emite un evento hacia la interfaz JS
         self.emit_event("log", {"message": f"Corrida iniciada en perfil '{profile}'"})
-        return {"status": "started", "folder": folder_path, "profile": profile}
+        return {
+            "status": "started",
+            "folder": folder_path,
+            "profile": profile,
+            "run_id": run_id,
+        }
 
     def estado_sandbox(self) -> dict:
         """Devuelve el estado del sandbox Docker para el indicador de la barra lateral.
@@ -265,6 +276,40 @@ class DesktopAPI:
             self._window.evaluate_js(
                 f"window.onPyAgentEvent && window.onPyAgentEvent({payload});"
             )
+
+
+def _preparar_almacen(ruta: str) -> None:
+    """Crea `.pyagent/` en el proyecto abierto (EN-07) sin impedir que se abra.
+
+    Si la carpeta es de solo lectura, el proyecto se abre igual y queda un aviso.
+    """
+    try:
+        AlmacenProyecto(ruta).inicializar()
+    except OSError as exc:
+        bitacora.registro.warning("No se pudo crear .pyagent/ en '%s': %s", ruta, exc)
+
+
+def _registrar_run(ruta: str, simulado: bool) -> str | None:
+    """Crea `.pyagent/runs/<run_id>/run.json` de la corrida que empieza (EN-07).
+
+    Solo en proyectos abiertos (con `.pyagent/` ya creado al abrirlos). Un fallo al
+    escribir no impide la corrida: queda un aviso y se devuelve None.
+    """
+    from pyagent.almacenamiento import ErrorAlmacen
+    from pyagent.sandbox.modelos import IMAGEN_BASE
+
+    almacen = AlmacenProyecto(ruta)
+    if not almacen.existe():
+        return None
+    try:
+        run = almacen.crear_run(imagen_docker=None if simulado else IMAGEN_BASE)
+    except (OSError, ErrorAlmacen) as exc:
+        bitacora.registro.warning(
+            "No se pudo registrar la corrida en '%s': %s", ruta, exc
+        )
+        return None
+    bitacora.registro.info("Corrida registrada: %s", almacen.carpeta_run(run["run_id"]))
+    return run["run_id"]
 
 
 def _registrar_estado_configuracion() -> None:

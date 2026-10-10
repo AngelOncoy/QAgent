@@ -8,7 +8,7 @@ from pathlib import Path
 
 import pytest
 
-from pyagent.proyectos import recientes
+from pyagent.almacenamiento import recientes
 
 MOMENTO = datetime(2026, 10, 1, 9, 0, tzinfo=timezone.utc)
 
