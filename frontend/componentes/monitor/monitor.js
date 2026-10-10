@@ -92,6 +92,9 @@ async function startMonitor(){
       return;
     }
     if (r && r.status === 'blocked') { await verificarEntorno(); toastError(escHtml(r.motivo)); return; }
+    if (r && r.status === 'en_curso') { toast(escHtml(r.mensaje)); return; }
+    // Docker listo: la corrida real corre en Python y las filas llegan por corrida_evento.
+    if (r && r.modo === 'real') { iniciarMonitorReal(); return; }
   }
   monitorStarted = true; runDone = false; evIdx = 0; shown = []; $('timeline').innerHTML='';
   document.querySelectorAll('#views a[data-v=exec],#views a[data-v=report]').forEach(a=>a.classList.add('off'));
@@ -118,4 +121,63 @@ function finishRun(){
 function skipRun(){
   registrarEnPython({tipo:'control', agente:'Monitor', mensaje:'Completar la corrida de golpe'});
   while(!runDone) pushEvent();
+}
+
+/* ---------------- Corrida real (pipeline de Python) ---------------- */
+// Con la app de escritorio y Docker listo, las filas llegan de Python (evento corrida_evento)
+// en lugar de EVENTS. Todo texto que viene del proyecto o de la IA se escapa con escHtml.
+let modoReal = false;
+TAG.sistema = ['QAgent · Orquestador', 'p-blue'];
+ICON.sistema = '<svg class="lg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 2v4M12 18v4M2 12h4M18 12h4"/></svg>';
+const ICONO_ARCHIVO = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 3h9l4 4v14H6z"/></svg>';
+function iniciarMonitorReal(){
+  modoReal = true; monitorStarted = true; runDone = false; shown = []; $('timeline').innerHTML='';
+  clearInterval(monTimer);
+  document.querySelectorAll('#views a[data-v=exec],#views a[data-v=report]').forEach(a=>a.classList.add('off'));
+  if($('nextbox')) $('nextbox').remove();
+  $('ctxChip').className = 'chip amber'; $('ctxLbl').textContent = 'Analizando:'; $('curFile').textContent = 'preparando la corrida…';
+  $('progNum').textContent = 'Preparando la corrida…'; $('progBar').style.width = '0%';
+  $('liveBtn').className = 'live'; $('liveTxt').innerHTML = 'LIVE<br>AGENTS'; paused = false;
+  $('skipBtn').classList.add('hide');
+  go('monitor');
+  clearInterval(agoTimer);
+  agoTimer = setInterval(() => shown.forEach(e => e.el.textContent = 'hace ' + Math.floor((Date.now()-e.born)/1000) + 's'), 1000);
+}
+function monitorEventoReal(d){
+  if(!modoReal || runDone || !d) return;
+  const [tag, cls] = TAG[d.a] || TAG.sistema, icono = ICON[d.a] || ICON.sistema;
+  const lugar = [d.f, d.fn].filter(Boolean).join(' :: ');
+  if(lugar) $('curFile').textContent = lugar;
+  if(d.total){
+    const pct = Math.min(100, Math.round(d.hechos / d.total * 100));
+    $('progNum').innerHTML = `${Number(d.hechos)} de ${Number(d.total)} funciones <span>(${pct}%)</span>`;
+    $('progBar').style.width = pct + '%';
+  }
+  const e = {born: Date.now()}; shown.push(e);
+  $('evCount').textContent = shown.length;
+  const div = document.createElement('div');
+  div.className = 'ev' + ({guard:' alert', watch:' alert watch', oracle:' alert oracle', stuck:' alert watch'}[d.a] || '');
+  div.innerHTML = `<div class="node">${icono}</div><div class="box">
+    <div class="hd"><span class="pill ${cls}" style="font-size:10.5px;padding:3px 8px">${escHtml(tag)}</span>
+    ${lugar ? `<span class="file">${ICONO_ARCHIVO}${escHtml(lugar)}</span>` : ''}
+    <span class="ago">◷ <span class="agoTxt">hace 0s</span></span></div>
+    <div class="tx">${escHtml(d.t || '')}</div>
+    ${d.guard ? `<div class="guard ${escHtml(d.a)}"><span>⛉ ${escHtml(d.guard[0])}</span><b>${escHtml(d.guard[1])}</b></div>` : ''}
+  </div>`;
+  $('timeline').appendChild(div); e.el = div.querySelector('.agoTxt');
+}
+function monitorFinReal(r){
+  if(!modoReal || !r) return;
+  runDone = true; modoReal = false; clearInterval(agoTimer);
+  const ok = r.estado === 'fin', id = escHtml(r.run_id || 'sin registro');
+  $('ctxChip').className = 'chip ' + (ok ? 'done' : 'amber');
+  $('ctxLbl').textContent = 'Corrida ' + (r.run_id || '') + ':'; $('curFile').textContent = ok ? 'completada' : 'detenida';
+  $('liveBtn').className = 'live done'; $('liveTxt').innerHTML = ok ? '✓ COMPLETADO' : 'DETENIDA';
+  const costo = Number(r.costo_usd || 0).toFixed(4);
+  const d = document.createElement('div'); d.id = 'nextbox'; d.className = 'nextbox';
+  d.innerHTML = `<span>Corrida ${id} ${ok ? 'completada' : 'detenida'}: ${Number(r.aceptadas)} aprobada(s), ${Number(r.bugs_detectados)} con bug detectado, ${Number(r.estancadas)} estancada(s) · ${Number(r.tokens)} tokens (US$ ${costo}).`
+    + (r.motivo ? `<br>${escHtml(r.motivo)}` : '')
+    + (r.carpeta ? `<br>Resultados: <span class="mono">${escHtml(r.carpeta)}</span>` : '')
+    + `</span>`;
+  $('timeline').after(d);
 }
