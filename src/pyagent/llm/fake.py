@@ -6,27 +6,16 @@ Permite desarrollar y ejecutar pruebas unitarias con consumo estricto de 0 token
 from __future__ import annotations
 
 import json
-from dataclasses import dataclass
-from typing import Any, ClassVar
+from typing import ClassVar
 
-
-@dataclass
-class RespuestaLLM:
-    """Estructura de respuesta uniforme devuelta por el cliente LLM."""
-
-    contenido: str
-    tokens_entrada: int
-    tokens_salida: int
-    costo_usd: float
-    modelo: str
-    datos_json: dict[str, Any] | None = None
+from pyagent.llm.modelos import RespuestaLLM
 
 
 class FakeLLMClient:
     """Simulador de LLM que devuelve respuestas grabadas y reporta 0 tokens."""
 
-    # Respuestas que cumplen los contratos de contracts/ (EN-01): el Planner devuelve una
-    # lista de planner_contract.v2 por módulo y el Reviewer un review_result.
+    # Respuestas que cumplen los contratos de contracts/ (EN-01): el Planner devuelve
+    # una lista de planner_contract.v2 por módulo y el Reviewer un review_result.
     RESPUESTAS_GRABADAS: ClassVar[dict[str, str]] = {
         "planner": json.dumps(
             [
@@ -72,20 +61,26 @@ class FakeLLMClient:
     }
 
     def __init__(self, modelo: str = "fake-model-v1") -> None:
+        """Inicializa el cliente simulado.
+
+        Args:
+            modelo: Nombre que se registrará como modelo utilizado.
+        """
         self.modelo = modelo
 
     def generar(self, prompt: str, rol: str = "generator") -> RespuestaLLM:
-        """Devuelve una respuesta grabada según el rol del agente con 0 tokens de consumo.
+        """Devuelve una respuesta grabada según el rol solicitado.
 
         Args:
-            prompt: Texto o instrucción enviada (no se envía a internet).
-            rol: Rol del agente que solicita la respuesta ('planner', 'generator', 'reviewer').
+            prompt: Instrucción recibida. No se envía a internet.
+            rol: Agente que solicita la respuesta: planner, generator o reviewer.
 
         Returns:
-            RespuestaLLM: Objeto con contenido grabado y 0 tokens consumidos.
+            Respuesta simulada con consumo de cero tokens y costo cero.
         """
         contenido = self.RESPUESTAS_GRABADAS.get(
-            rol.lower(), f"Respuesta simulada para prompt: {prompt[:30]}..."
+            rol.lower(),
+            f"Respuesta simulada para prompt: {prompt[:30]}...",
         )
 
         return RespuestaLLM(
