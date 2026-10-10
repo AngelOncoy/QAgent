@@ -55,6 +55,10 @@ class ResultadoObjetivo:
     laundering_detectado: bool = False
     motivo_estancado: str | None = None
     revisiones: list[Contrato] = field(default_factory=list)
+    #: Contrato del Planner (se guarda como spec en `.pyagent/specs/`, EN-07).
+    contrato: Contrato | None = None
+    #: Código del último test generado; si la decisión es `accept`, es la prueba aprobada.
+    codigo: str | None = None
 
 
 @dataclass
@@ -212,7 +216,11 @@ class Orquestador:
         controlado conserve lo avanzado (decision queda en None).
         """
         objetivo = contrato["objetivo"]
-        resultado = ResultadoObjetivo(objetivo=objetivo, critical=contrato["critical"])
+        resultado = ResultadoObjetivo(
+            objetivo=objetivo,
+            critical=contrato["critical"],
+            contrato=copy.deepcopy(contrato),
+        )
         objetivos.append(resultado)
         tope = min(self.max_intentos, MAX_INTENTOS_CONTRATO)  # nunca más de 3
         intento, feedback, test_anterior, hash_anterior = 1, None, None, None
@@ -222,6 +230,7 @@ class Orquestador:
             # Copia del contrato original del Planner: lo que un agente haga con su
             # copia no llega a los intentos siguientes (HU-14, criterio 3).
             test = self._generar(copy.deepcopy(contrato), intento, feedback)
+            resultado.codigo = test["codigo"]
             self._transicionar(Estado.EJECUTAR_REVISAR, objetivo)
             revision = self._revisar(copy.deepcopy(contrato), test, test_anterior, tope)
 

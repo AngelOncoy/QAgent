@@ -15,6 +15,8 @@ registrarComponente('barra-corrida/barra-corrida', `<!-- ===== Barra compartida 
 
 let paused = false;
 function togglePause(){
+  // La pausa de la corrida real llega con HU-10; aquí solo se pausa la demostración.
+  if (modoReal && !runDone) { toast('Por ahora no se puede pausar una corrida real (HU-10).'); return; }
   if(runDone) return;
   paused = !paused;
   $('liveBtn').classList.toggle('paused', paused);

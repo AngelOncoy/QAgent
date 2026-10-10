@@ -1,11 +1,14 @@
 """Módulo principal de la aplicación de escritorio con pywebview."""
 
+import logging
+import threading
 from pathlib import Path
 
 import webview
 
 from pyagent.almacenamiento import AlmacenProyecto, recientes
 from pyagent.app import bitacora
+from pyagent.app.monitor_eventos import a_evento_bitacora, a_fila_monitor
 from pyagent.proyectos import proyecto_local
 
 # Interfaz web (HTML/CSS/JS), separada del backend: <raíz del repo>/frontend/
@@ -17,6 +20,7 @@ class DesktopAPI:
 
     def __init__(self) -> None:
         self._window: webview.Window | None = None
+        self._corrida: threading.Thread | None = None  # corrida real en curso
 
     def set_window(self, window: webview.Window) -> None:
         """Asigna la instancia de la ventana activa."""
@@ -182,14 +186,22 @@ class DesktopAPI:
 
         Primero verifica que Docker responde (HU-13) y luego que el entorno completo
         esté listo: config.toml, claves de .env, Docker y Git (EN-06). Con la IA
-        simulada (PYAGENT_FAKE_LLM=1, en el sistema o en el .env) Docker es opcional:
-        no se ejecuta nada en el sandbox, así que no se exige.
+        simulada (PYAGENT_FAKE_LLM=1, en el sistema o en el .env) Docker es opcional.
+
+        Si todo está listo, la corrida real (análisis → Planner → Generator → Reviewer
+        en Docker → log.json/results.json) corre en un hilo y envía a la interfaz los
+        eventos `corrida_evento` (una fila del Monitor) y, al terminar, `corrida_fin`
+        (resumen). Con la IA simulada y sin Docker listo no hay dónde ejecutar las
+        pruebas: la corrida queda en modo demostración y la pantalla usa sus datos de
+        ejemplo.
 
         Returns:
-            dict: ``{"status": "started", ..., "run_id"}`` (``run_id`` es None si el
-            proyecto no tiene ``.pyagent/``); si Docker no está disponible,
+            dict: ``{"status": "started", ..., "run_id", "modo"}`` con ``modo`` igual
+            a ``"real"`` o ``"demostracion"`` (``run_id`` es None si el proyecto no
+            tiene ``.pyagent/``); si Docker no está disponible,
             ``{"status": "docker_no_disponible", "mensaje": str}``; si falta otra cosa
-            del entorno, ``{"status": "blocked", "motivo": str, "problemas": list}``.
+            del entorno, ``{"status": "blocked", "motivo": str, "problemas": list}``;
+            si ya hay una corrida en curso, ``{"status": "en_curso", "mensaje": str}``.
         """
         from pyagent.config import modo_simulado
         from pyagent.sandbox import DockerNoDisponible, verificar_docker
@@ -211,21 +223,105 @@ class DesktopAPI:
                 "problemas": entorno["problemas"],
             }
 
+        if self._corrida is not None and self._corrida.is_alive():
+            return {
+                "status": "en_curso",
+                "mensaje": "Ya hay una corrida en curso: espera a que termine.",
+            }
+
+        modo = "real" if (not simulado or self._sandbox_listo()) else "demostracion"
         bitacora.registro.info(
             "Corrida iniciada en '%s' con perfil '%s' (%s)",
             folder_path,
             profile,
             "IA simulada" if simulado else "IA real",
         )
-        run_id = _registrar_run(folder_path, simulado)
+        if modo == "demostracion":
+            bitacora.registro.info(
+                "Docker no está listo: la pantalla muestra la demostración y no se "
+                "ejecuta el pipeline."
+            )
+        run_id = _registrar_run(folder_path, usa_docker=modo == "real")
         # Emite un evento hacia la interfaz JS
         self.emit_event("log", {"message": f"Corrida iniciada en perfil '{profile}'"})
+        if modo == "real":
+            self._lanzar_corrida(folder_path, profile, run_id, simulado)
         return {
             "status": "started",
             "folder": folder_path,
             "profile": profile,
             "run_id": run_id,
+            "modo": modo,
         }
+
+    def _sandbox_listo(self) -> bool:
+        """True si Docker responde y la imagen base existe (se pueden ejecutar pruebas)."""
+        try:
+            from pyagent.sandbox.estado import estado_docker
+        except ImportError:
+            return False
+        return estado_docker()["estado"] == "ok"
+
+    def _lanzar_corrida(
+        self, ruta: str, perfil: str, run_id: str | None, simulado: bool
+    ) -> None:
+        """Ejecuta la corrida en un hilo para no congelar la ventana."""
+        self._corrida = threading.Thread(
+            target=self._correr,
+            args=(ruta, perfil, run_id, simulado),
+            name="qagent-corrida",
+            daemon=True,
+        )
+        self._corrida.start()
+
+    def _correr(
+        self, ruta: str, perfil: str, run_id: str | None, simulado: bool
+    ) -> None:
+        """Cuerpo del hilo: lee la configuración, corre el pipeline y avisa el final."""
+        from pyagent.config import cargar_configuracion
+        from pyagent.orchestrator.corrida import ResumenCorrida, ejecutar_corrida
+
+        carga = cargar_configuracion(simulado=simulado)
+        if carga.config is None:
+            resumen = ResumenCorrida(
+                run_id=run_id,
+                estado="fallo_controlado",
+                motivo="config.toml no es válido: " + "; ".join(carga.avisos),
+                total_funciones=0,
+            )
+        else:
+            resumen = ejecutar_corrida(
+                ruta,
+                perfil,
+                carga.config,
+                carga.claves,
+                simulado=simulado,
+                al_evento=self._reenviar_evento,
+                run_id=run_id,
+            )
+        nivel = logging.INFO if resumen.estado == "fin" else logging.WARNING
+        bitacora.registro.log(
+            nivel,
+            "Corrida %s terminada (%s): %d aceptadas, %d bugs, %d estancadas, "
+            "%d tokens, US$ %.4f%s",
+            resumen.run_id or "sin registro",
+            resumen.estado,
+            resumen.aceptadas,
+            resumen.bugs_detectados,
+            resumen.estancadas,
+            resumen.tokens,
+            resumen.costo_usd,
+            f" · {resumen.motivo}" if resumen.motivo else "",
+        )
+        self.emit_event("corrida_fin", resumen.a_dict())
+
+    def _reenviar_evento(self, evento: dict) -> None:
+        """Un evento del orquestador -> fila del Monitor y línea de la consola."""
+        fila = a_fila_monitor(evento)
+        if fila is None:
+            return
+        bitacora.registrar_evento(a_evento_bitacora(fila))
+        self.emit_event("corrida_evento", fila)
 
     def estado_sandbox(self) -> dict:
         """Devuelve el estado del sandbox Docker para el indicador de la barra lateral.
@@ -289,11 +385,12 @@ def _preparar_almacen(ruta: str) -> None:
         bitacora.registro.warning("No se pudo crear .pyagent/ en '%s': %s", ruta, exc)
 
 
-def _registrar_run(ruta: str, simulado: bool) -> str | None:
+def _registrar_run(ruta: str, usa_docker: bool) -> str | None:
     """Crea `.pyagent/runs/<run_id>/run.json` de la corrida que empieza (EN-07).
 
     Solo en proyectos abiertos (con `.pyagent/` ya creado al abrirlos). Un fallo al
-    escribir no impide la corrida: queda un aviso y se devuelve None.
+    escribir no impide la corrida: queda un aviso y se devuelve None. `usa_docker` es
+    False en modo demostración: ahí no se ejecuta nada en el sandbox.
     """
     from pyagent.almacenamiento import ErrorAlmacen
     from pyagent.sandbox.modelos import IMAGEN_BASE
@@ -302,7 +399,9 @@ def _registrar_run(ruta: str, simulado: bool) -> str | None:
     if not almacen.existe():
         return None
     try:
-        run = almacen.crear_run(imagen_docker=None if simulado else IMAGEN_BASE)
+        run = almacen.crear_run(
+            tipos_prueba=["funcion"], imagen_docker=IMAGEN_BASE if usa_docker else None
+        )
     except (OSError, ErrorAlmacen) as exc:
         bitacora.registro.warning(
             "No se pudo registrar la corrida en '%s': %s", ruta, exc

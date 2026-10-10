@@ -285,3 +285,23 @@ def test_cada_paso_del_monitor_se_envia_a_la_consola_de_python() -> None:
     # un envío por cada paso, por el fin, por «completar» y por la pausa
     assert monitor.count("registrarEnPython(") >= 4
     assert "registrarEnPython(" in barra
+
+
+# ---------- corrida real: filas que llegan de Python ----------
+
+
+def test_el_monitor_recibe_la_corrida_real_y_escapa_sus_textos() -> None:
+    """Las filas de la corrida real traen nombres del proyecto y texto de la IA: se escapan."""
+    puente = (FRONTEND / "js" / "puente-python.js").read_text(encoding="utf-8")
+    monitor = (FRONTEND / "componentes" / "monitor" / "monitor.js").read_text(
+        encoding="utf-8"
+    )
+    assert "corrida_evento" in puente and "corrida_fin" in puente
+    cuerpo = monitor[
+        monitor.index("function monitorEventoReal") : monitor.index(
+            "function monitorFinReal"
+        )
+    ]
+    for campo in ("escHtml(lugar)", "escHtml(d.t", "escHtml(d.guard[0])"):
+        assert campo in cuerpo
+    assert "r.modo === 'real'" in monitor
