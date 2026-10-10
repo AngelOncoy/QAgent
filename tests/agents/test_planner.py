@@ -113,3 +113,90 @@ def test_planner_rechaza_un_objeto_en_lugar_de_lista() -> None:
 
     with pytest.raises(ErrorRespuestaPlanner, match="lista"):
         planner.planificar(MODULO)
+
+
+def test_los_campos_del_contrato_salen_del_analisis_y_no_del_modelo() -> None:
+    """El modelo solo aporta los casos; huella, firma y módulo vienen del AST."""
+    inventado = [
+        {
+            **PLAN[0],
+            "modulo": "otro.py",
+            "huella": "f" * 64,
+            "firma": "(y)",
+            "critical": True,
+        }
+    ]
+    planner = PlannerAgent(ClienteGrabado(json.dumps(inventado)), TokenTracker())
+
+    [contrato] = planner.planificar(MODULO)
+
+    assert contrato["modulo"] == "calculadora.py"
+    assert contrato["huella"] == "a" * 64
+    assert contrato["firma"] == "(x: int) -> int"
+    assert contrato["critical"] is False
+
+
+def test_planner_acepta_la_respuesta_compacta() -> None:
+    compacta = [{"objetivo": "duplicar", "casos": PLAN[0]["casos"]}]
+    planner = PlannerAgent(ClienteGrabado(json.dumps(compacta)), TokenTracker())
+
+    assert planner.planificar(MODULO) == PLAN
+
+
+def test_planner_descarta_objetivos_y_casos_invalidos() -> None:
+    respuesta = [
+        {
+            "objetivo": "duplicar",
+            "casos": [
+                PLAN[0]["casos"][0],
+                {"id": "sin_esperado", "entrada": {"x": 1}, "origen": "docstring"},
+                {
+                    "id": "origen_prohibido",
+                    "entrada": {"x": 1},
+                    "valor_esperado": 2,
+                    "origen": "ejecucion",
+                },
+            ],
+        },
+        {"objetivo": "funcion_inventada", "casos": PLAN[0]["casos"]},
+    ]
+    planner = PlannerAgent(ClienteGrabado(json.dumps(respuesta)), TokenTracker())
+
+    [contrato] = planner.planificar(MODULO)
+
+    assert [caso["id"] for caso in contrato["casos"]] == ["duplica_positivo"]
+    assert len(planner.descartados) == 3
+    assert any("funcion_inventada" in motivo for motivo in planner.descartados)
+
+
+def test_planner_falla_si_ningun_contrato_es_valido() -> None:
+    respuesta = [{"objetivo": "duplicar", "casos": [{"id": "x"}]}]
+    planner = PlannerAgent(ClienteGrabado(json.dumps(respuesta)), TokenTracker())
+
+    with pytest.raises(ErrorRespuestaPlanner, match="ningún contrato"):
+        planner.planificar(MODULO)
+
+
+def test_modulo_sin_funciones_no_llama_al_modelo() -> None:
+    cliente = ClienteGrabado("[]")
+    planner = PlannerAgent(cliente, TokenTracker())
+
+    assert planner.planificar({**MODULO, "funciones": []}) == []
+    assert cliente.llamadas == []
+
+
+def test_prompt_explica_el_formato_del_caso_sin_enviar_datos_de_mas() -> None:
+    cliente = ClienteGrabado(json.dumps(PLAN))
+    modulo = {
+        **MODULO,
+        "funciones": [{**MODULO["funciones"][0], "linea": 99, "ramas": 7}],
+    }
+
+    PlannerAgent(cliente, TokenTracker()).planificar(modulo)
+
+    prompt = cliente.llamadas[0][0]
+    for campo in ('"valor_esperado"', '"excepcion"', '"origen"', "docstring"):
+        assert campo in prompt
+    assert "ejecucion" not in prompt
+    assert '"linea"' not in prompt
+    assert '"huella"' not in prompt

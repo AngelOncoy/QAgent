@@ -391,3 +391,88 @@ def test_fallo_ambiguo_consulta_al_reviewer_llm(tmp_path: Path) -> None:
     assert len(cliente.prompts) == 1
     assert "CONTRATO DEL PLANNER" in cliente.prompts[0]
     assert tracker.llamadas[0].agente == "reviewer"
+
+
+def _intento(intento: int, codigo: str) -> dict:
+    return {
+        "version": "1",
+        "objetivo": "duplicar",
+        "intento": intento,
+        "codigo": codigo,
+        "casos_cubiertos": ["duplica_positivo"],
+    }
+
+
+CODIGO_DEBILITADO = (
+    "from calculadora import duplicar\n\n"
+    "def test_duplicar():\n"
+    "    assert duplicar(2) == 4 or True\n"
+)
+
+CODIGO_MAS_DEBIL = (
+    "from calculadora import duplicar\n\n"
+    "def test_duplicar():\n"
+    "    assert duplicar(2) is not None\n"
+)
+
+
+def test_laundering_se_compara_con_el_ultimo_test_no_debilitado(
+    tmp_path: Path,
+) -> None:
+    """Un intento rechazado por laundering no pasa a ser la referencia del siguiente."""
+    reviewer = ReviewerAgent(
+        TokenTracker(),
+        tmp_path,
+        "imagen-prueba",
+        ejecutor=EjecutorGrabado(sandbox(2, stdout="ImportError: no module")),
+    )
+    primero = _intento(1, CODIGO_VALIDO)
+    segundo = _intento(2, CODIGO_DEBILITADO)
+    tercero = _intento(3, CODIGO_DEBILITADO)
+
+    reviewer.revisar(CONTRATO, primero, None)
+    revision_2 = reviewer.revisar(CONTRATO, segundo, primero)
+    # El orquestador pasa el intento 2 (debilitado) como "anterior" del 3.
+    revision_3 = reviewer.revisar(CONTRATO, tercero, segundo)
+
+    assert revision_2["laundering_detectado"] is True
+    assert revision_3["laundering_detectado"] is True
+    assert revision_3["decision"] == "stalled"
+
+
+def test_la_referencia_se_reinicia_en_el_primer_intento(tmp_path: Path) -> None:
+    reviewer = ReviewerAgent(
+        TokenTracker(),
+        tmp_path,
+        "imagen-prueba",
+        ejecutor=EjecutorGrabado(sandbox(0)),
+    )
+    reviewer.revisar(CONTRATO, _intento(1, CODIGO_VALIDO), None)
+
+    otra_corrida = (
+        "from calculadora import duplicar\n\n"
+        "def test_duplicar_otro():\n"
+        "    assert duplicar(2) == 4\n"
+    )
+    revision = reviewer.revisar(CONTRATO, _intento(1, otra_corrida), None)
+
+    assert revision["laundering_detectado"] is False
+    assert revision["decision"] == "accept"
+
+
+def test_sin_tests_recolectados_es_error_test(tmp_path: Path) -> None:
+    """pytest sale con código 5 si no encuentra funciones test_: se reintenta."""
+    reviewer = ReviewerAgent(
+        TokenTracker(),
+        tmp_path,
+        "imagen-prueba",
+        ejecutor=EjecutorGrabado(
+            sandbox(5, stdout="collected 0 items\n\nno tests ran")
+        ),
+    )
+
+    revision = reviewer.revisar(CONTRATO, _intento(1, CODIGO_VALIDO), None)
+
+    assert revision["tipo_fallo"] == "error_test"
+    assert revision["decision"] == "retry"
+    assert revision["estado_sandbox"] == "fallo"

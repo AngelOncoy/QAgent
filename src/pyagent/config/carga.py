@@ -24,7 +24,7 @@ from pathlib import Path
 from typing import Any
 
 from pyagent.llm.cliente import es_modo_simulado
-from pyagent.llm.precios import AGENTES, PrecioAgente
+from pyagent.llm.precios import AGENTES, PrecioAgente, texto_opcional
 
 if sys.version_info >= (3, 11):
     import tomllib
@@ -440,4 +440,6 @@ def _leer_agente(
         modelo=textos["modelo"],
         entrada_usd_m=entrada,  # type: ignore[arg-type]
         salida_usd_m=salida,  # type: ignore[arg-type]
+        endpoint=texto_opcional(tabla.get("endpoint")),
+        esfuerzo=texto_opcional(tabla.get("esfuerzo")),
     )

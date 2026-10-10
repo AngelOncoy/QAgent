@@ -76,6 +76,32 @@ def test_cada_proveedor_de_config_tiene_variable_de_clave():
         assert proveedor in CLAVE_POR_PROVEEDOR
 
 
+def test_cada_agente_del_equipo_puede_crear_su_cliente_real(env_completo):
+    """Con las claves completas, config.toml alcanza para armar los 3 clientes (HU-11)."""
+    from pyagent.llm import ClienteLLMReal, crear_cliente
+
+    carga = cargar_configuracion(RUTA_CONFIG, env_completo, simulado=False)
+    for precio in carga.config.agentes.values():
+        cliente = crear_cliente(precio, carga.claves, simulado=False)
+        assert isinstance(cliente, ClienteLLMReal)
+        assert cliente.endpoint.startswith("https://")
+
+
+def test_endpoint_y_esfuerzo_opcionales_por_agente(tmp_path, env_completo):
+    ruta = _config_con(
+        tmp_path,
+        {
+            "[agentes.generator]\n": "[agentes.generator]\n"
+            'endpoint = "https://proxy.local/v1/chat/completions"\n'
+        },
+    )
+    agentes = cargar_configuracion(ruta, env_completo, simulado=False).config.agentes
+
+    assert agentes["generator"].endpoint == "https://proxy.local/v1/chat/completions"
+    assert agentes["planner"].endpoint is None
+    assert agentes["reviewer"].esfuerzo == "max"
+
+
 def test_falta_un_precio_avisa_y_no_hay_config(tmp_path, env_completo):
     ruta = _config_con(tmp_path, {"precio_salida_usd_m = 0.50": ""})
     carga = cargar_configuracion(ruta, env_completo, simulado=False)
