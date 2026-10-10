@@ -4,6 +4,7 @@ from pathlib import Path
 
 import webview
 
+from pyagent.almacenamiento import AlmacenProyecto
 from pyagent.app import bitacora
 from pyagent.proyectos import proyecto_local, recientes
 
@@ -110,6 +111,7 @@ class DesktopAPI:
                 "error": "No se pudo guardar el proyecto en Proyectos recientes "
                 f"({recientes.ruta_por_defecto()}).",
             }
+        _preparar_almacen(proyecto["ruta"])
         return proyecto
 
     def listar_recientes(self) -> list[dict]:
@@ -135,6 +137,8 @@ class DesktopAPI:
             return abierto
         reciente = abierto["proyecto"]
         proyecto = proyecto_local.inspeccionar_carpeta(reciente["ruta"])
+        if proyecto["ok"]:
+            _preparar_almacen(proyecto["ruta"])
         return {**proyecto, "origen": reciente["origen"], "url": reciente["url"]}
 
     def quitar_reciente(self, ruta: str) -> bool:
@@ -265,6 +269,17 @@ class DesktopAPI:
             self._window.evaluate_js(
                 f"window.onPyAgentEvent && window.onPyAgentEvent({payload});"
             )
+
+
+def _preparar_almacen(ruta: str) -> None:
+    """Crea `.pyagent/` en el proyecto abierto (EN-07) sin impedir que se abra.
+
+    Si la carpeta es de solo lectura, el proyecto se abre igual y queda un aviso.
+    """
+    try:
+        AlmacenProyecto(ruta).inicializar()
+    except OSError as exc:
+        bitacora.registro.warning("No se pudo crear .pyagent/ en '%s': %s", ruta, exc)
 
 
 def _registrar_estado_configuracion() -> None:
