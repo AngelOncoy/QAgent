@@ -86,3 +86,70 @@ def test_corrida_completa_registra_cero_tokens_en_log_json(
     assert datos_disco["total_tokens"] == 0
     assert datos_disco["total_costo_usd"] == 0.0
     assert datos_disco["total_llamadas"] == 3
+
+
+CONTRATO_BANCO = {
+    "version": "2",
+    "modulo": "bench/banco_mvp.py",
+    "huella": "0" * 64,
+    "tipo": "funcion",
+    "objetivo": "calcular_descuento",
+    "firma": "(precio: float, porcentaje: float) -> float",
+    "critical": False,
+    "llama_a": [],
+    "casos": [
+        {
+            "id": "descuento_normal",
+            "entrada": {"precio": 100.0, "porcentaje": 20.0},
+            "valor_esperado": 80.0,
+            "origen": "docstring",
+        },
+        {
+            "id": "precio_negativo",
+            "entrada": {"precio": -1.0, "porcentaje": 10.0},
+            "excepcion": "ValueError",
+            "origen": "docstring",
+        },
+    ],
+}
+
+
+def test_planner_simulado_usa_los_casos_grabados_del_modulo() -> None:
+    grabados = [CONTRATO_BANCO["casos"][0]]
+    cliente = FakeLLMClient(grabaciones={"banco_mvp.py::calcular_descuento": grabados})
+    prompt = (
+        "MODULO: bench/banco_mvp.py\n"
+        'OBJETIVOS_JSON: [{"nombre": "calcular_descuento"}, {"nombre": "sin_grabar"}]'
+    )
+
+    plan = json.loads(cliente.generar(prompt, rol="planner").contenido)
+
+    assert plan == [{"objetivo": "calcular_descuento", "casos": grabados}]
+
+
+def test_generator_simulado_arma_el_test_desde_el_contrato() -> None:
+    import ast
+
+    cliente = FakeLLMClient(grabaciones={})
+    prompt = "Escribe...\nCONTRATO_JSON: " + json.dumps(CONTRATO_BANCO)
+
+    codigo = cliente.generar(prompt, rol="generator").contenido
+
+    ast.parse(codigo)
+    assert "from bench.banco_mvp import calcular_descuento" in codigo
+    assert (
+        "assert calcular_descuento(precio=100.0, porcentaje=20.0) "
+        "== pytest.approx(80.0)" in codigo
+    )
+    assert "with pytest.raises(ValueError):" in codigo
+
+
+def test_el_banco_tiene_casos_grabados_para_todas_sus_funciones() -> None:
+    from pyagent.analysis.analyzer import analizar_proyecto
+    from pyagent.llm.fake import RUTA_GRABACIONES, cargar_grabaciones
+
+    grabaciones = cargar_grabaciones(RUTA_GRABACIONES)
+    [modulo] = analizar_proyecto(RUTA_GRABACIONES.parent)["modulos"]
+
+    for funcion in modulo["funciones"]:
+        assert grabaciones.get(f"banco_mvp.py::{funcion['nombre']}"), funcion["nombre"]

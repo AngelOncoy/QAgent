@@ -3,10 +3,15 @@
 from __future__ import annotations
 
 import json
+from pathlib import PurePosixPath
 from typing import Any
 
 from pyagent import contracts
 from pyagent.llm import ClienteLLM, TokenTracker
+from pyagent.llm.fake import MARCA_CONTRATO
+
+#: Caracteres de feedback (salida de pytest) que se reenvían al modelo.
+LARGO_MAXIMO_FEEDBACK = 2000
 
 
 class ErrorRespuestaGenerator(ValueError):
@@ -67,30 +72,54 @@ class GeneratorAgent:
         intento: int,
         feedback: str | None,
     ) -> str:
-        contrato_json = json.dumps(contrato, ensure_ascii=False, indent=2)
+        # Una sola línea: más corto (menos tokens) y la IA simulada lo puede leer.
+        contrato_json = json.dumps(contrato, ensure_ascii=False)
         correccion = (
-            feedback
+            _recortar(feedback)
             if feedback
             else "No existe feedback porque este es el primer intento."
         )
+        importacion = f"from {modulo_importable(contrato['modulo'])} import {contrato['objetivo']}"
         return f"""
 Escribe un archivo pytest completo para el contrato indicado.
 
 REGLAS OBLIGATORIAS:
-- Usa exactamente los valores esperados del contrato.
+- Importa el objetivo exactamente así: {importacion}
+- Escribe una función test_<id> por cada caso del contrato.
+- Usa exactamente los valores esperados del contrato (pytest.approx para float).
+- Para un caso con "excepcion" usa: with pytest.raises(<Excepcion>).
 - No ejecutes el código para descubrir resultados.
-- No elimines, cambies ni debilites las aserciones.
+- No elimines, cambies ni debilites las aserciones; sin try/except, skip ni xfail.
 - Simula con mocks las funciones incluidas en llama_a.
-- Para endpoints FastAPI usa TestClient y dependency_overrides.
 - Devuelve únicamente código Python, sin explicaciones.
 - Este es el intento {intento}.
 
 FEEDBACK DEL INTENTO ANTERIOR:
 {correccion}
 
-CONTRATO DEL PLANNER:
-{contrato_json}
+{MARCA_CONTRATO} {contrato_json}
 """.strip()
+
+
+def modulo_importable(modulo: str) -> str:
+    """Ruta del módulo relativa al proyecto -> nombre importable.
+
+    En el sandbox `PYTHONPATH` es la raíz del proyecto, así que
+    `bench/banco_mvp.py` se importa como `bench.banco_mvp`.
+    """
+    return (
+        PurePosixPath(modulo.replace("\\", "/"))
+        .with_suffix("")
+        .as_posix()
+        .replace("/", ".")
+    )
+
+
+def _recortar(texto: str, maximo: int = LARGO_MAXIMO_FEEDBACK) -> str:
+    """Deja solo el final del feedback (donde pytest pone el error) para ahorrar tokens."""
+    if len(texto) <= maximo:
+        return texto
+    return "[…recortado…]\n" + texto[-maximo:]
 
 
 def _quitar_cerca_python(contenido: str) -> str:

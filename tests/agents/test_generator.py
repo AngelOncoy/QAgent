@@ -122,3 +122,23 @@ def test_generator_rechaza_respuesta_vacia() -> None:
 
     with pytest.raises(ErrorRespuestaGenerator, match="vacío"):
         generator.generar(CONTRATO, 1, None)
+
+
+def test_prompt_indica_como_importar_el_objetivo() -> None:
+    cliente = ClienteGrabado(CODIGO)
+    contrato = {**CONTRATO, "modulo": "bench/banco_mvp.py"}
+
+    GeneratorAgent(cliente, TokenTracker()).generar(contrato, 1, None)
+
+    assert "from bench.banco_mvp import duplicar" in cliente.llamadas[0][0]
+
+
+def test_feedback_largo_se_recorta_al_final() -> None:
+    cliente = ClienteGrabado(CODIGO)
+    feedback = "x" * 10_000 + "ImportError: al final"
+
+    GeneratorAgent(cliente, TokenTracker()).generar(CONTRATO, 2, feedback)
+
+    prompt = cliente.llamadas[0][0]
+    assert "ImportError: al final" in prompt
+    assert len(prompt) < 5_000

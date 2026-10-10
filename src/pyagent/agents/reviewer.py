@@ -31,6 +31,9 @@ _PATRONES_ERROR_TEST = (
     "name 'pytest' is not defined",
     "name 'mock' is not defined",
     "does not have the attribute",
+    # pytest sale con código 5: el archivo no tiene funciones test_ que recolectar.
+    "no tests ran",
+    "collected 0 items",
 )
 
 
@@ -56,6 +59,10 @@ class ReviewerAgent:
         self.modulo_cov = modulo_cov
         self.ejecutor = ejecutor
         self.es_simulado = es_simulado
+        # Último test NO debilitado de cada objetivo: la referencia contra la que se
+        # busca laundering. Si se comparara solo con el intento anterior, un intento
+        # rechazado por laundering pasaría a ser la referencia del siguiente.
+        self._referencias: dict[tuple[str, str], str] = {}
 
     def revisar(
         self,
@@ -73,8 +80,17 @@ class ReviewerAgent:
             detalle = f"{type(error).__name__}: {error}"
             return self._error_test(contrato, intento, detalle)
 
-        laundering = self._comparar_con_anterior(test_anterior, codigo)
-        if laundering is not None:
+        clave = (contrato["modulo"], contrato["objetivo"])
+        if intento == 1:
+            self._referencias.pop(clave, None)  # nueva corrida de este objetivo
+        referencia = self._referencias.get(clave)
+        if referencia is None and test_anterior is not None:
+            referencia = test_anterior["codigo"]
+
+        laundering = self._comparar_con_referencia(referencia, codigo)
+        if laundering is None:
+            self._referencias[clave] = codigo
+        else:
             return self._resultado(
                 objetivo=contrato["objetivo"],
                 intento=intento,
@@ -348,17 +364,15 @@ class ReviewerAgent:
         return None
 
     @staticmethod
-    def _comparar_con_anterior(
-        test_anterior: dict[str, Any] | None,
+    def _comparar_con_referencia(
+        codigo_referencia: str | None,
         codigo_actual: str,
     ) -> str | None:
-        if test_anterior is None:
+        """Resumen del laundering si `codigo_actual` debilitó la referencia; si no, None."""
+        if codigo_referencia is None:
             return None
         try:
-            comparacion = comparar_aserciones(
-                test_anterior["codigo"],
-                codigo_actual,
-            )
+            comparacion = comparar_aserciones(codigo_referencia, codigo_actual)
         except (SyntaxError, ValueError):
             return None
         if comparacion.es_laundering:

@@ -106,6 +106,8 @@ class ClienteLLMReal:
         *,
         transporte: TransporteLLM | None = None,
         timeout_s: float = 60.0,
+        esfuerzo: str | None = None,
+        cabecera_clave: str | None = None,
     ) -> None:
         """Inicializa el cliente real.
 
@@ -115,6 +117,9 @@ class ClienteLLMReal:
             endpoint: URL del endpoint de chat del proveedor.
             transporte: Transporte reemplazable durante las pruebas.
             timeout_s: Tiempo máximo de espera por solicitud.
+            esfuerzo: Valor de `reasoning_effort`; si es None no se envía.
+            cabecera_clave: Cabecera adicional con la clave, para proveedores que
+                no usan `Authorization: Bearer` (ej. `api-key` en Xiaomi MiMo).
         """
         if not modelo.strip():
             raise ValueError("El modelo LLM no puede estar vacío.")
@@ -130,6 +135,8 @@ class ClienteLLMReal:
         self.endpoint = endpoint
         self.transporte = transporte or TransporteHTTP()
         self.timeout_s = timeout_s
+        self.esfuerzo = esfuerzo
+        self.cabecera_clave = cabecera_clave
 
     def generar(self, prompt: str, rol: str = "generator") -> RespuestaLLM:
         """Genera una respuesta mediante el proveedor configurado.
@@ -148,7 +155,9 @@ class ClienteLLMReal:
             "Authorization": f"Bearer {self._clave}",
             "Content-Type": "application/json",
         }
-        datos = {
+        if self.cabecera_clave:
+            cabeceras[self.cabecera_clave] = self._clave
+        datos: dict[str, Any] = {
             "model": self.modelo,
             "messages": [
                 {
@@ -164,6 +173,8 @@ class ClienteLLMReal:
                 },
             ],
         }
+        if self.esfuerzo:
+            datos["reasoning_effort"] = self.esfuerzo
 
         try:
             respuesta = self.transporte.enviar(

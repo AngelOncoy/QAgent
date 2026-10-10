@@ -16,6 +16,9 @@ pass_rate_min = 70               # % de pruebas aprobadas
 cobertura_lineas_min = 60        # % de líneas cubiertas
 iteraciones_promedio_max = 2.0   # intentos promedio por prueba
 
+# Cada agente usa la URL de chat de su proveedor (src/pyagent/llm/fabrica.py).
+# Para otra URL agrega:  endpoint = "https://.../v1/chat/completions"
+# `esfuerzo` se envía como `reasoning_effort`; quítalo si el proveedor no lo acepta.
 [agentes.planner]
 
 proveedor = "xiaomi"

@@ -1,0 +1,34 @@
+{
+  "descripcion": "Casos que la IA simulada (PYAGENT_FAKE_LLM=1) devuelve como Planner para bench/banco_mvp.py. Cada valor esperado sale del docstring de la función, nunca de ejecutarla. Clave: '<archivo>.py::<función>'.",
+  "casos": {
+    "banco_mvp.py::calcular_descuento": [
+      {"id": "descuento_normal", "descripcion": "100 con 20% de descuento queda en 80", "entrada": {"precio": 100.0, "porcentaje": 20.0}, "valor_esperado": 80.0, "origen": "docstring"},
+      {"id": "sin_descuento", "descripcion": "0% deja el precio igual", "entrada": {"precio": 50.0, "porcentaje": 0.0}, "valor_esperado": 50.0, "origen": "docstring"},
+      {"id": "precio_negativo", "entrada": {"precio": -1.0, "porcentaje": 10.0}, "excepcion": "ValueError", "origen": "docstring"},
+      {"id": "porcentaje_mayor_a_100", "entrada": {"precio": 100.0, "porcentaje": 150.0}, "excepcion": "ValueError", "origen": "docstring"}
+    ],
+    "banco_mvp.py::clasificar_edad": [
+      {"id": "menor_17", "entrada": {"edad": 17}, "valor_esperado": "menor", "origen": "docstring"},
+      {"id": "adulto_18", "descripcion": "Límite: 18 ya es adulto", "entrada": {"edad": 18}, "valor_esperado": "adulto", "origen": "docstring"},
+      {"id": "adulto_64", "entrada": {"edad": 64}, "valor_esperado": "adulto", "origen": "docstring"},
+      {"id": "adulto_mayor_65", "entrada": {"edad": 65}, "valor_esperado": "adulto mayor", "origen": "docstring"},
+      {"id": "edad_negativa", "entrada": {"edad": -1}, "excepcion": "ValueError", "origen": "docstring"}
+    ],
+    "banco_mvp.py::buscar_elemento_mayor": [
+      {"id": "positivos", "entrada": {"numeros": [1, 5, 3]}, "valor_esperado": 5, "origen": "docstring"},
+      {"id": "solo_negativos", "entrada": {"numeros": [-5, -2, -9]}, "valor_esperado": -2, "origen": "docstring"},
+      {"id": "lista_vacia", "entrada": {"numeros": []}, "excepcion": "ValueError", "origen": "docstring"}
+    ],
+    "banco_mvp.py::es_palindromo": [
+      {"id": "frase_palindromo", "descripcion": "Ignora mayúsculas y espacios", "entrada": {"texto": "Anita lava la tina"}, "valor_esperado": true, "origen": "docstring"},
+      {"id": "no_palindromo", "entrada": {"texto": "hola"}, "valor_esperado": false, "origen": "docstring"}
+    ],
+    "banco_mvp.py::invertir_palabras": [
+      {"id": "tres_palabras", "entrada": {"frase": "hola mundo feliz"}, "valor_esperado": "feliz mundo hola", "origen": "docstring"}
+    ],
+    "banco_mvp.py::formatear_moneda": [
+      {"id": "simbolo_por_defecto", "entrada": {"cantidad": 12.5}, "valor_esperado": "$12.50", "origen": "docstring"},
+      {"id": "otro_simbolo", "entrada": {"cantidad": 3, "simbolo": "S/"}, "valor_esperado": "S/3.00", "origen": "docstring"}
+    ]
+  }
+}

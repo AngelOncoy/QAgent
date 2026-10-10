@@ -34,6 +34,10 @@ class PrecioAgente:
     modelo: str
     entrada_usd_m: float
     salida_usd_m: float
+    #: URL de chat completions; si es None se usa la del proveedor (`llm.fabrica`).
+    endpoint: str | None = None
+    #: Esfuerzo de razonamiento (`reasoning_effort`); None = no se envía.
+    esfuerzo: str | None = None
 
     def costo(self, prompt_tokens: int, completion_tokens: int) -> float:
         """Costo en US$ de una llamada: tokens × precio / 1 000 000."""
@@ -71,8 +75,17 @@ def _leer_agente(agente: str, tabla: dict, ruta: str | Path) -> PrecioAgente:
             modelo=str(tabla["modelo"]),
             entrada_usd_m=float(tabla["precio_entrada_usd_m"]),
             salida_usd_m=float(tabla["precio_salida_usd_m"]),
+            endpoint=texto_opcional(tabla.get("endpoint")),
+            esfuerzo=texto_opcional(tabla.get("esfuerzo")),
         )
     except KeyError as falta:
         raise ConfiguracionInvalida(
             f"Falta {falta.args[0]} en [agentes.{agente}] de {ruta}"
         ) from falta
+
+
+def texto_opcional(valor: object) -> str | None:
+    """Texto sin espacios de un campo opcional de config.toml; None si falta o está vacío."""
+    if not isinstance(valor, str) or not valor.strip():
+        return None
+    return valor.strip()
