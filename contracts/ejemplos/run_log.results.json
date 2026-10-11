@@ -35,6 +35,8 @@
       "critical": false,
       "decision": "accept",
       "motivo_estancado": null,
+      "laundering_detectado": false,
+      "duracion_s": 3.42,
       "metricas": {
         "paso": true,
         "cobertura_lineas": 100.0,
@@ -62,6 +64,34 @@
     "sin_veredicto": 0,
     "pass_rate": 100.0,
     "cobertura_lineas_promedio": 100.0,
-    "costo_total_usd": 0.0024385
+    "cobertura_ramas_promedio": 100.0,
+    "iteraciones_promedio": 2.0,
+    "costo_total_usd": 0.0024385,
+    "por_agente": {
+      "planner": {
+        "prompt_tokens": 1500,
+        "completion_tokens": 400,
+        "costo_usd": 0.0010005,
+        "llamadas": 1
+      },
+      "generator": {
+        "prompt_tokens": 1600,
+        "completion_tokens": 600,
+        "costo_usd": 0.001218,
+        "llamadas": 2
+      },
+      "reviewer": {
+        "prompt_tokens": 1200,
+        "completion_tokens": 200,
+        "costo_usd": 0.00022,
+        "llamadas": 1
+      }
+    },
+    "metas": {
+      "pass_rate_min": 70,
+      "cobertura_lineas_min": 60,
+      "iteraciones_promedio_max": 2.0,
+      "tope_por_corrida_usd": 1.0
+    }
   }
 }

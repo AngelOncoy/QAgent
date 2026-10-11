@@ -147,6 +147,8 @@
           "enum": ["accept", "bug_detectado", "stalled", null],
           "description": "null si la corrida terminó en fallo controlado antes del veredicto."
         },
+        "laundering_detectado": { "type": "boolean", "description": "HU-16/HU-18. Algún intento fue rechazado por debilitar las aserciones." },
+        "duracion_s": { "type": "number", "minimum": 0, "description": "HU-18. Segundos desde el primer intento hasta el veredicto." },
         "motivo_estancado": {
           "enum": ["limite_intentos", "error_repetido", null],
           "description": "Por qué se cortó una prueba stalled: limite_intentos (3 intentos) o error_repetido (mismo hash de error dos veces seguidas). El intento del corte es metricas.iteraciones."
@@ -203,7 +205,27 @@
         "sin_veredicto": { "type": "integer", "minimum": 0 },
         "pass_rate": { "type": "number", "minimum": 0, "maximum": 100, "description": "% de funciones cuyo último test pasó." },
         "cobertura_lineas_promedio": { "type": ["number", "null"], "minimum": 0, "maximum": 100 },
-        "costo_total_usd": { "type": "number", "minimum": 0 }
+        "cobertura_ramas_promedio": { "type": ["number", "null"], "minimum": 0, "maximum": 100, "description": "HU-18. Opcional: las corridas anteriores no lo tienen." },
+        "iteraciones_promedio": { "type": ["number", "null"], "minimum": 0, "maximum": 3, "description": "HU-18. Intentos promedio de las funciones con veredicto." },
+        "costo_total_usd": { "type": "number", "minimum": 0 },
+        "por_agente": {
+          "type": "object",
+          "description": "HU-18. Tokens y costo de cada agente en la corrida (igual que totales_por_agente de log.json).",
+          "propertyNames": { "$ref": "#/$defs/agente" },
+          "additionalProperties": { "$ref": "#/$defs/total_agente" }
+        },
+        "metas": {
+          "type": "object",
+          "description": "HU-18. Metas de la carta ([umbrales] de config.toml) y tope de gasto vigentes en la corrida.",
+          "additionalProperties": false,
+          "required": ["pass_rate_min", "cobertura_lineas_min", "iteraciones_promedio_max", "tope_por_corrida_usd"],
+          "properties": {
+            "pass_rate_min": { "type": "number", "minimum": 0, "maximum": 100 },
+            "cobertura_lineas_min": { "type": "number", "minimum": 0, "maximum": 100 },
+            "iteraciones_promedio_max": { "type": "number", "minimum": 0 },
+            "tope_por_corrida_usd": { "type": "number", "minimum": 0 }
+          }
+        }
       }
     }
   }

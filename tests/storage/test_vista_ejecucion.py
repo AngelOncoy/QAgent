@@ -1,0 +1,248 @@
+"""Vista «Ejecución de pruebas» (HU-18): todo sale de results.json."""
+
+from __future__ import annotations
+
+import copy
+import json
+from pathlib import Path
+
+import pytest
+
+from pyagent.contracts import RUN_LOG, validar
+from pyagent.storage import escribir_corrida
+from pyagent.storage.vista_ejecucion import (
+    ResultadosNoDisponibles,
+    estado_de,
+    leer_results,
+    ultimo_run_con_resultados,
+    vista_ejecucion,
+)
+from tests.storage.test_registro import correr, precios  # noqa: F401 (fixture)
+
+EJEMPLO = (
+    Path(__file__).resolve().parents[2]
+    / "contracts"
+    / "ejemplos"
+    / "run_log.results.json"
+)
+METAS = {
+    "pass_rate_min": 70,
+    "cobertura_lineas_min": 60,
+    "iteraciones_promedio_max": 2.0,
+    "tope_por_corrida_usd": 1.0,
+}
+
+
+def objetivo(
+    funcion,
+    decision,
+    *,
+    modulo="a.py",
+    iteraciones=1,
+    laundering=False,
+    motivo=None,
+    paso=True,
+    lineas=80.0,
+    ramas=50.0,
+):
+    return {
+        "modulo": modulo,
+        "funcion": funcion,
+        "critical": False,
+        "decision": decision,
+        "motivo_estancado": motivo,
+        "laundering_detectado": laundering,
+        "duracion_s": 1.5,
+        "metricas": {
+            "paso": paso,
+            "cobertura_lineas": lineas,
+            "cobertura_ramas": ramas,
+            "iteraciones": iteraciones,
+            "tokens_por_agente": {},
+            "mutation_score": None,
+        },
+    }
+
+
+@pytest.fixture
+def results() -> dict:
+    """Corrida con un caso de cada estado, en dos módulos."""
+    datos = json.loads(EJEMPLO.read_text(encoding="utf-8"))
+    datos["objetivos"] = [
+        objetivo("aprobada", "accept"),
+        objetivo("con_bug", "bug_detectado", paso=False),
+        objetivo(
+            "lavada",
+            "stalled",
+            iteraciones=3,
+            laundering=True,
+            motivo="limite_intentos",
+            paso=False,
+            lineas=None,
+            ramas=None,
+        ),
+        objetivo(
+            "estancada",
+            "stalled",
+            modulo="b.py",
+            iteraciones=2,
+            motivo="error_repetido",
+            paso=False,
+            lineas=40.0,
+            ramas=None,
+        ),
+    ]
+    datos["resumen"].update(
+        total_funciones=4,
+        aceptadas=1,
+        bugs_detectados=1,
+        stalled=2,
+        pass_rate=25.0,
+        cobertura_lineas_promedio=66.7,
+        cobertura_ramas_promedio=50.0,
+        iteraciones_promedio=1.75,
+        metas=METAS,
+    )
+    validar(RUN_LOG, datos)
+    return datos
+
+
+def test_cada_estado_sale_del_veredicto(results) -> None:
+    assert [estado_de(o) for o in results["objetivos"]] == [
+        "aprobado",
+        "bug_detectado",
+        "rechazado_laundering",
+        "estancado",
+    ]
+
+
+def test_los_indicadores_coinciden_con_results_json(results) -> None:
+    """Criterio 5: los 4 indicadores son los valores del archivo, comparados con su meta."""
+    k = vista_ejecucion(results)["indicadores"]
+    resumen = results["resumen"]
+
+    assert k["pass_rate"]["valor"] == resumen["pass_rate"]
+    assert (k["pass_rate"]["meta"], k["pass_rate"]["cumple"]) == (70, False)
+    assert k["cobertura"]["lineas"] == resumen["cobertura_lineas_promedio"]
+    assert k["cobertura"]["ramas"] == resumen["cobertura_ramas_promedio"]
+    assert k["cobertura"]["cumple"] is True
+    assert k["iteraciones"]["valor"] == resumen["iteraciones_promedio"]
+    assert k["iteraciones"]["cumple"] is True
+    assert k["costo"]["costo_total_usd"] == resumen["costo_total_usd"]
+    for agente, fila in resumen["por_agente"].items():
+        assert k["costo"]["por_agente"][agente]["costo_usd"] == fila["costo_usd"]
+        assert k["costo"]["por_agente"][agente]["tokens"] == (
+            fila["prompt_tokens"] + fila["completion_tokens"]
+        )
+    assert k["mutation_score"] == {
+        "disponible": False,
+        "texto": "Disponible en Sprint 2",
+    }
+
+
+def test_filtros_con_su_conteo(results) -> None:
+    filtros = {f["clave"]: f["cantidad"] for f in vista_ejecucion(results)["filtros"]}
+
+    assert filtros == {
+        "aprobado": 1,
+        "rechazado_laundering": 1,
+        "estancado": 1,
+        "bug_detectado": 1,
+    }
+
+
+def test_los_filtros_pedidos_se_muestran_aunque_esten_en_cero(results) -> None:
+    results["objetivos"] = results["objetivos"][:1]
+
+    claves = [f["clave"] for f in vista_ejecucion(results)["filtros"]]
+
+    assert claves == ["aprobado", "rechazado_laundering", "estancado"]
+
+
+def test_pruebas_agrupadas_por_modulo(results) -> None:
+    modulos = vista_ejecucion(results)["modulos"]
+
+    assert [m["modulo"] for m in modulos] == ["a.py", "b.py"]
+    estancada = modulos[1]["pruebas"][0]
+    assert estancada == {
+        "funcion": "estancada",
+        "estado": "estancado",
+        "intento_final": 2,
+        "duracion_s": 1.5,
+        "cobertura_lineas": 40.0,
+        "cobertura_ramas": None,
+        "motivo_estancado": "error_repetido",
+        "critical": False,
+    }
+
+
+def test_corrida_anterior_a_hu18_se_completa_con_sus_propios_datos(results) -> None:
+    viejo = copy.deepcopy(results)
+    for clave in (
+        "cobertura_ramas_promedio",
+        "iteraciones_promedio",
+        "por_agente",
+        "metas",
+    ):
+        del viejo["resumen"][clave]
+    for o in viejo["objetivos"]:
+        del o["laundering_detectado"], o["duracion_s"]
+    validar(RUN_LOG, viejo)
+
+    vista = vista_ejecucion(viejo)
+
+    assert vista["indicadores"]["cobertura"]["ramas"] == 50.0  # promedio de 50 y 50
+    assert vista["indicadores"]["iteraciones"]["valor"] == 1.75
+    assert vista["indicadores"]["pass_rate"]["cumple"] is None  # sin meta registrada
+    assert vista["metas_registradas"] is False
+    assert vista["modulos"][0]["pruebas"][0]["duracion_s"] is None
+
+
+def test_de_la_corrida_al_archivo_y_a_la_vista(tmp_path, precios) -> None:  # noqa: F811
+    """Lo que escribe la corrida es lo que muestra la vista, sin cifras intermedias."""
+    tracker, resultado = correr(precios, decisiones=("retry", "accept"))
+    rutas = escribir_corrida(tmp_path, resultado, tracker, precios, "deep", metas=METAS)
+
+    archivo = json.loads(rutas.results.read_text(encoding="utf-8"))
+    vista = vista_ejecucion(leer_results(tmp_path))
+
+    resumen = archivo["resumen"]
+    assert vista["run_id"] == rutas.run_id
+    assert vista["indicadores"]["pass_rate"]["valor"] == resumen["pass_rate"]
+    assert (
+        vista["indicadores"]["iteraciones"]["valor"]
+        == resumen["iteraciones_promedio"]
+        == 2
+    )
+    assert (
+        vista["indicadores"]["costo"]["costo_total_usd"]
+        == resumen["costo_total_usd"]
+        > 0
+    )
+    assert resumen["metas"] == METAS
+    assert archivo["objetivos"][0]["duracion_s"] >= 0
+
+
+def test_sin_corridas_avisa(tmp_path) -> None:
+    assert ultimo_run_con_resultados(tmp_path) is None
+    with pytest.raises(ResultadosNoDisponibles, match="todavía no tiene"):
+        leer_results(tmp_path)
+
+
+def test_results_invalido_avisa(tmp_path) -> None:
+    carpeta = tmp_path / ".pyagent" / "runs" / "20261010-120000-abcd"
+    carpeta.mkdir(parents=True)
+    (carpeta / "results.json").write_text("{}", encoding="utf-8")
+
+    with pytest.raises(ResultadosNoDisponibles, match="no es válido"):
+        leer_results(tmp_path)
+
+
+def test_un_agente_sin_llamadas_aparece_con_cero(results) -> None:
+    del results["resumen"]["por_agente"]["reviewer"]
+
+    reviewer = vista_ejecucion(results)["indicadores"]["costo"]["por_agente"][
+        "reviewer"
+    ]
+
+    assert reviewer == {"tokens": 0, "costo_usd": 0.0, "llamadas": 0}
