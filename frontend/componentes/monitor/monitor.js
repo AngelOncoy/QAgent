@@ -96,7 +96,7 @@ async function startMonitor(){
     // Docker listo: la corrida real corre en Python y las filas llegan por corrida_evento.
     if (r && r.modo === 'real') { iniciarMonitorReal(); return; }
   }
-  ejecucionReal = null;   // la demostración usa sus propios datos de ejemplo
+  ejecucionReal = null; reporteReal = null;   // la demostración usa sus propios datos de ejemplo
   monitorStarted = true; runDone = false; evIdx = 0; shown = []; $('timeline').innerHTML='';
   document.querySelectorAll('#views a[data-v=exec],#views a[data-v=report]').forEach(a=>a.classList.add('off'));
   if($('nextbox')) $('nextbox').remove();
@@ -132,7 +132,7 @@ TAG.sistema = ['QAgent · Orquestador', 'p-blue'];
 ICON.sistema = '<svg class="lg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 2v4M12 18v4M2 12h4M18 12h4"/></svg>';
 const ICONO_ARCHIVO = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 3h9l4 4v14H6z"/></svg>';
 function iniciarMonitorReal(){
-  ejecucionReal = null; modoReal = true; monitorStarted = true; runDone = false; shown = []; $('timeline').innerHTML='';
+  ejecucionReal = null; reporteReal = null; modoReal = true; monitorStarted = true; runDone = false; shown = []; $('timeline').innerHTML='';
   clearInterval(monTimer);
   document.querySelectorAll('#views a[data-v=exec],#views a[data-v=report]').forEach(a=>a.classList.add('off'));
   if($('nextbox')) $('nextbox').remove();
@@ -185,6 +185,9 @@ function monitorFinReal(r){
     const b = document.createElement('button'); b.className = 'btn primary'; b.style.marginLeft = 'auto';
     b.textContent = 'Ver ejecución de pruebas →'; b.onclick = () => cargarEjecucionReal(r.run_id);
     d.appendChild(b);
+    const rep = document.createElement('button'); rep.className = 'btn';   // HU-21
+    rep.textContent = 'Ver reporte de auditoría'; rep.onclick = () => cargarReporteReal(r.run_id);
+    d.appendChild(rep);
   }
   $('timeline').after(d);
 }

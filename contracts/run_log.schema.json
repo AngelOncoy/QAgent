@@ -41,6 +41,7 @@
     "estado_final": { "enum": ["fin", "fallo_controlado"] },
     "motivo_fallo": { "type": ["string", "null"] },
     "es_simulado": { "type": "boolean", "description": "true si todas las llamadas usaron la IA simulada." },
+    "rama": { "type": ["string", "null"], "description": "HU-21. Rama Git del proyecto al iniciar la corrida; null si no es un repositorio." },
     "llamadas": { "type": "array", "items": { "$ref": "#/$defs/llamada" } },
     "totales_por_agente": {
       "type": "object",
@@ -149,6 +150,19 @@
         },
         "laundering_detectado": { "type": "boolean", "description": "HU-16/HU-18. Algún intento fue rechazado por debilitar las aserciones." },
         "duracion_s": { "type": "number", "minimum": 0, "description": "HU-18. Segundos desde el primer intento hasta el veredicto." },
+        "controles": {
+          "type": "object",
+          "description": "HU-21. Checklist del último intento: true cumple, false no cumple, null sin dato o no aplica.",
+          "additionalProperties": false,
+          "required": ["sintaxis", "sandbox", "aserciones", "cobertura", "mutation"],
+          "properties": {
+            "sintaxis": { "type": ["boolean", "null"] },
+            "sandbox": { "type": ["boolean", "null"] },
+            "aserciones": { "type": ["boolean", "null"] },
+            "cobertura": { "type": ["boolean", "null"] },
+            "mutation": { "type": ["boolean", "null"] }
+          }
+        },
         "motivo_estancado": {
           "enum": ["limite_intentos", "error_repetido", null],
           "description": "Por qué se cortó una prueba stalled: limite_intentos (3 intentos) o error_repetido (mismo hash de error dos veces seguidas). El intento del corte es metricas.iteraciones."

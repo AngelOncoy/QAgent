@@ -476,3 +476,39 @@ def test_sin_tests_recolectados_es_error_test(tmp_path: Path) -> None:
     assert revision["tipo_fallo"] == "error_test"
     assert revision["decision"] == "retry"
     assert revision["estado_sandbox"] == "fallo"
+
+
+def test_la_cobertura_es_la_de_la_funcion_y_no_la_del_modulo(tmp_path: Path) -> None:
+    """coverage.py mide el módulo completo; el Reviewer cuenta solo el cuerpo de la función."""
+    (tmp_path / "calculadora.py").write_text(
+        "def duplicar(x):\n"  # 1
+        "    if x < 0:\n"  # 2
+        "        return 0\n"  # 3
+        "    return x * 2\n"  # 4
+        "\n"
+        "def otra():\n"  # 6
+        "    return 1\n",  # 7
+        encoding="utf-8",
+    )
+    coverage = {
+        "files": {
+            "calculadora.py": {
+                "executed_lines": [1, 2, 4, 6],
+                "missing_lines": [3, 7],
+                "executed_branches": [[2, 4]],
+                "missing_branches": [[2, 3]],
+            }
+        },
+        "totals": {"percent_covered": 50.0, "num_branches": 2, "covered_branches": 1},
+    }
+    reviewer = ReviewerAgent(
+        TokenTracker(),
+        tmp_path,
+        "imagen-prueba",
+        ejecutor=EjecutorGrabado(sandbox(0, coverage=coverage)),
+    )
+
+    revision = reviewer.revisar(CONTRATO, _intento(1, CODIGO_VALIDO), None)
+
+    # Cuerpo de duplicar = líneas 2 a 4: se ejecutaron 2 y 4, faltó 3.
+    assert revision["cobertura"] == {"lineas": 66.67, "ramas": 50.0}

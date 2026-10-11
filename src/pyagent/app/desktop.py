@@ -203,6 +203,29 @@ class DesktopAPI:
         except ResultadosNoDisponibles as error:
             return {"ok": False, "motivo": str(error)}
 
+    def obtener_reporte(self, ruta: str, run_id: str | None = None) -> dict:
+        """Datos del Reporte de auditoría de una corrida (HU-21).
+
+        Las cifras y los controles salen de `results.json`; el contrato, el test y la
+        traza de cada función, de `detalle.json` (misma carpeta de la corrida).
+
+        Returns:
+            dict: ``{"ok": True, ...}`` con lo que arma `vista_reporte()`, o
+            ``{"ok": False, "motivo": str}`` si no hay resultados que mostrar.
+        """
+        from pyagent.storage.vista_ejecucion import (
+            ResultadosNoDisponibles,
+            leer_results,
+        )
+        from pyagent.storage.vista_reporte import leer_detalle, vista_reporte
+
+        try:
+            results = leer_results(ruta, run_id)
+        except ResultadosNoDisponibles as error:
+            return {"ok": False, "motivo": str(error)}
+        detalle = leer_detalle(ruta, results["run_id"])
+        return {"ok": True, **vista_reporte(results, detalle)}
+
     def start_run(self, folder_path: str, profile: str = "deep") -> dict:
         """Inicia la corrida del sistema sobre el proyecto seleccionado.
 
