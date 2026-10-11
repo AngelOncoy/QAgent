@@ -4,7 +4,7 @@
 
 QAgent genera y valida pruebas pytest para código Python 3.10+: **pruebas unitarias de funciones** y **pruebas de endpoints FastAPI**. Tres agentes basados en LLM (Planner, Generator y Reviewer) trabajan bajo un orquestador determinista, y todas las pruebas se ejecutan en un sandbox Docker aislado.
 
-El documento sigue el **modelo C4** (Contexto → Contenedores → Componentes) y lo completa con vistas dinámicas, despliegue, el modelo GAIA de los agentes y las decisiones de diseño.
+El documento sigue el **modelo C4** (Contexto → Contenedores → Componentes → Código) y lo completa con vistas dinámicas, despliegue, el modelo GAIA de los agentes y las decisiones de diseño.
 
 **Contenido**
 
@@ -12,13 +12,14 @@ El documento sigue el **modelo C4** (Contexto → Contenedores → Componentes) 
 2. [Nivel 1 · Contexto](#2-nivel-1--contexto)
 3. [Nivel 2 · Contenedores](#3-nivel-2--contenedores)
 4. [Nivel 3 · Componentes del backend](#4-nivel-3--componentes-del-backend)
-5. [Vistas dinámicas](#5-vistas-dinámicas)
-6. [Vista de despliegue](#6-vista-de-despliegue)
-7. [Modelo GAIA](#7-modelo-gaia)
-8. [Contratos JSON](#8-contratos-json)
-9. [Stack tecnológico](#9-stack-tecnológico)
-10. [Decisiones de arquitectura](#10-decisiones-de-arquitectura)
-11. [Aprobación](#11-aprobación)
+5. [Nivel 4 · Código](#5-nivel-4--código)
+6. [Vistas dinámicas](#6-vistas-dinámicas)
+7. [Vista de despliegue](#7-vista-de-despliegue)
+8. [Modelo GAIA](#8-modelo-gaia)
+9. [Contratos JSON](#9-contratos-json)
+10. [Stack tecnológico](#10-stack-tecnológico)
+11. [Decisiones de arquitectura](#11-decisiones-de-arquitectura)
+12. [Aprobación](#12-aprobación)
 
 ---
 
@@ -32,7 +33,7 @@ El documento sigue el **modelo C4** (Contexto → Contenedores → Componentes) 
 | **Modular** | Por dentro, el código está dividido en módulos con una responsabilidad cada uno (`agents`, `analysis`, `sandbox`, `llm`, `orchestrator`, `app`) que se comunican por contratos JSON y reglas de dependencia (sección 4). |
 | **En capas** | Presentación → aplicación → datos. Cada capa solo usa la de abajo. |
 | **Pipeline orquestado** | Cada función pasa por etapas fijas (analizar → planificar → generar → ejecutar y revisar → reportar), dirigidas por una máquina de estados. |
-| **Multiagente (GAIA)** | Las etapas que requieren criterio las cumplen agentes con roles, permisos y protocolos definidos (sección 7). |
+| **Multiagente (GAIA)** | Las etapas que requieren criterio las cumplen agentes con roles, permisos y protocolos definidos (sección 8). |
 
 ### Por qué monolito y no otra opción
 
@@ -179,11 +180,199 @@ flowchart TB
 
 ---
 
-## 5. Vistas dinámicas
+## 5. Nivel 4 · Código
 
-### 5.1 Pipeline de una corrida
+C4 recomienda dibujar este nivel solo para los componentes clave. Aquí se documenta el **orquestador y sus agentes**, que es donde se cumplen las reglas de GAIA, y se mapea cada componente del Nivel 3 al código que lo implementa. Refleja el código de `develop` al 2026-10-10.
 
-Cada función o endpoint seleccionado pasa por estas etapas, en **orden de dependencias** (sección 5.4). Entre paréntesis, dónde se gastan tokens.
+### 5.1 Orquestador y agentes
+
+```mermaid
+classDiagram
+    class Orquestador {
+        +planner: Planner
+        +generator: Generator
+        +reviewer: Reviewer
+        +bus: BusEventos
+        +tracker: TokenTracker
+        +max_intentos: int
+        +timeout_paso_s: float
+        +estado: Estado
+        +ejecutar(modulo) ResultadoCorrida
+        -_planificar(modulo) list
+        -_procesar_objetivo(contrato, objetivos)
+        -_generar(contrato, intento, feedback) dict
+        -_revisar(contrato, test, test_anterior, tope) dict
+        -_llamar(agente, funcion, args)
+        -_validar(nombre, dato, agente)
+        -_transicionar(destino, funcion)
+    }
+    class Planner {
+        <<Protocol>>
+        +planificar(modulo) list
+    }
+    class Generator {
+        <<Protocol>>
+        +generar(contrato, intento, feedback) dict
+    }
+    class Reviewer {
+        <<Protocol>>
+        +revisar(contrato, test, test_anterior) dict
+    }
+    class PlannerAgent
+    class GeneratorAgent
+    class ReviewerAgent {
+        +ruta_proyecto: Path
+        +imagen: str
+        +ejecutor: Ejecutor
+    }
+    class ClienteLLM {
+        <<Protocol>>
+        +generar(prompt, rol) RespuestaLLM
+    }
+    class ClienteLLMReal
+    class FakeLLMClient
+    class TokenTracker {
+        +fijar_contexto(funcion, intento)
+        +registrar(...)
+        +totales_por_agente() dict
+    }
+    class BusEventos {
+        +historial: list~Evento~
+        +suscribir(suscriptor)
+        +emitir(evento)
+    }
+    class Estado {
+        <<enumeration>>
+        PLANIFICAR
+        GENERAR
+        EJECUTAR_REVISAR
+        REINTENTAR
+        FIN
+        FALLO_CONTROLADO
+    }
+    class ResultadoCorrida {
+        +modulo: str
+        +estado_final: Estado
+        +motivo_fallo: str
+        +traza_estados: list
+        +tokens_por_agente: dict
+        +a_dict() dict
+    }
+    class ResultadoObjetivo {
+        +objetivo: str
+        +critical: bool
+        +decision: str
+        +intentos: int
+        +cobertura: dict
+        +laundering_detectado: bool
+        +motivo_estancado: str
+    }
+
+    Orquestador --> Planner
+    Orquestador --> Generator
+    Orquestador --> Reviewer
+    Orquestador --> BusEventos
+    Orquestador --> TokenTracker
+    Orquestador --> Estado
+    Orquestador ..> ResultadoCorrida : produce
+    ResultadoCorrida *-- ResultadoObjetivo
+    PlannerAgent ..|> Planner
+    GeneratorAgent ..|> Generator
+    ReviewerAgent ..|> Reviewer
+    PlannerAgent --> ClienteLLM
+    GeneratorAgent --> ClienteLLM
+    ReviewerAgent ..> ClienteLLM : opcional
+    ClienteLLMReal ..|> ClienteLLM
+    FakeLLMClient ..|> ClienteLLM
+    PlannerAgent --> TokenTracker
+    GeneratorAgent --> TokenTracker
+    ReviewerAgent --> TokenTracker
+```
+
+Fuera del diagrama, `ReviewerAgent` usa dos funciones: `sandbox.ejecutar_pruebas` (ejecución aislada) y `analysis.comparar_aserciones` (guardrail de laundering, HU-16). La regla de corte es la función pura `decidir_corte()` de `orquestador.py`.
+
+### 5.2 Del componente al código
+
+| Componente (Nivel 3) | Archivo | Punto de entrada |
+|---|---|---|
+| Puente js_api | `app/desktop.py` | `DesktopAPI` (`start_run`, `emit_event`, …) |
+| Orquestador | `orchestrator/orquestador.py` | `Orquestador.ejecutar(modulo) -> ResultadoCorrida` |
+| Estados | `orchestrator/estados.py` | `Estado`, `TRANSICIONES`, `validar_transicion()` |
+| Interfaces de los agentes | `orchestrator/puertos.py` | `Planner`, `Generator`, `Reviewer` (`Protocol`) |
+| Eventos del Monitor | `orchestrator/eventos.py` | `BusEventos`, `Evento` |
+| Planner | `agents/planner.py` | `PlannerAgent.planificar()` |
+| Generator | `agents/generator.py` | `GeneratorAgent.generar()` |
+| Reviewer / Executor | `agents/reviewer.py` | `ReviewerAgent.revisar()` |
+| Analizador | `analysis/analyzer.py` | `analizar_proyecto(raiz)` |
+| Guardrail de laundering | `analysis/laundering.py` | `comparar_aserciones()` |
+| Cliente LLM | `llm/fabrica.py`, `llm/cliente.py`, `llm/fake.py` | `crear_cliente(precio, claves, simulado=...)` |
+| Tokens y costo | `llm/tracker.py`, `llm/precios.py` | `TokenTracker`, `cargar_precios()` |
+| Sandbox | `sandbox/imagen.py`, `sandbox/ejecucion.py` | `preparar_imagen()`, `ejecutar_pruebas()` |
+| Hash del error | `sandbox/normalizacion.py` | `hash_error()` |
+| Contratos | `contracts.py` + `contracts/*.schema.json` | `validar(nombre, dato)` |
+| Registro de corridas | `storage/registro.py` | `escribir_corrida()` (`log.json`, `results.json`) |
+| Almacenamiento | `almacenamiento/proyecto.py`, `almacenamiento/recientes.py` | `AlmacenProyecto`, `recientes.registrar()` |
+| Configuración | `config/carga.py`, `config/entorno.py` | `cargar_configuracion()`, `verificar_entorno()` |
+| Proyectos | `proyectos/proyecto_local.py`, `clonador.py`, `vista_previa.py` | `inspeccionar_carpeta()`, `clonar()`, `generar_vista_previa()` |
+
+Todas las rutas son relativas a `src/pyagent/`, salvo `contracts/`.
+
+### 5.3 Patrones de diseño del orquestador
+
+| Patrón | Dónde | Para qué |
+|---|---|---|
+| Máquina de estados con tabla explícita | `estados.py` | Cada transición se valida con `validar_transicion()`; una transición no prevista lanza `TransicionInvalida`. |
+| Puertos y adaptadores | `puertos.py` | El orquestador depende de interfaces, no de `agents/`. Los agentes reales y los simulados de los tests se intercambian sin tocarlo. |
+| Inyección de dependencias | constructor de `Orquestador` | Los agentes, el bus y el tracker se pasan desde afuera. |
+| Mediador | `Orquestador` | Todo mensaje entre agentes pasa por él (modelo de conocidos, sección 8.5). |
+| Validación en cada frontera | `_validar()`, `_coherente()` | Cada respuesta se valida contra su JSON Schema y se comprueba que sea del objetivo e intento pedidos. |
+| Observador | `BusEventos` | El Monitor se suscribe a los eventos; un suscriptor que falla no detiene la corrida. |
+| Tiempo máximo por paso | `_llamar()` | Cada llamada a un agente corre en un hilo daemon con `join(120 s)`; si no responde, `TimeoutPaso` (fallo controlado). |
+| Copia defensiva | `copy.deepcopy(contrato)` | Lo que un agente cambie en su copia del contrato no llega al intento siguiente. |
+
+### 5.4 Dependencias reales entre paquetes
+
+Grafo obtenido de los `import` de `src/pyagent/`.
+
+```mermaid
+flowchart TB
+    app --> almacenamiento & config & proyectos & sandbox
+    agents --> analysis & contracts & llm & sandbox
+    orchestrator --> contracts & llm
+    almacenamiento --> storage
+    storage --> llm
+    storage -. "solo tipos" .-> orchestrator
+    proyectos --> analysis
+    config --> llm & sandbox
+    llm -. "import dentro de una función" .-> config
+```
+
+| Regla (sección 4) | ¿Se cumple? |
+|---|---|
+| 3 · Los agentes no se importan entre sí ni al orquestador | Sí. Y el orquestador tampoco importa `agents/`: los recibe por el constructor. |
+| 4 · Solo el Reviewer usa el Sandbox | Sí. Solo `agents/reviewer.py` importa `sandbox`. |
+| 6 · Los servicios no dependen de la interfaz | Sí. Nadie importa `pyagent.app` salvo `__main__`. |
+
+Deuda conocida: `config` y `llm` se importan mutuamente (`llm/fabrica.py` lo resuelve con un import dentro de la función), y hay dos paquetes de persistencia, `storage/` (EN-05) y `almacenamiento/` (EN-07), donde el segundo usa `nuevo_run_id` del primero.
+
+### 5.5 Pendiente
+
+| Qué falta | Dónde está hoy | Referencia |
+|---|---|---|
+| Conectar la corrida: `start_run` verifica el entorno y registra la corrida, pero no crea los agentes ni llama a `Orquestador.ejecutar`. Esa conexión solo existe en `tests/orchestrator/`. | `app/desktop.py` | EN-04, HU-09 |
+| Recorrer todos los módulos del proyecto en orden topológico por `llama_a`. Hoy `ejecutar()` procesa un módulo por llamada. | `orchestrator/orquestador.py` | Sección 6.4, regla 3 |
+| Tope de gasto: `tope_por_corrida_usd` se carga, pero el orquestador no lo consulta. | `config/carga.py` | Sección 6.3 |
+| Caché del plan por SHA-256 del módulo. | — | HU-24 |
+| Corte por causa común entre objetivos distintos. Hoy el hash repetido se detecta solo dentro de un mismo objetivo. | `decidir_corte()` | Sección 6.4, regla 4 |
+| Mutation testing de las funciones `critical: true`. | — | EN-09 |
+
+---
+
+## 6. Vistas dinámicas
+
+### 6.1 Pipeline de una corrida
+
+Cada función o endpoint seleccionado pasa por estas etapas, en **orden de dependencias** (sección 6.4). Entre paréntesis, dónde se gastan tokens.
 
 ```mermaid
 flowchart LR
@@ -213,7 +402,7 @@ flowchart LR
 | Cliente LLM | `usage` de cada llamada | Tokens por agente (`prompt_tokens` + `completion_tokens`) |
 | Mutation testing | mutantes muertos / totales | Mutation Score (solo funciones críticas) |
 
-### 5.2 Flujo de información
+### 6.2 Flujo de información
 
 Mensajes, en orden, para una función o endpoint.
 
@@ -256,33 +445,33 @@ sequenceDiagram
     OR-->>UI: reporte final
 ```
 
-### 5.3 Máquina de estados del orquestador
+### 6.3 Máquina de estados del orquestador
 
-Base para EN-04.
+Implementada en `orchestrator/estados.py` (EN-04). Una llamada a `Orquestador.ejecutar()` procesa **un módulo**.
 
 ```mermaid
 stateDiagram-v2
-    [*] --> Analizando
-    Analizando --> Planificando: estructura lista
-    Analizando --> FalloControlado: error de análisis
-    Planificando --> Generando: contrato válido
-    Planificando --> FalloControlado: contrato inválido o tope de gasto
-    Generando --> Revisando: test recibido
-    Revisando --> Generando: retry (intento < 3)
-    Revisando --> SiguienteElemento: accept, bug_detectado o stalled
-    Revisando --> FalloControlado: timeout o error del sandbox
-    SiguienteElemento --> Generando: siguiente en orden topológico
-    SiguienteElemento --> Planificando: siguiente módulo
-    SiguienteElemento --> Registrando: no queda nada
-    FalloControlado --> Registrando
-    Registrando --> [*]
+    [*] --> PLANIFICAR
+    PLANIFICAR --> GENERAR: plan con objetivos
+    PLANIFICAR --> FIN: plan vacío
+    PLANIFICAR --> FALLO_CONTROLADO: contrato inválido o error del Planner
+    GENERAR --> EJECUTAR_REVISAR: test válido
+    GENERAR --> FALLO_CONTROLADO: contrato inválido, error o timeout
+    EJECUTAR_REVISAR --> REINTENTAR: retry
+    REINTENTAR --> GENERAR: intento + 1
+    EJECUTAR_REVISAR --> GENERAR: accept, bug_detectado o stalled · siguiente objetivo
+    EJECUTAR_REVISAR --> FIN: no quedan objetivos
+    EJECUTAR_REVISAR --> FALLO_CONTROLADO: timeout o error del sandbox
+    FIN --> [*]
+    FALLO_CONTROLADO --> [*]
 ```
 
-- **Fallo controlado:** la corrida no se cuelga. Se registra el motivo y se escriben `log.json` y `results.json` con lo que se alcanzó a procesar.
-- **Tope de gasto:** antes de cada llamada al LLM, el orquestador compara el gasto acumulado con `tope_por_corrida_usd` de `config.toml`.
-- **Un reintento nunca vuelve al Planner.** El plan se hace una vez por módulo y se reutiliza (HU-24); un reintento solo repite Generator → Reviewer para ese test.
+- **Fallo controlado:** la corrida no se cuelga. `ejecutar()` nunca lanza la excepción: devuelve un `ResultadoCorrida` con el motivo y los objetivos que se alcanzaron a procesar, que `storage.escribir_corrida()` convierte en `log.json` y `results.json`.
+- **Corte de reintentos (`decidir_corte`):** `stalled` si el hash del error se repite respecto del intento anterior (`error_repetido`) o si se llega al tope de 3 intentos (`limite_intentos`).
+- **Un reintento nunca vuelve al Planner.** `REINTENTAR` solo puede ir a `GENERAR`; el plan se hace una vez por módulo.
+- **Pendiente** (sección 5.5): recorrer los módulos en orden topológico, el tope de gasto (`tope_por_corrida_usd`) antes de cada llamada al LLM y la caché del plan (HU-24).
 
-### 5.4 Manejo de fallos y dependencias
+### 6.4 Manejo de fallos y dependencias
 
 **Problema:** de 5 pruebas A, B, C, D, E, pasan A y B; C falla, y D y E fallan "por culpa" de C (D usa C, E usa D). ¿Hay que rehacer el plan? **No.** Se resuelve con cuatro reglas, ninguna llama al Planner.
 
@@ -330,7 +519,7 @@ flowchart LR
 
 ---
 
-## 6. Vista de despliegue
+## 7. Vista de despliegue
 
 ```mermaid
 flowchart TB
@@ -364,7 +553,7 @@ flowchart TB
 
 ---
 
-## 7. Modelo GAIA
+## 8. Modelo GAIA
 
 QAgent se modela con la metodología GAIA (Wooldridge, Jennings y Kinny): primero el **análisis** (modelo de roles y modelo de interacción) y luego el **diseño** (modelo de agentes, de servicios y de conocidos).
 
@@ -372,7 +561,7 @@ Hay **cuatro roles**: tres implementados con LLM (Planner, Generator y Reviewer)
 
 **Notación de las expresiones de vida (liveness):** `x . y` = x seguido de y · `x | y` = x o y · `x*` = cero o más veces · `x+` = una o más veces · `[x]` = opcional. Las actividades internas van en *cursiva* y los protocolos en texto normal.
 
-### 7.1 Modelo de roles
+### 8.1 Modelo de roles
 
 #### Rol: Planner
 
@@ -404,7 +593,7 @@ Hay **cuatro roles**: tres implementados con LLM (Planner, Generator y Reviewer)
 | **Liveness** | `REVIEWER = (SolicitarRevisión . EjecutarEnSandbox . CompararAserciones . [JuzgarAserciones] . [ClasificarFallo . CalcularHashError] . Decidir . EntregarVeredicto)*` |
 | **Safety** | • Nunca acepta un test cuyas aserciones se debilitaron respecto al contrato o al intento anterior (por ejemplo `== 200` → `in (200, 500)`). • Si la aserción falla con el valor esperado del contrato, devuelve `bug_detectado` y **no pide reintento**. • Devuelve `stalled` si intento = 3 o si el hash del error normalizado se repite dos veces seguidas. • Toda ejecución es con `--network none`. |
 
-`CompararAserciones` es el guardrail determinista, que compara el AST de las aserciones. `JuzgarAserciones` (LLM) solo se usa cuando el guardrail no puede decidir. `ClasificarFallo` separa `error_test` de `bug_codigo` (sección 5.4).
+`CompararAserciones` es el guardrail determinista, que compara el AST de las aserciones. `JuzgarAserciones` (LLM) solo se usa cuando el guardrail no puede decidir. `ClasificarFallo` separa `error_test` de `bug_codigo` (sección 6.4).
 
 #### Rol: Coordinador (orquestador, sin LLM)
 
@@ -416,7 +605,7 @@ Hay **cuatro roles**: tres implementados con LLM (Planner, Generator y Reviewer)
 | **Liveness** | `COORDINADOR = AnalizarProyecto . OrdenarPorDependencias . (SolicitarPlan . (SolicitarTest . SolicitarRevisión)+)+ . RegistrarCorrida` |
 | **Safety** | • Gasto acumulado ≤ tope por corrida. • Todo mensaje entre roles pasa por él (sin broadcast). • Un error o timeout del sandbox termina en fallo controlado. • Un reintento nunca vuelve a solicitar el plan. |
 
-### 7.2 Modelo de interacción
+### 8.2 Modelo de interacción
 
 | Protocolo | Iniciador | Respondedor | Entrada | Salida | Propósito |
 |---|---|---|---|---|---|
@@ -427,7 +616,7 @@ Hay **cuatro roles**: tres implementados con LLM (Planner, Generator y Reviewer)
 
 Los tres primeros protocolos son de **petición-respuesta**: el Coordinador espera la salida antes de continuar. NotificarEvento es asíncrono y no espera respuesta.
 
-### 7.3 Modelo de agentes
+### 8.3 Modelo de agentes
 
 | Tipo de agente | Rol que cumple | Instancias por corrida | Modelo |
 |---|---|---|---|
@@ -438,7 +627,7 @@ Los tres primeros protocolos son de **petición-respuesta**: el Coordinador espe
 
 Cada rol lo cumple un solo tipo de agente. Las funciones y endpoints se procesan uno tras otro, así que una instancia de cada agente es suficiente en la Fase 1.
 
-### 7.4 Modelo de servicios
+### 8.4 Modelo de servicios
 
 | Servicio | Agente | Entradas | Salidas | Precondición | Postcondición |
 |---|---|---|---|---|---|
@@ -447,7 +636,7 @@ Cada rol lo cumple un solo tipo de agente. Las funciones y endpoints se procesan
 | Revisar test | ReviewerAgent | contrato, test, test anterior opcional | `review_result` | el sandbox está disponible | decisión en {accept, retry, bug_detectado, stalled}; métricas del intento registradas |
 | Coordinar corrida | Orquestador | ruta del proyecto, perfil | `log.json`, `results.json` | configuración válida y entorno listo (EN-06) | ambos archivos validan contra `run_log.schema.json` |
 
-### 7.5 Modelo de conocidos
+### 8.5 Modelo de conocidos
 
 Quién puede comunicarse con quién. El único nodo conectado con todos es el Orquestador.
 
@@ -466,7 +655,7 @@ No existe ninguna comunicación directa entre PlannerAgent, GeneratorAgent y Rev
 
 ---
 
-## 8. Contratos JSON
+## 9. Contratos JSON
 
 Los schemas completos van en `contracts/` y los valida `tests/test_contracts.py`.
 
@@ -482,7 +671,7 @@ Los schemas completos van en `contracts/` y los valida `tests/test_contracts.py`
 
 ---
 
-## 9. Stack tecnológico
+## 10. Stack tecnológico
 
 | Capa | Tecnología | Uso | Ítem |
 |---|---|---|---|
@@ -502,24 +691,24 @@ Los schemas completos van en `contracts/` y los valida `tests/test_contracts.py`
 
 ---
 
-## 10. Decisiones de arquitectura
+## 11. Decisiones de arquitectura
 
 | Decisión | Motivo | Registro |
 |---|---|---|
 | Monolito modular de escritorio | Un usuario por instalación, sin servidor ni despliegue; el código del usuario no sale de su PC | Sección 1 |
 | pywebview con `js_api` | Reusar el HTML del demo sin levantar un servidor HTTP | Sección 1 |
-| Sandbox Docker sin red | Las pruebas generadas son código desconocido; se aíslan de archivos, dependencias y red | Sección 6 |
-| Orquestador determinista, sin LLM | Reglas fijas (reintentos, topes); métricas reproducibles; 0 tokens | Sección 7 |
+| Sandbox Docker sin red | Las pruebas generadas son código desconocido; se aíslan de archivos, dependencias y red | Sección 7 |
+| Orquestador determinista, sin LLM | Reglas fijas (reintentos, topes); métricas reproducibles; 0 tokens | Sección 8 |
 | Un modelo por agente | Inteligencia solo donde hay ambigüedad; el Planner concentra el gasto | ADR-001 |
 | Análisis solo con `ast`, sin Graphify | Cubre funciones y FastAPI, 0 tokens, sin dependencias | ADR-002 |
 | Frontend separado, un componente por pantalla, sin bundler ni módulos ES | Cambios por pantalla en lugar de un archivo de 2000 líneas; funciona con `file://` y pywebview sin servidor propio; sin Node ni compilación | ADR-003 |
 | Pruebas de endpoints FastAPI con `TestClient` | Reutiliza el sandbox, pytest y las 5 métricas; integración, extremo a extremo y carga quedan en Fase 2 | Backlog EP-09 |
-| Reintentos solo Generator → Reviewer; bug detectado no se reintenta; orden topológico por `llama_a` | Evita rehacer el plan (el agente más caro) y la cascada de fallos entre funciones | Sección 5.4 |
+| Reintentos solo Generator → Reviewer; bug detectado no se reintenta; orden topológico por `llama_a` | Evita rehacer el plan (el agente más caro) y la cascada de fallos entre funciones | Sección 6.4 |
 | Datos en archivos JSON | Viajan con el proyecto; no requiere base de datos | EN-07 |
 
 ---
 
-## 11. Aprobación
+## 12. Aprobación
 
 Criterio 5 de EN-01: aprobado por los 4 integrantes (se marca al aprobar el PR).
 
