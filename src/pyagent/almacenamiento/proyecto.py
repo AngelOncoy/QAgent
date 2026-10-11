@@ -7,6 +7,7 @@ Estructura::
         runs/<run_id>/      una carpeta por corrida: run.json, y log.json y
                             results.json (EN-05, `pyagent.storage`)
         specs/<id>.json     spec de cada prueba (contrato del Planner), para regresión
+        specs/<modulo>.spec.json  plan completo y huella para reutilización (HU-24)
         tests/test_*.py     solo las pruebas aprobadas
 
 El historial son los `run.json` ordenados por `run_id` (empieza con la fecha), sin un
@@ -16,11 +17,14 @@ interfaz ni del orquestador.
 
 from __future__ import annotations
 
+import hashlib
 import re
 from collections.abc import Iterable
 from datetime import datetime
-from pathlib import Path
+from io import BytesIO
+from pathlib import Path, PurePosixPath
 from typing import Any
+from zipfile import ZIP_DEFLATED, ZipFile
 
 from pyagent import contracts
 from pyagent.almacenamiento.disco import (
@@ -46,6 +50,7 @@ ARCHIVO_RUN = "run.json"
 ESTADOS_RUN = ("en_curso", "fin", "fallo_controlado")
 # "vigente" se reutiliza en regresión; "obsoleta" cuando el código cambió (HU-24).
 ESTADOS_SPEC = ("vigente", "obsoleta")
+ACCIONES_SPEC_MODULO = ("generado", "reutilizado", "regenerado")
 TIPOS_PRUEBA = ("funcion", "endpoint")
 CAMPOS_RUN = (
     "run_id",
@@ -61,6 +66,7 @@ CAMPOS_SPEC = ("id", "creado", "run_origen", "estado", "archivo_prueba", "contra
 PATRON_RUN_ID = re.compile(r"^\d{8}-\d{6}-[0-9a-f]{4}$")
 PATRON_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_-]*$")
 PATRON_PRUEBA = re.compile(r"^test_[A-Za-z0-9_]+\.py$")
+PATRON_HUELLA = re.compile(r"^[0-9a-f]{64}$")
 
 
 def _iso(momento: datetime | None = None) -> str:
@@ -90,6 +96,36 @@ def id_de_spec(modulo: str, objetivo: str) -> str:
 def nombre_prueba(spec_id: str) -> str:
     """Nombre del archivo de la prueba aprobada de una spec: `test_<spec_id>.py`."""
     return f"test_{spec_id.replace('-', '_')}.py"
+
+
+def id_de_modulo(modulo: str) -> str:
+    """Identificador seguro y estable de un módulo para su caché HU-24."""
+    ruta = PurePosixPath(modulo)
+    if ruta.is_absolute() or ".." in ruta.parts or ruta.suffix != ".py":
+        raise ErrorAlmacen(f"Ruta de módulo no válida: {modulo!r}")
+    partes = [
+        re.sub(r"[^A-Za-z0-9_-]+", "_", parte) for parte in ruta.with_suffix("").parts
+    ]
+    identificador = "__".join(parte.strip("_") for parte in partes if parte.strip("_"))
+    if not identificador or not PATRON_ID.match(identificador):
+        raise ErrorAlmacen(f"Ruta de módulo no válida: {modulo!r}")
+    # Los módulos sencillos conservan un nombre legible (`banco_mvp.py`), mientras
+    # que rutas anidadas o nombres que requieren normalización reciben una huella.
+    # Así `a/b.py` y `a__b.py` nunca terminan en el mismo archivo de caché.
+    base_original = ruta.with_suffix("").as_posix()
+    es_nombre_directo = (
+        len(ruta.parts) == 1
+        and re.fullmatch(r"[A-Za-z0-9_]+", base_original) is not None
+    )
+    if not es_nombre_directo:
+        sufijo = hashlib.sha256(modulo.encode("utf-8")).hexdigest()[:12]
+        identificador = f"{identificador}--{sufijo}"
+    return identificador
+
+
+def nombre_spec_modulo(modulo: str) -> str:
+    """Nombre de `.pyagent/specs/<modulo>.spec.json` sin colisiones por carpetas."""
+    return f"{id_de_modulo(modulo)}.spec.json"
 
 
 class AlmacenProyecto:
@@ -183,7 +219,10 @@ class AlmacenProyecto:
         _validar_run(run)
         self.inicializar()
         ruta = self.carpeta_run(run["run_id"]) / ARCHIVO_RUN
-        escribir_json_atomico(ruta, {c: run[c] for c in CAMPOS_RUN})
+        datos = {c: run[c] for c in CAMPOS_RUN}
+        if "specs" in run:
+            datos["specs"] = run["specs"]
+        escribir_json_atomico(ruta, datos)
         return ruta
 
     def finalizar_run(
@@ -315,6 +354,8 @@ class AlmacenProyecto:
             return []
         specs = []
         for ruta in sorted(self.carpeta_specs.glob("*.json"), key=_nombre):
+            if ruta.name.endswith(".spec.json"):
+                continue
             try:
                 specs.append(self.leer_spec(ruta.stem))
             except ErrorAlmacen:
@@ -329,6 +370,118 @@ class AlmacenProyecto:
         if not isinstance(spec_id, str) or not PATRON_ID.match(spec_id):
             raise ErrorAlmacen(f"id de spec no válido: {spec_id!r}")
         return self.carpeta_specs / f"{spec_id}.json"
+
+    # --- Planes por módulo (HU-24) -------------------------------------------------
+
+    def guardar_plan_modulo(
+        self,
+        modulo: str,
+        huella: str,
+        contratos: list[dict[str, Any]],
+        run_actual: str,
+        accion: str,
+        ahora: datetime | None = None,
+    ) -> dict[str, Any]:
+        """Guarda el plan completo de un módulo para reutilizarlo en otra corrida.
+
+        En una reutilización conserva `creado` y `run_origen`; solo actualiza la
+        última corrida y su acción. Si el módulo cambió, la nueva spec reemplaza la
+        anterior y la acción queda como `regenerado`.
+        """
+        previo: dict[str, Any] | None = None
+        if accion == "reutilizado":
+            try:
+                previo = self.leer_plan_modulo(modulo)
+            except ErrorAlmacen:
+                previo = None
+            if previo is None or previo["huella"] != huella:
+                raise ErrorAlmacen(
+                    "No se puede reutilizar una spec ausente o con otra huella."
+                )
+        plan = {
+            "version": "1",
+            "modulo": modulo,
+            "huella": huella,
+            "creado": previo["creado"] if previo else _iso(ahora),
+            "run_origen": previo["run_origen"] if previo else run_actual,
+            "estado": "vigente",
+            "ultima_accion": accion,
+            "ultima_corrida": run_actual,
+            "contratos": contratos,
+        }
+        _validar_plan_modulo(plan)
+        self.inicializar()
+        escribir_json_atomico(self._ruta_plan_modulo(modulo), plan)
+        return plan
+
+    def leer_plan_modulo(self, modulo: str) -> dict[str, Any]:
+        """Lee y valida la spec modular usada como caché del Planner."""
+        ruta = self._ruta_plan_modulo(modulo)
+        plan = leer_json_objeto(ruta)
+        try:
+            _validar_plan_modulo(plan)
+        except (ErrorAlmacen, contracts.ContratoInvalido) as exc:
+            raise DatoCorrupto(f"{ruta}: {exc}") from exc
+        if plan["modulo"] != modulo:
+            raise DatoCorrupto(f"{ruta}: el módulo no coincide con el archivo.")
+        return plan
+
+    def buscar_plan_vigente(self, modulo: str, huella: str) -> dict[str, Any] | None:
+        """Devuelve la spec solo cuando sigue vigente y la huella coincide."""
+        try:
+            plan = self.leer_plan_modulo(modulo)
+        except ErrorAlmacen:
+            return None
+        if plan["estado"] != "vigente" or plan["huella"] != huella:
+            return None
+        return plan
+
+    def listar_planes_modulo(self) -> list[dict[str, Any]]:
+        """Lista las specs modulares válidas, ordenadas por nombre de archivo."""
+        if not self.carpeta_specs.is_dir():
+            return []
+        planes = []
+        for ruta in sorted(self.carpeta_specs.glob("*.spec.json"), key=_nombre):
+            try:
+                dato = leer_json_objeto(ruta)
+                _validar_plan_modulo(dato)
+            except (ErrorAlmacen, contracts.ContratoInvalido):
+                continue
+            planes.append(dato)
+        return planes
+
+    def registrar_specs_run(
+        self, run_id: str, registros: list[dict[str, Any]]
+    ) -> dict[str, Any]:
+        """Agrega al historial de una corrida cómo se obtuvo cada spec modular."""
+        _validar_registros_specs(registros)
+        run = self.leer_run(run_id)
+        run["specs"] = registros
+        self.guardar_run(run)
+        return run
+
+    def crear_zip_specs(self, modulo: str | None = None) -> tuple[str, bytes]:
+        """Devuelve un ZIP con una spec modular o con todas las specs vigentes."""
+        if modulo is None:
+            rutas = sorted(self.carpeta_specs.glob("*.spec.json"), key=_nombre)
+            nombre = f"specs_{self.raiz.name}.zip"
+        else:
+            ruta = self._ruta_plan_modulo(modulo)
+            if not ruta.is_file():
+                raise DatoNoEncontrado(f"No existe la spec del módulo: {modulo}")
+            rutas = [ruta]
+            nombre = f"{id_de_modulo(modulo)}.spec.zip"
+        if not rutas:
+            raise DatoNoEncontrado("El proyecto no tiene specs modulares guardadas.")
+
+        salida = BytesIO()
+        with ZipFile(salida, "w", ZIP_DEFLATED) as archivo:
+            for ruta in rutas:
+                archivo.write(ruta, arcname=ruta.name)
+        return nombre, salida.getvalue()
+
+    def _ruta_plan_modulo(self, modulo: str) -> Path:
+        return self.carpeta_specs / nombre_spec_modulo(modulo)
 
     # --- Pruebas aprobadas ----------------------------------------------------------
 
@@ -415,6 +568,8 @@ def _validar_run(run: dict[str, Any]) -> None:
         and all(isinstance(resumen.get(c), int) for c in ("pasaron", "fallaron"))
     ):
         raise ErrorAlmacen("resumen debe ser {pasaron, fallaron} o null.")
+    if "specs" in run:
+        _validar_registros_specs(run["specs"])
 
 
 def _validar_spec(spec: dict[str, Any]) -> None:
@@ -435,3 +590,68 @@ def _validar_spec(spec: dict[str, Any]) -> None:
         raise ErrorAlmacen(f"archivo_prueba no válido: {archivo!r}")
     if not isinstance(spec["contrato"], dict):
         raise ErrorAlmacen("contrato debe ser un objeto.")
+
+
+def _validar_plan_modulo(plan: dict[str, Any]) -> None:
+    campos = {
+        "version",
+        "modulo",
+        "huella",
+        "creado",
+        "run_origen",
+        "estado",
+        "ultima_accion",
+        "ultima_corrida",
+        "contratos",
+    }
+    faltan = campos - plan.keys()
+    if faltan:
+        raise ErrorAlmacen(
+            f"A la spec modular le faltan campos: {', '.join(sorted(faltan))}"
+        )
+    if plan["version"] != "1":
+        raise ErrorAlmacen(f"Versión de spec modular no válida: {plan['version']!r}")
+    id_de_modulo(plan["modulo"])
+    if not isinstance(plan["huella"], str) or not PATRON_HUELLA.match(plan["huella"]):
+        raise ErrorAlmacen("La huella de la spec modular no es un SHA-256 válido.")
+    if plan["estado"] != "vigente":
+        raise ErrorAlmacen(f"Estado de spec modular no válido: {plan['estado']!r}")
+    if plan["ultima_accion"] not in ACCIONES_SPEC_MODULO:
+        raise ErrorAlmacen(
+            f"Acción de spec modular no válida: {plan['ultima_accion']!r}"
+        )
+    for campo in ("run_origen", "ultima_corrida"):
+        valor = plan[campo]
+        if not isinstance(valor, str) or not PATRON_RUN_ID.match(valor):
+            raise ErrorAlmacen(f"{campo} no válido: {valor!r}")
+    if not isinstance(plan["creado"], str):
+        raise ErrorAlmacen("creado debe ser una fecha ISO 8601.")
+    contratos = plan["contratos"]
+    if not isinstance(contratos, list) or not contratos:
+        raise ErrorAlmacen("contratos debe ser una lista no vacía.")
+    for contrato in contratos:
+        contracts.validar(contracts.PLANNER, contrato)
+        if contrato["modulo"] != plan["modulo"] or contrato["huella"] != plan["huella"]:
+            raise ErrorAlmacen(
+                "Un contrato no coincide con el módulo o la huella de la spec."
+            )
+
+
+def _validar_registros_specs(registros: Any) -> None:
+    if not isinstance(registros, list):
+        raise ErrorAlmacen("specs debe ser una lista.")
+    for registro in registros:
+        if not isinstance(registro, dict):
+            raise ErrorAlmacen("Cada registro de spec debe ser un objeto.")
+        if set(registro) != {"modulo", "huella", "run_origen", "estado"}:
+            raise ErrorAlmacen("Registro de spec incompleto.")
+        id_de_modulo(registro["modulo"])
+        if not isinstance(registro["huella"], str) or not PATRON_HUELLA.match(
+            registro["huella"]
+        ):
+            raise ErrorAlmacen("Huella inválida en el historial de specs.")
+        if registro["estado"] not in ACCIONES_SPEC_MODULO:
+            raise ErrorAlmacen("Estado inválido en el historial de specs.")
+        origen = registro["run_origen"]
+        if not isinstance(origen, str) or not PATRON_RUN_ID.match(origen):
+            raise ErrorAlmacen("run_origen inválido en el historial de specs.")
