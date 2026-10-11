@@ -17,7 +17,7 @@ registrarComponente('historial/historial', `<!-- ===== 7. HISTORIAL DE CORRIDAS 
     </div>
     <div class="card">
       <h4>Specs guardados <span class="pill p-grey">.pyagent/specs/</span>
-        <button class="btn" style="margin-left:auto;font-size:10.5px;padding:6px 10px;text-transform:none;letter-spacing:0" onclick="toast('Se descargaron los 6 specs en specs_ecommerce-core.zip <span style=&quot;color:var(--dim)&quot;>(simulado)</span>')">⤓ Descargar todos (.zip)</button></h4>
+        <button class="btn" style="margin-left:auto;font-size:10.5px;padding:6px 10px;text-transform:none;letter-spacing:0" onclick="descargarSpecsReal(null)">⤓ Descargar todos (.zip)</button></h4>
       <table>
         <thead><tr><th>Archivo</th><th>Funciones</th><th>Huella del código</th><th>Generado en</th><th>Estado</th><th></th></tr></thead>
         <tbody id="specTable"></tbody>
@@ -35,7 +35,19 @@ const HISTORY = [
 ];
 const SPEC_HASH = {'services/pricing.py':'a3f9c21','services/inventory.py':'7be04d9','services/payments.py':'c11e8a2','services/shipping.py':'5d20f7e','services/cart.py':'e94b1c0','services/discounts.py':'0fa7d33'};
 function specName(mod){ return mod.split('/').pop().replace(/\.py$/,'') + '.spec.json'; }
-function renderHistory(){
+async function renderHistory(){
+  const api = window.pywebview && window.pywebview.api;
+  if(api && api.obtener_historial){
+    try {
+      const datos = await api.obtener_historial(projectPath);
+      if(datos && datos.ok){ renderHistoryReal(datos); return; }
+    } catch(err) {
+      console.error('No se pudo cargar el historial:', err);
+    }
+  }
+  renderHistoryDemo();
+}
+function renderHistoryDemo(){
   $('histCount').textContent = HISTORY.length + ' registradas';
   $('histTable').innerHTML = HISTORY.slice().reverse().map(h => `<tr>
     <td class="mono">#${h.run}${h.current?' <span class="pill p-blue" style="margin-left:4px">actual</span>':''}</td>
@@ -55,4 +67,55 @@ function renderHistory(){
       <td>${st==='reuse'?'<span class="pill p-green">♻ Vigente · reutilizado</span>':'<span class="pill p-amber">↻ Regenerado (el código cambió)</span>'}</td>
       <td><button class="btn" style="font-size:10.5px;padding:5px 9px" title="Descargar este spec" onclick='download(${JSON.stringify(name)}, ${JSON.stringify(JSON.stringify(data,null,2))}, "application/json")'>⤓</button></td></tr>`;
   }).join('');
+}
+
+function renderHistoryReal(datos){
+  const corridas = datos.corridas || [], specs = datos.specs || [];
+  $('histCount').textContent = corridas.length + ' registradas';
+  $('histTable').innerHTML = corridas.length ? corridas.map((h, indice) => {
+    const fecha = new Date(h.fecha), modelos = Object.values(h.modelos || {}).filter(Boolean).join(' · ') || '—';
+    const s = h.resumen_specs || {}, partes = [];
+    if(s.generado) partes.push(s.generado + ' generados');
+    if(s.reutilizado) partes.push(s.reutilizado + ' reutilizados');
+    if(s.regenerado) partes.push(s.regenerado + ' regenerados');
+    return `<tr>
+      <td class="mono">#${escHtml(h.run_id)}${indice===0?' <span class="pill p-blue" style="margin-left:4px">actual</span>':''}</td>
+      <td>${escHtml(isNaN(fecha) ? h.fecha : fecha.toLocaleString('es-PE'))}</td>
+      <td>${escHtml(h.perfil || '—')}</td><td style="font-size:11.5px">${escHtml(modelos)}</td>
+      <td>${escHtml(partes.join(' · ') || '—')}</td><td>${h.pass_rate===null || h.pass_rate===undefined?'—':Number(h.pass_rate).toFixed(1)+'%'}</td>
+      <td class="mono">${Number(h.total_tokens || 0).toLocaleString('es-PE')}<div class="sub">Planner: ${Number(h.tokens_planner || 0).toLocaleString('es-PE')}</div></td>
+      <td class="mono">US$ ${Number(h.costo_usd || 0).toFixed(4)}</td>
+      <td><button class="btn" style="font-size:10.5px;padding:6px 10px" onclick="cargarReporteReal('${escHtml(h.run_id)}')">Ver reporte</button></td></tr>`;
+  }).join('') : '<tr><td colspan="9" class="hint">Todavía no hay corridas registradas.</td></tr>';
+
+  $('specTable').innerHTML = specs.length ? specs.map(spec => {
+    const accion = spec.ultima_accion;
+    const estado = accion==='reutilizado'
+      ? '<span class="pill p-green">♻ Vigente · reutilizado</span>'
+      : accion==='regenerado'
+        ? '<span class="pill p-amber">↻ Regenerado (el código cambió)</span>'
+        : '<span class="pill p-blue">Generado</span>';
+    return `<tr>
+      <td class="fn">.pyagent/specs/${escHtml(spec.archivo)}<div class="sub">${escHtml(spec.modulo)}</div></td>
+      <td>${(spec.funciones || []).map(f=>`<div class="mono" style="font-size:11px">${escHtml(f)}</div>`).join('')}</td>
+      <td class="mono" title="${escHtml(spec.huella)}">${escHtml(spec.huella.slice(0,12))}…</td>
+      <td class="mono">#${escHtml(spec.run_origen)}</td><td>${estado}</td>
+      <td><button class="btn" style="font-size:10.5px;padding:5px 9px" title="Descargar este spec en ZIP" onclick='descargarSpecsReal(${JSON.stringify(spec.modulo)})'>⤓</button></td></tr>`;
+  }).join('') : '<tr><td colspan="6" class="hint">Todavía no hay specs modulares guardadas.</td></tr>';
+}
+
+async function descargarSpecsReal(modulo){
+  const api = window.pywebview && window.pywebview.api;
+  if(!(api && api.descargar_specs_zip)){
+    toast('La descarga ZIP está disponible en la aplicación de escritorio. <span style="color:var(--dim)">(demostración)</span>');
+    return;
+  }
+  try {
+    const r = await api.descargar_specs_zip(projectPath, modulo);
+    if(r && r.cancelado) return;
+    if(!r || !r.ok){ toastError(escHtml((r && r.motivo) || 'No se pudo crear el ZIP.')); return; }
+    toast(`Se guardó <span class="mono">${escHtml(r.nombre)}</span> en <span class="mono">${escHtml(r.ruta)}</span>`);
+  } catch(err) {
+    toastError('No se pudo descargar el spec: ' + escHtml(String(err)));
+  }
 }

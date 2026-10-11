@@ -7,7 +7,8 @@ Une las piezas que ya existían por separado:
 3. Ejecuta el orquestador módulo por módulo; cada `Evento` llega a `al_evento` con el
    progreso (`hechos` / `total`), para el Monitor en vivo (HU-09).
 4. Corta antes del siguiente módulo si se alcanzó el tope de gasto de `config.toml`.
-5. Escribe `log.json` y `results.json` (EN-05) en la carpeta de la corrida, guarda las
+5. Reutiliza la spec modular si su huella sigue vigente; si cambió, llama al Planner.
+6. Escribe `log.json` y `results.json` (EN-05) en la carpeta de la corrida, guarda las
    specs y las pruebas aprobadas en `.pyagent/` y cierra el `run.json` (EN-07).
 
 No depende de la interfaz: la app la llama en un hilo y le pasa una función para los
@@ -26,7 +27,12 @@ from typing import Any
 
 from pyagent.agents import GeneratorAgent, PlannerAgent, ReviewerAgent
 from pyagent.agents.reviewer import Ejecutor
-from pyagent.almacenamiento import AlmacenProyecto, id_de_spec, nombre_prueba
+from pyagent.almacenamiento import (
+    AlmacenProyecto,
+    ErrorAlmacen,
+    id_de_spec,
+    nombre_prueba,
+)
 from pyagent.analysis.analyzer import analizar_proyecto
 from pyagent.llm import TokenTracker, crear_cliente
 from pyagent.llm.fabrica import FuenteClaves
@@ -160,6 +166,7 @@ def ejecutar_corrida(
         )
 
         resultados: list[ResultadoCorrida] = []
+        planes_specs: list[dict[str, Any]] = []
         tope = configuracion.presupuesto.tope_por_corrida_usd
         for modulo in modulos:
             if tracker.total_costo_usd >= tope:
@@ -170,14 +177,53 @@ def ejecutar_corrida(
                 )
                 avisar(resumen.motivo, "fallo")
                 break
-            resultado = orquestador.ejecutar(modulo)
+            plan_guardado = almacen.buscar_plan_vigente(
+                modulo["ruta"], modulo["huella"]
+            )
+            habia_spec = _existe_plan_modulo(almacen, modulo["ruta"])
+            if plan_guardado is not None:
+                accion = "reutilizado"
+                avisar(
+                    "Spec vigente: se omite el Planner (0 tokens)",
+                    archivo=modulo["ruta"],
+                )
+                resultado = orquestador.ejecutar(
+                    modulo, plan_reutilizado=plan_guardado["contratos"]
+                )
+            else:
+                accion = "regenerado" if habia_spec else "generado"
+                if accion == "regenerado":
+                    avisar(
+                        "El código o docstring cambió: regenerando spec",
+                        archivo=modulo["ruta"],
+                    )
+                resultado = orquestador.ejecutar(modulo)
             resultados.append(resultado)
+            contratos = resultado.plan_completo
+            if contratos:
+                planes_specs.append(
+                    {
+                        "modulo": modulo["ruta"],
+                        "huella": modulo["huella"],
+                        "contratos": contratos,
+                        "accion": accion,
+                    }
+                )
             if resultado.estado_final.value == FALLO and resumen.motivo is None:
                 resumen.estado = FALLO
                 resumen.motivo = f"{resultado.modulo}: {resultado.motivo_fallo}"
 
         _contar(resumen, resultados, tracker)
-        _registrar(ruta, almacen, resumen, resultados, tracker, configuracion, perfil)
+        _registrar(
+            ruta,
+            almacen,
+            resumen,
+            resultados,
+            tracker,
+            configuracion,
+            perfil,
+            planes_specs,
+        )
     except Exception as error:  # noqa: BLE001 — la corrida nunca debe tumbar la app
         resumen.estado = FALLO
         resumen.motivo = resumen.motivo or _texto_error(error)
@@ -238,6 +284,7 @@ def _registrar(
     tracker: TokenTracker,
     configuracion: Any,
     perfil: str,
+    planes_specs: list[dict[str, Any]],
 ) -> None:
     """log.json y results.json, specs y pruebas aprobadas, y cierre del run.json."""
     if resultados:
@@ -265,7 +312,42 @@ def _registrar(
                     archivo = nombre_prueba(spec_id)
                     almacen.guardar_prueba_aprobada(archivo, objetivo.codigo)
                 almacen.guardar_spec(objetivo.contrato, resumen.run_id, archivo)
+        registros = []
+        for plan in planes_specs:
+            guardado = almacen.guardar_plan_modulo(
+                plan["modulo"],
+                plan["huella"],
+                plan["contratos"],
+                resumen.run_id,
+                plan["accion"],
+            )
+            registros.append(
+                {
+                    "modulo": guardado["modulo"],
+                    "huella": guardado["huella"],
+                    "run_origen": guardado["run_origen"],
+                    "estado": guardado["ultima_accion"],
+                }
+            )
+        if registros:
+            try:
+                almacen.registrar_specs_run(resumen.run_id, registros)
+            except ErrorAlmacen as error:
+                _registro.warning(
+                    "No se pudo registrar las specs en la corrida %s: %s",
+                    resumen.run_id,
+                    error,
+                )
     _cerrar_run(almacen, resumen)
+
+
+def _existe_plan_modulo(almacen: AlmacenProyecto, modulo: str) -> bool:
+    """Distingue la primera generación de una regeneración por cambio de huella."""
+    try:
+        almacen.leer_plan_modulo(modulo)
+    except ErrorAlmacen:
+        return False
+    return True
 
 
 def metas_de(configuracion: Any) -> dict[str, float]:

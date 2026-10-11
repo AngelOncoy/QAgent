@@ -226,6 +226,44 @@ class DesktopAPI:
         detalle = leer_detalle(ruta, results["run_id"])
         return {"ok": True, **vista_reporte(results, detalle)}
 
+    def obtener_historial(self, ruta: str) -> dict:
+        """Corridas y specs persistidas del proyecto para la pantalla Historial."""
+        from pyagent.almacenamiento.historial import construir_historial
+
+        return {"ok": True, **construir_historial(ruta)}
+
+    def descargar_specs_zip(self, ruta: str, modulo: str | None = None) -> dict:
+        """Crea un ZIP y abre el diálogo nativo para elegir dónde guardarlo."""
+        from pyagent.almacenamiento import ErrorAlmacen
+
+        try:
+            nombre, contenido = AlmacenProyecto(ruta).crear_zip_specs(modulo)
+        except ErrorAlmacen as error:
+            return {"ok": False, "motivo": str(error)}
+        if self._window is None:
+            return {"ok": False, "motivo": "La ventana de QAgent no está disponible."}
+
+        seleccion = self._window.create_file_dialog(
+            webview.SAVE_DIALOG,
+            save_filename=nombre,
+            file_types=("Archivos ZIP (*.zip)",),
+        )
+        if not seleccion:
+            return {"ok": False, "cancelado": True}
+
+        destino = Path(seleccion[0])
+        if destino.suffix.lower() != ".zip":
+            destino = destino.with_suffix(".zip")
+        try:
+            destino.write_bytes(contenido)
+        except OSError as error:
+            return {"ok": False, "motivo": f"No se pudo guardar el ZIP: {error}"}
+        return {
+            "ok": True,
+            "nombre": destino.name,
+            "ruta": str(destino),
+        }
+
     def start_run(self, folder_path: str, profile: str = "deep") -> dict:
         """Inicia la corrida del sistema sobre el proyecto seleccionado.
 

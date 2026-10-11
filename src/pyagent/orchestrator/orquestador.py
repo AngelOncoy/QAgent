@@ -74,10 +74,14 @@ class ResultadoCorrida:
     traza_estados: list[Estado]
     tokens_por_agente: dict[str, dict[str, int]]
     duracion_s: float
+    # Plan completo devuelto por el Planner (o cargado de la caché). Es interno:
+    # permite persistir la spec aunque Generator/Reviewer falle en el primer objetivo.
+    plan_completo: list[Contrato] = field(default_factory=list, repr=False)
 
     def a_dict(self) -> dict[str, Any]:
         """Versión serializable a JSON (insumo de log.json en EN-07)."""
         datos = asdict(self)
+        datos.pop("plan_completo", None)
         datos["estado_final"] = self.estado_final.value
         datos["traza_estados"] = [e.value for e in self.traza_estados]
         return datos
@@ -159,11 +163,16 @@ class Orquestador:
         """Estado actual de la máquina."""
         return self._estado
 
-    def ejecutar(self, modulo: dict[str, Any]) -> ResultadoCorrida:
+    def ejecutar(
+        self,
+        modulo: dict[str, Any],
+        plan_reutilizado: list[Contrato] | None = None,
+    ) -> ResultadoCorrida:
         """Ejecuta la corrida de un módulo (una entrada de `analizar_proyecto()["modulos"]`).
 
         Nunca lanza excepciones por fallos de agentes o del sandbox: los convierte en
-        un `ResultadoCorrida` con estado FALLO_CONTROLADO y el motivo.
+        un `ResultadoCorrida` con estado FALLO_CONTROLADO y el motivo. Si recibe un
+        plan vigente de HU-24, valida sus contratos y omite la llamada al Planner.
         """
         inicio = time.monotonic()
         self._archivo = modulo.get("ruta")
@@ -171,10 +180,16 @@ class Orquestador:
         self._traza = [Estado.PLANIFICAR]
         self._emitir("orquestador", None, "Corrida iniciada", tipo="transicion")
         objetivos: list[ResultadoObjetivo] = []
+        plan_completo: list[Contrato] = []
         motivo: str | None = None
 
         try:
-            plan = self._planificar(modulo)
+            plan = (
+                self._planificar(modulo)
+                if plan_reutilizado is None
+                else self._usar_plan_reutilizado(modulo, plan_reutilizado)
+            )
+            plan_completo = copy.deepcopy(plan)
             for contrato in plan:
                 self._procesar_objetivo(contrato, objetivos)
             self._transicionar(Estado.FIN, None)
@@ -194,6 +209,7 @@ class Orquestador:
             traza_estados=list(self._traza),
             tokens_por_agente=self._tokens_por_agente(),
             duracion_s=round(time.monotonic() - inicio, 3),
+            plan_completo=plan_completo,
         )
 
     # --- Pasos de la máquina -----------------------------------------------------
@@ -208,6 +224,29 @@ class Orquestador:
             self._validar(contracts.PLANNER, contrato, "planner")
         self._emitir("planner", None, f"Plan con {len(plan)} objetivo(s)")
         return plan
+
+    def _usar_plan_reutilizado(
+        self, modulo: dict[str, Any], plan: list[Contrato]
+    ) -> list[Contrato]:
+        """Valida una spec vigente sin llamar al Planner ni registrar tokens."""
+        if not isinstance(plan, list) or not plan:
+            raise FalloControlado("La spec reutilizada no contiene contratos")
+        copia = copy.deepcopy(plan)
+        for contrato in copia:
+            self._validar(contracts.PLANNER, contrato, "spec reutilizada")
+            if contrato["modulo"] != modulo.get("ruta") or contrato[
+                "huella"
+            ] != modulo.get("huella"):
+                raise FalloControlado(
+                    "La spec reutilizada no coincide con el módulo analizado"
+                )
+        self.tracker.fijar_contexto(None, None)
+        self._emitir(
+            "planner",
+            None,
+            f"Spec reutilizado: Planner omitido (0 tokens, {len(copia)} objetivo(s))",
+        )
+        return copia
 
     def _procesar_objetivo(
         self, contrato: Contrato, objetivos: list[ResultadoObjetivo]
