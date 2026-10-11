@@ -53,6 +53,7 @@ def escribir_corrida(
     perfil: str,
     run_id: str | None = None,
     fecha: str | None = None,
+    metas: dict[str, float] | None = None,
 ) -> RutasCorrida:
     """Genera, valida y escribe log.json y results.json de una corrida.
 
@@ -64,6 +65,8 @@ def escribir_corrida(
         perfil: perfil de la corrida (ej. "deep").
         run_id: identificador; si es None se genera uno nuevo.
         fecha: inicio de la corrida en ISO 8601; si es None, ahora.
+        metas: metas de calidad y tope de gasto de `config.toml` (`[umbrales]` y
+            `tope_por_corrida_usd`); se copian a results.json para comparar (HU-18).
 
     Returns:
         Rutas de la carpeta y de los dos archivos.
@@ -79,7 +82,7 @@ def escribir_corrida(
 
     log = construir_log(run_id, fecha, proyecto, perfil, resultados, tracker, precios)
     results = construir_results(
-        run_id, fecha, proyecto, perfil, resultados, tracker, precios
+        run_id, fecha, proyecto, perfil, resultados, tracker, precios, metas
     )
     contracts.validar(contracts.RUN_LOG, log)
     contracts.validar(contracts.RUN_LOG, results)
@@ -123,6 +126,7 @@ def construir_results(
     resultados: Sequence[ResultadoCorrida],
     tracker: TokenTracker,
     precios: dict[str, PrecioAgente],
+    metas: dict[str, float] | None = None,
 ) -> dict[str, Any]:
     """Contenido de results.json: las 5 métricas por función y un resumen."""
     objetivos = [
@@ -135,7 +139,7 @@ def construir_results(
             "results", run_id, fecha, proyecto, perfil, resultados, tracker, precios
         ),
         "objetivos": objetivos,
-        "resumen": _resumen(objetivos, tracker),
+        "resumen": _resumen(objetivos, tracker, metas),
     }
 
 
@@ -187,6 +191,8 @@ def _objetivo(modulo: str, objetivo: Any, tracker: TokenTracker) -> dict[str, An
         "critical": objetivo.critical,
         "decision": objetivo.decision,
         "motivo_estancado": objetivo.motivo_estancado,  # HU-14
+        "laundering_detectado": objetivo.laundering_detectado,  # HU-16
+        "duracion_s": objetivo.duracion_s,
         "metricas": {
             "paso": ultima is not None and ultima["estado_sandbox"] == "ok",
             "cobertura_lineas": cobertura.get("lineas"),
@@ -198,26 +204,42 @@ def _objetivo(modulo: str, objetivo: Any, tracker: TokenTracker) -> dict[str, An
     }
 
 
-def _resumen(objetivos: list[dict[str, Any]], tracker: TokenTracker) -> dict[str, Any]:
+def _resumen(
+    objetivos: list[dict[str, Any]],
+    tracker: TokenTracker,
+    metas: dict[str, float] | None = None,
+) -> dict[str, Any]:
     total = len(objetivos)
-    coberturas = [
-        o["metricas"]["cobertura_lineas"]
-        for o in objetivos
-        if o["metricas"]["cobertura_lineas"] is not None
-    ]
     pasaron = sum(1 for o in objetivos if o["metricas"]["paso"])
-    return {
+    iteraciones = [
+        o["metricas"]["iteraciones"] for o in objetivos if o["metricas"]["iteraciones"]
+    ]
+    resumen: dict[str, Any] = {
         "total_funciones": total,
         "aceptadas": _contar(objetivos, "accept"),
         "bugs_detectados": _contar(objetivos, "bug_detectado"),
         "stalled": _contar(objetivos, "stalled"),
         "sin_veredicto": _contar(objetivos, None),
         "pass_rate": round(pasaron / total * 100, 1) if total else 0.0,
-        "cobertura_lineas_promedio": (
-            round(sum(coberturas) / len(coberturas), 1) if coberturas else None
+        "cobertura_lineas_promedio": _promedio(objetivos, "cobertura_lineas"),
+        "cobertura_ramas_promedio": _promedio(objetivos, "cobertura_ramas"),
+        "iteraciones_promedio": (
+            round(sum(iteraciones) / len(iteraciones), 2) if iteraciones else None
         ),
         "costo_total_usd": round(tracker.total_costo_usd, 8),
+        "por_agente": tracker.totales_por_agente(),  # tokens y costo (HU-18)
     }
+    if metas is not None:
+        resumen["metas"] = dict(metas)
+    return resumen
+
+
+def _promedio(objetivos: list[dict[str, Any]], metrica: str) -> float | None:
+    """Promedio de una métrica por función, sin contar las que no la tienen."""
+    valores = [
+        o["metricas"][metrica] for o in objetivos if o["metricas"][metrica] is not None
+    ]
+    return round(sum(valores) / len(valores), 1) if valores else None
 
 
 def _contar(objetivos: Iterable[dict[str, Any]], decision: str | None) -> int:

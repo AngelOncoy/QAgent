@@ -247,6 +247,7 @@ def _registrar(
             configuracion.agentes,
             perfil,
             run_id=resumen.run_id,
+            metas=metas_de(configuracion),
         )
         resumen.run_id = rutas.run_id
         resumen.carpeta = str(rutas.carpeta)
@@ -263,6 +264,17 @@ def _registrar(
                     almacen.guardar_prueba_aprobada(archivo, objetivo.codigo)
                 almacen.guardar_spec(objetivo.contrato, resumen.run_id, archivo)
     _cerrar_run(almacen, resumen)
+
+
+def metas_de(configuracion: Any) -> dict[str, float]:
+    """Metas de la carta (`[umbrales]`) y tope de gasto por corrida de config.toml."""
+    umbrales = configuracion.umbrales
+    return {
+        "pass_rate_min": umbrales.pass_rate_min,
+        "cobertura_lineas_min": umbrales.cobertura_lineas_min,
+        "iteraciones_promedio_max": umbrales.iteraciones_promedio_max,
+        "tope_por_corrida_usd": configuracion.presupuesto.tope_por_corrida_usd,
+    }
 
 
 def _cerrar_run(almacen: AlmacenProyecto, resumen: ResumenCorrida) -> None:

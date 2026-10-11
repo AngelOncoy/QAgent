@@ -305,3 +305,19 @@ def test_el_monitor_recibe_la_corrida_real_y_escapa_sus_textos() -> None:
     for campo in ("escHtml(lugar)", "escHtml(d.t", "escHtml(d.guard[0])"):
         assert campo in cuerpo
     assert "r.modo === 'real'" in monitor
+
+
+# ---------- HU-18: la vista Ejecución de una corrida real ----------
+
+
+def test_la_ejecucion_real_no_calcula_cifras_y_escapa_los_nombres() -> None:
+    """Los indicadores vienen de obtener_ejecucion (results.json); la pantalla solo los muestra."""
+    js = (FRONTEND / "componentes" / "ejecucion" / "ejecucion.js").read_text(
+        encoding="utf-8"
+    )
+    real = js[js.index("let ejecucionReal") :]
+    assert "api.obtener_ejecucion(" in real
+    assert "metrics()" not in real and "RUN." not in real and "AGENT_SPLIT" not in real
+    for campo in ("escHtml(g.modulo)", "escHtml(p.funcion)"):
+        assert campo in real
+    assert "Disponible en Sprint 2" not in real  # el texto también viene de Python

@@ -59,6 +59,8 @@ class ResultadoObjetivo:
     contrato: Contrato | None = None
     #: Código del último test generado; si la decisión es `accept`, es la prueba aprobada.
     codigo: str | None = None
+    #: Segundos desde el primer intento hasta el veredicto (generar + sandbox + revisar).
+    duracion_s: float = 0.0
 
 
 @dataclass
@@ -224,6 +226,7 @@ class Orquestador:
         objetivos.append(resultado)
         tope = min(self.max_intentos, MAX_INTENTOS_CONTRATO)  # nunca más de 3
         intento, feedback, test_anterior, hash_anterior = 1, None, None, None
+        inicio = time.monotonic()
 
         while True:
             self._transicionar(Estado.GENERAR, objetivo)
@@ -235,6 +238,7 @@ class Orquestador:
             revision = self._revisar(copy.deepcopy(contrato), test, test_anterior, tope)
 
             resultado.intentos = intento
+            resultado.duracion_s = round(time.monotonic() - inicio, 3)
             resultado.revisiones.append(revision)
             resultado.cobertura = revision["cobertura"]
             resultado.laundering_detectado |= revision["laundering_detectado"]

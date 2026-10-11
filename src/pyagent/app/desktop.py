@@ -181,6 +181,28 @@ class DesktopAPI:
 
         return verificar_entorno()
 
+    def obtener_ejecucion(self, ruta: str, run_id: str | None = None) -> dict:
+        """Datos de la vista Ejecución de una corrida (HU-18).
+
+        Todo sale de `.pyagent/runs/<run_id>/results.json` (por defecto, la corrida más
+        reciente con resultados): indicadores comparados con las metas, filtros por
+        estado y pruebas agrupadas por módulo.
+
+        Returns:
+            dict: ``{"ok": True, ...}`` con lo que arma `vista_ejecucion()`, o
+            ``{"ok": False, "motivo": str}`` si no hay resultados que mostrar.
+        """
+        from pyagent.storage.vista_ejecucion import (
+            ResultadosNoDisponibles,
+            leer_results,
+            vista_ejecucion,
+        )
+
+        try:
+            return {"ok": True, **vista_ejecucion(leer_results(ruta, run_id))}
+        except ResultadosNoDisponibles as error:
+            return {"ok": False, "motivo": str(error)}
+
     def start_run(self, folder_path: str, profile: str = "deep") -> dict:
         """Inicia la corrida del sistema sobre el proyecto seleccionado.
 
