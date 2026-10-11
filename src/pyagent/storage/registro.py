@@ -6,6 +6,7 @@ Ruta: `<proyecto>/.pyagent/runs/<run_id>/`. Ambos archivos se validan contra
 
 from __future__ import annotations
 
+import ast
 import json
 import os
 import secrets
@@ -26,6 +27,11 @@ if (
     from pyagent.orchestrator import ResultadoCorrida
 
 CARPETA_RUNS = Path(".pyagent") / "runs"
+ARCHIVO_DETALLE = "detalle.json"
+#: Mínimo de cobertura si la corrida no trae metas (meta de la carta, ADR-001).
+COBERTURA_MINIMA = 60.0
+#: Caracteres que se guardan de cada salida de pytest o comentario del Reviewer.
+LARGO_MAXIMO_TRAZA = 4000
 VERSION = "1"
 
 
@@ -37,6 +43,8 @@ class RutasCorrida:
     carpeta: Path
     log: Path
     results: Path
+    #: Contrato, último test y traza de cada función, para el Reporte (HU-21).
+    detalle: Path | None = None
 
 
 def nuevo_run_id(ahora: datetime | None = None) -> str:
@@ -54,6 +62,7 @@ def escribir_corrida(
     run_id: str | None = None,
     fecha: str | None = None,
     metas: dict[str, float] | None = None,
+    rama: str | None = None,
 ) -> RutasCorrida:
     """Genera, valida y escribe log.json y results.json de una corrida.
 
@@ -67,6 +76,7 @@ def escribir_corrida(
         fecha: inicio de la corrida en ISO 8601; si es None, ahora.
         metas: metas de calidad y tope de gasto de `config.toml` (`[umbrales]` y
             `tope_por_corrida_usd`); se copian a results.json para comparar (HU-18).
+        rama: rama Git del proyecto al iniciar la corrida, para el Reporte (HU-21).
 
     Returns:
         Rutas de la carpeta y de los dos archivos.
@@ -84,17 +94,68 @@ def escribir_corrida(
     results = construir_results(
         run_id, fecha, proyecto, perfil, resultados, tracker, precios, metas
     )
+    results["rama"] = rama
     contracts.validar(contracts.RUN_LOG, log)
     contracts.validar(contracts.RUN_LOG, results)
+    detalle = construir_detalle(run_id, resultados)
 
     carpeta = Path(raiz_proyecto) / CARPETA_RUNS / run_id
     carpeta.mkdir(parents=True, exist_ok=True)
     rutas = RutasCorrida(
-        run_id, carpeta, carpeta / "log.json", carpeta / "results.json"
+        run_id,
+        carpeta,
+        carpeta / "log.json",
+        carpeta / "results.json",
+        carpeta / ARCHIVO_DETALLE,
     )
     _escribir_json(rutas.log, log)
     _escribir_json(rutas.results, results)
+    _escribir_json(rutas.detalle, detalle)
     return rutas
+
+
+def construir_detalle(
+    run_id: str, resultados: Sequence[ResultadoCorrida]
+) -> dict[str, Any]:
+    """Contenido de detalle.json: lo que el auditor revisa de cada función (HU-21).
+
+    El contrato del Planner, el último test generado y, si no fue aceptado, la traza del
+    último intento (salida de pytest o comentario del Reviewer). Las cifras no están
+    aquí: siguen en results.json.
+    """
+    funciones = []
+    for resultado in resultados:
+        for objetivo in resultado.objetivos:
+            ultima = objetivo.revisiones[-1] if objetivo.revisiones else None
+            funciones.append(
+                {
+                    "modulo": resultado.modulo,
+                    "funcion": objetivo.objetivo,
+                    "contrato": objetivo.contrato,
+                    "codigo": objetivo.codigo,
+                    "traza": (
+                        _recortar(ultima["feedback"])
+                        if ultima is not None and objetivo.decision != "accept"
+                        else None
+                    ),
+                    "intentos": [
+                        {
+                            "intento": r["intento"],
+                            "decision": r["decision"],
+                            "estado_sandbox": r["estado_sandbox"],
+                            "tipo_fallo": r["tipo_fallo"],
+                            "laundering_detectado": r["laundering_detectado"],
+                        }
+                        for r in objetivo.revisiones
+                    ],
+                }
+            )
+    return {
+        "version": VERSION,
+        "tipo": "detalle",
+        "run_id": run_id,
+        "funciones": funciones,
+    }
 
 
 def construir_log(
@@ -130,7 +191,7 @@ def construir_results(
 ) -> dict[str, Any]:
     """Contenido de results.json: las 5 métricas por función y un resumen."""
     objetivos = [
-        _objetivo(resultado.modulo, objetivo, tracker)
+        _objetivo(resultado.modulo, objetivo, tracker, metas)
         for resultado in resultados
         for objetivo in resultado.objetivos
     ]
@@ -182,7 +243,12 @@ def _modelo(precio: PrecioAgente) -> dict[str, Any]:
     }
 
 
-def _objetivo(modulo: str, objetivo: Any, tracker: TokenTracker) -> dict[str, Any]:
+def _objetivo(
+    modulo: str,
+    objetivo: Any,
+    tracker: TokenTracker,
+    metas: dict[str, float] | None = None,
+) -> dict[str, Any]:
     ultima = objetivo.revisiones[-1] if objetivo.revisiones else None
     cobertura = objetivo.cobertura or {}
     return {
@@ -193,6 +259,7 @@ def _objetivo(modulo: str, objetivo: Any, tracker: TokenTracker) -> dict[str, An
         "motivo_estancado": objetivo.motivo_estancado,  # HU-14
         "laundering_detectado": objetivo.laundering_detectado,  # HU-16
         "duracion_s": objetivo.duracion_s,
+        "controles": controles(objetivo, metas),  # HU-21
         "metricas": {
             "paso": ultima is not None and ultima["estado_sandbox"] == "ok",
             "cobertura_lineas": cobertura.get("lineas"),
@@ -240,6 +307,54 @@ def _promedio(objetivos: list[dict[str, Any]], metrica: str) -> float | None:
         o["metricas"][metrica] for o in objetivos if o["metricas"][metrica] is not None
     ]
     return round(sum(valores) / len(valores), 1) if valores else None
+
+
+def controles(objetivo: Any, metas: dict[str, float] | None) -> dict[str, Any]:
+    """Los 5 controles del checklist de una función (HU-21).
+
+    Cada uno es True (cumple), False (no cumple) o None (sin dato o no aplica):
+
+    - sintaxis: el último test generado compila (`ast.parse`, sin ejecutarlo).
+    - sandbox: el último test se ejecutó en el sandbox sin errores de entorno (ni
+      timeout, ni memoria, ni import o colección fallidos).
+    - aserciones: el último test no debilitó aserciones (laundering) y cada valor
+      esperado es trazable al contrato del Planner.
+    - cobertura: líneas y ramas ≥ la meta (si la función no tiene ramas, solo líneas).
+    - mutation: Mutation Score ≥ 60 % en funciones críticas; None mientras EN-09 no
+      ejecute mutmut o si la función no es crítica.
+    """
+    ultima = objetivo.revisiones[-1] if objetivo.revisiones else None
+    minimo = (metas or {}).get("cobertura_lineas_min", COBERTURA_MINIMA)
+    cobertura = objetivo.cobertura or {}
+    lineas, ramas = cobertura.get("lineas"), cobertura.get("ramas")
+    return {
+        "sintaxis": None if objetivo.codigo is None else _compila(objetivo.codigo),
+        "sandbox": None
+        if ultima is None
+        else ultima["estado_sandbox"] in ("ok", "fallo")
+        and ultima["tipo_fallo"] != "error_test",
+        "aserciones": None
+        if ultima is None
+        else not ultima["laundering_detectado"]
+        and not ultima["feedback"].startswith("Oráculo inválido"),
+        "cobertura": None
+        if lineas is None
+        else lineas >= minimo and (ramas is None or ramas >= minimo),
+        "mutation": None,  # EN-09 (Sprint 2): mutmut sobre funciones críticas
+    }
+
+
+def _compila(codigo: str) -> bool:
+    try:
+        ast.parse(codigo)
+    except (SyntaxError, ValueError):
+        return False
+    return True
+
+
+def _recortar(texto: str, maximo: int = LARGO_MAXIMO_TRAZA) -> str:
+    """El final de la traza: ahí pytest pone el error."""
+    return texto if len(texto) <= maximo else "[…]\n" + texto[-maximo:]
 
 
 def _contar(objetivos: Iterable[dict[str, Any]], decision: str | None) -> int:

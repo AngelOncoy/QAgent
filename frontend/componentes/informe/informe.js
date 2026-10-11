@@ -40,6 +40,8 @@ function chk(state, label, okTxt, badTxt, icoOk, icoBad, badCls='bad', wide=fals
   return `<div class="ck ${state?'ok':badCls}${wide?' wide':''}"><div class="cl">${I(state?icoOk:icoBad,'currentColor',15)}<span>${label}</span></div><span class="ct">${state?okTxt:badTxt}</span></div>`;
 }
 function renderReport(){
+  modoReporte(!!reporteReal);
+  if (reporteReal) { renderReportReal(reporteReal); return; }   // corrida real (HU-21)
   const m = metrics();
   $('rmeta').innerHTML = `Corrida <b>#${RUN_ID}</b> · ${RUN_DATE} · perfil <b>Profundo</b> · ${m.n} funciones · rama <b>${$('branchLbl').textContent}</b><br><span style="font-size:11px">Modelos: Planner · ${AGENTS_CFG.P.model} &nbsp;|&nbsp; Generator · ${AGENTS_CFG.G.model} &nbsp;|&nbsp; Reviewer · ${AGENTS_CFG.R.model}</span>`;
   
@@ -81,4 +83,85 @@ function renderReport(){
           <span class="rsb ${st.repCls} ${fn.status==='rejected_laundering'?'pulse':''}">${I(st.repIco,'currentColor',13)} ${badge}</span>${I(open?'chevU':'chevD','var(--slate-300-c)',20)}</div>
       </div>${body}</div>`;
   }).join('');
+}
+
+/* ---------------- Reporte de auditoría de una corrida real (HU-21) ----------------
+   Todo viene de obtener_reporte() de Python: las cifras y los controles de results.json,
+   y el contrato, el test y la traza de detalle.json. Aquí no se calcula ninguna cifra. */
+let reporteReal = null;
+const rRealAbierto = {}, rRealTab = {};
+const ESTADO_REP = {   // estado de la función -> estilos del catálogo ST y texto de la etiqueta
+  aprobado:{st:'passed', txt:'APROBADO'},
+  bug_detectado:{st:'rejected_oracle', txt:'BUG DETECTADO'},
+  rechazado_laundering:{st:'rejected_laundering', txt:'RECHAZADO: LAUNDERING'},
+  estancado:{st:'stuck', txt:'ESTANCADO'},
+  sin_veredicto:{st:'stuck', txt:'SIN VEREDICTO'},
+};
+const CONTROL_REP = {   // estado del control -> clase, ícono y texto
+  ok:['ok','checkc','☑️ OK'], falla:['bad','xc','❌ NO CUMPLE'], no_aplica:['na','alertc','— NO APLICA'],
+  pendiente:['na','alertc','… PENDIENTE'], sin_dato:['na','alertc','— SIN DATO'],
+};
+const AGENTES_REP = [['planner','Planner'],['generator','Generator'],['reviewer','Reviewer']];
+const numRep = (v, d=1) => v===null || v===undefined ? '—' : Number(v).toFixed(d) + '%';
+let bmetaDemo = null;
+function modoReporte(real){   // los botones de la demo (carpeta simulada, exportar) no aplican a una corrida real
+  document.querySelectorAll('#s-report .ractions .btn').forEach(b => b.classList.toggle('hide', real));
+  const bm = document.querySelector('#s-report .bmeta'); if(!bm) return;
+  if(bmetaDemo===null) bmetaDemo = bm.textContent;
+  bm.textContent = real ? 'Corrida ' + reporteReal.run_id + (reporteReal.es_simulado ? ' · IA simulada' : '') : bmetaDemo;
+}
+async function cargarReporteReal(runId){
+  const api = window.pywebview && window.pywebview.api;
+  if(!api || !api.obtener_reporte) return;
+  const r = await api.obtener_reporte(projectPath, runId || null);
+  if(!r || !r.ok){ toastError(escHtml((r && r.motivo) || 'No se pudo leer el reporte de la corrida.')); return; }
+  reporteReal = r; rFilter = 'todas';
+  document.querySelectorAll('#views a[data-v=report]').forEach(a=>a.classList.remove('off'));
+  go('report');
+}
+function renderReportReal(v){
+  if (typeof actualizarBarraReal === 'function') actualizarBarraReal(v);
+  const k = v.indicadores, fecha = new Date(v.fecha);
+  const modelos = AGENTES_REP.filter(([a]) => v.modelos[a]).map(([a, n]) => `${n} · ${escHtml(v.modelos[a].modelo)} <span style="color:var(--dim)">(${escHtml(v.modelos[a].proveedor)})</span>`).join(' &nbsp;|&nbsp; ');
+  $('rmeta').innerHTML = `Corrida <b>${escHtml(v.run_id)}</b> · ${escHtml(isNaN(fecha) ? v.fecha : fecha.toLocaleString('es-PE'))} · perfil <b>${escHtml(v.perfil)}</b> · ${v.funciones.length} funciones · rama <b>${escHtml(v.rama || 'sin repositorio Git')}</b><br><span style="font-size:11px">Modelos: ${modelos}</span>`
+    + (v.motivo_fallo ? `<br><span style="color:var(--amber-300);font-size:11px">Corrida detenida: ${escHtml(v.motivo_fallo)}</span>` : '');
+  const pr = k.pass_rate, cv = k.cobertura, cs = k.costo, bal = k.balance;
+  $('pillars').innerHTML = `
+    <div class="pil"><div class="pt">${I('check','var(--emerald-400)',12)}Pass Rate</div><div class="pv" style="color:${pr.meta!==null && pr.valor>=pr.meta?'var(--emerald-400)':'var(--amber-300)'}">${numRep(pr.valor)}</div><div class="ps">${pr.pasaron}/${pr.total} pruebas sin error${pr.meta!==null?' · meta '+numRep(pr.meta,0):''}</div></div>
+    <div class="pil"><div class="pt">${I('merge','var(--blue-400)',12)}Cobertura</div><div class="pv" style="color:var(--blue-400);font-size:19px">${numRep(cv.lineas)} <small>/ ${numRep(cv.ramas)}</small></div><div class="ps">Líneas / Ramas (promedio)</div></div>
+    <div class="pil"><div class="pt">${I('coins','var(--amber-400)',12)}Costo</div><div class="pv" style="color:var(--amber-300);font-size:18px">US$ ${Number(cs.usd).toFixed(4)}</div><div class="ps">${Number(cs.tokens).toLocaleString('es-PE')} tokens${cs.tope_usd!==null && cs.tope_usd!==undefined?' · tope US$ '+Number(cs.tope_usd).toFixed(2):''}</div></div>
+    <div class="pil"><div class="pt">${I('shieldA','var(--rose-400)',12)}Balance</div><div class="pv" style="font-size:19px"><span style="color:var(--emerald-400)">${bal.ok} OK</span> <span style="color:var(--slate-600)">/</span> <span style="color:var(--rose-400)">${bal.alertas} alertas</span></div><div class="ps">OK = aceptada y con los 5 controles en orden</div></div>`;
+  const colores = {todas:'var(--blue-600)', verde:'var(--emerald-600)', incidentes:'var(--rose-600)'};
+  $('rfbtns').innerHTML = v.filtros.map(f => `<button class="fb2 ${rFilter===f.clave?'on':''}" style="${rFilter===f.clave?'background:'+colores[f.clave]:''}" onclick="rFilter='${f.clave}';renderReport()">${escHtml(f.etiqueta)} (${Number(f.cantidad)})</button>`).join('');
+  $('legend2').innerHTML = Object.values(ESTADO_REP).filter((e, i, a) => a.findIndex(x => x.st===e.st)===i).map(e => `<span><i style="background:${ST[e.st].c}"></i> ${escHtml(e.txt.toLowerCase())}</span>`).join('');
+  const lista = v.funciones.filter(f => rFilter==='todas' || (rFilter==='verde' ? f.verde : !f.verde));
+  $('rcards').innerHTML = lista.length ? lista.map((f, i) => {
+    const id = f.modulo + '::' + f.funcion, e = ESTADO_REP[f.estado], st = ST[e.st], abierto = !!rRealAbierto[id], tab = rRealTab[id] || 'checklist';
+    const etiqueta = f.estado==='estancado' ? `ESTANCADO ${f.iteraciones}/3` : e.txt;
+    const idJs = escHtml(JSON.stringify(id));
+    let cuerpo = '';
+    if(abierto){
+      const tabs = [['contract','file','1. Contrato JSON (Planner)','var(--blue-400)'],['test','code','2. Test generado (pytest)','var(--purple-400)'],['checklist','check','3. Checklist de verificación','var(--emerald-400)']];
+      cuerpo = `<div class="rbody"><div class="rtabs">${tabs.map(([t,ic,n,c]) => `<button class="${tab===t?'on':''}" style="${tab===t?`color:${c};border-color:${c}`:''}" onclick="event.stopPropagation();rRealTab[${idJs}]='${t}';renderReport()">${I(ic,'currentColor',14)} ${n}</button>`).join('')}</div>`;
+      if(tab==='contract') cuerpo += f.contrato
+        ? `<div class="rhd"><span>${I('code','var(--blue-400)',14)} Casos y valores esperados que propuso el Planner a partir de la firma y el docstring:</span><span class="rtag" style="color:var(--blue-400);background:var(--blue-950-a60);border-color:var(--blue-800-a40)">planner_contract.v2</span></div><div class="rcode json">${jsonHL(f.contrato)}</div>`
+        : `<div class="rhd"><span style="color:var(--mut)">Esta corrida no guardó el contrato (fue anterior al reporte de auditoría).</span></div>`;
+      if(tab==='test') cuerpo += (f.codigo
+        ? `<div class="rhd"><span>${I('term','var(--purple-400)',14)} Último test generado por el Generator (intento ${f.iteraciones}/3):</span></div><pre class="rcode">${hl(f.codigo)}</pre>`
+        : `<div class="rhd"><span style="color:var(--mut)">Esta corrida no guardó el test generado.</span></div>`)
+        + (f.traza ? `<div class="rerr"><b>${I('warn','var(--rose-400)',15)} Traza del último intento (pytest / Reviewer):</b><pre>${escHtml(f.traza)}</pre></div>` : '');
+      if(tab==='checklist') cuerpo += `<div class="rhd"><span>Controles del último intento, calculados al cerrar la corrida:</span><span style="color:var(--emerald-400)">5 controles</span></div>
+        <div class="cks">${f.controles.map((c, j) => { const [cls, ic, txt] = CONTROL_REP[c.estado];
+          return `<div class="ck ${cls}${j===4?' wide':''}" title="${escHtml(c.nota || '')}"><div class="cl">${I(ic,'currentColor',15)}<span>${escHtml(c.etiqueta)}</span></div><span class="ct">${c.nota ? escHtml(c.nota) : txt}</span></div>`; }).join('')}</div>`;
+      cuerpo += '</div>';
+    }
+    return `<div class="rcard" style="border-left-color:${st.c};${f.verde?'':`box-shadow:0 0 0 1px ${st.halo}`}">
+      <div class="rch" onclick="rRealAbierto[${idJs}]=!rRealAbierto[${idJs}];renderReport()">
+        <div class="l"><span class="mtag" style="${st.mb}">${f.verde?'OK':'ALERTA'}</span>
+          <div style="min-width:0"><div class="rn">${escHtml(f.funcion)}() <span class="rmod">${escHtml(f.modulo)}</span>${f.critical?'<span class="rcrit">★ crítica</span>':''}</div><div class="rsig">${escHtml(f.firma || '')}</div></div></div>
+        <div class="r"><span class="rpill"><span style="color:var(--mut)">Cob:</span> <b style="color:var(--blue-400)">${numRep(f.cobertura_lineas)}</b></span>
+          <span class="rpill"><span style="color:var(--mut)">Mutantes:</span> <b style="color:var(--mut)">${f.mutation_score===null?'N/A':numRep(f.mutation_score,0)}</b></span>
+          <span class="rsb ${st.repCls}">${I(st.repIco,'currentColor',13)} ${escHtml(etiqueta)}</span>${I(abierto?'chevU':'chevD','var(--slate-300-c)',20)}</div>
+      </div>${cuerpo}</div>`;
+  }).join('') : '<div class="rcard" style="padding:18px;color:var(--mut)">No hay funciones en este filtro.</div>';
 }

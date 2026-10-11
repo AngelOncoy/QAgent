@@ -321,3 +321,23 @@ def test_la_ejecucion_real_no_calcula_cifras_y_escapa_los_nombres() -> None:
     for campo in ("escHtml(g.modulo)", "escHtml(p.funcion)"):
         assert campo in real
     assert "Disponible en Sprint 2" not in real  # el texto también viene de Python
+
+
+# ---------- HU-21: el Reporte de una corrida real ----------
+
+
+def test_el_reporte_real_no_calcula_cifras_y_escapa_los_textos() -> None:
+    """El Reporte real muestra lo que devuelve obtener_reporte; los textos del proyecto se escapan."""
+    js = (FRONTEND / "componentes" / "informe" / "informe.js").read_text(
+        encoding="utf-8"
+    )
+    real = js[js.index("let reporteReal") :]
+    assert "api.obtener_reporte(" in real
+    assert "metrics()" not in real and "RUN." not in real and "AGENTS_CFG" not in real
+    for campo in (
+        "escHtml(f.funcion)",
+        "escHtml(f.modulo)",
+        "escHtml(f.traza)",
+        "escHtml(c.etiqueta)",
+    ):
+        assert campo in real

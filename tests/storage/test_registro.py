@@ -163,6 +163,7 @@ def test_escribe_en_pyagent_runs_run_id(tmp_path: Path, precios) -> None:
     assert re.fullmatch(r"\d{8}-\d{6}-[0-9a-f]{4}", rutas.run_id)
     assert rutas.carpeta == tmp_path / ".pyagent" / "runs" / rutas.run_id
     assert sorted(p.name for p in rutas.carpeta.iterdir()) == [
+        "detalle.json",
         "log.json",
         "results.json",
     ]

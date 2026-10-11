@@ -122,7 +122,10 @@ class ReviewerAgent:
         salida = "\n".join(
             parte for parte in (resultado.stdout, resultado.stderr) if parte
         ).strip()
-        cobertura = self._extraer_cobertura(resultado.coverage)
+        # Cobertura de la función bajo prueba; si no se puede ubicar, la del módulo.
+        cobertura = self._cobertura_de_funcion(
+            resultado.coverage, contrato
+        ) or self._extraer_cobertura(resultado.coverage)
 
         if estado == "ok":
             return self._resultado(
@@ -434,6 +437,67 @@ SALIDA DE PYTEST:
     def _modulo_cobertura(modulo: str) -> str:
         return Path(modulo).with_suffix("").as_posix().replace("/", ".")
 
+    def _cobertura_de_funcion(
+        self,
+        coverage: dict[str, Any] | None,
+        contrato: dict[str, Any],
+    ) -> dict[str, float | None] | None:
+        """Cobertura de líneas y ramas solo dentro del cuerpo de la función probada.
+
+        coverage.py mide el módulo completo; aquí se cuentan solo las líneas y ramas
+        que caen dentro de la función (su rango sale del `ast` del archivo, sin
+        ejecutarlo). Devuelve None si no se puede ubicar el archivo o la función.
+        """
+        if not coverage or not isinstance(coverage.get("files"), dict):
+            return None
+        modulo = contrato["modulo"].replace("\\", "/")
+        datos = next(
+            (
+                v
+                for k, v in coverage["files"].items()
+                if k.replace("\\", "/").endswith(modulo)
+            ),
+            None,
+        )
+        rango = self._rango_de_funcion(modulo, contrato["objetivo"])
+        if not isinstance(datos, dict) or rango is None:
+            return None
+        inicio, fin = rango
+
+        def dentro(numeros: Any) -> list[Any]:
+            return [n for n in numeros or [] if inicio <= _linea(n) <= fin]
+
+        ejecutadas = dentro(datos.get("executed_lines"))
+        faltantes = dentro(datos.get("missing_lines"))
+        total = len(ejecutadas) + len(faltantes)
+        if not total:
+            return None
+        ramas_ok = dentro(datos.get("executed_branches"))
+        ramas_no = dentro(datos.get("missing_branches"))
+        total_ramas = len(ramas_ok) + len(ramas_no)
+        return {
+            "lineas": round(len(ejecutadas) * 100 / total, 2),
+            "ramas": (
+                round(len(ramas_ok) * 100 / total_ramas, 2) if total_ramas else None
+            ),
+        }
+
+    def _rango_de_funcion(self, modulo: str, nombre: str) -> tuple[int, int] | None:
+        """Primera y última línea del cuerpo de una función de nivel superior."""
+        try:
+            fuente = (self.ruta_proyecto / modulo).read_text(encoding="utf-8")
+            arbol = ast.parse(fuente)
+        except (OSError, SyntaxError, ValueError):
+            return None
+        for nodo in arbol.body:
+            if (
+                isinstance(nodo, (ast.FunctionDef, ast.AsyncFunctionDef))
+                and nodo.name == nombre
+                and nodo.body
+            ):
+                return nodo.body[0].lineno, nodo.end_lineno or nodo.body[-1].lineno
+        return None
+
     @staticmethod
     def _extraer_cobertura(
         coverage: dict[str, Any] | None,
@@ -483,3 +547,8 @@ SALIDA DE PYTEST:
         }
         contracts.validar(contracts.REVIEW_RESULT, revision)
         return revision
+
+
+def _linea(numero: Any) -> int:
+    """Línea de un dato de coverage.json: un número, o el origen de una rama [de, a]."""
+    return int(numero[0] if isinstance(numero, (list, tuple)) else numero)

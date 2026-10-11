@@ -32,6 +32,7 @@ from pyagent.llm import TokenTracker, crear_cliente
 from pyagent.llm.fabrica import FuenteClaves
 from pyagent.orchestrator.eventos import BusEventos, Evento
 from pyagent.orchestrator.orquestador import Orquestador, ResultadoCorrida
+from pyagent.proyectos.proyecto_local import detectar_rama
 from pyagent.sandbox import ejecutar_pruebas
 from pyagent.storage import escribir_corrida
 
@@ -248,6 +249,7 @@ def _registrar(
             perfil,
             run_id=resumen.run_id,
             metas=metas_de(configuracion),
+            rama=detectar_rama(ruta),
         )
         resumen.run_id = rutas.run_id
         resumen.carpeta = str(rutas.carpeta)

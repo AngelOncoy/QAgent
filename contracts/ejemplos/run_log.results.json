@@ -28,6 +28,7 @@
   "estado_final": "fin",
   "motivo_fallo": null,
   "es_simulado": true,
+  "rama": "develop",
   "objetivos": [
     {
       "modulo": "modulo_simulado.py",
@@ -37,6 +38,13 @@
       "motivo_estancado": null,
       "laundering_detectado": false,
       "duracion_s": 3.42,
+      "controles": {
+        "sintaxis": true,
+        "sandbox": true,
+        "aserciones": true,
+        "cobertura": true,
+        "mutation": null
+      },
       "metricas": {
         "paso": true,
         "cobertura_lineas": 100.0,
