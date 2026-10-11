@@ -29,6 +29,8 @@ label.l{font-size:11.5px;color:var(--mut);display:block;margin-bottom:6px}
 .card .bd{padding:14px 16px}
 input[type=checkbox],input[type=radio]{accent-color:var(--blue)}
 table{width:100%;border-collapse:collapse}
+.table-scroll{max-width:100%;overflow-x:auto}
+.table-scroll table{min-width:860px}
 th{font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--dim);text-align:left;font-weight:600;padding:8px 10px;border-bottom:1px solid var(--line)}
 td{padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:middle}
 td.fn{font-family:var(--mono);font-size:12px}

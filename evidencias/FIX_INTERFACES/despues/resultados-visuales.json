@@ -1,0 +1,330 @@
+{
+  "inicio_accion": {
+    "x": 433,
+    "y": 171.875,
+    "right": 583,
+    "bottom": 303.875,
+    "width": 150,
+    "height": 132,
+    "dentro": true,
+    "recibeCentro": true,
+    "elementoCentro": "action"
+  },
+  "inicio_scroll": {
+    "clientHeight": 600,
+    "scrollHeight": 965,
+    "overflow": "auto"
+  },
+  "guia": {
+    "clase": "off",
+    "aria": "true",
+    "titulo": "No disponible en esta versión",
+    "texto": "Guía de uso\nNo disponible",
+    "onclick": null,
+    "href": null
+  },
+  "historial_scroll": {
+    "clientWidth": 724,
+    "scrollWidth": 724,
+    "clientHeight": 600,
+    "scrollHeight": 917,
+    "overflow": "auto"
+  },
+  "historial_ver_reporte": {
+    "x": 829.015625,
+    "y": 198.6875,
+    "right": 924.9375,
+    "bottom": 226.6875,
+    "width": 95.921875,
+    "height": 28,
+    "dentro": true,
+    "recibeCentro": true,
+    "elementoCentro": "btn"
+  },
+  "historial_descarga": {
+    "x": 900.078125,
+    "y": 455.1875,
+    "right": 924.828125,
+    "bottom": 482.1875,
+    "dentro": true,
+    "recibeCentro": true
+  },
+  "config_960": {
+    "clientHeight": 600,
+    "scrollHeight": 1188,
+    "overflow": "auto",
+    "scrollTopFinal": 588
+  },
+  "vista_previa_reintentar": {
+    "x": 818.59375,
+    "y": 494.28125,
+    "right": 919,
+    "bottom": 528.28125,
+    "width": 100.40625,
+    "height": 34,
+    "dentro": true,
+    "recibeCentro": true,
+    "elementoCentro": "envReintentar"
+  },
+  "pantallas_960": {
+    "welcome": {
+      "sectionClientWidth": 724,
+      "sectionScrollWidth": 724,
+      "sectionClientHeight": 600,
+      "sectionScrollHeight": 965,
+      "bodyClientWidth": 960,
+      "bodyScrollWidth": 960,
+      "bodyClientHeight": 600,
+      "bodyScrollHeight": 600
+    },
+    "preview": {
+      "sectionClientWidth": 724,
+      "sectionScrollWidth": 724,
+      "sectionClientHeight": 600,
+      "sectionScrollHeight": 600,
+      "bodyClientWidth": 960,
+      "bodyScrollWidth": 960,
+      "bodyClientHeight": 600,
+      "bodyScrollHeight": 655
+    },
+    "tests": {
+      "sectionClientWidth": 724,
+      "sectionScrollWidth": 724,
+      "sectionClientHeight": 600,
+      "sectionScrollHeight": 600,
+      "bodyClientWidth": 960,
+      "bodyScrollWidth": 960,
+      "bodyClientHeight": 600,
+      "bodyScrollHeight": 655
+    },
+    "monitor": {
+      "sectionClientWidth": 724,
+      "sectionScrollWidth": 724,
+      "sectionClientHeight": 527,
+      "sectionScrollHeight": 527,
+      "bodyClientWidth": 960,
+      "bodyScrollWidth": 960,
+      "bodyClientHeight": 600,
+      "bodyScrollHeight": 655
+    },
+    "exec": {
+      "sectionClientWidth": 724,
+      "sectionScrollWidth": 724,
+      "sectionClientHeight": 527,
+      "sectionScrollHeight": 527,
+      "bodyClientWidth": 960,
+      "bodyScrollWidth": 960,
+      "bodyClientHeight": 600,
+      "bodyScrollHeight": 655
+    },
+    "report": {
+      "sectionClientWidth": 724,
+      "sectionScrollWidth": 724,
+      "sectionClientHeight": 527,
+      "sectionScrollHeight": 527,
+      "bodyClientWidth": 960,
+      "bodyScrollWidth": 960,
+      "bodyClientHeight": 600,
+      "bodyScrollHeight": 655
+    },
+    "history": {
+      "sectionClientWidth": 724,
+      "sectionScrollWidth": 724,
+      "sectionClientHeight": 600,
+      "sectionScrollHeight": 917,
+      "bodyClientWidth": 960,
+      "bodyScrollWidth": 960,
+      "bodyClientHeight": 600,
+      "bodyScrollHeight": 655
+    },
+    "config": {
+      "sectionClientWidth": 724,
+      "sectionScrollWidth": 724,
+      "sectionClientHeight": 600,
+      "sectionScrollHeight": 1188,
+      "bodyClientWidth": 960,
+      "bodyScrollWidth": 960,
+      "bodyClientHeight": 600,
+      "bodyScrollHeight": 600
+    }
+  },
+  "errores_960": [],
+  "config_1400": {
+    "clientHeight": 900,
+    "scrollHeight": 1086,
+    "overflow": "auto",
+    "scrollTopFinal": 186
+  },
+  "pantallas_1400": {
+    "welcome": {
+      "sectionClientWidth": 1164,
+      "sectionScrollWidth": 1164,
+      "sectionClientHeight": 900,
+      "sectionScrollHeight": 965,
+      "bodyClientWidth": 1400,
+      "bodyScrollWidth": 1400,
+      "bodyClientHeight": 900,
+      "bodyScrollHeight": 900
+    },
+    "preview": {
+      "sectionClientWidth": 1164,
+      "sectionScrollWidth": 1164,
+      "sectionClientHeight": 900,
+      "sectionScrollHeight": 900,
+      "bodyClientWidth": 1400,
+      "bodyScrollWidth": 1400,
+      "bodyClientHeight": 900,
+      "bodyScrollHeight": 900
+    },
+    "tests": {
+      "sectionClientWidth": 1164,
+      "sectionScrollWidth": 1164,
+      "sectionClientHeight": 900,
+      "sectionScrollHeight": 900,
+      "bodyClientWidth": 1400,
+      "bodyScrollWidth": 1400,
+      "bodyClientHeight": 900,
+      "bodyScrollHeight": 900
+    },
+    "monitor": {
+      "sectionClientWidth": 1164,
+      "sectionScrollWidth": 1164,
+      "sectionClientHeight": 827,
+      "sectionScrollHeight": 827,
+      "bodyClientWidth": 1400,
+      "bodyScrollWidth": 1400,
+      "bodyClientHeight": 900,
+      "bodyScrollHeight": 900
+    },
+    "exec": {
+      "sectionClientWidth": 1164,
+      "sectionScrollWidth": 1164,
+      "sectionClientHeight": 827,
+      "sectionScrollHeight": 827,
+      "bodyClientWidth": 1400,
+      "bodyScrollWidth": 1400,
+      "bodyClientHeight": 900,
+      "bodyScrollHeight": 900
+    },
+    "report": {
+      "sectionClientWidth": 1164,
+      "sectionScrollWidth": 1164,
+      "sectionClientHeight": 827,
+      "sectionScrollHeight": 827,
+      "bodyClientWidth": 1400,
+      "bodyScrollWidth": 1400,
+      "bodyClientHeight": 900,
+      "bodyScrollHeight": 900
+    },
+    "history": {
+      "sectionClientWidth": 1164,
+      "sectionScrollWidth": 1164,
+      "sectionClientHeight": 900,
+      "sectionScrollHeight": 900,
+      "bodyClientWidth": 1400,
+      "bodyScrollWidth": 1400,
+      "bodyClientHeight": 900,
+      "bodyScrollHeight": 900
+    },
+    "config": {
+      "sectionClientWidth": 1164,
+      "sectionScrollWidth": 1164,
+      "sectionClientHeight": 900,
+      "sectionScrollHeight": 1086,
+      "bodyClientWidth": 1400,
+      "bodyScrollWidth": 1400,
+      "bodyClientHeight": 900,
+      "bodyScrollHeight": 900
+    }
+  },
+  "errores_1400": [],
+  "historial_1920": {
+    "clientWidth": 1684,
+    "scrollWidth": 1684,
+    "clientHeight": 1080,
+    "scrollHeight": 1080
+  },
+  "pantallas_1920": {
+    "welcome": {
+      "sectionClientWidth": 1684,
+      "sectionScrollWidth": 1684,
+      "sectionClientHeight": 1080,
+      "sectionScrollHeight": 1080,
+      "bodyClientWidth": 1920,
+      "bodyScrollWidth": 1920,
+      "bodyClientHeight": 1080,
+      "bodyScrollHeight": 1080
+    },
+    "preview": {
+      "sectionClientWidth": 1684,
+      "sectionScrollWidth": 1684,
+      "sectionClientHeight": 1080,
+      "sectionScrollHeight": 1080,
+      "bodyClientWidth": 1920,
+      "bodyScrollWidth": 1920,
+      "bodyClientHeight": 1080,
+      "bodyScrollHeight": 1080
+    },
+    "tests": {
+      "sectionClientWidth": 1684,
+      "sectionScrollWidth": 1684,
+      "sectionClientHeight": 1080,
+      "sectionScrollHeight": 1080,
+      "bodyClientWidth": 1920,
+      "bodyScrollWidth": 1920,
+      "bodyClientHeight": 1080,
+      "bodyScrollHeight": 1080
+    },
+    "monitor": {
+      "sectionClientWidth": 1684,
+      "sectionScrollWidth": 1684,
+      "sectionClientHeight": 1007,
+      "sectionScrollHeight": 1007,
+      "bodyClientWidth": 1920,
+      "bodyScrollWidth": 1920,
+      "bodyClientHeight": 1080,
+      "bodyScrollHeight": 1080
+    },
+    "exec": {
+      "sectionClientWidth": 1684,
+      "sectionScrollWidth": 1684,
+      "sectionClientHeight": 1007,
+      "sectionScrollHeight": 1007,
+      "bodyClientWidth": 1920,
+      "bodyScrollWidth": 1920,
+      "bodyClientHeight": 1080,
+      "bodyScrollHeight": 1080
+    },
+    "report": {
+      "sectionClientWidth": 1684,
+      "sectionScrollWidth": 1684,
+      "sectionClientHeight": 1007,
+      "sectionScrollHeight": 1007,
+      "bodyClientWidth": 1920,
+      "bodyScrollWidth": 1920,
+      "bodyClientHeight": 1080,
+      "bodyScrollHeight": 1080
+    },
+    "history": {
+      "sectionClientWidth": 1684,
+      "sectionScrollWidth": 1684,
+      "sectionClientHeight": 1080,
+      "sectionScrollHeight": 1080,
+      "bodyClientWidth": 1920,
+      "bodyScrollWidth": 1920,
+      "bodyClientHeight": 1080,
+      "bodyScrollHeight": 1080
+    },
+    "config": {
+      "sectionClientWidth": 1684,
+      "sectionScrollWidth": 1684,
+      "sectionClientHeight": 1080,
+      "sectionScrollHeight": 1086,
+      "bodyClientWidth": 1920,
+      "bodyScrollWidth": 1920,
+      "bodyClientHeight": 1080,
+      "bodyScrollHeight": 1080
+    }
+  },
+  "errores_1920": []
+}

@@ -9,19 +9,19 @@ registrarComponente('historial/historial', `<!-- ===== 7. HISTORIAL DE CORRIDAS 
     </div></div>
     <div class="card">
       <h4>Corridas <span class="pill p-grey" id="histCount"></span></h4>
-      <table>
+      <div class="table-scroll"><table>
         <thead><tr><th>Corrida</th><th>Fecha</th><th>Perfil</th><th>Modelos</th><th>Specs</th><th>Pass Rate</th><th>Tokens</th><th>Costo</th><th></th></tr></thead>
         <tbody id="histTable"></tbody>
-      </table>
+      </table></div>
       <div class="hint" style="padding:10px 16px 14px">El costo baja cuando se reutilizan specs (se omite el Planner, el agente más caro) y es cero en Regresión (no se llama a ninguna IA). La columna Modelos distingue corridas de control, por ejemplo los 3 agentes con el mismo modelo.</div>
     </div>
     <div class="card">
       <h4>Specs guardados <span class="pill p-grey">.pyagent/specs/</span>
         <button class="btn" style="margin-left:auto;font-size:10.5px;padding:6px 10px;text-transform:none;letter-spacing:0" onclick="descargarSpecsReal(null)">⤓ Descargar todos (.zip)</button></h4>
-      <table>
+      <div class="table-scroll"><table>
         <thead><tr><th>Archivo</th><th>Funciones</th><th>Huella del código</th><th>Generado en</th><th>Estado</th><th></th></tr></thead>
         <tbody id="specTable"></tbody>
-      </table>
+      </table></div>
       <div class="hint" style="padding:10px 16px 14px">Regla: cada spec guarda una huella del código y la documentación del módulo. Si cambian, el spec se regenera en la siguiente corrida. Las pruebas rechazadas (laundering u oráculo alterado) y las estancadas no se guardan para Regresión: solo las aprobadas.</div>
     </div>
   </div>

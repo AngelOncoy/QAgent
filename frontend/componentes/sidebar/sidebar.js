@@ -13,7 +13,7 @@ registrarComponente('sidebar/sidebar', `<!-- ======================= SIDEBAR ===
     <nav>
       <a class="on" data-h="welcome" onclick="go('welcome')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7h6l2 2h10v10H3z"/></svg>Proyectos</a>
       <a data-h="config" onclick="go('config')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M5 5l2 2M17 17l2 2M5 19l2-2M17 7l2-2"/></svg>Configuración</a>
-      <a><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 5h7v14H4zM13 5h7v14h-7z"/></svg>Guía de uso</a>
+      <a class="off" aria-disabled="true" title="No disponible en esta versión"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 5h7v14H4zM13 5h7v14h-7z"/></svg>Guía de uso<span class="pill p-grey">No disponible</span></a>
     </nav>
   </div>
 
