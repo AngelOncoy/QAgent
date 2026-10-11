@@ -1,8 +1,15 @@
 /* barra-corrida.css — barra superior de la corrida: contexto, progreso y botón LIVE */
+.mon-top{flex-wrap:wrap;min-width:0}
+.mon-top>.chip:first-child{flex:1 1 260px;min-width:180px;max-width:440px}
+.mon-top>.chip:first-child .repoLbl{display:block;min-width:0;overflow:hidden;text-overflow:ellipsis}
+.mon-top>.chev{flex:0 0 auto}
+.mon-top>#ctxChip{flex:0 1 260px;min-width:170px}
+.mon-top>#ctxChip>span:last-child{min-width:0}
+.mon-top #ctxLbl,.mon-top #curFile{display:block;min-width:0;overflow:hidden;text-overflow:ellipsis}
 .chip.done{border-color:var(--green-b);background:var(--green-s);color:var(--green-t)}
 .chip .dot{background:var(--amber)}.chip.done .dot{background:var(--green)}
 .live.done{cursor:default;color:var(--green-t)}.live.done i{display:none}
-.mon-top .prog{display:flex;align-items:center;gap:12px;margin-left:auto}
+.mon-top .prog{display:flex;align-items:center;gap:12px;flex:0 0 auto;margin-left:auto}
 .mon-top .prog .lbl{font-size:11.5px;font-weight:600;text-align:right;line-height:1.3}
 .mon-top .prog .num{font-family:var(--mono);font-size:11.5px;color:var(--blue-t);line-height:1.3}
 .mon-top .prog .num span{color:var(--dim)}

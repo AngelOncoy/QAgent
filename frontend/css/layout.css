@@ -7,7 +7,7 @@ body{background:var(--bg);color:var(--txt);font-family:var(--sans);font-size:13p
 button{font-family:inherit}
 /* ---------- Main ---------- */
 main{flex:1;display:flex;flex-direction:column;min-width:0}
-.scroll{flex:1;overflow:auto}
+.scroll{flex:1;min-width:0;min-height:0;overflow:auto}
 .topbar{display:flex;gap:12px;align-items:center;padding:12px 24px;border-bottom:1px solid var(--line);min-height:62px}
 .chip{display:flex;align-items:center;gap:8px;font-family:var(--mono);font-size:11.5px;padding:7px 12px;border:1px solid var(--line2);border-radius:7px;background:var(--panel2);white-space:nowrap}
 .chip b{font-weight:600}
