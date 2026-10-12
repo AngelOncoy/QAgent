@@ -79,3 +79,31 @@ def test_endpoint_y_esfuerzo_de_config_toml() -> None:
 def test_sin_clave_en_env_falla_con_mensaje_claro() -> None:
     with pytest.raises(ConfiguracionLLMIncompleta, match="XIAOMI_API_KEY"):
         crear_cliente(precio(), Claves({}), simulado=False)
+
+
+@pytest.mark.parametrize(
+    ("proveedor", "variable", "url"),
+    [
+        (
+            "gemini",
+            "GEMINI_API_KEY",
+            "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",
+        ),
+        ("groq", "GROQ_API_KEY", "https://api.groq.com/openai/v1/chat/completions"),
+    ],
+)
+def test_proveedores_de_capa_gratuita_usan_su_url_y_bearer(
+    proveedor: str, variable: str, url: str
+) -> None:
+    transporte = TransporteEspia()
+    claves = Claves({variable: "clave-gratis-123"})
+
+    cliente = crear_cliente(
+        precio(proveedor), claves, simulado=False, transporte=transporte
+    )
+    cliente.generar("hola", rol="generator")
+
+    [envio] = transporte.envios
+    assert envio["url"] == url
+    assert envio["cabeceras"]["Authorization"] == "Bearer clave-gratis-123"
+    assert "api-key" not in envio["cabeceras"]

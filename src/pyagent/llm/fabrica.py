@@ -20,6 +20,9 @@ ENDPOINT_POR_PROVEEDOR = {
     "xiaomi": "https://api.xiaomimimo.com/v1/chat/completions",
     "anthropic": "https://api.anthropic.com/v1/chat/completions",
     "openrouter": "https://openrouter.ai/api/v1/chat/completions",
+    # Capas gratuitas con API compatible con OpenAI (clave en `Authorization: Bearer`).
+    "gemini": "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",
+    "groq": "https://api.groq.com/openai/v1/chat/completions",
 }
 
 #: Proveedores que leen la clave de una cabecera propia además de `Authorization`.
