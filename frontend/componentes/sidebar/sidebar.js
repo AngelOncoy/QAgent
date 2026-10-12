@@ -102,7 +102,7 @@ function actualizarSidebar(v){
 function iniciarSidebar(){
   document.querySelectorAll('#views a').forEach(a => a.onclick = () => {
     if(a.classList.contains('off')) return;
-    if(a.dataset.v==='monitor' && !monitorStarted) return;
+    if(a.dataset.v==='monitor' && !monitorStarted) { startMonitor(); return; }
     go(a.dataset.v);
   });
   if (window.pywebview && window.pywebview.api) iniciarEstadoSandbox();

@@ -10,9 +10,22 @@ registrarComponente('ejecucion/ejecucion', `<!-- ===== 5. EJECUCIÓN DE PRUEBAS 
       <div class="cmd2"><span class='ico' data-i='term' data-c='var(--blue-400)'></span> docker run --rm --network none pyagent-sandbox:base pytest -v --cov --cov-branch</div>
     </div>
     <div id="suites"></div>
+    <div class="nextbox" id="execNextBox">
+      <span>Ejecución de pruebas completada · resultados listos para el reporte final.</span>
+      <button class="btn primary" style="margin-left:auto" onclick="irAReporteFinal()">Ver reporte final →</button>
+    </div>
   </div></div>
 </section>
 `);
+
+function irAReporteFinal(){
+  document.querySelectorAll('#views a[data-v=report]').forEach(a=>a.classList.remove('off'));
+  if (ejecucionReal && ejecucionReal.run_id) {
+    cargarReporteReal(ejecucionReal.run_id);
+  } else {
+    go('report');
+  }
+}
 
 /* ---------------- Ejecución de pruebas ---------------- */
 let filterState = 'ALL';
@@ -49,6 +62,7 @@ function renderExecKpis(){
     <div class="kscale"><span>0%</span><span class="c">Meta: ${META.ms}%</span><span>100%</span></div></div></div>`;
 }
 function renderExec(){
+  document.querySelectorAll('#views a[data-v=report]').forEach(a=>a.classList.remove('off'));
   if (ejecucionReal) { renderExecReal(ejecucionReal); return; }   // corrida real (HU-18)
   renderExecKpis();
   const keys = ['ALL', ...Object.keys(ST)];
