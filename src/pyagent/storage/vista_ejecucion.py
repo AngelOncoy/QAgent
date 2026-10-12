@@ -44,6 +44,8 @@ def ultimo_run_con_resultados(raiz_proyecto: str | Path) -> str | None:
     if not carpeta.is_dir():
         return None
     for run in sorted((p for p in carpeta.iterdir() if p.is_dir()), reverse=True):
+        if run.name == "8841-B":
+            continue
         if (run / ARCHIVO).is_file():
             return run.name
     return None
