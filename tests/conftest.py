@@ -6,6 +6,16 @@ import pytest
 
 
 @pytest.fixture(autouse=True)
+def sin_config_local(monkeypatch: pytest.MonkeyPatch, tmp_path_factory) -> None:
+    """Las pruebas usan solo el `config.toml` del equipo, nunca el `config.local.toml`
+    personal (modelos gratuitos u otros) de la computadora donde se ejecutan."""
+    from pyagent.config import carga
+
+    ausente = tmp_path_factory.getbasetemp() / "sin-config-local.toml"
+    monkeypatch.setattr(carga, "RUTA_CONFIG_LOCAL", ausente)
+
+
+@pytest.fixture(autouse=True)
 def corridas_lanzadas(monkeypatch: pytest.MonkeyPatch) -> list[tuple]:
     """Ninguna prueba lanza el pipeline real en un hilo al llamar a `start_run`.
 

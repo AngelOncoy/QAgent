@@ -1,0 +1,33 @@
+# Ejemplo de config.local.toml: modelos de CAPA GRATUITA (US$ 0) para esta computadora.
+#
+# Copia este archivo como config.local.toml (no se sube a Git). La aplicación lo pone
+# encima de config.toml: cada [agentes.*] de aquí reemplaza al del equipo; lo demás
+# (presupuesto, umbrales, reintentos) se toma de config.toml salvo que lo repitas aquí.
+#
+# Claves en .env: GEMINI_API_KEY, GROQ_API_KEY y OPENROUTER_API_KEY (cuentas sin tarjeta)
+# y PYAGENT_FAKE_LLM=0 para usar la IA real.
+# Probar las claves y los modelos:  python -m pyagent.llm.validar --gratis
+#
+# Reparto: Planner en Gemini (más contexto, pocas llamadas), Generator en Groq (más
+# llamadas por día) y Reviewer en OpenRouter (casi no llama). Tres familias distintas:
+# el Reviewer no juzga a un modelo de su misma familia.
+# Ojo: en la capa gratuita los proveedores pueden usar lo enviado para mejorar sus
+# modelos; úsala con el banco o con repositorios públicos, no con código privado.
+
+[agentes.planner]
+proveedor = "gemini"
+modelo = "gemini-3.8-flash"      # gemini-2.5-pro ya no se ofrece a cuentas nuevas
+precio_entrada_usd_m = 0
+precio_salida_usd_m = 0
+
+[agentes.generator]
+proveedor = "groq"
+modelo = "openai/gpt-oss-120b"   # tope gratuito: 30 llamadas/min, 8K tokens/min, 1K/día
+precio_entrada_usd_m = 0
+precio_salida_usd_m = 0
+
+[agentes.reviewer]
+proveedor = "openrouter"
+modelo = "apodex/apodex-1.1-mini:free"   # el catálogo :free cambia: python -m pyagent.llm.validar --gratis
+precio_entrada_usd_m = 0
+precio_salida_usd_m = 0

@@ -6,7 +6,7 @@ from typing import Any
 
 import pytest
 
-from pyagent.llm.cliente import ClienteLLMReal, ErrorLLM
+from pyagent.llm.cliente import ClienteLLMReal, ErrorLLM, LimiteProveedor
 
 CLAVE_PRUEBA = "clave-super-secreta-de-prueba"
 ENDPOINT_PRUEBA = "https://proveedor.example/v1/chat/completions"
@@ -181,3 +181,124 @@ def test_cliente_real_acepta_los_tres_roles(rol: str) -> None:
     assert respuesta.contenido
     mensaje_sistema = transporte.solicitudes[0]["datos"]["messages"][0]["content"]
     assert rol in mensaje_sistema.lower()
+
+
+# --- Reintento ante el límite de uso de las capas gratuitas (HTTP 429/503) -------
+
+
+class TransporteConLimite:
+    """Responde 429 las primeras `veces` y luego una respuesta correcta."""
+
+    def __init__(self, veces: int, espera_s: float | None = None) -> None:
+        self.veces = veces
+        self.espera_s = espera_s
+        self.llamadas = 0
+
+    def enviar(self, **_: Any) -> dict[str, Any]:
+        self.llamadas += 1
+        if self.llamadas <= self.veces:
+            raise LimiteProveedor("HTTP 429", espera_s=self.espera_s)
+        return respuesta_correcta()
+
+
+def cliente_con_limite(
+    transporte: TransporteConLimite, esperas: list[float], reintentos: int = 3
+) -> ClienteLLMReal:
+    return ClienteLLMReal(
+        modelo="modelo-configurado",
+        clave=CLAVE_PRUEBA,
+        endpoint=ENDPOINT_PRUEBA,
+        transporte=transporte,
+        reintentos_limite=reintentos,
+        espera_maxima_s=20.0,
+        esperar=esperas.append,
+    )
+
+
+def test_ante_429_espera_y_reintenta_hasta_responder() -> None:
+    esperas: list[float] = []
+    transporte = TransporteConLimite(veces=2)
+
+    respuesta = cliente_con_limite(transporte, esperas).generar("hola")
+
+    assert respuesta.contenido == '{"resultado": "correcto"}'
+    assert transporte.llamadas == 3
+    assert esperas == [2.0, 4.0]  # espera creciente si el proveedor no dice cuánto
+
+
+def test_respeta_retry_after_con_un_tope() -> None:
+    esperas: list[float] = []
+
+    cliente_con_limite(TransporteConLimite(veces=1, espera_s=7), esperas).generar("x")
+    cliente_con_limite(TransporteConLimite(veces=1, espera_s=300), esperas).generar("x")
+
+    assert esperas == [7.0, 20.0]
+
+
+def test_si_el_limite_sigue_tras_los_reintentos_falla_sin_mostrar_la_clave() -> None:
+    esperas: list[float] = []
+    transporte = TransporteConLimite(veces=10)
+
+    with pytest.raises(ErrorLLM) as error:
+        cliente_con_limite(transporte, esperas, reintentos=2).generar("hola")
+
+    assert transporte.llamadas == 3
+    assert len(esperas) == 2
+    assert CLAVE_PRUEBA not in str(error.value)
+
+
+def test_otros_errores_no_se_reintentan() -> None:
+    esperas: list[float] = []
+    transporte = TransporteGrabado(error=ErrorLLM("HTTP 401"))
+    cliente = ClienteLLMReal(
+        modelo="m",
+        clave=CLAVE_PRUEBA,
+        endpoint=ENDPOINT_PRUEBA,
+        transporte=transporte,
+        esperar=esperas.append,
+    )
+
+    with pytest.raises(ErrorLLM):
+        cliente.generar("hola")
+
+    assert len(transporte.solicitudes) == 1
+    assert esperas == []
+
+
+def test_transporte_http_convierte_429_en_limite_con_retry_after(monkeypatch) -> None:
+    import io
+    from email.message import Message
+    from urllib.error import HTTPError
+
+    from pyagent.llm import cliente as modulo
+
+    cabeceras = Message()
+    cabeceras["Retry-After"] = "12"
+
+    def falla(*_: Any, **__: Any) -> None:
+        raise HTTPError(
+            ENDPOINT_PRUEBA,
+            429,
+            "Too Many Requests",
+            cabeceras,
+            io.BytesIO(b'{"error": "rate limit reached"}'),
+        )
+
+    monkeypatch.setattr(modulo, "urlopen", falla)
+
+    with pytest.raises(LimiteProveedor) as error:
+        modulo.TransporteHTTP().enviar(
+            url=ENDPOINT_PRUEBA, cabeceras={}, datos={}, timeout_s=1
+        )
+
+    assert error.value.espera_s == 12.0
+    assert "rate limit reached" in str(error.value)
+
+
+def test_envia_un_user_agent_propio_para_no_ser_bloqueado() -> None:
+    transporte = TransporteGrabado(respuesta=respuesta_correcta())
+
+    crear_cliente(transporte).generar("hola")
+
+    [solicitud] = transporte.solicitudes
+    assert solicitud["cabeceras"]["User-Agent"] == "QAgent/1.0"

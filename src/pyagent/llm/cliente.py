@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import json
 import os
+import time
+from collections.abc import Callable
 from typing import Any, Protocol
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
@@ -14,6 +16,27 @@ from pyagent.llm.modelos import ClienteLLM, RespuestaLLM
 
 class ErrorLLM(RuntimeError):
     """Error controlado durante una llamada a un proveedor LLM."""
+
+
+class LimiteProveedor(ErrorLLM):
+    """El proveedor rechazó la llamada por límite de uso (HTTP 429) o saturación (503).
+
+    Atributos:
+        espera_s: segundos que pidió esperar el proveedor (`Retry-After`), o None.
+    """
+
+    def __init__(self, mensaje: str, espera_s: float | None = None) -> None:
+        super().__init__(mensaje)
+        self.espera_s = espera_s
+
+
+#: Códigos HTTP que se reintentan: límite de uso de la capa gratuita y saturación.
+CODIGOS_REINTENTABLES = frozenset({429, 503})
+#: Identifica al cliente ante el proveedor. Sin esta cabecera, `urllib` se presenta
+#: como «Python-urllib» y Cloudflare (p. ej. Groq) lo rechaza con HTTP 403 / error 1010.
+AGENTE_USUARIO = "QAgent/1.0"
+#: Largo máximo del detalle del proveedor que se agrega a un error HTTP.
+LARGO_DETALLE_ERROR = 300
 
 
 class TransporteLLM(Protocol):
@@ -68,8 +91,15 @@ class TransporteHTTP:
             with urlopen(solicitud, timeout=timeout_s) as respuesta:
                 contenido = respuesta.read().decode("utf-8")
         except HTTPError as error:
+            detalle = _detalle_error(error)
+            if error.code in CODIGOS_REINTENTABLES:
+                raise LimiteProveedor(
+                    f"El proveedor LLM respondió con HTTP {error.code} "
+                    f"(límite de uso o saturación).{detalle}",
+                    espera_s=_segundos_retry_after(error),
+                ) from error
             raise ErrorLLM(
-                f"El proveedor LLM respondió con HTTP {error.code}."
+                f"El proveedor LLM respondió con HTTP {error.code}.{detalle}"
             ) from error
         except URLError as error:
             raise ErrorLLM(
@@ -108,6 +138,9 @@ class ClienteLLMReal:
         timeout_s: float = 60.0,
         esfuerzo: str | None = None,
         cabecera_clave: str | None = None,
+        reintentos_limite: int = 3,
+        espera_maxima_s: float = 20.0,
+        esperar: Callable[[float], None] = time.sleep,
     ) -> None:
         """Inicializa el cliente real.
 
@@ -120,6 +153,11 @@ class ClienteLLMReal:
             esfuerzo: Valor de `reasoning_effort`; si es None no se envía.
             cabecera_clave: Cabecera adicional con la clave, para proveedores que
                 no usan `Authorization: Bearer` (ej. `api-key` en Xiaomi MiMo).
+            reintentos_limite: reintentos ante HTTP 429/503 (capas gratuitas con
+                límite por minuto); 0 desactiva los reintentos.
+            espera_maxima_s: tope de cada espera entre reintentos, aunque el
+                proveedor pida más (el orquestador corta un paso a los 120 s).
+            esperar: función de espera; se reemplaza en las pruebas.
         """
         if not modelo.strip():
             raise ValueError("El modelo LLM no puede estar vacío.")
@@ -129,6 +167,8 @@ class ClienteLLMReal:
             raise ValueError("El endpoint del proveedor no puede estar vacío.")
         if timeout_s <= 0:
             raise ValueError("El timeout debe ser mayor que cero.")
+        if reintentos_limite < 0:
+            raise ValueError("Los reintentos no pueden ser negativos.")
 
         self.modelo = modelo
         self._clave = clave
@@ -137,6 +177,9 @@ class ClienteLLMReal:
         self.timeout_s = timeout_s
         self.esfuerzo = esfuerzo
         self.cabecera_clave = cabecera_clave
+        self.reintentos_limite = reintentos_limite
+        self.espera_maxima_s = espera_maxima_s
+        self._esperar = esperar
 
     def generar(self, prompt: str, rol: str = "generator") -> RespuestaLLM:
         """Genera una respuesta mediante el proveedor configurado.
@@ -154,6 +197,7 @@ class ClienteLLMReal:
         cabeceras = {
             "Authorization": f"Bearer {self._clave}",
             "Content-Type": "application/json",
+            "User-Agent": AGENTE_USUARIO,
         }
         if self.cabecera_clave:
             cabeceras[self.cabecera_clave] = self._clave
@@ -177,18 +221,34 @@ class ClienteLLMReal:
             datos["reasoning_effort"] = self.esfuerzo
 
         try:
-            respuesta = self.transporte.enviar(
-                url=self.endpoint,
-                cabeceras=cabeceras,
-                datos=datos,
-                timeout_s=self.timeout_s,
-            )
+            respuesta = self._enviar_con_reintentos(cabeceras, datos)
             return self._convertir_respuesta(respuesta)
         except Exception as error:
             mensaje = str(error).replace(self._clave, "***")
             if isinstance(error, ErrorLLM):
                 raise ErrorLLM(mensaje) from error
             raise ErrorLLM(f"Error al llamar al proveedor LLM: {mensaje}") from error
+
+    def _enviar_con_reintentos(
+        self, cabeceras: dict[str, str], datos: dict[str, Any]
+    ) -> dict[str, Any]:
+        """Envía la solicitud; ante HTTP 429/503 espera y reintenta (capas gratuitas)."""
+        for intento in range(self.reintentos_limite + 1):
+            try:
+                return self.transporte.enviar(
+                    url=self.endpoint,
+                    cabeceras=cabeceras,
+                    datos=datos,
+                    timeout_s=self.timeout_s,
+                )
+            except LimiteProveedor as error:
+                if intento == self.reintentos_limite:
+                    raise
+                espera = (
+                    error.espera_s if error.espera_s is not None else 2.0 * 2**intento
+                )
+                self._esperar(min(max(espera, 0.0), self.espera_maxima_s))
+        raise AssertionError("inalcanzable")  # pragma: no cover
 
     def _convertir_respuesta(self, datos: dict[str, Any]) -> RespuestaLLM:
         """Convierte la respuesta del proveedor al formato común de QAgent."""
@@ -279,3 +339,23 @@ def obtener_cliente_llm(
         transporte=transporte,
         timeout_s=timeout_s,
     )
+
+
+def _segundos_retry_after(error: HTTPError) -> float | None:
+    """Segundos de la cabecera `Retry-After` (solo el formato numérico), o None."""
+    valor = error.headers.get("Retry-After") if error.headers else None
+    try:
+        return float(valor) if valor is not None else None
+    except ValueError:
+        return None
+
+
+def _detalle_error(error: HTTPError) -> str:
+    """Primeras líneas del cuerpo del error (p. ej. «modelo no encontrado»)."""
+    try:
+        cuerpo = error.read().decode("utf-8", errors="replace").strip()
+    except (OSError, AttributeError):
+        return ""
+    if not cuerpo:
+        return ""
+    return " Detalle: " + " ".join(cuerpo.split())[:LARGO_DETALLE_ERROR]

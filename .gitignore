@@ -1,5 +1,7 @@
 .env
 .env.*
+docs/evidencias/
+config.local.toml
 .pyagent/
 __pycache__/
 *.pyc
