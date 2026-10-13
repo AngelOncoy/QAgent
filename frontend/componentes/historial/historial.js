@@ -78,10 +78,11 @@ function renderHistoryReal(datos){
     if(s.generado) partes.push(s.generado + ' generados');
     if(s.reutilizado) partes.push(s.reutilizado + ' reutilizados');
     if(s.regenerado) partes.push(s.regenerado + ' regenerados');
+    const nomPerfil = {quick:'Rápido', std:'Equilibrado', deep:'Profundo', reg:'Regresión'}[h.perfil] || h.perfil || '—';
     return `<tr>
       <td class="mono">#${escHtml(h.run_id)}${indice===0?' <span class="pill p-blue" style="margin-left:4px">actual</span>':''}</td>
       <td>${escHtml(isNaN(fecha) ? h.fecha : fecha.toLocaleString('es-PE'))}</td>
-      <td>${escHtml(h.perfil || '—')}</td><td style="font-size:11.5px">${escHtml(modelos)}</td>
+      <td>${escHtml(nomPerfil)}</td><td style="font-size:11.5px">${escHtml(modelos)}</td>
       <td>${escHtml(partes.join(' · ') || '—')}</td><td>${h.pass_rate===null || h.pass_rate===undefined?'—':Number(h.pass_rate).toFixed(1)+'%'}</td>
       <td class="mono">${Number(h.total_tokens || 0).toLocaleString('es-PE')}<div class="sub">Planner: ${Number(h.tokens_planner || 0).toLocaleString('es-PE')}</div></td>
       <td class="mono">US$ ${Number(h.costo_usd || 0).toFixed(4)}</td>

@@ -117,7 +117,7 @@ function finishRun(){
   $('skipBtn').classList.add('hide');
   document.querySelectorAll('#views a[data-v=exec]').forEach(a=>a.classList.remove('off'));
   const d = document.createElement('div'); d.id='nextbox'; d.className='nextbox';
-  d.innerHTML = `<span>Corrida #${RUN_ID} completada: ${RUN_TOTAL} funciones procesadas.</span><button class="btn primary" style="margin-left:auto" onclick="go('exec')">Ver ejecución de pruebas →</button>`;
+  d.innerHTML = `<span>Corrida #${RUN_ID} completada: ${RUN_TOTAL} funciones procesadas.</span><button class="btn" onclick="go('exec')">Ver ejecución de pruebas</button><button class="btn primary" onclick="go('report')">Ver reporte final →</button>`;
   $('timeline').after(d);
 }
 function skipRun(){
@@ -183,9 +183,12 @@ function monitorFinReal(r){
     + `</span>`;
   if(r.run_id && r.carpeta){   // HU-18: la vista Ejecución lee el results.json de esta corrida
     document.querySelectorAll('#views a[data-v=exec]').forEach(a=>a.classList.remove('off'));
-    const b = document.createElement('button'); b.className = 'btn primary'; b.style.marginLeft = 'auto';
+    const b = document.createElement('button'); b.className = 'btn primary';
     b.textContent = 'Ver ejecución de pruebas →'; b.onclick = () => cargarEjecucionReal(r.run_id);
     d.appendChild(b);
+    const rep = document.createElement('button'); rep.className = 'btn';   // HU-21
+    rep.textContent = 'Ver reporte de auditoría'; rep.onclick = () => cargarReporteReal(r.run_id);
+    d.appendChild(rep);
   }
   $('timeline').after(d);
 }
