@@ -24,6 +24,13 @@ def _fila_corrida(almacen: AlmacenProyecto, run: dict[str, Any]) -> dict[str, An
     resumen = results.get("resumen", {})
     modelos = results.get("modelos", {})
     registros = run.get("specs", [])
+    pass_rate = resumen.get("pass_rate")
+    if pass_rate is None and isinstance(run.get("resumen"), dict):
+        pasaron = run["resumen"].get("pasaron", 0)
+        fallaron = run["resumen"].get("fallaron", 0)
+        total = pasaron + fallaron
+        if total > 0:
+            pass_rate = round(pasaron / total * 100.0, 1)
     return {
         "run_id": run["run_id"],
         "fecha": results.get("fecha", run["inicio"]),
@@ -39,7 +46,7 @@ def _fila_corrida(almacen: AlmacenProyecto, run: dict[str, Any]) -> dict[str, An
             accion: sum(1 for spec in registros if spec["estado"] == accion)
             for accion in ("generado", "reutilizado", "regenerado")
         },
-        "pass_rate": resumen.get("pass_rate"),
+        "pass_rate": pass_rate,
         "total_tokens": log.get("total_tokens", results.get("total_tokens", 0)),
         "tokens_planner": _tokens_planner(log),
         "costo_usd": log.get("total_costo_usd", results.get("total_costo_usd", 0.0)),

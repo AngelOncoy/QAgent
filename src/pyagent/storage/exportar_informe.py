@@ -602,7 +602,11 @@ def construir_html_informe(
         ms_lbl = (
             "N/A"
             if not f["critical"]
-            else ("Pendiente" if f["mutation_score"] is None else f"{f['mutation_score']:g}%")
+            else (
+                "Pendiente"
+                if f["mutation_score"] is None
+                else f"{f['mutation_score']:g}%"
+            )
         )
         tarjetas_fn.append(
             f"<div class='fn-card'><b>{esc(f['funcion'])}</b> <span>({esc(f['modulo'])})</span> "
@@ -658,11 +662,11 @@ th,td{{padding:10px 12px;border-bottom:1px solid #334155;text-align:left}}
   <div id="t1" class="panel active">
     <h2>1. Resumen de las 5 métricas</h2>
     <table><thead><tr><th>Métrica</th><th>Resultado</th><th>Meta</th><th>Estado</th></tr></thead>
-    <tbody>{''.join(filas_metricas)}</tbody></table>
+    <tbody>{"".join(filas_metricas)}</tbody></table>
   </div>
   <div id="t2" class="panel">
     <h2>2. Resultado por función</h2>
-    {''.join(tarjetas_fn) if opts['detalle'] else '<p>Sección opcional desactivada.</p>'}
+    {"".join(tarjetas_fn) if opts["detalle"] else "<p>Sección opcional desactivada.</p>"}
   </div>
 </div>
 <script>
@@ -971,12 +975,21 @@ def _bloques_pdf(
             "titulo": "COSTO CORRIDA",
             "valor": f"US$ {cs_usd:.4f}",
             "sub": f"{cs_tok} tokens",
-            "pct": max(12.0, min(100.0, (cs_usd / max(0.01, float(m_map["costo"]["meta_valor"] or 1.0))) * 100.0)),
+            "pct": max(
+                12.0,
+                min(
+                    100.0,
+                    (cs_usd / max(0.01, float(m_map["costo"]["meta_valor"] or 1.0)))
+                    * 100.0,
+                ),
+            ),
             "cumple": bool(m_map["costo"]["cumple"]),
         },
         {
             "titulo": "MUTATION SCORE",
-            "valor": f"{ms_val:.1f}%" if m_map["mutation_score"]["valor"] is not None else "N/A",
+            "valor": f"{ms_val:.1f}%"
+            if m_map["mutation_score"]["valor"] is not None
+            else "N/A",
             "sub": f"{datos['criticas']} criticas (>=60%)",
             "pct": max(0.0, min(100.0, ms_val)),
             "cumple": bool(m_map["mutation_score"]["cumple"]),
@@ -993,7 +1006,9 @@ def _bloques_pdf(
         lineas_meta.append(("Specs:" if i == 0 else "", ln))
     bloques.append({"tipo": "ficha_meta", "seccion": 1, "filas": lineas_meta})
 
-    bloques.append({"tipo": "h2", "seccion": 1, "texto": "1. Resumen de las 5 métricas"})
+    bloques.append(
+        {"tipo": "h2", "seccion": 1, "texto": "1. Resumen de las 5 métricas"}
+    )
     bloques.append({"tipo": "tabla_cabecera", "seccion": 1})
     for idx, m in enumerate(datos["metricas"]):
         bloques.append(
@@ -1013,7 +1028,9 @@ def _bloques_pdf(
             "tipo": "nota_agentes",
             "seccion": 1,
             "lineas": _envolver_linea(
-                limpiar(f"Desglose de costo por agente: {costo_ag_txt} (Estado: Reportado)"),
+                limpiar(
+                    f"Desglose de costo por agente: {costo_ag_txt} (Estado: Reportado)"
+                ),
                 90,
             ),
         }
@@ -1028,7 +1045,8 @@ def _bloques_pdf(
                 "lineas": float(f.get("cobertura_lineas") or 0.0),
                 "ramas": float(f.get("cobertura_ramas") or 0.0),
                 "ms": float(f.get("mutation_score") or 0.0),
-                "tiene_ms": f.get("mutation_score") is not None and bool(f.get("critical")),
+                "tiene_ms": f.get("mutation_score") is not None
+                and bool(f.get("critical")),
             }
         )
 
@@ -1046,7 +1064,9 @@ def _bloques_pdf(
             conteo_estados["otros"] += 1
 
     agentes_graf = []
-    total_tok_ag = max(1, sum(int(por_ag.get(ag, {}).get("tokens", 0)) for ag in AGENTES))
+    total_tok_ag = max(
+        1, sum(int(por_ag.get(ag, {}).get("tokens", 0)) for ag in AGENTES)
+    )
     for ag in AGENTES:
         if ag in por_ag:
             toks = int(por_ag[ag].get("tokens", 0))
@@ -1090,7 +1110,9 @@ def _bloques_pdf(
     )
 
     if opts["detalle"]:
-        bloques.append({"tipo": "h2", "seccion": 3, "texto": "2. Resultado por función"})
+        bloques.append(
+            {"tipo": "h2", "seccion": 3, "texto": "2. Resultado por función"}
+        )
         for f in datos["funciones"]:
             estado_clave = str(f.get("estado", ""))
             estado_lbl = ETIQUETAS_ESTADO.get(estado_clave, estado_clave)
@@ -1133,7 +1155,11 @@ def _bloques_pdf(
 
     if opts["trazas"]:
         bloques.append(
-            {"tipo": "h2", "seccion": 4, "texto": "3. Trazas del Reviewer de los incidentes"}
+            {
+                "tipo": "h2",
+                "seccion": 4,
+                "texto": "3. Trazas del Reviewer de los incidentes",
+            }
         )
         incidentes = [f for f in datos["funciones"] if not f["verde"] or f.get("traza")]
         if not incidentes:
@@ -1156,7 +1182,9 @@ def _bloques_pdf(
                     "acento": "incidente",
                 }
             )
-            traza_txt = limpiar(f.get("traza") or "Sin traza registrada en este incidente.")
+            traza_txt = limpiar(
+                f.get("traza") or "Sin traza registrada en este incidente."
+            )
             lineas_traza: list[str] = []
             for sub in traza_txt.splitlines() or [""]:
                 lineas_traza.extend(_envolver_linea(sub, 84))
@@ -1174,7 +1202,9 @@ def _bloques_pdf(
             bloques.append({"tipo": "espacio", "seccion": 4, "alto": 6})
 
     if opts["codigo"]:
-        bloques.append({"tipo": "h2", "seccion": 5, "texto": "4. Código de las pruebas generadas"})
+        bloques.append(
+            {"tipo": "h2", "seccion": 5, "texto": "4. Código de las pruebas generadas"}
+        )
         for f in datos["funciones"]:
             bloques.append(
                 {
@@ -1205,7 +1235,9 @@ def _bloques_pdf(
             bloques.append({"tipo": "espacio", "seccion": 5, "alto": 6})
 
     if opts["contratos"]:
-        bloques.append({"tipo": "h2", "seccion": 5, "texto": "5. Contratos JSON del Planner"})
+        bloques.append(
+            {"tipo": "h2", "seccion": 5, "texto": "5. Contratos JSON del Planner"}
+        )
         for f in datos["funciones"]:
             bloques.append(
                 {
@@ -1364,9 +1396,7 @@ def _renderizar_pdf(bloques: list[dict[str, Any]], run_id: str) -> bytes:
                     f"BT /F2 6.8 Tf 0.35 0.42 0.52 rg {cx + 6:.1f} {top - 12:.1f} Td "
                     f"({_escapar_literal_pdf(kpi['titulo'])}) Tj ET"
                 )
-                comandos.append(
-                    f"{bg_pill} rg {cx + 72:.1f} {top - 14:.1f} 23 9 re f"
-                )
+                comandos.append(f"{bg_pill} rg {cx + 72:.1f} {top - 14:.1f} 23 9 re f")
                 comandos.append(
                     f"BT /F2 6 Tf {fg_pill} rg {cx + 75:.1f} {top - 11.5:.1f} Td ({lbl_pill}) Tj ET"
                 )
@@ -1380,7 +1410,9 @@ def _renderizar_pdf(bloques: list[dict[str, Any]], run_id: str) -> bytes:
                 )
                 # Barra de progreso del KPI
                 ancho_barra = 88.0
-                relleno = max(3.0, min(ancho_barra, (float(kpi["pct"]) / 100.0) * ancho_barra))
+                relleno = max(
+                    3.0, min(ancho_barra, (float(kpi["pct"]) / 100.0) * ancho_barra)
+                )
                 comandos.append(
                     f"0.88 0.91 0.96 rg {cx + 6:.1f} {base + 5:.1f} {ancho_barra:.1f} 4 re f"
                 )
@@ -1544,11 +1576,17 @@ def _renderizar_pdf(bloques: list[dict[str, Any]], run_id: str) -> bytes:
                     f"({_escapar_literal_pdf(fn_item['nombre'])}) Tj ET"
                 )
                 # Fondo de pista + 3 barras (Líneas, Ramas, Mutation)
-                comandos.append(f"0.91 0.94 0.98 rg {bar_x:.1f} {fy - 8:.1f} {bar_w:.1f} 11 re f")
+                comandos.append(
+                    f"0.91 0.94 0.98 rg {bar_x:.1f} {fy - 8:.1f} {bar_w:.1f} 11 re f"
+                )
                 w_lin = max(2.0, min(bar_w, (fn_item["lineas"] / 100.0) * bar_w))
                 w_ram = max(2.0, min(bar_w, (fn_item["ramas"] / 100.0) * bar_w))
-                comandos.append(f"0.23 0.51 0.96 rg {bar_x:.1f} {fy - 0.5:.1f} {w_lin:.1f} 3.2 re f")
-                comandos.append(f"0.02 0.71 0.83 rg {bar_x:.1f} {fy - 4.2:.1f} {w_ram:.1f} 3.2 re f")
+                comandos.append(
+                    f"0.23 0.51 0.96 rg {bar_x:.1f} {fy - 0.5:.1f} {w_lin:.1f} 3.2 re f"
+                )
+                comandos.append(
+                    f"0.02 0.71 0.83 rg {bar_x:.1f} {fy - 4.2:.1f} {w_ram:.1f} 3.2 re f"
+                )
                 if fn_item["tiene_ms"]:
                     w_ms = max(2.0, min(bar_w, (fn_item["ms"] / 100.0) * bar_w))
                     comandos.append(
@@ -1567,7 +1605,9 @@ def _renderizar_pdf(bloques: list[dict[str, Any]], run_id: str) -> bytes:
             # Panel derecho superior: Gráfica 2 (Distribución de estados)
             alto_d1 = 66.0
             base_d1 = top - alto_d1
-            comandos.append(f"0.98 0.99 1.00 rg 310 {base_d1:.1f} 249 {alto_d1:.1f} re f")
+            comandos.append(
+                f"0.98 0.99 1.00 rg 310 {base_d1:.1f} 249 {alto_d1:.1f} re f"
+            )
             comandos.append(
                 f"0.82 0.86 0.92 RG 0.6 w 310 {base_d1:.1f} 249 {alto_d1:.1f} re S"
             )
@@ -1586,12 +1626,16 @@ def _renderizar_pdf(bloques: list[dict[str, Any]], run_id: str) -> bytes:
                 ("Bug Oraculo", est["bug_detectado"], "0.72 0.16 0.82"),
                 ("Flaky/Otros", est["otros"], "0.85 0.48 0.04"),
             ]
-            comandos.append(f"0.90 0.93 0.97 rg {sx:.1f} {top - 32:.1f} {ancho_st:.1f} 10 re f")
+            comandos.append(
+                f"0.90 0.93 0.97 rg {sx:.1f} {top - 32:.1f} {ancho_st:.1f} 10 re f"
+            )
             cur_x = sx
             for _, cnt, col in segmentos:
                 if cnt > 0:
                     seg_w = (cnt / tot_fn) * ancho_st
-                    comandos.append(f"{col} rg {cur_x:.1f} {top - 32:.1f} {seg_w:.1f} 10 re f")
+                    comandos.append(
+                        f"{col} rg {cur_x:.1f} {top - 32:.1f} {seg_w:.1f} 10 re f"
+                    )
                     cur_x += seg_w
             for idx_s, (nom_s, cnt, col) in enumerate(segmentos):
                 col_x = 318.0 + (idx_s % 2) * 118.0
@@ -1626,7 +1670,9 @@ def _renderizar_pdf(bloques: list[dict[str, Any]], run_id: str) -> bytes:
                 comandos.append(f"0.90 0.93 0.97 rg 368 {ay - 1:.1f} 96 7 re f")
                 w_ag = max(3.0, min(96.0, (ag_item["pct"] / 100.0) * 96.0))
                 comandos.append(f"{col_a} rg 368 {ay - 1:.1f} {w_ag:.1f} 7 re f")
-                ag_lbl = _escapar_literal_pdf(f"{ag_item['pct']:.0f}% | US$ {ag_item['usd']:.4f}")
+                ag_lbl = _escapar_literal_pdf(
+                    f"{ag_item['pct']:.0f}% | US$ {ag_item['usd']:.4f}"
+                )
                 comandos.append(
                     f"BT /F1 6.8 Tf 0.22 0.28 0.38 rg 468 {ay:.1f} Td ({ag_lbl}) Tj ET"
                 )
@@ -1635,11 +1681,15 @@ def _renderizar_pdf(bloques: list[dict[str, Any]], run_id: str) -> bytes:
             # Síntesis del Experto en Análisis de Datos (debajo de las gráficas)
             top_ins = base - 5.0
             base_ins = top_ins - alto_ins
-            comandos.append(f"0.93 0.97 1.00 rg 36 {base_ins:.1f} 523 {alto_ins:.1f} re f")
+            comandos.append(
+                f"0.93 0.97 1.00 rg 36 {base_ins:.1f} 523 {alto_ins:.1f} re f"
+            )
             comandos.append(
                 f"0.75 0.85 0.96 RG 0.6 w 36 {base_ins:.1f} 523 {alto_ins:.1f} re S"
             )
-            comandos.append(f"0.02 0.52 0.78 rg 36 {base_ins:.1f} 4 {alto_ins:.1f} re f")
+            comandos.append(
+                f"0.02 0.52 0.78 rg 36 {base_ins:.1f} 4 {alto_ins:.1f} re f"
+            )
             comandos.append(
                 f"BT /F2 7.8 Tf 0.05 0.28 0.48 rg 46 {top_ins - 11:.1f} Td "
                 "(SINTESIS DEL EXPERTO EN ANALISIS DE DATOS - HALLAZGOS ESTADISTICOS CLAVE) Tj ET"
@@ -1702,11 +1752,23 @@ def _renderizar_pdf(bloques: list[dict[str, Any]], run_id: str) -> bytes:
             base = y - 16.0
             ac = b.get("acento", "codigo")
             if ac == "incidente":
-                bg_h, bar_c, txt_c = "0.99 0.92 0.93", "0.88 0.18 0.30", "0.48 0.08 0.16"
+                bg_h, bar_c, txt_c = (
+                    "0.99 0.92 0.93",
+                    "0.88 0.18 0.30",
+                    "0.48 0.08 0.16",
+                )
             elif ac == "contrato":
-                bg_h, bar_c, txt_c = "0.91 0.95 0.99", "0.15 0.39 0.92", "0.08 0.22 0.48"
+                bg_h, bar_c, txt_c = (
+                    "0.91 0.95 0.99",
+                    "0.15 0.39 0.92",
+                    "0.08 0.22 0.48",
+                )
             else:
-                bg_h, bar_c, txt_c = "0.94 0.92 0.99", "0.52 0.26 0.88", "0.26 0.12 0.48"
+                bg_h, bar_c, txt_c = (
+                    "0.94 0.92 0.99",
+                    "0.52 0.26 0.88",
+                    "0.26 0.12 0.48",
+                )
             comandos.append(f"{bg_h} rg 36 {base:.1f} 523 16 re f")
             comandos.append(f"{bar_c} rg 36 {base:.1f} 3.5 16 re f")
             comandos.append(
@@ -1731,9 +1793,7 @@ def _renderizar_pdf(bloques: list[dict[str, Any]], run_id: str) -> bytes:
             )
             comandos.append(f"0.96 0.97 0.99 rg 36 {base:.1f} 523 11.2 re f")
             comandos.append(f"{bar_c} rg 36 {base:.1f} 2.5 11.2 re f")
-            comandos.append(
-                f"0.84 0.88 0.93 RG 0.4 w 559 {base:.1f} m 559 {y:.1f} l S"
-            )
+            comandos.append(f"0.84 0.88 0.93 RG 0.4 w 559 {base:.1f} m 559 {y:.1f} l S")
             if b.get("ultima"):
                 comandos.append(
                     f"0.84 0.88 0.93 RG 0.4 w 36 {base:.1f} m 559 {base:.1f} l S"
@@ -1835,7 +1895,9 @@ def _renderizar_pdf(bloques: list[dict[str, Any]], run_id: str) -> bytes:
     id_outlines = reservar_objeto("")
     ids_items_outline: list[int] = [reservar_objeto("") for _ in _PESTANAS_PDF]
     for i_tab, (sec_id, etq_tab, _, _) in enumerate(_PESTANAS_PDF):
-        pag_idx = max(0, min(len(ids_paginas) - 1, pagina_inicio_seccion.get(sec_id, 0)))
+        pag_idx = max(
+            0, min(len(ids_paginas) - 1, pagina_inicio_seccion.get(sec_id, 0))
+        )
         id_pag_dest = ids_paginas[pag_idx]
         prev_str = f" /Prev {ids_items_outline[i_tab - 1]} 0 R" if i_tab > 0 else ""
         next_str = (
@@ -1858,8 +1920,8 @@ def _renderizar_pdf(bloques: list[dict[str, Any]], run_id: str) -> bytes:
     ).encode("ascii")
 
     kids = " ".join(f"{pid} 0 R" for pid in ids_paginas)
-    objetos[id_pages - 1] = f"<< /Type /Pages /Kids [{kids}] /Count {len(ids_paginas)} >>".encode(
-        "ascii"
+    objetos[id_pages - 1] = (
+        f"<< /Type /Pages /Kids [{kids}] /Count {len(ids_paginas)} >>".encode("ascii")
     )
 
     salida = bytearray(b"%PDF-1.4\n")
