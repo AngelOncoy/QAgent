@@ -4,9 +4,9 @@ Responde según el rol y, cuando el prompt trae los datos marcados por los agent
 según lo que se le pide:
 
 - **Planner:** devuelve los casos grabados en `bench/ia_simulada.json` para las
-  funciones y los endpoints (`api_mvp.py::POST /items`, HU-27) del módulo (el oráculo se escribió a mano a partir de los docstrings).
-  Una función sin casos grabados queda fuera del plan.
-- **Generator:** arma el archivo pytest directamente desde el contrato del Planner.
+  funciones o endpoints del módulo. Una clave no grabada queda fuera del plan.
+- **Generator:** arma pytest para funciones o TestClient para endpoints directamente
+  desde el contrato del Planner.
 - **Reviewer:** no clasifica fallos ambiguos (la decisión queda en manos de las reglas).
 
 Si el prompt no trae esos datos, devuelve las respuestas grabadas de siempre.
@@ -86,7 +86,8 @@ class FakeLLMClient:
 
         Args:
             modelo: Nombre que se registrará como modelo utilizado.
-            grabaciones: casos por `"<archivo>.py::<función>"`; si es None se leen de
+            grabaciones: casos por `"<archivo>.py::<función>"` o
+                `"<archivo>.py::<MÉTODO> <ruta>"`; si es None se leen de
                 `bench/ia_simulada.json` (o quedan vacías si no existe).
         """
         self.modelo = modelo
@@ -132,12 +133,9 @@ class FakeLLMClient:
         archivo = PurePosixPath(modulo.replace("\\", "/")).name
         plan = []
         for objetivo in objetivos:
-            # Funciones: "nombre"; endpoints (HU-27): "objetivo" ("POST /items").
-            nombre = (
-                objetivo.get("nombre") or objetivo.get("objetivo")
-                if isinstance(objetivo, dict)
-                else None
-            )
+            nombre = None
+            if isinstance(objetivo, dict):
+                nombre = objetivo.get("nombre") or objetivo.get("objetivo")
             casos = self.grabaciones.get(f"{archivo}::{nombre}")
             if casos:
                 plan.append({"objetivo": nombre, "casos": casos})
@@ -171,6 +169,9 @@ def generar_test_desde_contrato(contrato: dict[str, Any]) -> str:
     Los valores esperados se copian del contrato (nunca de ejecutar el código); los
     `float` se comparan con `pytest.approx`.
     """
+    if contrato.get("tipo") == "endpoint":
+        return _generar_test_endpoint(contrato)
+
     modulo = (
         PurePosixPath(str(contrato["modulo"]).replace("\\", "/"))
         .with_suffix("")
@@ -191,6 +192,68 @@ def generar_test_desde_contrato(contrato: dict[str, Any]) -> str:
             lineas.append(
                 f"    assert {llamada} {_comparacion(caso['valor_esperado'])}"
             )
+    return "\n".join(lineas) + "\n"
+
+
+def _generar_test_endpoint(contrato: dict[str, Any]) -> str:
+    """Genera TestClient determinista, incluidos los overrides de ``Depends``."""
+    modulo = (
+        PurePosixPath(str(contrato["modulo"]).replace("\\", "/"))
+        .with_suffix("")
+        .as_posix()
+        .replace("/", ".")
+    )
+    aplicacion = contrato["aplicacion"]
+    dependencias = contrato.get("dependencias", [])
+    simbolos = [aplicacion]
+    for dependencia in dependencias:
+        simbolos.extend([dependencia["funcion"], dependencia["reemplazo"]])
+
+    lineas = [
+        "import pytest",
+        "from fastapi.testclient import TestClient",
+        "",
+        f"from {modulo} import {', '.join(dict.fromkeys(simbolos))}",
+        "",
+        "",
+        "@pytest.fixture",
+        "def client():",
+        f"    overrides_anteriores = dict({aplicacion}.dependency_overrides)",
+    ]
+    for dependencia in dependencias:
+        lineas.append(
+            f"    {aplicacion}.dependency_overrides[{dependencia['funcion']}] = "
+            f"{dependencia['reemplazo']}"
+        )
+    lineas += [
+        "    try:",
+        f"        yield TestClient({aplicacion}, raise_server_exceptions=False)",
+        "    finally:",
+        f"        {aplicacion}.dependency_overrides.clear()",
+        f"        {aplicacion}.dependency_overrides.update(overrides_anteriores)",
+    ]
+
+    for caso in contrato.get("casos", []):
+        entrada = caso["entrada"]
+        argumentos = [repr(entrada["metodo"]), repr(entrada["ruta"])]
+        for clave in ("query", "json", "headers"):
+            if clave in entrada:
+                nombre = "params" if clave == "query" else clave
+                argumentos.append(f"{nombre}={entrada[clave]!r}")
+        esperado = caso["valor_esperado"]
+        lineas += [
+            "",
+            "",
+            f"def test_{caso['id']}(client):",
+            f"    response = client.request({', '.join(argumentos)})",
+            f"    assert response.status_code == {esperado['status_code']!r}",
+        ]
+        if "json" in esperado:
+            lineas.append(f"    assert response.json() == {esperado['json']!r}")
+        elif "json_contiene" in esperado:
+            lineas.append("    cuerpo = response.json()")
+            for clave, valor in esperado["json_contiene"].items():
+                lineas.append(f"    assert cuerpo[{clave!r}] == {valor!r}")
     return "\n".join(lineas) + "\n"
 
 

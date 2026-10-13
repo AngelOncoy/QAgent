@@ -29,6 +29,17 @@
       "pattern": "^[A-Za-z_][A-Za-z0-9_]*$",
       "description": "Endpoints (EN-14): función que atiende la ruta. Sirve para medir la cobertura de su cuerpo."
     },
+    "aplicacion": {
+      "type": "string",
+      "pattern": "^[A-Za-z_][A-Za-z0-9_]*$",
+      "description": "Símbolo FastAPI que TestClient debe importar del módulo del endpoint."
+    },
+    "dependencias": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/dependencia" },
+      "uniqueItems": true,
+      "description": "Depends que el test reemplaza y callable de prueba importable desde el módulo."
+    },
     "firma": { "type": "string", "minLength": 1 },
     "critical": {
       "type": "boolean",
@@ -54,7 +65,7 @@
     {
       "if": { "properties": { "tipo": { "const": "endpoint" } } },
       "then": {
-        "required": ["manejador"],
+        "required": ["manejador", "aplicacion", "dependencias"],
         "properties": {
           "objetivo": { "pattern": "^(GET|POST|PUT|PATCH|DELETE) /" },
           "casos": { "items": { "$ref": "#/$defs/caso_endpoint" } }
@@ -63,6 +74,23 @@
     }
   ],
   "$defs": {
+    "dependencia": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["funcion", "reemplazo"],
+      "properties": {
+        "funcion": {
+          "type": "string",
+          "pattern": "^[A-Za-z_][A-Za-z0-9_]*$",
+          "description": "Callable usado dentro de Depends."
+        },
+        "reemplazo": {
+          "type": "string",
+          "pattern": "^[A-Za-z_][A-Za-z0-9_]*$",
+          "description": "Callable de prueba que se registra en app.dependency_overrides."
+        }
+      }
+    },
     "caso_endpoint": {
       "description": "Restricciones extra de un caso de endpoint (EN-14): la entrada es una petición HTTP y el valor esperado, la respuesta. Un endpoint no espera excepciones de Python: un error es un código de estado.",
       "required": ["valor_esperado"],

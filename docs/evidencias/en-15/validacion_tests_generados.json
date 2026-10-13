@@ -1,0 +1,43 @@
+{
+  "fecha_local": "2026-10-13",
+  "metodo": "lectura UTF-8, ast.parse y SHA-256; no se ejecutó código del banco fuera del sandbox",
+  "nota": "Las copias archivadas fueron normalizadas por Ruff; conservan la semántica de la salida determinista del Generator.",
+  "archivos": [
+    {
+      "objetivo": "GET /salud",
+      "archivo": "tests-generados/test_salud_ok.py",
+      "sha256": "7acea6b90c76a849a09e5be088b2490bfd9fff575a50c9864603a5f0da0ba75f",
+      "ast_valido": true
+    },
+    {
+      "objetivo": "POST /items",
+      "archivo": "tests-generados/test_crear_item.py",
+      "sha256": "648d82b5c3900c8b18522f8e01a1a674ede5e4366341ffb9e776630acb1a3e57",
+      "ast_valido": true
+    },
+    {
+      "objetivo": "GET /items",
+      "archivo": "tests-generados/test_listar_vacio.py",
+      "sha256": "f99d70f56ac24d88274c83cc90a12dfeddc5c4487842a1710895759aea24a747",
+      "ast_valido": true
+    },
+    {
+      "objetivo": "GET /items/{item_id}",
+      "archivo": "tests-generados/test_item_inexistente.py",
+      "sha256": "e1998001166271596b43578a0bae66e71de13bfdb000c842058fa321b33d04a9",
+      "ast_valido": true
+    },
+    {
+      "objetivo": "DELETE /items/{item_id}",
+      "archivo": "tests-generados/test_borrar_inexistente.py",
+      "sha256": "f61516c059420fca456460e03f2678d12e314e078fd4144583082e4edb1ef9a9",
+      "ast_valido": true
+    },
+    {
+      "objetivo": "GET /descuento",
+      "archivo": "tests-generados/test_descuento_normal.py",
+      "sha256": "9132fb7a9338150d90d291861fc046761d93755a99e1a256f6871b3f7433b24d",
+      "ast_valido": true
+    }
+  ]
+}

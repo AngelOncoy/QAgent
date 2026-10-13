@@ -64,7 +64,9 @@ def calcular_descuento(precio: float, porcentaje: float) -> float:
 
     Ejemplo: precio 100 con 20 % de descuento devuelve 80.
     """
-    return precio * (porcentaje / 100)  # BUG 3: devuelve el descuento, no el precio final
+    return precio * (
+        porcentaje / 100
+    )  # BUG 3: devuelve el descuento, no el precio final
 
 
 app = FastAPI(title="API de prueba de QAgent")
@@ -79,30 +81,39 @@ def salud() -> dict[str, str]:
 
 @router.post("", response_model=Item, status_code=status.HTTP_201_CREATED)
 def crear_item(
-    datos: ItemEntrada, repo: Repositorio = Depends(obtener_repositorio)
+    datos: ItemEntrada,
+    repo: Repositorio = Depends(obtener_repositorio),  # noqa: B008
 ) -> Item:
     """Crea un artículo y lo devuelve con su id. Un precio menor o igual a 0 da 422."""
     return repo.crear(datos)
 
 
 @router.get("", response_model=list[Item])
-def listar_items(repo: Repositorio = Depends(obtener_repositorio)) -> list[Item]:
+def listar_items(
+    repo: Repositorio = Depends(obtener_repositorio),  # noqa: B008
+) -> list[Item]:
     """Devuelve todos los artículos guardados."""
     return repo.listar()
 
 
 @router.get("/{item_id}", response_model=Item)
-def obtener_item(item_id: int, repo: Repositorio = Depends(obtener_repositorio)):
+def obtener_item(
+    item_id: int,
+    repo: Repositorio = Depends(obtener_repositorio),  # noqa: B008
+):
     """Devuelve el artículo con ese id; responde 404 si no existe."""
     return repo.obtener(item_id)  # BUG 1: no responde 404 cuando el artículo no existe
 
 
 @router.delete("/{item_id}", status_code=204)
-def borrar_item(item_id: int, repo: Repositorio = Depends(obtener_repositorio)):
+def borrar_item(
+    item_id: int,
+    repo: Repositorio = Depends(obtener_repositorio),  # noqa: B008
+):
     """Borra el artículo: responde 204 sin cuerpo, o 404 si no existe."""
-    if not repo.borrar(item_id):
+    if repo.borrar(item_id):  # BUG 2: condición invertida
         raise HTTPException(status_code=404, detail="Artículo no encontrado")
-    return JSONResponse({"borrado": item_id})  # BUG 2: responde 200 con cuerpo, no 204
+    return JSONResponse({"borrado": item_id})
 
 
 @app.get("/descuento")

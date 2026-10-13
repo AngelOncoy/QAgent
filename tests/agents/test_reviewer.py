@@ -28,6 +28,28 @@ CONTRATO = {
     ],
 }
 
+CONTRATO_ENDPOINT = {
+    "version": "2",
+    "modulo": "api_mvp.py",
+    "huella": "b" * 64,
+    "tipo": "endpoint",
+    "objetivo": "GET /salud",
+    "manejador": "salud",
+    "aplicacion": "app",
+    "dependencias": [],
+    "firma": "() -> dict[str, str]",
+    "critical": False,
+    "llama_a": [],
+    "casos": [
+        {
+            "id": "salud_ok",
+            "entrada": {"metodo": "GET", "ruta": "/salud"},
+            "valor_esperado": {"status_code": 200, "json": {"estado": "ok"}},
+            "origen": "docstring",
+        }
+    ],
+}
+
 CODIGO_VALIDO = """\
 from calculadora import duplicar
 
@@ -40,8 +62,11 @@ def test_duplicar():
 class EjecutorGrabado:
     """Sustituye Docker y devuelve un ResultadoSandbox fijo."""
 
-    def __init__(self, resultado: ResultadoSandbox) -> None:
+    def __init__(
+        self, resultado: ResultadoSandbox, modulo_cov_esperado: str = "calculadora"
+    ) -> None:
         self.resultado = resultado
+        self.modulo_cov_esperado = modulo_cov_esperado
         self.llamadas = 0
 
     def __call__(
@@ -54,7 +79,7 @@ class EjecutorGrabado:
         self.llamadas += 1
         assert imagen == "imagen-prueba"
         assert ruta_tests.joinpath("test_generado.py").exists()
-        assert modulo_cov == "calculadora"
+        assert modulo_cov == self.modulo_cov_esperado
         return self.resultado
 
 
@@ -333,6 +358,65 @@ def test_primer_intento_sin_aserciones_no_se_acepta(tmp_path: Path) -> None:
     assert revision["decision"] == "retry"
     assert revision["tipo_fallo"] == "error_test"
     assert "no contiene aserciones" in revision["feedback"]
+    assert ejecutor.llamadas == 0
+
+
+def test_oraculo_endpoint_valida_status_y_json(tmp_path: Path) -> None:
+    codigo = (
+        "def test_salud(client):\n"
+        "    response = client.get('/salud')\n"
+        "    assert response.status_code == 200\n"
+        "    assert response.json() == {'estado': 'ok'}\n"
+    )
+    reviewer = ReviewerAgent(
+        TokenTracker(),
+        tmp_path,
+        "imagen-prueba",
+        ejecutor=EjecutorGrabado(
+            sandbox(0, stdout="1 passed"), modulo_cov_esperado="api_mvp"
+        ),
+    )
+
+    revision = reviewer.revisar(
+        CONTRATO_ENDPOINT,
+        {
+            "version": "1",
+            "objetivo": "GET /salud",
+            "intento": 1,
+            "codigo": codigo,
+            "casos_cubiertos": ["salud_ok"],
+        },
+        None,
+    )
+
+    assert revision["decision"] == "accept"
+
+
+def test_oraculo_endpoint_rechaza_json_esperado_omitido(tmp_path: Path) -> None:
+    codigo = (
+        "def test_salud(client):\n"
+        "    response = client.get('/salud')\n"
+        "    assert response.status_code == 200\n"
+    )
+    ejecutor = EjecutorGrabado(sandbox(0))
+    reviewer = ReviewerAgent(
+        TokenTracker(), tmp_path, "imagen-prueba", ejecutor=ejecutor
+    )
+
+    revision = reviewer.revisar(
+        CONTRATO_ENDPOINT,
+        {
+            "version": "1",
+            "objetivo": "GET /salud",
+            "intento": 1,
+            "codigo": codigo,
+            "casos_cubiertos": ["salud_ok"],
+        },
+        None,
+    )
+
+    assert revision["decision"] == "retry"
+    assert "{'estado': 'ok'}" in revision["feedback"]
     assert ejecutor.llamadas == 0
 
 
