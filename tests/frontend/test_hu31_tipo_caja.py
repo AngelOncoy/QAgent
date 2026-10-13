@@ -57,3 +57,22 @@ def test_cada_tipo_de_caja_tiene_su_color() -> None:
     assert "var(--caja-negra-s)" in css and "var(--caja-blanca-s)" in css
     tokens = leer("css/tokens.css")
     assert "--caja-negra-s:" in tokens and "--caja-blanca-s:" in tokens
+
+
+def test_configuracion_de_pruebas_no_muestra_costo_ni_iso() -> None:
+    for ruta in (
+        "componentes/config-pruebas/config-pruebas.js",
+        "componentes/config-pruebas/config-pruebas.css",
+    ):
+        texto = leer(ruta)
+        for prohibido in ("Costo", "costo", "S/ ", "US$", "TOPE_PEN", "FX", "ISO"):
+            assert prohibido not in texto, f"{ruta} contiene {prohibido!r}"
+
+
+def test_cada_perfil_muestra_su_duracion_aproximada() -> None:
+    duraciones = {"humo": "rápida", "std": "media", "deep": "larga", "reg": "media"}
+    for fila in perfiles():
+        clave = re.search(r"k:'([^']+)'", fila).group(1)
+        assert f"duracion:'{duraciones[clave]}'" in fila
+    js = leer("componentes/config-pruebas/config-pruebas.js")
+    assert "${p.duracion}" in js

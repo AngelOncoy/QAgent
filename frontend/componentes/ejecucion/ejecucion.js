@@ -53,7 +53,7 @@ function renderExecKpis(){
     <div class="ktri"><span style="color:var(--blue-400)">P: <b>${AGENT_SPLIT.P}%</b></span><span style="color:var(--purple-400)">G: <b>${AGENT_SPLIT.G}%</b></span><span style="color:var(--emerald-400)">R: <b>${AGENT_SPLIT.R}%</b></span></div></div>
     <div><div class="kb"><i style="width:${AGENT_SPLIT.P}%;background:var(--blue-500)"></i><i style="width:${AGENT_SPLIT.G}%;background:var(--purple-500)"></i><i style="width:${AGENT_SPLIT.R}%;background:var(--emerald-500)"></i></div>
     <div class="kscale"><span>$${m.usd.toFixed(2)} USD</span><span>S/ ${m.pen.toFixed(2)} PEN</span></div>
-    <div class="kscale" title="Estimación mostrada en la vista previa"><span>Estimado: ~${kfmt(est.tok)}</span><span>S/ ${est.pen.toFixed(2)}</span></div>
+    <div class="kscale" title="Estimación mostrada en la vista previa"><span>Estimado: ~${kfmt(est.tok)}</span></div>
     <div class="kscale"><span style="color:var(--blue-300)">P $${m.agentUsd.P.toFixed(3)}</span><span style="color:var(--purple-300)">G $${m.agentUsd.G.toFixed(3)}</span><span style="color:var(--green-300)">R $${m.agentUsd.R.toFixed(3)}</span></div>
     <div class="kscale" style="color:var(--green-300)"><span>♻ 4 specs reutilizados</span><span>Planner omitido</span></div></div></div>
   <div class="kpi"><div class="kh"><span>MUTATION SCORE</span>${I('dna','var(--rose-400)',15)}</div>
