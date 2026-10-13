@@ -4,7 +4,7 @@ Responde según el rol y, cuando el prompt trae los datos marcados por los agent
 según lo que se le pide:
 
 - **Planner:** devuelve los casos grabados en `bench/ia_simulada.json` para las
-  funciones del módulo (el oráculo se escribió a mano a partir de los docstrings).
+  funciones y los endpoints (`api_mvp.py::POST /items`, HU-27) del módulo (el oráculo se escribió a mano a partir de los docstrings).
   Una función sin casos grabados queda fuera del plan.
 - **Generator:** arma el archivo pytest directamente desde el contrato del Planner.
 - **Reviewer:** no clasifica fallos ambiguos (la decisión queda en manos de las reglas).
@@ -132,7 +132,12 @@ class FakeLLMClient:
         archivo = PurePosixPath(modulo.replace("\\", "/")).name
         plan = []
         for objetivo in objetivos:
-            nombre = objetivo.get("nombre") if isinstance(objetivo, dict) else None
+            # Funciones: "nombre"; endpoints (HU-27): "objetivo" ("POST /items").
+            nombre = (
+                objetivo.get("nombre") or objetivo.get("objetivo")
+                if isinstance(objetivo, dict)
+                else None
+            )
             casos = self.grabaciones.get(f"{archivo}::{nombre}")
             if casos:
                 plan.append({"objetivo": nombre, "casos": casos})
