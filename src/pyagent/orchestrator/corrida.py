@@ -66,6 +66,7 @@ class ResumenCorrida:
     costo_usd: float = 0.0
     carpeta: str | None = None
     duracion_s: float = 0.0
+    requieren_corrida_nueva: int = 0
 
     def a_dict(self) -> dict[str, Any]:
         """Versión serializable a JSON (evento `corrida_fin` de la interfaz)."""
@@ -103,6 +104,19 @@ def ejecutar_corrida(
         timeout_paso_s: tiempo máximo por paso de un agente (por defecto el del
             orquestador).
     """
+    if perfil == "reg":
+        from pyagent.orchestrator.regresion import ejecutar_regresion
+
+        return ejecutar_regresion(
+            ruta_proyecto,
+            perfil,
+            configuracion,
+            al_evento=al_evento,
+            run_id=run_id,
+            preparar_imagen=preparar_imagen,
+            ejecutor=ejecutor,
+        )
+
     inicio = time.monotonic()
     ruta = Path(ruta_proyecto)
     progreso = {"hechos": 0, "total": 0}
@@ -336,6 +350,9 @@ def _registrar(
         resumen.carpeta = str(rutas.carpeta)
 
     if resumen.run_id is not None and almacen.existe():
+        from pyagent.orchestrator.regresion import huellas_de_objetivos
+
+        huellas_objetivos = huellas_de_objetivos(ruta)
         for resultado in resultados:
             for objetivo in resultado.objetivos:
                 if objetivo.contrato is None:
@@ -345,7 +362,15 @@ def _registrar(
                     spec_id = id_de_spec(resultado.modulo, objetivo.objetivo)
                     archivo = nombre_prueba(spec_id)
                     almacen.guardar_prueba_aprobada(archivo, objetivo.codigo)
-                almacen.guardar_spec(objetivo.contrato, resumen.run_id, archivo)
+                huella = huellas_objetivos.get(
+                    (resultado.modulo, objetivo.objetivo)
+                )
+                almacen.guardar_spec(
+                    objetivo.contrato,
+                    resumen.run_id,
+                    archivo,
+                    huella_objetivo=huella,
+                )
         registros = []
         for plan in planes_specs:
             guardado = almacen.guardar_plan_modulo(
@@ -421,7 +446,8 @@ def _cerrar_run(
             pasaron=resumen.aceptadas,
             fallaron=resumen.bugs_detectados
             + resumen.estancadas
-            + resumen.sin_veredicto,
+            + resumen.sin_veredicto
+            + resumen.requieren_corrida_nueva,
             tipos_prueba=tipos or ["funcion"],
         )
     except Exception as error:  # noqa: BLE001 — run.json dañado: no es motivo de fallo

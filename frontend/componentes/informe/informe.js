@@ -95,6 +95,7 @@ let rTypeFilter = 'todos';
 const ESTADO_REP = {   // estado de la función -> estilos del catálogo ST y texto de la etiqueta
   aprobado:{st:'passed', txt:'APROBADO'},
   bug_detectado:{st:'rejected_oracle', txt:'BUG DETECTADO'},
+  requiere_corrida_nueva:{st:'stuck', txt:'REQUIERE CORRIDA NUEVA'},
   rechazado_laundering:{st:'rejected_laundering', txt:'RECHAZADO: LAUNDERING'},
   estancado:{st:'stuck', txt:'ESTANCADO'},
   sin_veredicto:{st:'stuck', txt:'SIN VEREDICTO'},

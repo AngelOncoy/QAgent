@@ -376,6 +376,10 @@ class DesktopAPI:
 
         return {"ok": True, **construir_historial(ruta)}
 
+    def tiene_pruebas_aprobadas(self, ruta: str) -> bool:
+        """Habilita Regresion solo si hay pruebas aprobadas persistidas."""
+        return AlmacenProyecto(ruta).tiene_pruebas_aprobadas()
+
     def descargar_specs_zip(self, ruta: str, modulo: str | None = None) -> dict:
         """Crea un ZIP y abre el diálogo nativo para elegir dónde guardarlo."""
         from pyagent.almacenamiento import ErrorAlmacen
@@ -434,14 +438,26 @@ class DesktopAPI:
         from pyagent.sandbox import DockerNoDisponible, verificar_docker
 
         simulado = modo_simulado()
-        if not simulado:
+        es_regresion = profile == "reg"
+        if es_regresion or not simulado:
             try:
                 verificar_docker()
             except DockerNoDisponible as exc:
                 bitacora.registro.warning("Corrida no iniciada: %s", exc)
                 return {"status": "docker_no_disponible", "mensaje": str(exc)}
 
-        entorno = self.verificar_entorno()
+        if es_regresion:
+            from pyagent.config import carga as config_carga
+            from pyagent.config import verificar_entorno
+
+            entorno = verificar_entorno(
+                config_carga.RUTA_CONFIG,
+                config_carga.RUTA_ENV,
+                simulado=True,
+                ruta_local=config_carga.RUTA_CONFIG_LOCAL,
+            )
+        else:
+            entorno = self.verificar_entorno()
         if not entorno["listo"]:
             bitacora.registro.warning("Corrida no iniciada: %s", entorno["mensaje"])
             return {
@@ -456,7 +472,11 @@ class DesktopAPI:
                 "mensaje": "Ya hay una corrida en curso: espera a que termine.",
             }
 
-        modo = "real" if (not simulado or self._sandbox_listo()) else "demostracion"
+        modo = (
+            "real"
+            if es_regresion or not simulado or self._sandbox_listo()
+            else "demostracion"
+        )
         bitacora.registro.info(
             "Corrida iniciada en '%s' con perfil '%s' (%s)",
             folder_path,

@@ -120,6 +120,7 @@ let ejecucionReal = null;
 const ESTADO_REAL = {   // estado de la vista -> colores e íconos del catálogo ST
   aprobado:{st:'passed', txt:'APROBADO'},
   bug_detectado:{st:'rejected_oracle', txt:'BUG DETECTADO'},
+  requiere_corrida_nueva:{st:'stuck', txt:'REQUIERE CORRIDA NUEVA'},
   rechazado_laundering:{st:'rejected_laundering', txt:'RECHAZADO: LAUNDERING'},
   estancado:{st:'stuck', txt:'ESTANCADO'},
   sin_veredicto:{st:'stuck', txt:'SIN VEREDICTO'},

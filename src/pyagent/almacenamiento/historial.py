@@ -50,6 +50,7 @@ def _fila_corrida(almacen: AlmacenProyecto, run: dict[str, Any]) -> dict[str, An
         "total_tokens": log.get("total_tokens", results.get("total_tokens", 0)),
         "tokens_planner": _tokens_planner(log),
         "costo_usd": log.get("total_costo_usd", results.get("total_costo_usd", 0.0)),
+        "requieren_corrida_nueva": resumen.get("requieren_corrida_nueva", 0),
     }
 
 

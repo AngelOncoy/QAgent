@@ -73,11 +73,12 @@ function renderHistoryReal(datos){
   const corridas = datos.corridas || [], specs = datos.specs || [];
   $('histCount').textContent = corridas.length + ' registradas';
   $('histTable').innerHTML = corridas.length ? corridas.map((h, indice) => {
-    const fecha = new Date(h.fecha), modelos = Object.values(h.modelos || {}).filter(Boolean).join(' · ') || '—';
+    const fecha = new Date(h.fecha), modelos = h.perfil === 'reg' ? '— (sin IA)' : (Object.values(h.modelos || {}).filter(Boolean).join(' · ') || '—');
     const s = h.resumen_specs || {}, partes = [];
     if(s.generado) partes.push(s.generado + ' generados');
     if(s.reutilizado) partes.push(s.reutilizado + ' reutilizados');
     if(s.regenerado) partes.push(s.regenerado + ' regenerados');
+    if(h.requieren_corrida_nueva) partes.push(h.requieren_corrida_nueva + ' requieren corrida nueva');
     const nomPerfil = {quick:'Rápido', std:'Equilibrado', deep:'Profundo', reg:'Regresión'}[h.perfil] || h.perfil || '—';
     return `<tr>
       <td class="mono">#${escHtml(h.run_id)}${indice===0?' <span class="pill p-blue" style="margin-left:4px">actual</span>':''}</td>
