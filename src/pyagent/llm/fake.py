@@ -205,9 +205,15 @@ def _generar_test_endpoint(contrato: dict[str, Any]) -> str:
     )
     aplicacion = contrato["aplicacion"]
     dependencias = contrato.get("dependencias", [])
+    preparaciones = []
+    for caso in contrato.get("casos", []):
+        for preparacion in caso.get("entrada", {}).get("preparacion", []):
+            if preparacion not in preparaciones:
+                preparaciones.append(preparacion)
     simbolos = [aplicacion]
     for dependencia in dependencias:
         simbolos.extend([dependencia["funcion"], dependencia["reemplazo"]])
+    simbolos.extend(preparacion["modelo"] for preparacion in preparaciones)
 
     lineas = [
         "import pytest",
@@ -221,9 +227,22 @@ def _generar_test_endpoint(contrato: dict[str, Any]) -> str:
         f"    overrides_anteriores = dict({aplicacion}.dependency_overrides)",
     ]
     for dependencia in dependencias:
+        funcion = dependencia["funcion"]
+        doble = f"doble_{funcion}"
+        lineas.append(f"    {doble} = {dependencia['reemplazo']}()")
+        for preparacion in preparaciones:
+            if preparacion["dependencia"] != funcion:
+                continue
+            argumentos = ", ".join(
+                f"{nombre}={valor!r}"
+                for nombre, valor in preparacion["argumentos"].items()
+            )
+            lineas.append(
+                f"    {doble}.{preparacion['metodo']}("
+                f"{preparacion['modelo']}({argumentos}))"
+            )
         lineas.append(
-            f"    {aplicacion}.dependency_overrides[{dependencia['funcion']}] = "
-            f"{dependencia['reemplazo']}"
+            f"    {aplicacion}.dependency_overrides[{funcion}] = lambda: {doble}"
         )
     lineas += [
         "    try:",

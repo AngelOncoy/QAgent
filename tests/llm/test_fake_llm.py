@@ -184,7 +184,11 @@ def test_generator_simulado_arma_testclient_y_restaura_overrides() -> None:
     ast.parse(codigo)
     assert "from fastapi.testclient import TestClient" in codigo
     assert "from api_mvp import app, obtener_repositorio, Repositorio" in codigo
-    assert "app.dependency_overrides[obtener_repositorio] = Repositorio" in codigo
+    assert "doble_obtener_repositorio = Repositorio()" in codigo
+    assert (
+        "app.dependency_overrides[obtener_repositorio] = "
+        "lambda: doble_obtener_repositorio" in codigo
+    )
     assert "try:" in codigo and "finally:" in codigo
     assert "app.dependency_overrides.clear()" in codigo
     assert "app.dependency_overrides.update(overrides_anteriores)" in codigo
@@ -193,6 +197,27 @@ def test_generator_simulado_arma_testclient_y_restaura_overrides() -> None:
     assert "assert cuerpo['nombre'] == 'lapiz'" in codigo
     assert respuesta.tokens_entrada == respuesta.tokens_salida == 0
     assert respuesta.costo_usd == 0.0
+
+
+def test_generator_simulado_prepara_el_estado_de_la_dependencia() -> None:
+    contrato = json.loads(json.dumps(CONTRATO_ENDPOINT))
+    contrato["casos"][0]["entrada"]["preparacion"] = [
+        {
+            "dependencia": "obtener_repositorio",
+            "metodo": "crear",
+            "modelo": "ItemEntrada",
+            "argumentos": {"nombre": "lapiz", "precio": 2.5},
+        }
+    ]
+    prompt = "Escribe...\nCONTRATO_JSON: " + json.dumps(contrato)
+
+    codigo = FakeLLMClient(grabaciones={}).generar(prompt, rol="generator").contenido
+
+    assert "ItemEntrada" in codigo
+    assert (
+        "doble_obtener_repositorio.crear("
+        "ItemEntrada(nombre='lapiz', precio=2.5))" in codigo
+    )
 
 
 def test_planner_simulado_reconoce_clave_de_endpoint() -> None:

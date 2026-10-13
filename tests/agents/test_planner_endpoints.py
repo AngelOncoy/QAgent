@@ -79,9 +79,13 @@ def test_ia_simulada_planifica_los_6_endpoints_del_banco(modulo_api, fuente_api)
     for contrato in plan:
         contracts.validar(contracts.PLANNER, contrato)
         assert contrato["tipo"] == "endpoint"
+        assert contrato["aplicacion"] == "app"
     assert agente.descartados == []
     por_objetivo = {c["objetivo"]: c for c in plan}
     assert por_objetivo["POST /items"]["manejador"] == "crear_item"
+    assert por_objetivo["POST /items"]["dependencias"] == [
+        {"funcion": "obtener_repositorio", "reemplazo": "Repositorio"}
+    ]
     assert por_objetivo["GET /descuento"]["llama_a"] == [
         "api_mvp.py::calcular_descuento"
     ]

@@ -21,7 +21,6 @@ from pyagent.analysis import analizar_proyecto, comparar_aserciones
 from pyagent.config import cargar_configuracion
 from pyagent.config.carga import RUTA_CONFIG
 from pyagent.llm import FakeLLMClient, TokenTracker
-from pyagent.orchestrator import corrida as modulo_corrida
 from pyagent.orchestrator.corrida import ejecutar_corrida
 from pyagent.sandbox import ResultadoSandbox
 
@@ -258,23 +257,6 @@ def test_reviewer_rechaza_el_reintento_debilitado(plan_api):
 
 
 # --- Orquestador y corrida -------------------------------------------------------
-class GeneratorAMano:
-    """Devuelve la prueba escrita a mano del endpoint (en lugar del Generator)."""
-
-    def __init__(self, *args, **kwargs) -> None:
-        self.llamadas = 0
-
-    def generar(self, contrato: dict, intento: int, feedback: str | None) -> dict:
-        self.llamadas += 1
-        return {
-            "version": "1",
-            "objetivo": contrato["objetivo"],
-            "intento": intento,
-            "codigo": PRUEBAS[contrato["objetivo"]],
-            "casos_cubiertos": [c["id"] for c in contrato["casos"]],
-        }
-
-
 @pytest.fixture
 def proyecto_api(tmp_path: Path) -> AlmacenProyecto:
     carpeta = tmp_path / "api"
@@ -284,8 +266,7 @@ def proyecto_api(tmp_path: Path) -> AlmacenProyecto:
     return almacen
 
 
-def test_corrida_de_la_api_de_prueba(proyecto_api, monkeypatch):
-    monkeypatch.setattr(modulo_corrida, "GeneratorAgent", GeneratorAMano)
+def test_corrida_de_la_api_de_prueba_con_generator_real(proyecto_api):
     config = cargar_configuracion(RUTA_CONFIG, "no-existe.env", simulado=True).config
     eventos: list[dict] = []
     run_id = proyecto_api.crear_run(tipos_prueba=["funcion"])["run_id"]

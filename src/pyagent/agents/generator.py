@@ -147,6 +147,9 @@ def _reglas_endpoint(contrato: dict[str, Any]) -> str:
 - Si trae "json_contiene", comprueba cada clave y valor indicados.
 - Dependencias a reemplazar: {detalle_overrides}
 - Para cada dependencia asigna {aplicacion}.dependency_overrides[funcion] = reemplazo.
+- Si una entrada trae "preparacion", instancia el reemplazo una vez en la fixture,
+  ejecuta allí cada método/modelo/argumentos declarado y usa un lambda que devuelva
+  esa misma instancia durante el test.
 - Usa una fixture con try/finally: guarda una copia de los overrides anteriores y,
   al terminar cada test, limpia el diccionario y restaura exactamente esa copia.
 - Nunca reemplaces el manejador de la ruta ni modelos Pydantic.

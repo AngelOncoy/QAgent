@@ -1,42 +1,54 @@
 {
   "fecha_local": "2026-10-13",
-  "metodo": "lectura UTF-8, ast.parse y SHA-256; no se ejecutó código del banco fuera del sandbox",
-  "nota": "Las copias archivadas fueron normalizadas por Ruff; conservan la semántica de la salida determinista del Generator.",
+  "base": "origin/develop@3127132",
+  "metodo": "Planner HU-27 y Generator EN-15 reales; lectura UTF-8, ast.parse y SHA-256; el código del banco solo se ejecutó dentro de Docker",
+  "nota": "Las copias archivadas fueron normalizadas por Ruff y conservan la semántica de la salida determinista del Generator.",
+  "totales": {
+    "archivos_por_endpoint": 6,
+    "funciones_test": 13,
+    "ast_validos": 6
+  },
   "archivos": [
     {
       "objetivo": "GET /salud",
       "archivo": "tests-generados/test_salud_ok.py",
       "sha256": "7acea6b90c76a849a09e5be088b2490bfd9fff575a50c9864603a5f0da0ba75f",
+      "tests": 1,
       "ast_valido": true
     },
     {
       "objetivo": "POST /items",
       "archivo": "tests-generados/test_crear_item.py",
-      "sha256": "648d82b5c3900c8b18522f8e01a1a674ede5e4366341ffb9e776630acb1a3e57",
+      "sha256": "387361d95bce00c26049b43d3a57204999d1a71718b75478f5a7954155c426ed",
+      "tests": 3,
       "ast_valido": true
     },
     {
       "objetivo": "GET /items",
       "archivo": "tests-generados/test_listar_vacio.py",
-      "sha256": "f99d70f56ac24d88274c83cc90a12dfeddc5c4487842a1710895759aea24a747",
+      "sha256": "f6065caa0db0958da002a2453aa5e8a67381a035eb7512c3520bf4f51ebec0c7",
+      "tests": 1,
       "ast_valido": true
     },
     {
       "objetivo": "GET /items/{item_id}",
       "archivo": "tests-generados/test_item_inexistente.py",
-      "sha256": "e1998001166271596b43578a0bae66e71de13bfdb000c842058fa321b33d04a9",
+      "sha256": "848717ecfb76c2bcdfacb63f1f9d9ce21d50ea16472b6359d934a353ce473c77",
+      "tests": 3,
       "ast_valido": true
     },
     {
       "objetivo": "DELETE /items/{item_id}",
       "archivo": "tests-generados/test_borrar_inexistente.py",
-      "sha256": "f61516c059420fca456460e03f2678d12e314e078fd4144583082e4edb1ef9a9",
+      "sha256": "e126bb2151b910f4df53853a4c4332afa206c7e8f1bf27425b93806af5cde922",
+      "tests": 3,
       "ast_valido": true
     },
     {
       "objetivo": "GET /descuento",
       "archivo": "tests-generados/test_descuento_normal.py",
-      "sha256": "9132fb7a9338150d90d291861fc046761d93755a99e1a256f6871b3f7433b24d",
+      "sha256": "702dcea763338047242b19e0fafa95b7042bd365457dd4fa490a5eaff15e4e4b",
+      "tests": 2,
       "ast_valido": true
     }
   ]

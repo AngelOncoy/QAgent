@@ -42,12 +42,12 @@
       {"id": "listar", "entrada": {"metodo": "GET", "ruta": "/items"}, "valor_esperado": {"status_code": 200}, "origen": "status_code"}
     ],
     "api_mvp.py::GET /items/{item_id}": [
-      {"id": "obtener_existente", "descripcion": "Con el artículo 1 guardado (nombre lapiz, precio 2.5)", "entrada": {"metodo": "GET", "ruta": "/items/1"}, "valor_esperado": {"status_code": 200, "json": {"id": 1, "nombre": "lapiz", "precio": 2.5}}, "origen": "response_model"},
+      {"id": "obtener_existente", "descripcion": "Con el artículo 1 guardado (nombre lapiz, precio 2.5)", "entrada": {"metodo": "GET", "ruta": "/items/1", "preparacion": [{"dependencia": "obtener_repositorio", "metodo": "crear", "modelo": "ItemEntrada", "argumentos": {"nombre": "lapiz", "precio": 2.5}}]}, "valor_esperado": {"status_code": 200, "json": {"id": 1, "nombre": "lapiz", "precio": 2.5}}, "origen": "response_model"},
       {"id": "obtener_inexistente", "descripcion": "El docstring promete 404 si el artículo no existe", "entrada": {"metodo": "GET", "ruta": "/items/999"}, "valor_esperado": {"status_code": 404}, "origen": "docstring"},
       {"id": "id_no_numerico", "entrada": {"metodo": "GET", "ruta": "/items/abc"}, "valor_esperado": {"status_code": 422}, "origen": "tipo"}
     ],
     "api_mvp.py::DELETE /items/{item_id}": [
-      {"id": "borrar_existente", "descripcion": "Con el artículo 1 guardado: responde 204 sin cuerpo", "entrada": {"metodo": "DELETE", "ruta": "/items/1"}, "valor_esperado": {"status_code": 204}, "origen": "status_code"},
+      {"id": "borrar_existente", "descripcion": "Con el artículo 1 guardado: responde 204 sin cuerpo", "entrada": {"metodo": "DELETE", "ruta": "/items/1", "preparacion": [{"dependencia": "obtener_repositorio", "metodo": "crear", "modelo": "ItemEntrada", "argumentos": {"nombre": "lapiz", "precio": 2.5}}]}, "valor_esperado": {"status_code": 204}, "origen": "status_code"},
       {"id": "borrar_inexistente", "entrada": {"metodo": "DELETE", "ruta": "/items/999"}, "valor_esperado": {"status_code": 404}, "origen": "docstring"},
       {"id": "borrar_id_no_numerico", "entrada": {"metodo": "DELETE", "ruta": "/items/abc"}, "valor_esperado": {"status_code": 422}, "origen": "tipo"}
     ],

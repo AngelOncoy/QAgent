@@ -7,7 +7,8 @@ from api_mvp import Repositorio, app, obtener_repositorio
 @pytest.fixture
 def client():
     overrides_anteriores = dict(app.dependency_overrides)
-    app.dependency_overrides[obtener_repositorio] = Repositorio
+    doble_obtener_repositorio = Repositorio()
+    app.dependency_overrides[obtener_repositorio] = lambda: doble_obtener_repositorio
     try:
         yield TestClient(app, raise_server_exceptions=False)
     finally:
@@ -15,7 +16,6 @@ def client():
         app.dependency_overrides.update(overrides_anteriores)
 
 
-def test_listar_vacio(client):
+def test_listar(client):
     response = client.request("GET", "/items")
     assert response.status_code == 200
-    assert response.json() == []

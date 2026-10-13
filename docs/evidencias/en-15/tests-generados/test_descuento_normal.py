@@ -16,7 +16,14 @@ def client():
 
 def test_descuento_normal(client):
     response = client.request(
-        "GET", "/descuento", params={"precio": 100.0, "porcentaje": 20.0}
+        "GET", "/descuento", params={"precio": 100, "porcentaje": 20}
     )
     assert response.status_code == 200
     assert response.json() == {"precio_final": 80.0}
+
+
+def test_precio_negativo(client):
+    response = client.request(
+        "GET", "/descuento", params={"precio": -1, "porcentaje": 20}
+    )
+    assert response.status_code == 422

@@ -13,10 +13,9 @@ from typing import Any
 import pytest
 
 from pyagent import contracts
-from pyagent.agents import GeneratorAgent, ReviewerAgent
+from pyagent.agents import GeneratorAgent, PlannerAgent, ReviewerAgent
 from pyagent.analysis import analizar_proyecto
 from pyagent.llm import FakeLLMClient, TokenTracker
-from pyagent.llm.fake import cargar_grabaciones
 from pyagent.orchestrator import Estado, Orquestador
 from pyagent.sandbox import (
     DockerNoDisponible,
@@ -38,34 +37,13 @@ CON_BUG = {
 
 
 def contratos_del_banco() -> tuple[dict[str, Any], list[dict[str, Any]]]:
-    """Une la salida de EN-14 con los casos grabados propios de EN-15."""
+    """Obtiene los contratos reales de HU-27 con las grabaciones de endpoints."""
     [modulo] = analizar_proyecto(BANCO)["modulos"]
-    grabaciones = cargar_grabaciones()
-    resultado = []
-    for endpoint in modulo["endpoints"]:
-        clave = f"api_mvp.py::{endpoint['objetivo']}"
-        dependencias = []
-        for dependencia in endpoint["dependencias"]:
-            assert dependencia["funcion"] == "obtener_repositorio"
-            dependencias.append(
-                {"funcion": dependencia["funcion"], "reemplazo": "Repositorio"}
-            )
-        contrato = {
-            "version": "2",
-            "modulo": modulo["ruta"],
-            "huella": modulo["huella"],
-            "tipo": "endpoint",
-            "objetivo": endpoint["objetivo"],
-            "manejador": endpoint["manejador"],
-            "aplicacion": "app",
-            "dependencias": dependencias,
-            "firma": endpoint["firma"],
-            "critical": False,
-            "llama_a": endpoint["llama_a"],
-            "casos": grabaciones[clave],
-        }
+    fuente = (BANCO / "api_mvp.py").read_text(encoding="utf-8")
+    planner = PlannerAgent(FakeLLMClient(), TokenTracker(), es_simulado=True)
+    resultado = planner.planificar_endpoints(modulo, fuente)
+    for contrato in resultado:
         contracts.validar(contracts.PLANNER, contrato)
-        resultado.append(contrato)
     return modulo, resultado
 
 
@@ -144,8 +122,8 @@ def test_banco_api_generado_detecta_exactamente_los_tres_bugs() -> None:
 @pytest.mark.parametrize(
     ("objetivo", "exit_code_esperado", "resumen_esperado"),
     [
-        ("POST /items", 0, "2 passed"),
-        ("GET /items/{item_id}", 1, "1 failed, 1 passed"),
+        ("POST /items", 0, "4 passed"),
+        ("GET /items/{item_id}", 1, "1 failed, 3 passed"),
     ],
 )
 def test_dependency_overrides_se_restauran_despues_del_test_en_sandbox(

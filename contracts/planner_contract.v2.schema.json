@@ -105,7 +105,12 @@
             "ruta": { "type": "string", "pattern": "^/", "description": "Ruta con los parámetros ya sustituidos, ej. /items/1." },
             "query": { "type": "object", "description": "Parámetros de consulta (?clave=valor)." },
             "json": { "description": "Cuerpo JSON de la petición." },
-            "headers": { "type": "object", "additionalProperties": { "type": "string" } }
+            "headers": { "type": "object", "additionalProperties": { "type": "string" } },
+            "preparacion": {
+              "type": "array",
+              "items": { "$ref": "#/$defs/preparacion_endpoint" },
+              "description": "Estado inicial declarado que el doble de una dependencia necesita antes de la petición."
+            }
           }
         },
         "valor_esperado": {
@@ -119,6 +124,17 @@
             "json_contiene": { "type": "object", "description": "Solo estos campos deben estar en la respuesta, con estos valores." }
           }
         }
+      }
+    },
+    "preparacion_endpoint": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["dependencia", "metodo", "modelo", "argumentos"],
+      "properties": {
+        "dependencia": { "type": "string", "pattern": "^[A-Za-z_][A-Za-z0-9_]*$" },
+        "metodo": { "type": "string", "pattern": "^[A-Za-z_][A-Za-z0-9_]*$" },
+        "modelo": { "type": "string", "pattern": "^[A-Za-z_][A-Za-z0-9_]*$" },
+        "argumentos": { "type": "object" }
       }
     },
     "caso": {
