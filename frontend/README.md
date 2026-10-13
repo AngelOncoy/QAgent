@@ -38,7 +38,7 @@ frontend/
     ├── sidebar/          Barra lateral y estado del sandbox
     ├── inicio/           Bienvenida y recientes · modal-abrir · modal-clonar
     ├── vista-previa/     Árbol de módulos y tabla de funciones
-    ├── config-pruebas/   Perfiles, comparación de costos y estimación
+    ├── config-pruebas/   Perfiles (caja negra/blanca), comparación y estimación de tokens y duración
     ├── barra-corrida/    Barra superior de Monitor, Ejecución e Informe
     ├── monitor/          Línea de tiempo de la corrida
     ├── ejecucion/        KPIs, filtros y detalle por función

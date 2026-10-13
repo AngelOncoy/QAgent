@@ -30,6 +30,13 @@
   --prov-otro:var(--slate-500);
 }
 
+/* Tipo de caja de cada perfil (HU-31): insignias de Configuración de pruebas.
+   Caja negra = oscura (no se ve el código); caja blanca = clara (se ve por dentro). */
+:root{
+  --caja-negra-s:var(--slate-950); --caja-negra-t:var(--slate-200); --caja-negra-b:var(--slate-500);
+  --caja-blanca-s:var(--slate-200); --caja-blanca-t:var(--slate-900); --caja-blanca-b:var(--slate-300);
+}
+
 /* Tipografía */
 :root{
   --fuente-ui:'Inter',system-ui,sans-serif;

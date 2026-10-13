@@ -49,16 +49,19 @@ function priorizarModulos(lista) {
 MODULES = priorizarModulos(MODULES);
 
 
+// Perfiles de análisis. `descripcion` y `tipo_caja` ('negra' | 'blanca') se muestran en cada cuadro (HU-31);
+// `duracion` es la duración aproximada del perfil (rápida, media o larga).
 const PROFILES = [
-  {k:'humo', n:'Humo', d:'1 caso feliz por función: ¿se importa y corre con una entrada válida?', tok:4000, t:0.3, m:['Pass Rate'], pill:'p-grey'},
-  {k:'std', n:'Estándar', d:'Casos felices, valores límite y excepciones, derivados del docstring.', tok:12000, t:0.9, m:['Pass Rate','Cobertura','Iteraciones'], pill:'p-blue'},
-  {k:'deep', n:'Profundo', d:'Estándar + mutation testing (mutmut) solo sobre funciones críticas.', tok:14000, t:1.2, m:['Todo lo anterior','Mutation Score'], pill:'p-purple'},
-  {k:'reg', n:'Regresión', d:'Vuelve a ejecutar las pruebas ya aprobadas y guardadas, sin llamar a ninguna IA. Las funciones cuyo código cambió quedan marcadas para una corrida nueva.', tok:0, t:0.2, m:['Pass Rate','Cobertura vs. anterior'], pill:'p-green'},
+  {k:'humo', n:'Humo', tipo_caja:'negra', duracion:'rápida', descripcion:'Verificación rápida de que el proyecto arranca: los módulos se importan sin errores y las funciones principales responden. No revisa el código por dentro.', tok:4000, t:0.3, m:['Pass Rate'], pill:'p-grey'},
+  {k:'std', n:'Estándar', tipo_caja:'negra', duracion:'media', descripcion:'Prueba cada función con entradas válidas, inválidas y valores límite, y compara la salida obtenida con la esperada. Se basa en lo que la función debe hacer, no en cómo está escrita.', tok:12000, t:0.9, m:['Pass Rate','Cobertura','Iteraciones'], pill:'p-blue'},
+  {k:'deep', n:'Profundo', tipo_caja:'blanca', duracion:'larga', descripcion:'Analiza la estructura interna del código: recorre cada rama (if/else), bucle y manejo de excepciones, y mide la cobertura de sentencias y ramas.', tok:14000, t:1.2, m:['Todo lo anterior','Mutation Score'], pill:'p-purple'},
+  {k:'reg', n:'Regresión', tipo_caja:'negra', duracion:'media', descripcion:'Vuelve a ejecutar las pruebas ya aprobadas y guardadas en .pyagent/ para confirmar que los cambios recientes no rompieron lo que ya funcionaba.', tok:0, t:0.2, m:['Pass Rate','Cobertura vs. anterior'], pill:'p-green'},
 ];
+// Texto de la insignia de cada tipo de caja
+const TIPO_CAJA = {negra:'Caja negra', blanca:'Caja blanca'};
 let HAS_PRIOR_RUN = true;   // ¿el proyecto abierto ya tuvo una corrida? (dato real en la app; simulado en la demostración)
 // Estado de los specs guardados en .pyagent/specs/: 'reuse' = el código no cambió (huella igual), 'stale' = cambió → se regenera
 const SPEC_STATUS = {'services/pricing.py':'reuse','services/inventory.py':'reuse','services/payments.py':'reuse','services/shipping.py':'reuse','services/cart.py':'stale','services/discounts.py':'stale'};
-const PLANNER_SHARE = 0.28;   // parte del costo por función que corresponde al Planner (se ahorra al reutilizar el spec)
 let profile = 'deep';
-let runEstimate = {tok:0, pen:0}, projectPath = 'E:\\Proyectos\\ecommerce-core';
+let runEstimate = {tok:0}, projectPath = 'E:\\Proyectos\\ecommerce-core';
 
