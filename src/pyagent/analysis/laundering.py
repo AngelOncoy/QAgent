@@ -342,7 +342,11 @@ def _emparejar_aserciones(
     # Paso 1: Coincidencias exactas (sujeto, tipo, valor)
     for ac in list(pc):
         for as_ in list(ps):
-            if ac.sujeto == as_.sujeto and ac.tipo == as_.tipo and ac.valor == as_.valor:
+            if (
+                ac.sujeto == as_.sujeto
+                and ac.tipo == as_.tipo
+                and ac.valor == as_.valor
+            ):
                 pares.append((ac, as_))
                 pc.remove(ac)
                 ps.remove(as_)
@@ -448,7 +452,9 @@ def comparar_aserciones(
                 es_laundering = True
                 diferencias.append(
                     DiferenciaAsercion(
-                        contrato=Asercion(0, "", "(aserción estricta de contrato)", None),
+                        contrato=Asercion(
+                            0, "", "(aserción estricta de contrato)", None
+                        ),
                         sintetizada=Asercion(
                             nodo.lineno, "tautologia", ast.unparse(nodo), None
                         ),
@@ -526,9 +532,7 @@ def comparar_aserciones(
                     )
                 )
             elif (
-                ac.valor is not None
-                and as_.valor is not None
-                and ac.valor != as_.valor
+                ac.valor is not None and as_.valor is not None and ac.valor != as_.valor
             ):
                 es_laundering = True
                 diferencias.append(
@@ -545,11 +549,7 @@ def comparar_aserciones(
 
         # Regla de valor esperado cambiado en 'is' o 'is_not'
         if ac.tipo in ("is", "is_not") and as_.tipo == ac.tipo:
-            if (
-                ac.valor is not None
-                and as_.valor is not None
-                and ac.valor != as_.valor
-            ):
+            if ac.valor is not None and as_.valor is not None and ac.valor != as_.valor:
                 es_laundering = True
                 diferencias.append(
                     DiferenciaAsercion(
@@ -565,11 +565,7 @@ def comparar_aserciones(
 
         # Regla de colección esperada cambiada en 'in' o 'not_in'
         if ac.tipo in ("in", "not_in") and as_.tipo == ac.tipo:
-            if (
-                ac.valor is not None
-                and as_.valor is not None
-                and ac.valor != as_.valor
-            ):
+            if ac.valor is not None and as_.valor is not None and ac.valor != as_.valor:
                 es_laundering = True
                 diferencias.append(
                     DiferenciaAsercion(

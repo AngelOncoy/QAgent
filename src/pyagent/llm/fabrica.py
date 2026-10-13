@@ -1,34 +1,27 @@
 """Crea el cliente LLM de cada agente a partir de `config.toml` y `.env` (HU-11).
 
-Todos los proveedores de ADR-001 exponen una API de chat compatible con OpenAI; solo
-cambian la URL y, en Xiaomi MiMo, la cabecera de la clave. Un agente puede fijar su
-propia URL con `endpoint = "..."` en `[agentes.<agente>]`.
+La URL y la cabecera de la clave de cada proveedor salen del catálogo
+(`llm/proveedores.toml`, HU-30) y el cliente lo arma el `ClienteProveedor` de ese
+proveedor (`llm/proveedores.py`). Un agente puede fijar su propia URL con
+`endpoint = "..."` en `[agentes.<agente>]`.
 """
 
 from __future__ import annotations
 
 from typing import Protocol
 
-from pyagent.llm.cliente import ClienteLLMReal, TransporteLLM
+from pyagent.llm.cliente import TransporteLLM
 from pyagent.llm.fake import FakeLLMClient
 from pyagent.llm.modelos import ClienteLLM
 from pyagent.llm.precios import PrecioAgente
+from pyagent.llm.proveedores import catalogo, cliente_de
 
 #: URL de chat completions por proveedor (se puede reemplazar con `endpoint`).
-ENDPOINT_POR_PROVEEDOR = {
-    "openai": "https://api.openai.com/v1/chat/completions",
-    "xiaomi": "https://api.xiaomimimo.com/v1/chat/completions",
-    "anthropic": "https://api.anthropic.com/v1/chat/completions",
-    "openrouter": "https://openrouter.ai/api/v1/chat/completions",
-    # Capas gratuitas con API compatible con OpenAI (clave en `Authorization: Bearer`).
-    "gemini": "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",
-    "groq": "https://api.groq.com/openai/v1/chat/completions",
-}
+ENDPOINT_POR_PROVEEDOR = {pid: p.endpoint for pid, p in catalogo().items()}
 
 #: Proveedores que leen la clave de una cabecera propia además de `Authorization`.
 CABECERA_CLAVE_POR_PROVEEDOR = {
-    "xiaomi": "api-key",
-    "anthropic": "x-api-key",
+    pid: p.cabecera_clave for pid, p in catalogo().items() if p.cabecera_clave
 }
 
 
@@ -70,27 +63,29 @@ def crear_cliente(
         return FakeLLMClient(modelo=precio.modelo)
 
     # Import diferido: pyagent.config importa pyagent.llm al cargarse.
-    from pyagent.config.carga import CLAVE_POR_PROVEEDOR
+    from pyagent.config.carga import variable_de_agente, variable_en_uso
 
-    variable = CLAVE_POR_PROVEEDOR.get(precio.proveedor)
+    variable = (
+        variable_en_uso(precio.agente, precio.proveedor, claves.obtener)
+        if claves is not None
+        else None
+    )
     clave = claves.obtener(variable) if (claves is not None and variable) else None
     if not clave:
+        propia = variable_de_agente(precio.agente, precio.proveedor)
         raise ConfiguracionLLMIncompleta(
-            f"Falta la clave {variable or '(proveedor desconocido)'} en .env "
+            f"Falta la clave {propia or '(proveedor desconocido)'} en .env "
             f"para el {precio.agente}."
         )
-    endpoint = precio.endpoint or ENDPOINT_POR_PROVEEDOR.get(precio.proveedor)
-    if not endpoint:
+    if precio.proveedor not in catalogo():
         raise ConfiguracionLLMIncompleta(
-            f"No hay URL para el proveedor '{precio.proveedor}': agrega "
-            f'endpoint = "..." en [agentes.{precio.agente}] de config.toml.'
+            f"No hay URL para el proveedor '{precio.proveedor}': agrégalo a "
+            "src/pyagent/llm/proveedores.toml."
         )
-    return ClienteLLMReal(
-        modelo=precio.modelo,
-        clave=clave,
-        endpoint=endpoint,
-        transporte=transporte,
+    return cliente_de(precio.proveedor, transporte).crear_cliente_llm(
+        clave,
+        precio.modelo,
+        endpoint=precio.endpoint,
         timeout_s=timeout_s,
         esfuerzo=precio.esfuerzo,
-        cabecera_clave=CABECERA_CLAVE_POR_PROVEEDOR.get(precio.proveedor),
     )

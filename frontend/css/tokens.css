@@ -21,6 +21,15 @@
   --logo-completo:url('../assets/logo/qagent-logo.svg');
 }
 
+/* Proveedores de IA (HU-30): color de la insignia de cada uno en Configuración.
+   Las insignias son iniciales con color; no se incluyen logos de marca. */
+:root{
+  --prov-anthropic:var(--orange-400-c); --prov-xiaomi:var(--orange-500); --prov-openai:var(--emerald-400);
+  --prov-canopylabs:var(--teal-400); --prov-meta-llama:var(--blue-400); --prov-whisper:var(--slate-400);
+  --prov-openrouter:var(--indigo-400); --prov-gemini:var(--blue-300); --prov-groq:var(--rose-400);
+  --prov-otro:var(--slate-500);
+}
+
 /* Tipografía */
 :root{
   --fuente-ui:'Inter',system-ui,sans-serif;
