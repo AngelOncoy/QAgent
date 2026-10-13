@@ -113,6 +113,35 @@ CONTRATO_BANCO = {
     ],
 }
 
+CONTRATO_ENDPOINT = {
+    "version": "2",
+    "modulo": "api_mvp.py",
+    "huella": "a" * 64,
+    "tipo": "endpoint",
+    "objetivo": "POST /items",
+    "manejador": "crear_item",
+    "aplicacion": "app",
+    "dependencias": [{"funcion": "obtener_repositorio", "reemplazo": "Repositorio"}],
+    "firma": "(datos: ItemEntrada, repo=Depends(obtener_repositorio)) -> Item",
+    "critical": False,
+    "llama_a": [],
+    "casos": [
+        {
+            "id": "crear_item",
+            "entrada": {
+                "metodo": "POST",
+                "ruta": "/items",
+                "json": {"nombre": "lapiz", "precio": 2.5},
+            },
+            "valor_esperado": {
+                "status_code": 201,
+                "json_contiene": {"nombre": "lapiz", "precio": 2.5},
+            },
+            "origen": "response_model",
+        }
+    ],
+}
+
 
 def test_planner_simulado_usa_los_casos_grabados_del_modulo() -> None:
     grabados = [CONTRATO_BANCO["casos"][0]]
@@ -144,6 +173,63 @@ def test_generator_simulado_arma_el_test_desde_el_contrato() -> None:
     assert "with pytest.raises(ValueError):" in codigo
 
 
+def test_generator_simulado_arma_testclient_y_restaura_overrides() -> None:
+    import ast
+
+    prompt = "Escribe...\nCONTRATO_JSON: " + json.dumps(CONTRATO_ENDPOINT)
+
+    respuesta = FakeLLMClient(grabaciones={}).generar(prompt, rol="generator")
+    codigo = respuesta.contenido
+
+    ast.parse(codigo)
+    assert "from fastapi.testclient import TestClient" in codigo
+    assert "from api_mvp import app, obtener_repositorio, Repositorio" in codigo
+    assert "doble_obtener_repositorio = Repositorio()" in codigo
+    assert (
+        "app.dependency_overrides[obtener_repositorio] = "
+        "lambda: doble_obtener_repositorio" in codigo
+    )
+    assert "try:" in codigo and "finally:" in codigo
+    assert "app.dependency_overrides.clear()" in codigo
+    assert "app.dependency_overrides.update(overrides_anteriores)" in codigo
+    assert "client.request('POST', '/items'" in codigo
+    assert "assert response.status_code == 201" in codigo
+    assert "assert cuerpo['nombre'] == 'lapiz'" in codigo
+    assert respuesta.tokens_entrada == respuesta.tokens_salida == 0
+    assert respuesta.costo_usd == 0.0
+
+
+def test_generator_simulado_prepara_el_estado_de_la_dependencia() -> None:
+    contrato = json.loads(json.dumps(CONTRATO_ENDPOINT))
+    contrato["casos"][0]["entrada"]["preparacion"] = [
+        {
+            "dependencia": "obtener_repositorio",
+            "metodo": "crear",
+            "modelo": "ItemEntrada",
+            "argumentos": {"nombre": "lapiz", "precio": 2.5},
+        }
+    ]
+    prompt = "Escribe...\nCONTRATO_JSON: " + json.dumps(contrato)
+
+    codigo = FakeLLMClient(grabaciones={}).generar(prompt, rol="generator").contenido
+
+    assert "ItemEntrada" in codigo
+    assert (
+        "doble_obtener_repositorio.crear("
+        "ItemEntrada(nombre='lapiz', precio=2.5))" in codigo
+    )
+
+
+def test_planner_simulado_reconoce_clave_de_endpoint() -> None:
+    casos = CONTRATO_ENDPOINT["casos"]
+    cliente = FakeLLMClient(grabaciones={"api_mvp.py::POST /items": casos})
+    prompt = 'MODULO: api_mvp.py\nOBJETIVOS_JSON: [{"objetivo": "POST /items"}]'
+
+    plan = json.loads(cliente.generar(prompt, rol="planner").contenido)
+
+    assert plan == [{"objetivo": "POST /items", "casos": casos}]
+
+
 def test_el_banco_tiene_casos_grabados_para_todas_sus_funciones() -> None:
     from pyagent.analysis.analyzer import analizar_proyecto
     from pyagent.llm.fake import RUTA_GRABACIONES, cargar_grabaciones
@@ -153,3 +239,16 @@ def test_el_banco_tiene_casos_grabados_para_todas_sus_funciones() -> None:
 
     for funcion in modulo["funciones"]:
         assert grabaciones.get(f"banco_mvp.py::{funcion['nombre']}"), funcion["nombre"]
+
+
+def test_el_banco_api_tiene_grabacion_para_cada_endpoint() -> None:
+    from pyagent.analysis.analyzer import analizar_proyecto
+    from pyagent.llm.fake import RUTA_GRABACIONES, cargar_grabaciones
+
+    raiz = Path(__file__).resolve().parents[2]
+    grabaciones = cargar_grabaciones(RUTA_GRABACIONES)
+    [modulo] = analizar_proyecto(raiz / "bench_api")["modulos"]
+
+    for endpoint in modulo["endpoints"]:
+        clave = f"api_mvp.py::{endpoint['objetivo']}"
+        assert grabaciones.get(clave), clave

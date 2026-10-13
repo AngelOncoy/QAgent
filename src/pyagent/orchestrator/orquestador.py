@@ -15,6 +15,7 @@ from dataclasses import asdict, dataclass, field
 from typing import Any, TypeVar
 
 from pyagent import contracts
+from pyagent.agents.generator import ErrorRespuestaGenerator
 from pyagent.contracts import ContratoInvalido
 from pyagent.llm.tracker import TokenTracker
 from pyagent.orchestrator.estados import Estado, validar_transicion
@@ -287,7 +288,22 @@ class Orquestador:
             self._transicionar(Estado.GENERAR, objetivo)
             # Copia del contrato original del Planner: lo que un agente haga con su
             # copia no llega a los intentos siguientes (HU-14, criterio 3).
-            test = self._generar(copy.deepcopy(contrato), intento, feedback)
+            try:
+                test = self._generar(copy.deepcopy(contrato), intento, feedback)
+            except FalloControlado as error:
+                causa = error.__cause__
+                if not isinstance(causa, ErrorRespuestaGenerator) or not causa.codigo:
+                    raise
+                # El Generator rechazó el candidato con ast.parse. Se entrega al
+                # Reviewer solo para producir feedback contractual; su validación de
+                # sintaxis impide que alcance el ejecutor del sandbox.
+                test = {
+                    "version": "1",
+                    "objetivo": objetivo,
+                    "intento": intento,
+                    "codigo": causa.codigo,
+                    "casos_cubiertos": [caso["id"] for caso in contrato["casos"]],
+                }
             resultado.codigo = test["codigo"]
             self._transicionar(Estado.EJECUTAR_REVISAR, objetivo)
             revision = self._revisar(copy.deepcopy(contrato), test, test_anterior, tope)

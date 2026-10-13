@@ -5,6 +5,13 @@
   "tipo": "endpoint",
   "objetivo": "POST /items",
   "manejador": "crear_item",
+  "aplicacion": "app",
+  "dependencias": [
+    {
+      "funcion": "obtener_repositorio",
+      "reemplazo": "Repositorio"
+    }
+  ],
   "firma": "(datos: ItemEntrada, repo: Repositorio=Depends(obtener_repositorio)) -> Item",
   "critical": false,
   "llama_a": [],

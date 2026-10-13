@@ -481,7 +481,7 @@ class ReviewerAgent:
     def _detectar_evasion(arbol: ast.AST) -> str | None:
         """Detecta construcciones que permiten evitar o silenciar el test."""
         for nodo in ast.walk(arbol):
-            if isinstance(nodo, ast.Try):
+            if isinstance(nodo, ast.Try) and nodo.handlers:
                 return "el test contiene try/except que puede ocultar un fallo"
 
             if isinstance(nodo, ast.Call):
