@@ -211,7 +211,12 @@ def test_si_falta_env_lo_crea_con_las_claves_vacias(tmp_path):
     env = tmp_path / ".env"
     carga = cargar_configuracion(RUTA_CONFIG, env, simulado=False)
     assert env.exists()
-    assert leer_env(env) == {"XIAOMI_API_KEY": "", "OPENAI_API_KEY": ""}
+    # Una variable por agente (HU-30): Planner y Generator usan Xiaomi, cada uno la suya.
+    assert leer_env(env) == {
+        "XIAOMI_API_KEY_PLANNER": "",
+        "XIAOMI_API_KEY_GENERATOR": "",
+        "OPENAI_API_KEY_REVIEWER": "",
+    }
     assert not carga.ok  # creado pero vacío: sigue bloqueado
     assert "Se creó el archivo .env" in carga.avisos_claves[0]
     assert any("OPENAI_API_KEY" in a for a in carga.avisos_claves[1:])

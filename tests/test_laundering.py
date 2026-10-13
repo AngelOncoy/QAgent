@@ -373,7 +373,9 @@ class TestCasosEspecialesReunion:
 
     def test_tautologia_assert_1_eq_1(self) -> None:
         """assert 1 == 1 es una tautología constante → detecta laundering."""
-        resultado = comparar_aserciones(ANTES_CONTRATO_REAL, DESPUES_TAUTO_ASSERT_1_EQ_1)
+        resultado = comparar_aserciones(
+            ANTES_CONTRATO_REAL, DESPUES_TAUTO_ASSERT_1_EQ_1
+        )
         assert resultado.es_laundering is True
         assert any("Tautología" in d.motivo for d in resultado.diferencias)
 
@@ -408,7 +410,9 @@ class TestCasosEspecialesReunion:
 
     def test_skip_llamada_detecta_laundering(self) -> None:
         """Llamada directa pytest.skip() → detecta laundering."""
-        resultado = comparar_aserciones(ANTES_CONTRATO_REAL, DESPUES_LLAMADA_PYTEST_SKIP)
+        resultado = comparar_aserciones(
+            ANTES_CONTRATO_REAL, DESPUES_LLAMADA_PYTEST_SKIP
+        )
         assert resultado.es_laundering is True
         assert any("skip" in d.motivo.lower() for d in resultado.diferencias)
 
@@ -448,7 +452,9 @@ class TestSinLaundering:
 
     def test_caso2_mismas_aserciones(self) -> None:
         """Mismas aserciones antes y después → sin laundering (Criterio 5 obligatorio)."""
-        resultado = comparar_aserciones(ANTES_Y_DESPUES_IGUALES, ANTES_Y_DESPUES_IGUALES)
+        resultado = comparar_aserciones(
+            ANTES_Y_DESPUES_IGUALES, ANTES_Y_DESPUES_IGUALES
+        )
         assert resultado.es_laundering is False
         assert len(resultado.diferencias) == 0
 
@@ -504,8 +510,16 @@ class TestSinLaundering:
         ("assert not x", "false", None),
     ],
     ids=[
-        "eq", "ne", "in", "not_in", "is", "is_not",
-        "is_none", "is_not_none", "true", "false",
+        "eq",
+        "ne",
+        "in",
+        "not_in",
+        "is",
+        "is_not",
+        "is_none",
+        "is_not_none",
+        "true",
+        "false",
     ],
 )
 def test_extraccion_clasifica_tipo_correctamente(
@@ -555,7 +569,13 @@ def test_resumen_sin_laundering_muestra_ok() -> None:
 def test_jerarquia_rigor_es_coherente() -> None:
     """Cada tipo definido en RIGOR tiene un valor entero positivo."""
     assert all(isinstance(v, int) and v > 0 for v in RIGOR.values())
-    assert RIGOR["raises"] > RIGOR["eq"] > RIGOR["in"] > RIGOR["is_not_none"] > RIGOR["true"]
+    assert (
+        RIGOR["raises"]
+        > RIGOR["eq"]
+        > RIGOR["in"]
+        > RIGOR["is_not_none"]
+        > RIGOR["true"]
+    )
 
 
 def test_modulo_no_importa_llm() -> None:

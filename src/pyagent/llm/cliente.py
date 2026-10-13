@@ -15,7 +15,24 @@ from pyagent.llm.modelos import ClienteLLM, RespuestaLLM
 
 
 class ErrorLLM(RuntimeError):
-    """Error controlado durante una llamada a un proveedor LLM."""
+    """Error controlado durante una llamada a un proveedor LLM.
+
+    Atributos:
+        codigo: código HTTP con el que respondió el proveedor, o None si no hubo
+            respuesta HTTP.
+        detalle: cuerpo resumido de la respuesta de error (puede estar vacío).
+    """
+
+    def __init__(
+        self, mensaje: str, *, codigo: int | None = None, detalle: str = ""
+    ) -> None:
+        super().__init__(mensaje)
+        self.codigo = codigo
+        self.detalle = detalle
+
+
+class SinConexion(ErrorLLM):
+    """No se llegó al proveedor: red, DNS, firewall o tiempo de espera agotado."""
 
 
 class LimiteProveedor(ErrorLLM):
@@ -25,8 +42,15 @@ class LimiteProveedor(ErrorLLM):
         espera_s: segundos que pidió esperar el proveedor (`Retry-After`), o None.
     """
 
-    def __init__(self, mensaje: str, espera_s: float | None = None) -> None:
-        super().__init__(mensaje)
+    def __init__(
+        self,
+        mensaje: str,
+        espera_s: float | None = None,
+        *,
+        codigo: int | None = None,
+        detalle: str = "",
+    ) -> None:
+        super().__init__(mensaje, codigo=codigo, detalle=detalle)
         self.espera_s = espera_s
 
 
@@ -62,16 +86,18 @@ class TransporteHTTP:
         *,
         url: str,
         cabeceras: dict[str, str],
-        datos: dict[str, Any],
+        datos: dict[str, Any] | None,
         timeout_s: float,
+        metodo: str = "POST",
     ) -> dict[str, Any]:
-        """Realiza una solicitud POST al proveedor LLM.
+        """Realiza una solicitud al proveedor LLM (POST por defecto).
 
         Args:
             url: Endpoint del proveedor.
             cabeceras: Cabeceras HTTP, incluida la autorización.
-            datos: Cuerpo JSON de la solicitud.
+            datos: Cuerpo JSON de la solicitud; None en un GET.
             timeout_s: Tiempo máximo de espera en segundos.
+            metodo: "POST" o "GET" (consultar un modelo al validar la clave).
 
         Returns:
             Respuesta JSON convertida en un diccionario.
@@ -79,38 +105,43 @@ class TransporteHTTP:
         Raises:
             ErrorLLM: Si la solicitud o la respuesta no son válidas.
         """
-        cuerpo = json.dumps(datos).encode("utf-8")
+        cuerpo = json.dumps(datos).encode("utf-8") if datos is not None else None
         solicitud = Request(
             url=url,
             data=cuerpo,
             headers=cabeceras,
-            method="POST",
+            method=metodo,
         )
 
         try:
             with urlopen(solicitud, timeout=timeout_s) as respuesta:
                 contenido = respuesta.read().decode("utf-8")
         except HTTPError as error:
-            detalle = _detalle_error(error)
+            cuerpo_error = _cuerpo_error(error)
+            detalle = f" Detalle: {cuerpo_error}" if cuerpo_error else ""
             if error.code in CODIGOS_REINTENTABLES:
                 raise LimiteProveedor(
                     f"El proveedor LLM respondió con HTTP {error.code} "
                     f"(límite de uso o saturación).{detalle}",
                     espera_s=_segundos_retry_after(error),
+                    codigo=error.code,
+                    detalle=cuerpo_error,
                 ) from error
             raise ErrorLLM(
-                f"El proveedor LLM respondió con HTTP {error.code}.{detalle}"
+                f"El proveedor LLM respondió con HTTP {error.code}.{detalle}",
+                codigo=error.code,
+                detalle=cuerpo_error,
             ) from error
         except URLError as error:
-            raise ErrorLLM(
+            raise SinConexion(
                 f"No se pudo conectar con el proveedor LLM: {error.reason}"
             ) from error
         except TimeoutError as error:
-            raise ErrorLLM(
+            raise SinConexion(
                 f"El proveedor LLM no respondió en {timeout_s:g} segundos."
             ) from error
         except OSError as error:
-            raise ErrorLLM(
+            raise SinConexion(
                 f"Error de red al contactar al proveedor LLM: {error}"
             ) from error
 
@@ -350,12 +381,10 @@ def _segundos_retry_after(error: HTTPError) -> float | None:
         return None
 
 
-def _detalle_error(error: HTTPError) -> str:
+def _cuerpo_error(error: HTTPError) -> str:
     """Primeras líneas del cuerpo del error (p. ej. «modelo no encontrado»)."""
     try:
         cuerpo = error.read().decode("utf-8", errors="replace").strip()
     except (OSError, AttributeError):
         return ""
-    if not cuerpo:
-        return ""
-    return " Detalle: " + " ".join(cuerpo.split())[:LARGO_DETALLE_ERROR]
+    return " ".join(cuerpo.split())[:LARGO_DETALLE_ERROR]

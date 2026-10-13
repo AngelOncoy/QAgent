@@ -2,6 +2,7 @@
 
 from pyagent.config.carga import (
     CLAVE_POR_PROVEEDOR,
+    NOMBRE_AGENTE,
     Claves,
     Configuracion,
     FiltroSecretos,
@@ -26,6 +27,7 @@ __all__ = [
     "CLAVE_POR_PROVEEDOR",
     "MENSAJE_IA_SIMULADA",
     "MENSAJE_LISTO",
+    "NOMBRE_AGENTE",
     "Claves",
     "Configuracion",
     "FiltroSecretos",

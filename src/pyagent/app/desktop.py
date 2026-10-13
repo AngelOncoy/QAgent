@@ -180,7 +180,84 @@ class DesktopAPI:
         from pyagent.config import carga as config_carga
         from pyagent.config import verificar_entorno
 
-        return verificar_entorno(ruta_local=config_carga.RUTA_CONFIG_LOCAL)
+        return verificar_entorno(
+            config_carga.RUTA_CONFIG,
+            config_carga.RUTA_ENV,
+            ruta_local=config_carga.RUTA_CONFIG_LOCAL,
+        )
+
+    def listar_proveedores(self) -> list[dict]:
+        """Proveedores y modelos del catálogo para el formulario «Agregar API» (HU-30)."""
+        from pyagent.config.roles import listar_proveedores
+
+        return listar_proveedores()
+
+    def obtener_roles(self) -> list[dict]:
+        """Proveedor, modelo y clave enmascarada de cada agente (HU-30)."""
+        from pyagent.config import carga as config_carga
+        from pyagent.config.roles import leer_roles
+
+        return leer_roles(
+            config_carga.RUTA_CONFIG,
+            config_carga.RUTA_ENV,
+            config_carga.RUTA_CONFIG_LOCAL,
+        )
+
+    def guardar_api_rol(
+        self, agente: str, proveedor: str, modelo: str, clave: str | None = None
+    ) -> dict:
+        """Prueba la conexión y, si responde, guarda la API del agente (HU-30).
+
+        La clave va solo a `.env`, en la variable propia del agente; `config.toml`
+        recibe proveedor y modelo. El proveedor puede repetirse entre agentes, la clave
+        no. Si la prueba falla no se guarda nada. La respuesta nunca incluye la clave.
+
+        Returns:
+            dict: ``{"ok", "mensaje", "detalle"?, "roles"}``.
+        """
+        from pyagent.config import carga as config_carga
+        from pyagent.config.roles import configurar_rol
+
+        resultado = configurar_rol(
+            agente,
+            proveedor,
+            modelo,
+            clave,
+            ruta_config=config_carga.RUTA_CONFIG,
+            ruta_env=config_carga.RUTA_ENV,
+            ruta_local=config_carga.RUTA_CONFIG_LOCAL,
+        )
+        if resultado["ok"]:
+            if clave:
+                _ocultar_claves_en_bitacora()
+            bitacora.registro.info(
+                "API del %s guardada: %s / %s", agente, proveedor, modelo
+            )
+        else:
+            bitacora.registro.warning(
+                "API del %s no guardada (%s / %s): %s",
+                agente,
+                proveedor,
+                modelo,
+                resultado["mensaje"],
+            )
+        return {**resultado, "roles": self.obtener_roles()}
+
+    def eliminar_api_rol(self, agente: str) -> dict:
+        """Deja al agente «Sin configurar»: quita su sección de config.toml y su clave (HU-30).
+
+        Returns:
+            dict: ``{"ok", "mensaje", "roles"}``.
+        """
+        from pyagent.config import carga as config_carga
+        from pyagent.config.roles import eliminar_rol
+
+        resultado = eliminar_rol(
+            agente, ruta_config=config_carga.RUTA_CONFIG, ruta_env=config_carga.RUTA_ENV
+        )
+        if resultado["ok"]:
+            bitacora.registro.info("API del %s eliminada: sin configurar.", agente)
+        return {**resultado, "roles": self.obtener_roles()}
 
     def obtener_ejecucion(self, ruta: str, run_id: str | None = None) -> dict:
         """Datos de la vista Ejecución de una corrida (HU-18).
@@ -496,6 +573,18 @@ def _registrar_run(ruta: str, usa_docker: bool) -> str | None:
         return None
     bitacora.registro.info("Corrida registrada: %s", almacen.carpeta_run(run["run_id"]))
     return run["run_id"]
+
+
+def _ocultar_claves_en_bitacora() -> None:
+    """Vuelve a leer `.env` para que la bitácora oculte también una clave recién guardada."""
+    from pyagent.config import Claves, leer_env
+    from pyagent.config import carga as config_carga
+
+    try:
+        claves = Claves(leer_env(config_carga.RUTA_ENV))
+    except (OSError, UnicodeDecodeError):
+        return
+    bitacora.configurar_registro(claves)
 
 
 def _registrar_estado_configuracion() -> None:
