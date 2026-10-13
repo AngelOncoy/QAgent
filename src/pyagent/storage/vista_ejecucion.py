@@ -29,6 +29,7 @@ ESTADOS = {
     "rechazado_laundering": "Rechazado laundering",
     "estancado": "Estancados 3/3",
     "bug_detectado": "Bug detectado",
+    "requiere_corrida_nueva": "Requiere corrida nueva",
     "sin_veredicto": "Sin veredicto",
 }
 #: Filtros que se muestran siempre, aunque su conteo sea 0 (criterio 3).
@@ -95,6 +96,8 @@ def estado_de(objetivo: dict[str, Any]) -> str:
         if objetivo.get("laundering_detectado"):
             return "rechazado_laundering"
         return "estancado"
+    if decision == "requiere_corrida_nueva":
+        return "requiere_corrida_nueva"
     return "sin_veredicto"
 
 

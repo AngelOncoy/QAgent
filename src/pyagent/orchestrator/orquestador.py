@@ -62,6 +62,8 @@ class ResultadoObjetivo:
     codigo: str | None = None
     #: Segundos desde el primer intento hasta el veredicto (generar + sandbox + revisar).
     duracion_s: float = 0.0
+    reutilizada: bool = False
+    motivo_regresion: str | None = None
 
 
 @dataclass

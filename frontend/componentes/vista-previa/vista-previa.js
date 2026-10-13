@@ -224,14 +224,11 @@ function vaciarVistaPrevia() {
   actualizarResumenUI({ total_modulos: 0, total_funciones_publicas: 0, total_errores: 0 });
 }
 
-// El perfil Regresión solo tiene sentido si el proyecto ya tuvo una corrida: es un dato real
-// (~/.pyagent/recientes.json). En la demostración se simula que sí la hubo.
+// Regresión requiere al menos una prueba aprobada persistida, no solo una corrida.
 async function hayCorridaPrevia(ruta) {
-  if (!(window.pywebview && window.pywebview.api && window.pywebview.api.listar_recientes)) return true;
+  if (!(window.pywebview && window.pywebview.api && window.pywebview.api.tiene_pruebas_aprobadas)) return true;
   try {
-    const lista = await window.pywebview.api.listar_recientes();
-    const r = lista.find(x => x.ruta === ruta);
-    return !!(r && r.ultima_corrida);
+    return !!(await window.pywebview.api.tiene_pruebas_aprobadas(ruta));
   } catch (err) {
     console.error("Error al consultar las corridas previas:", err);
     return false;
