@@ -4,7 +4,7 @@ registrarComponente('informe/informe', `<!-- ===== 6. REPORTE FINAL (según tu d
 <section id="s-report" class="hide" style="display:flex;flex-direction:column;flex:1;min-height:0">
   <div class="scroll"><div class="repwrap">
     <div class="ractions"><span id="rmeta"></span>
-      <button class="btn" onclick="toast('En la app de escritorio se abre la carpeta '+projectPath+'\\\\.pyagent\\\\runs\\\\'+RUN_ID+' <span style=&quot;color:var(--dim)&quot;>(simulado)</span>')"><span class="ico" data-i="folder" data-c="var(--slate-300-c)"></span> Abrir carpeta de la corrida</button>
+      <button class="btn" onclick="abrirCarpetaCorrida()"><span class="ico" data-i="folder" data-c="var(--slate-300-c)"></span> Abrir carpeta de la corrida</button>
       <button class="btn primary" onclick="openExport()"><span class="ico" data-i="download" data-c="var(--white)"></span> Exportar informe</button></div>
     <div class="banner2">
       <div class="glow"></div>
@@ -104,8 +104,8 @@ const CONTROL_REP = {   // estado del control -> clase, ícono y texto
 const AGENTES_REP = [['planner','Planner'],['generator','Generator'],['reviewer','Reviewer']];
 const numRep = (v, d=1) => v===null || v===undefined ? '—' : Number(v).toFixed(d) + '%';
 let bmetaDemo = null;
-function modoReporte(real){   // los botones de la demo (carpeta simulada, exportar) no aplican a una corrida real
-  document.querySelectorAll('#s-report .ractions .btn').forEach(b => b.classList.toggle('hide', real));
+function modoReporte(real){   // la carpeta simulada de la demo se oculta en una corrida real; exportar informe queda activo (HU-22)
+  document.querySelectorAll('#s-report .ractions .btn:not(.primary)').forEach(b => b.classList.toggle('hide', real));
   const bm = document.querySelector('#s-report .bmeta'); if(!bm) return;
   if(bmetaDemo===null) bmetaDemo = bm.textContent;
   bm.textContent = real ? 'Corrida ' + reporteReal.run_id + (reporteReal.es_simulado ? ' · IA simulada' : '') : bmetaDemo;
@@ -114,7 +114,12 @@ async function cargarReporteReal(runId){
   const api = window.pywebview && window.pywebview.api;
   if(!api || !api.obtener_reporte) return;
   const r = await api.obtener_reporte(projectPath, runId || null);
-  if(!r || !r.ok){ toastError(escHtml((r && r.motivo) || 'No se pudo leer el reporte de la corrida.')); return; }
+  if(!r || !r.ok){
+    reporteReal = null; rFilter = 'ALL';
+    document.querySelectorAll('#views a[data-v=report]').forEach(a=>a.classList.remove('off'));
+    go('report');
+    return;
+  }
   reporteReal = r; rFilter = 'todas';
   document.querySelectorAll('#views a[data-v=report]').forEach(a=>a.classList.remove('off'));
   go('report');

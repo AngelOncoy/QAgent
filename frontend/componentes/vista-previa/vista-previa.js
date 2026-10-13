@@ -194,6 +194,7 @@ async function loadProject(name, src, where, br='main', ruta=''){
     aplicarResumenDemo();   // modo demostración (navegador, sin Python)
   }
   HAS_PRIOR_RUN = await hayCorridaPrevia(ruta);
+  document.querySelectorAll('#views a[data-v=exec],#views a[data-v=report]').forEach(a=>a.classList.add('off'));
 
   renderTree();
   renderProfiles();

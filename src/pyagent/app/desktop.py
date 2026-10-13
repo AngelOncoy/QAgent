@@ -304,6 +304,72 @@ class DesktopAPI:
         detalle = leer_detalle(ruta, results["run_id"])
         return {"ok": True, **vista_reporte(results, detalle)}
 
+    def carpeta_corrida(self, ruta: str, run_id: str | None = None) -> str:
+        """Devuelve la carpeta por defecto `<proyecto>/.pyagent/runs/<run_id>/` para exportar."""
+        from pyagent.storage.corrida_demo import CORRIDA_DEMO_ID
+        from pyagent.storage.exportar_informe import carpeta_por_defecto
+
+        raiz = _resolver_ruta_proyecto(ruta, run_id)
+        carpeta = carpeta_por_defecto(raiz, run_id or CORRIDA_DEMO_ID)
+        return str(carpeta) + "\\"
+
+    def abrir_carpeta_corrida(self, ruta: str, run_id: str | None = None) -> dict:
+        """Abre la carpeta `.pyagent/runs/<run_id>/` en el explorador de archivos."""
+        from pyagent.storage.corrida_demo import CORRIDA_DEMO_ID, asegurar_corrida_demo
+        from pyagent.storage.exportar_informe import carpeta_por_defecto
+
+        raiz = _resolver_ruta_proyecto(ruta, run_id)
+        id_efectivo = run_id or CORRIDA_DEMO_ID
+        try:
+            if id_efectivo == CORRIDA_DEMO_ID:
+                carpeta = asegurar_corrida_demo(raiz, id_efectivo)
+            else:
+                carpeta = carpeta_por_defecto(raiz, id_efectivo)
+                carpeta.mkdir(parents=True, exist_ok=True)
+        except OSError as error:
+            return {"ok": False, "motivo": str(error)}
+
+        if self._window is not None:
+            _mostrar_en_explorador(carpeta, seleccionar_archivo=False)
+        return {"ok": True, "carpeta": str(carpeta)}
+
+    def exportar_informe(
+        self,
+        ruta: str,
+        run_id: str | None = None,
+        formato: str = "pdf",
+        opciones: dict | None = None,
+        carpeta_destino: str | None = None,
+    ) -> dict:
+        """Exporta el informe de la corrida como evidencia en PDF, Markdown o JSON (HU-22).
+
+        Por defecto se guarda en `<proyecto>/.pyagent/runs/<run_id>/` como
+        `informe_<run_id>.pdf` o `.md`, o `results_<run_id>.json`; si se indica
+        `carpeta_destino`, se escribe en esa carpeta.
+
+        Returns:
+            dict: ``{"ok": True, "run_id", "formato", "nombre", "ruta", "carpeta",
+            "opciones"}``, o ``{"ok": False, "motivo": str}`` si no se pudo exportar.
+        """
+        from pyagent.storage.exportar_informe import FormatoInvalido, exportar_informe
+        from pyagent.storage.vista_ejecucion import ResultadosNoDisponibles
+
+        raiz = _resolver_ruta_proyecto(ruta, run_id)
+        try:
+            resultado = exportar_informe(
+                raiz,
+                run_id=run_id,
+                formato=formato,
+                opciones=opciones,
+                carpeta_destino=carpeta_destino,
+            )
+        except (ResultadosNoDisponibles, FormatoInvalido, OSError) as error:
+            return {"ok": False, "motivo": str(error)}
+
+        if self._window is not None and resultado.get("ok"):
+            _mostrar_en_explorador(Path(resultado["ruta"]), seleccionar_archivo=True)
+        return resultado
+
     def obtener_historial(self, ruta: str) -> dict:
         """Corridas y specs persistidas del proyecto para la pantalla Historial."""
         from pyagent.almacenamiento.historial import construir_historial
@@ -536,6 +602,61 @@ class DesktopAPI:
             self._window.evaluate_js(
                 f"window.onPyAgentEvent && window.onPyAgentEvent({payload});"
             )
+
+
+def _resolver_ruta_proyecto(ruta: str, run_id: str | None = None) -> Path:
+    """Devuelve la carpeta real del proyecto; en modo demo usa la raíz del repositorio si la ruta no existe."""
+    from pyagent.storage.corrida_demo import CORRIDA_DEMO_ID
+
+    candidata = Path(ruta) if ruta else Path()
+    try:
+        if ruta and candidata.is_dir():
+            return candidata
+    except OSError:
+        pass
+    if run_id == CORRIDA_DEMO_ID or not ruta:
+        return FRONTEND_DIR.parent
+    return candidata
+
+
+def _mostrar_en_explorador(objetivo: Path, seleccionar_archivo: bool = True) -> None:
+    """Abre el explorador del sistema mostrando el archivo o carpeta exportada."""
+    import os
+    import subprocess
+    import sys
+
+    try:
+        ruta_resuelta = objetivo.resolve()
+        if sys.platform == "win32":
+            if seleccionar_archivo and ruta_resuelta.is_file():
+                subprocess.Popen(
+                    ["explorer.exe", f"/select,{ruta_resuelta}"],
+                    stdin=subprocess.DEVNULL,
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                )
+            elif hasattr(os, "startfile"):
+                os.startfile(
+                    str(
+                        ruta_resuelta
+                        if ruta_resuelta.is_dir()
+                        else ruta_resuelta.parent
+                    )
+                )
+        elif sys.platform == "darwin":
+            cmd = (
+                ["open", "-R", str(ruta_resuelta)]
+                if seleccionar_archivo
+                else ["open", str(ruta_resuelta)]
+            )
+            subprocess.Popen(
+                cmd,
+                stdin=subprocess.DEVNULL,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
+    except OSError as exc:
+        bitacora.registro.warning("No se pudo abrir el explorador: %s", exc)
 
 
 def _preparar_almacen(ruta: str) -> None:

@@ -341,3 +341,20 @@ def test_el_reporte_real_no_calcula_cifras_y_escapa_los_textos() -> None:
         "escHtml(c.etiqueta)",
     ):
         assert campo in real
+
+
+# ---------- HU-22: exportar el informe como evidencia ----------
+
+
+def test_exportar_informe_conecta_puente_y_mantiene_boton_activo() -> None:
+    """El botón Exportar informe sigue activo en corridas reales y el modal llama a Python."""
+    informe = (FRONTEND / "componentes" / "informe" / "informe.js").read_text(
+        encoding="utf-8"
+    )
+    modal = (FRONTEND / "componentes" / "informe" / "modal-exportar.js").read_text(
+        encoding="utf-8"
+    )
+    assert ".btn:not(.primary)" in informe
+    assert "api.exportar_informe(" in modal
+    assert "api.select_folder()" in modal
+    assert "escHtml(r.ruta)" in modal
