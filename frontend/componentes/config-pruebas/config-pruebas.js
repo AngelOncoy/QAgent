@@ -21,6 +21,10 @@ registrarComponente('config-pruebas/config-pruebas', `<!-- ===== 3. CONFIGURACI�
       <h4>Perfil de análisis <span class="pill p-grey">elige uno · todos generan pruebas unitarias pytest</span></h4>
       <div class="bd">
         <div class="profiles" id="profiles"></div>
+        <div class="leyenda-caja">
+          <span><span class="caja caja-negra">Caja negra</span>: evalúa entradas y salidas sin mirar el código.</span>
+          <span><span class="caja caja-blanca">Caja blanca</span>: evalúa el código por dentro (caminos, ramas, cobertura).</span>
+        </div>
         <div class="phase2"><span class="hint" style="margin:0">Fuera del alcance de la Fase 1:</span>
           <span class="x">Integración</span><span class="x">API REST</span><span class="x">Carga / estrés</span><span class="x">Extremo a extremo</span><span class="pill p-grey">Fase 2</span></div>
 
@@ -79,10 +83,11 @@ function renderProfiles(){
     const e = estFor(p.k), over = e.cost > TOPE_PEN;
     return `
     <div class="prof ${p.k===profile?'on':''} ${locked?'dis':''}" onclick="${locked?'':`pickProfile('${p.k}')`}">
-      <b>${p.n}</b>${p.k==='reg'&&HAS_PRIOR_RUN?'<span class="pill p-green" style="margin-left:6px">sin IA</span>':''}<p>${p.d}</p>
+      <div class="prof-cab"><b>${p.n}</b>${p.k==='reg'&&HAS_PRIOR_RUN?'<span class="pill p-green">sin IA</span>':''}<span class="caja caja-${p.tipo_caja}">${TIPO_CAJA[p.tipo_caja]}</span></div>
+      <p>${p.descripcion}</p>
       <div class="foot"><span class="pill ${p.pill}">${p.tok? '~'+p.tok.toLocaleString('es-PE')+' tokens/fn':'0 tokens'}</span>${p.m.map(x=>`<span class="pill p-grey">${x}</span>`).join('')}</div>
       <div class="pcost"><span>Costo aprox.</span><b class="${over?'over':''}">S/ ${e.cost.toFixed(2)}</b><span>· ${e.time} min</span></div>
-      ${locked?`<div class="why">Requiere una corrida previa de este proyecto.</div>`:(p.k==='reg'?`<div class="hint" style="margin-top:8px">Re-ejecuta sin IA las pruebas aprobadas guardadas en .pyagent/tests/ en la última corrida del proyecto.</div>`:'')}
+      ${locked?`<div class="why">Requiere una corrida previa de este proyecto.</div>`:''}
     </div>`;}).join('');
 }
 function renderCompare(){
