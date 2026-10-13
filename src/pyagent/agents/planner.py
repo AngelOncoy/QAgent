@@ -1,4 +1,4 @@
-"""Agente Planner: diseña casos de prueba a partir del análisis AST (HU-11).
+"""Agente Planner: diseña casos de prueba a partir del análisis AST (HU-11, HU-27).
 
 El LLM solo propone los **casos** (entrada, valor esperado u excepción y su origen).
 Todo lo que ya se sabe por el análisis estático lo pone el código: versión del
@@ -10,6 +10,7 @@ contrato siempre coincide con el código analizado.
 from __future__ import annotations
 
 import json
+import re
 from typing import Any
 
 from pyagent import contracts
@@ -74,6 +75,8 @@ class PlannerAgent:
         self.es_simulado = es_simulado
         #: Qué se descartó en la última llamada (objetivos o casos) y por qué.
         self.descartados: list[str] = []
+        #: Casos mínimos que faltan en el último plan de endpoints (no lo descartan).
+        self.avisos: list[str] = []
 
     def planificar(self, modulo: dict[str, Any]) -> list[dict[str, Any]]:
         """Devuelve un `planner_contract.v2` por cada función del módulo con casos.
@@ -230,6 +233,198 @@ EJEMPLO DE RESPUESTA:
 {MARCA_OBJETIVOS} {json.dumps(objetivos, ensure_ascii=False)}
 """.strip()
 
+    # --- Endpoints FastAPI (HU-27) --------------------------------------------------
+
+    def planificar_endpoints(
+        self, modulo: dict[str, Any], fuente: str | None = None
+    ) -> list[dict[str, Any]]:
+        """Devuelve un `planner_contract.v2` de tipo "endpoint" por endpoint del módulo.
+
+        Usa la salida del analizador (EN-14): método, ruta, estado declarado, modelos,
+        parámetros, dependencias y `HTTPException`. El modelo de IA propone los casos
+        en UNA llamada por módulo (como con las funciones, para no repetir las
+        instrucciones en cada pedido); después una validación sin IA descarta los
+        casos cuyo método, ruta, estado o campos no salen de la declaración.
+
+        Args:
+            modulo: un módulo de `analizar_proyecto()` (con `endpoints` y `modelos`).
+            fuente: texto del módulo, para enviar al modelo solo el código de cada
+                ruta (no el archivo entero). Si es None, se envía solo lo declarado.
+
+        Raises:
+            ErrorRespuestaPlanner: igual que `planificar`.
+        """
+        self.descartados = []
+        self.avisos = []
+        endpoints: dict[str, dict[str, Any]] = {}
+        for endpoint in modulo.get("endpoints", []):
+            objetivo = endpoint.get("objetivo")
+            if not objetivo or not endpoint.get("resuelta", True):
+                self.avisos.append(
+                    f"{objetivo or endpoint.get('manejador')}: ruta sin resolver, "
+                    "no se planifica (su prefijo final no se conoce sin ejecutar la app)"
+                )
+                continue
+            endpoints[objetivo] = endpoint
+        if not endpoints:
+            return []
+
+        prompt = self._crear_prompt_endpoints(modulo, endpoints, fuente)
+        respuesta = self.cliente.generar(prompt, rol="planner")
+        self.tracker.registrar(
+            agente="planner",
+            modelo=respuesta.modelo,
+            tokens_entrada=respuesta.tokens_entrada,
+            tokens_salida=respuesta.tokens_salida,
+            costo_usd=respuesta.costo_usd,
+            es_simulado=self.es_simulado,
+            funcion=f"{modulo['ruta']} (endpoints)",
+        )
+        propuesta = _leer_lista(respuesta.contenido)
+
+        modelos = {m["nombre"]: m for m in modulo.get("modelos", [])}
+        plan: list[dict[str, Any]] = []
+        for elemento in propuesta:
+            if not isinstance(elemento, dict):
+                self.descartados.append("un elemento del plan no es un objeto JSON")
+                continue
+            objetivo = elemento.get("objetivo")
+            if objetivo not in endpoints:
+                self.descartados.append(f"endpoint desconocido: {objetivo!r}")
+                continue
+            if any(c["objetivo"] == objetivo for c in plan):
+                self.descartados.append(f"endpoint repetido: {objetivo}")
+                continue
+            contrato = self._contrato_endpoint(
+                modulo, endpoints[objetivo], elemento.get("casos"), modelos
+            )
+            if contrato is not None:
+                plan.append(contrato)
+                self.avisos.extend(faltantes(endpoints[objetivo], contrato["casos"]))
+
+        if propuesta and not plan:
+            detalle = "; ".join(self.descartados[:3])
+            raise ErrorRespuestaPlanner(
+                f"El Planner no produjo ningún contrato de endpoint válido ({detalle})."
+            )
+        return plan
+
+    def _contrato_endpoint(
+        self,
+        modulo: dict[str, Any],
+        endpoint: dict[str, Any],
+        casos: Any,
+        modelos: dict[str, dict[str, Any]],
+    ) -> dict[str, Any] | None:
+        objetivo = endpoint["objetivo"]
+        base = {
+            "version": "2",
+            "modulo": modulo["ruta"],
+            "huella": modulo["huella"],
+            "tipo": "endpoint",
+            "objetivo": objetivo,
+            "manejador": endpoint["manejador"],
+            "firma": endpoint.get("firma") or "()",
+            "critical": bool(endpoint.get("critical", False)),
+            "llama_a": list(dict.fromkeys(endpoint.get("llama_a") or [])),
+        }
+        validos: list[dict[str, Any]] = []
+        for caso in casos if isinstance(casos, list) else []:
+            if not isinstance(caso, dict):
+                self.descartados.append(f"{objetivo}: un caso no es un objeto JSON")
+                continue
+            if any(caso.get("id") == previo["id"] for previo in validos):
+                self.descartados.append(f"{objetivo}: caso repetido {caso.get('id')!r}")
+                continue
+            try:
+                contracts.validar(contracts.PLANNER, {**base, "casos": [caso]})
+            except ContratoInvalido as error:
+                self.descartados.append(f"{objetivo}: caso {caso.get('id')!r}: {error}")
+                continue
+            motivo = motivo_rechazo(endpoint, caso, modelos)
+            if motivo:
+                self.descartados.append(f"{objetivo}: caso {caso['id']!r}: {motivo}")
+                continue
+            validos.append(caso)
+        if not validos:
+            self.descartados.append(f"{objetivo}: sin casos válidos")
+            return None
+        contrato = {**base, "casos": validos}
+        contracts.validar(contracts.PLANNER, contrato)
+        return contrato
+
+    @staticmethod
+    def _crear_prompt_endpoints(
+        modulo: dict[str, Any],
+        endpoints: dict[str, dict[str, Any]],
+        fuente: str | None,
+    ) -> str:
+        """Prompt compacto: lo declarado por cada ruta, sus modelos y su código."""
+        lineas = fuente.splitlines() if fuente else []
+        objetivos = []
+        for endpoint in endpoints.values():
+            descripcion = {
+                "objetivo": endpoint["objetivo"],
+                "docstring": endpoint.get("docstring"),
+                "status_code": endpoint.get("status_code"),
+                "response_model": endpoint.get("response_model"),
+                "cuerpo": endpoint.get("cuerpo"),
+                "parametros_ruta": endpoint.get("parametros_ruta"),
+                "parametros_consulta": endpoint.get("parametros_consulta"),
+                "cabeceras": endpoint.get("cabeceras"),
+                "dependencias": [
+                    d.get("funcion") for d in endpoint.get("dependencias", [])
+                ],
+                "excepciones_http": [
+                    {"status_code": e.get("status_code"), "detalle": e.get("detalle")}
+                    for e in endpoint.get("excepciones_http", [])
+                ],
+            }
+            inicio, fin = endpoint.get("linea"), endpoint.get("linea_fin")
+            if lineas and inicio and fin:
+                descripcion["codigo"] = "\n".join(lineas[inicio - 1 : fin])
+            objetivos.append(descripcion)
+        modelos = [
+            {
+                "nombre": m["nombre"],
+                "campos": [
+                    {k: c[k] for k in ("nombre", "tipo", "requerido", "restricciones")}
+                    for c in m.get("campos", [])
+                ],
+            }
+            for m in modulo.get("modelos", [])
+        ]
+        ejemplo = json.dumps(_EJEMPLO_ENDPOINTS, ensure_ascii=False)
+        return f"""
+Diseña casos de prueba para los endpoints de una API FastAPI. Cada caso es una
+petición HTTP y la respuesta que la API DEBE dar según lo que declara.
+
+REGLAS OBLIGATORIAS:
+- No ejecutes ni importes el código: el valor esperado sale SOLO de lo declarado
+  (status_code, response_model, modelos Pydantic y sus restricciones, las
+  HTTPException del código) o del docstring. Si no se puede deducir con certeza,
+  no inventes ese caso.
+- Por endpoint incluye como mínimo: un caso con el status_code declarado; un 422
+  si recibe cuerpo o parámetros con tipo o restricciones; un caso por cada
+  HTTPException; y los errores que describa el docstring (por ejemplo, un 404).
+- Cada caso tiene: "id" (minúsculas, números y _), "entrada" {{"metodo", "ruta"
+  con los parámetros ya puestos, y opcionales "query", "json", "headers"}},
+  "valor_esperado" {{"status_code" y, si se conoce, "json" (respuesta completa)
+  o "json_contiene" (solo algunos campos)}} y "origen" (uno de:
+  {", ".join(ORIGENES_ENDPOINT)}). "descripcion" es opcional: úsala para decir
+  qué datos deben existir antes de la petición (por ejemplo, "con el artículo 1
+  guardado").
+- Devuelve SOLO una lista JSON con un objeto por endpoint:
+  {{"objetivo": "MÉTODO /ruta", "casos": [...]}}. Sin explicaciones ni Markdown.
+
+EJEMPLO DE RESPUESTA:
+{ejemplo}
+
+MODELOS: {json.dumps(modelos, ensure_ascii=False)}
+{MARCA_MODULO} {modulo["ruta"]}
+{MARCA_OBJETIVOS} {json.dumps(objetivos, ensure_ascii=False)}
+""".strip()
+
 
 def _quitar_cerca_json(contenido: str) -> str:
     """Elimina una cerca Markdown ```json si el modelo la agregó."""
@@ -243,3 +438,163 @@ def _quitar_cerca_json(contenido: str) -> str:
     if lineas and lineas[-1].strip() == "```":
         lineas.pop()
     return "\n".join(lineas).strip()
+
+
+# --- Validación de casos de endpoint sin IA (HU-27) ------------------------------
+
+#: Orígenes de un valor esperado para un endpoint (`planner_contract.v2`).
+ORIGENES_ENDPOINT = (
+    "status_code",
+    "response_model",
+    "modelo_pydantic",
+    "docstring",
+    "firma",
+    "tipo",
+)
+
+_EJEMPLO_ENDPOINTS = [
+    {
+        "objetivo": "POST /items",
+        "casos": [
+            {
+                "id": "crear_valido",
+                "entrada": {
+                    "metodo": "POST",
+                    "ruta": "/items",
+                    "json": {"nombre": "lapiz", "precio": 2.5},
+                },
+                "valor_esperado": {
+                    "status_code": 201,
+                    "json_contiene": {"nombre": "lapiz", "precio": 2.5},
+                },
+                "origen": "status_code",
+            },
+            {
+                "id": "precio_cero",
+                "entrada": {
+                    "metodo": "POST",
+                    "ruta": "/items",
+                    "json": {"nombre": "lapiz", "precio": 0},
+                },
+                "valor_esperado": {"status_code": 422},
+                "origen": "modelo_pydantic",
+            },
+        ],
+    }
+]
+
+_PARAM_RUTA = re.compile(r"{[^}]+}")
+_CODIGO_EN_TEXTO = re.compile(r"\b([1-5]\d\d)\b")
+
+
+def ruta_coincide(plantilla: str, ruta: str) -> bool:
+    """``/items/{item_id}`` acepta ``/items/7`` (sin la consulta ``?...``)."""
+    partes = _PARAM_RUTA.split(plantilla)
+    patron = "[^/]+".join(re.escape(p) for p in partes)
+    return re.fullmatch(patron, ruta.split("?", 1)[0]) is not None
+
+
+def tiene_entradas(endpoint: dict[str, Any]) -> bool:
+    """Si recibe cuerpo o parámetros con tipo o restricciones (puede responder 422)."""
+    parametros = [
+        *endpoint.get("parametros_ruta", []),
+        *endpoint.get("parametros_consulta", []),
+        *endpoint.get("cabeceras", []),
+    ]
+    return bool(endpoint.get("cuerpo")) or any(
+        p.get("restricciones") or (p.get("tipo") not in (None, "str"))
+        for p in parametros
+    )
+
+
+def estados_permitidos(endpoint: dict[str, Any]) -> set[int]:
+    """Códigos que un caso puede esperar: declarados, 422 o documentados."""
+    permitidos = {endpoint.get("status_code") or 200}
+    if tiene_entradas(endpoint):
+        permitidos.add(422)
+    permitidos.update(
+        e["status_code"]
+        for e in endpoint.get("excepciones_http", [])
+        if isinstance(e.get("status_code"), int)
+    )
+    permitidos.update(
+        int(c) for c in _CODIGO_EN_TEXTO.findall(endpoint.get("docstring") or "")
+    )
+    return permitidos
+
+
+def _campos_respuesta(
+    endpoint: dict[str, Any], modelos: dict[str, dict[str, Any]]
+) -> tuple[set[str] | None, bool]:
+    """(campos del response_model, si es una lista); None si no hay modelo conocido."""
+    modelo = (endpoint.get("response_model") or "").strip()
+    es_lista = modelo.startswith(("list[", "List["))
+    nombre = modelo[5:-1] if es_lista else modelo
+    if nombre not in modelos:
+        return None, es_lista
+    return {c["nombre"] for c in modelos[nombre].get("campos", [])}, es_lista
+
+
+def motivo_rechazo(
+    endpoint: dict[str, Any], caso: dict[str, Any], modelos: dict[str, dict[str, Any]]
+) -> str | None:
+    """Por qué un caso no sale de la declaración del endpoint; None si es válido."""
+    entrada = caso["entrada"]
+    if entrada["metodo"] != endpoint["metodo"]:
+        return f"el método {entrada['metodo']} no es el del endpoint ({endpoint['metodo']})"
+    if not ruta_coincide(endpoint["ruta"], entrada["ruta"]):
+        return f"la ruta {entrada['ruta']} no corresponde a {endpoint['ruta']}"
+    esperado = caso["valor_esperado"]
+    estado = esperado["status_code"]
+    permitidos = estados_permitidos(endpoint)
+    if estado not in permitidos:
+        return (
+            f"el estado {estado} no está declarado "
+            f"(posibles: {', '.join(str(e) for e in sorted(permitidos))})"
+        )
+    cuerpo = esperado.get("json", esperado.get("json_contiene"))
+    exito = estado == (endpoint.get("status_code") or 200)
+    campos, es_lista = _campos_respuesta(endpoint, modelos)
+    if cuerpo is None or not exito or campos is None:
+        return None
+    elementos = cuerpo if es_lista and isinstance(cuerpo, list) else [cuerpo]
+    if es_lista and "json" in esperado and not isinstance(cuerpo, list):
+        return "el response_model es una lista y el json esperado no lo es"
+    for elemento in elementos:
+        if isinstance(elemento, dict):
+            extra = sorted(set(elemento) - campos)
+            if extra:
+                return (
+                    f"los campos {', '.join(extra)} no están en el response_model "
+                    f"({endpoint.get('response_model')})"
+                )
+    return None
+
+
+def faltantes(endpoint: dict[str, Any], casos: list[dict[str, Any]]) -> list[str]:
+    """Avisos por los casos mínimos que faltan (no descartan el contrato)."""
+    estados = {c["valor_esperado"]["status_code"] for c in casos}
+    objetivo = endpoint["objetivo"]
+    avisos = []
+    declarado = endpoint.get("status_code") or 200
+    if declarado not in estados:
+        avisos.append(
+            f"{objetivo}: falta un caso con el estado declarado ({declarado})"
+        )
+    if tiene_entradas(endpoint) and 422 not in estados:
+        avisos.append(f"{objetivo}: falta un caso con datos inválidos (422)")
+    for excepcion in endpoint.get("excepciones_http", []):
+        codigo = excepcion.get("status_code")
+        if isinstance(codigo, int) and codigo not in estados:
+            avisos.append(f"{objetivo}: falta un caso para la HTTPException {codigo}")
+    return avisos
+
+
+def _leer_lista(contenido: str) -> list[Any]:
+    try:
+        propuesta = json.loads(_quitar_cerca_json(contenido))
+    except json.JSONDecodeError as error:
+        raise ErrorRespuestaPlanner("El Planner no devolvió JSON válido.") from error
+    if not isinstance(propuesta, list):
+        raise ErrorRespuestaPlanner("El Planner debe devolver una lista de objetivos.")
+    return propuesta

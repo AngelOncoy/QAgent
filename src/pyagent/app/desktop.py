@@ -177,9 +177,10 @@ class DesktopAPI:
             dict: `listo`, `mensaje`, `problemas` y `comprobaciones` (ver
             `pyagent.config.verificar_entorno`).
         """
+        from pyagent.config import carga as config_carga
         from pyagent.config import verificar_entorno
 
-        return verificar_entorno()
+        return verificar_entorno(ruta_local=config_carga.RUTA_CONFIG_LOCAL)
 
     def obtener_ejecucion(self, ruta: str, run_id: str | None = None) -> dict:
         """Datos de la vista Ejecución de una corrida (HU-18).
@@ -427,10 +428,13 @@ class DesktopAPI:
         self, ruta: str, perfil: str, run_id: str | None, simulado: bool
     ) -> None:
         """Cuerpo del hilo: lee la configuración, corre el pipeline y avisa el final."""
+        from pyagent.config import carga as config_carga
         from pyagent.config import cargar_configuracion
         from pyagent.orchestrator.corrida import ResumenCorrida, ejecutar_corrida
 
-        carga = cargar_configuracion(simulado=simulado)
+        carga = cargar_configuracion(
+            simulado=simulado, ruta_local=config_carga.RUTA_CONFIG_LOCAL
+        )
         if carga.config is None:
             resumen = ResumenCorrida(
                 run_id=run_id,
@@ -625,7 +629,9 @@ def _registrar_estado_configuracion() -> None:
 
     # PYAGENT_FAKE_LLM=1 en el .env también activa la IA simulada para todo el programa.
     aplicar_simulacion_desde_env()
-    carga = cargar_configuracion()
+    from pyagent.config import carga as config_carga
+
+    carga = cargar_configuracion(ruta_local=config_carga.RUTA_CONFIG_LOCAL)
     instalar_filtro_logs(carga.claves)
     bitacora.configurar_registro(carga.claves)  # bitácora de la corrida en la consola
     if carga.simulado:

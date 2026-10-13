@@ -80,6 +80,7 @@ def verificar_entorno(
     docker: Callable[[], dict[str, str]] = _estado_docker,
     git: Callable[[], dict[str, str]] = estado_git,
     carga: ResultadoCarga | None = None,
+    ruta_local: str | Path | None = None,
 ) -> dict[str, Any]:
     """Verifica configuración, claves, Docker y Git. Nunca incluye valores de claves.
 
@@ -91,6 +92,7 @@ def verificar_entorno(
         docker: función que devuelve `{"estado", "mensaje"}` de Docker (inyectable).
         git: función que devuelve `{"estado", "mensaje"}` de Git (inyectable).
         carga: resultado ya cargado; si es None se lee de disco.
+        ruta_local: `config.local.toml` opcional (ver `cargar_configuracion`).
 
     Returns:
         Diccionario con `listo` (bool), `simulado` (IA simulada de EN-11),
@@ -98,7 +100,7 @@ def verificar_entorno(
         `problemas` (todos los motivos) y `comprobaciones` (lista de
         `{"id", "ok", "mensaje"}` para config, claves, docker y git).
     """
-    carga = carga or cargar_configuracion(ruta_config, ruta_env, simulado)
+    carga = carga or cargar_configuracion(ruta_config, ruta_env, simulado, ruta_local)
     comprobaciones = [
         *_comprobar_configuracion(carga),
         _comprobar_docker(docker(), carga.simulado),

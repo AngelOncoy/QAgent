@@ -417,3 +417,93 @@ def test_el_entorno_con_ia_simulada_en_el_env_solo_pide_docker_y_git(
     )
     assert resultado["simulado"] is True
     assert resultado["listo"] is True
+
+
+# ---------- capa gratuita: precio 0 y config.local.toml ----------
+
+
+def test_precio_cero_es_valido_para_modelos_gratuitos(tmp_path, env_completo):
+    ruta = _config_con(
+        tmp_path, {"precio_salida_usd_m = 0.50": "precio_salida_usd_m = 0"}
+    )
+    carga = cargar_configuracion(ruta, env_completo, simulado=False)
+    assert carga.config is not None
+    assert carga.config.agentes["reviewer"].salida_usd_m == 0.0
+
+
+def test_precio_negativo_sigue_siendo_invalido(tmp_path, env_completo):
+    ruta = _config_con(
+        tmp_path, {"precio_salida_usd_m = 0.50": "precio_salida_usd_m = -1"}
+    )
+    carga = cargar_configuracion(ruta, env_completo, simulado=False)
+    assert carga.config is None
+    assert any("mayor o igual que 0" in a for a in carga.avisos_config)
+
+
+GENERATOR_GRATIS = """
+[agentes.generator]
+proveedor = "groq"
+modelo = "openai/gpt-oss-120b"
+precio_entrada_usd_m = 0
+precio_salida_usd_m = 0
+"""
+
+
+def test_config_local_reemplaza_solo_los_agentes_que_define(tmp_path, env_completo):
+    local = tmp_path / "config.local.toml"
+    local.write_text(GENERATOR_GRATIS, encoding="utf-8")
+
+    equipo = cargar_configuracion(RUTA_CONFIG, env_completo, simulado=True).config
+    carga = cargar_configuracion(
+        RUTA_CONFIG, env_completo, simulado=True, ruta_local=local
+    )
+
+    generator = carga.config.agentes["generator"]
+    assert (generator.proveedor, generator.modelo) == ("groq", "openai/gpt-oss-120b")
+    assert generator.entrada_usd_m == 0.0
+    assert generator.esfuerzo is None  # el agente se reemplaza entero
+    assert carga.config.agentes["planner"] == equipo.agentes["planner"]
+    assert carga.config.presupuesto == equipo.presupuesto
+
+
+def test_config_local_pide_la_clave_de_su_proveedor(tmp_path, env_completo):
+    local = tmp_path / "config.local.toml"
+    local.write_text(GENERATOR_GRATIS, encoding="utf-8")
+
+    carga = cargar_configuracion(
+        RUTA_CONFIG, env_completo, simulado=False, ruta_local=local
+    )
+
+    assert any("GROQ_API_KEY" in a for a in carga.avisos_claves)
+
+
+def test_sin_config_local_se_usa_la_del_equipo(tmp_path, env_completo):
+    carga = cargar_configuracion(
+        RUTA_CONFIG, env_completo, simulado=True, ruta_local=tmp_path / "no-existe.toml"
+    )
+    equipo = cargar_configuracion(RUTA_CONFIG, env_completo, simulado=True)
+    assert carga.config == equipo.config
+
+
+def test_config_local_con_error_de_sintaxis_avisa(tmp_path, env_completo):
+    local = tmp_path / "config.local.toml"
+    local.write_text("[agentes.generator\n", encoding="utf-8")
+    carga = cargar_configuracion(
+        RUTA_CONFIG, env_completo, simulado=True, ruta_local=local
+    )
+    assert carga.config is None
+    assert any("config.local.toml" in a for a in carga.avisos_config)
+
+
+def test_el_ejemplo_de_capa_gratuita_es_valido(env_completo):
+    ejemplo = RUTA_CONFIG.parent / "config.local.ejemplo.toml"
+    carga = cargar_configuracion(
+        RUTA_CONFIG, env_completo, simulado=True, ruta_local=ejemplo
+    )
+    assert carga.config is not None
+    assert {a: p.proveedor for a, p in carga.config.agentes.items()} == {
+        "planner": "gemini",
+        "generator": "groq",
+        "reviewer": "openrouter",
+    }
+    assert all(p.costo(1000, 1000) == 0 for p in carga.config.agentes.values())

@@ -33,6 +33,10 @@ else:  # Python 3.10
 
 RAIZ = Path(__file__).resolve().parents[3]
 RUTA_CONFIG = RAIZ / "config.toml"
+#: Configuración personal (no se versiona): reemplaza secciones de `config.toml` en esta
+#: computadora, p. ej. los modelos de capa gratuita de cada agente. La usan la
+#: aplicación y `python -m pyagent.llm.validar`; las pruebas la dejan fuera.
+RUTA_CONFIG_LOCAL = RAIZ / "config.local.toml"
 RUTA_ENV = RAIZ / ".env"
 
 # Variable que activa la IA simulada (EN-11): se puede definir en el sistema o en el .env.
@@ -44,6 +48,8 @@ CLAVE_POR_PROVEEDOR = {
     "openai": "OPENAI_API_KEY",
     "xiaomi": "XIAOMI_API_KEY",
     "openrouter": "OPENROUTER_API_KEY",
+    "gemini": "GEMINI_API_KEY",
+    "groq": "GROQ_API_KEY",
 }
 
 #: Umbrales de calidad que debe definir `[umbrales]` (metas de la carta, ADR-001).
@@ -251,6 +257,7 @@ def cargar_configuracion(
     ruta_config: str | Path = RUTA_CONFIG,
     ruta_env: str | Path = RUTA_ENV,
     simulado: bool | None = None,
+    ruta_local: str | Path | None = None,
 ) -> ResultadoCarga:
     """Lee `config.toml` y `.env`, y reúne todo lo que falta o es inválido.
 
@@ -259,11 +266,15 @@ def cargar_configuracion(
         ruta_env: ruta de `.env`.
         simulado: True si la IA es simulada (EN-11) y no hacen falta claves; si es
             None se toma de `PYAGENT_FAKE_LLM`, en el sistema o en el `.env`.
+        ruta_local: `config.local.toml` opcional; si existe, sus agentes reemplazan
+            a los de `config.toml` y sus demás valores se superponen clave a clave.
     """
     simulado = modo_simulado(ruta_env) if simulado is None else simulado
     avisos_config: list[str] = []
     avisos_claves: list[str] = []
-    config = _leer_config(Path(ruta_config), avisos_config)
+    config = _leer_config(
+        Path(ruta_config), avisos_config, Path(ruta_local) if ruta_local else None
+    )
 
     claves = Claves()
     if not simulado:
@@ -334,7 +345,9 @@ def crear_env(ruta: Path, config: Configuracion | None) -> bool:
     return True
 
 
-def _leer_config(ruta: Path, avisos: list[str]) -> Configuracion | None:
+def _leer_config(
+    ruta: Path, avisos: list[str], ruta_local: Path | None = None
+) -> Configuracion | None:
     try:
         with open(ruta, "rb") as archivo:
             datos = tomllib.load(archivo)
@@ -344,6 +357,13 @@ def _leer_config(ruta: Path, avisos: list[str]) -> Configuracion | None:
     except tomllib.TOMLDecodeError as error:
         avisos.append(f"config.toml tiene un error de sintaxis: {error}")
         return None
+    if ruta_local is not None and ruta_local.is_file():
+        try:
+            with open(ruta_local, "rb") as archivo:
+                datos = superponer_config(datos, tomllib.load(archivo))
+        except tomllib.TOMLDecodeError as error:
+            avisos.append(f"{ruta_local.name} tiene un error de sintaxis: {error}")
+            return None
 
     antes = len(avisos)
     presupuesto = _leer_presupuesto(datos.get("presupuesto", {}), avisos)
@@ -355,16 +375,56 @@ def _leer_config(ruta: Path, avisos: list[str]) -> Configuracion | None:
     return Configuracion(presupuesto, max_intentos, umbrales, agentes)  # type: ignore[arg-type]
 
 
+def superponer_config(
+    base: Mapping[str, Any], local: Mapping[str, Any]
+) -> dict[str, Any]:
+    """`config.toml` con `config.local.toml` encima.
+
+    Cada agente de `[agentes.*]` se reemplaza entero (así no se mezclan el proveedor
+    local con el precio o el `esfuerzo` del equipo); las demás secciones se
+    superponen clave a clave.
+    """
+    datos = {
+        seccion: dict(valor) if isinstance(valor, Mapping) else valor
+        for seccion, valor in base.items()
+    }
+    for seccion, valor in local.items():
+        if seccion == "agentes" and isinstance(valor, Mapping):
+            agentes = dict(datos.get("agentes") or {})
+            agentes.update({agente: dict(tabla) for agente, tabla in valor.items()})
+            datos["agentes"] = agentes
+        elif isinstance(valor, Mapping) and isinstance(datos.get(seccion), dict):
+            datos[seccion].update(valor)
+        else:
+            datos[seccion] = valor
+    return datos
+
+
 def _numero(
-    tabla: Mapping[str, Any], clave: str, seccion: str, avisos: list[str]
+    tabla: Mapping[str, Any],
+    clave: str,
+    seccion: str,
+    avisos: list[str],
+    *,
+    permitir_cero: bool = False,
 ) -> float | None:
-    """Número > 0 de `tabla[clave]`; agrega un aviso y devuelve None si falta o no sirve."""
+    """Número > 0 de `tabla[clave]` (≥ 0 con `permitir_cero`); None y un aviso si no sirve.
+
+    Los precios aceptan 0 para los modelos de capa gratuita (Gemini, Groq, OpenRouter
+    `:free`); topes, reintentos y umbrales siguen exigiendo un valor mayor que 0.
+    """
     if clave not in tabla:
         avisos.append(f"Falta {clave} en [{seccion}] de config.toml.")
         return None
     valor = tabla[clave]
-    if isinstance(valor, bool) or not isinstance(valor, (int, float)) or valor <= 0:
-        avisos.append(f"{clave} en [{seccion}] debe ser un número mayor que 0.")
+    minimo_ok = (
+        isinstance(valor, (int, float))
+        and not isinstance(valor, bool)
+        and (valor >= 0 if permitir_cero else valor > 0)
+    )
+    if not minimo_ok:
+        condicion = "mayor o igual que 0" if permitir_cero else "mayor que 0"
+        avisos.append(f"{clave} en [{seccion}] debe ser un número {condicion}.")
         return None
     return float(valor)
 
@@ -423,8 +483,10 @@ def _leer_agente(
             avisos.append(f"Falta {clave} en [{seccion}] de config.toml.")
         else:
             textos[clave] = valor.strip()
-    entrada = _numero(tabla, "precio_entrada_usd_m", seccion, avisos)
-    salida = _numero(tabla, "precio_salida_usd_m", seccion, avisos)
+    entrada = _numero(
+        tabla, "precio_entrada_usd_m", seccion, avisos, permitir_cero=True
+    )
+    salida = _numero(tabla, "precio_salida_usd_m", seccion, avisos, permitir_cero=True)
 
     proveedor = textos.get("proveedor")
     if proveedor and proveedor not in CLAVE_POR_PROVEEDOR:
