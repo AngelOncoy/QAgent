@@ -41,5 +41,5 @@ markers = [
 ]
 
 [tool.ruff]
-# bench/ es el banco con bugs sembrados a propósito: no se reformatea ni se "arregla".
-extend-exclude = ["bench"]
+# bench/ y bench_api/ son bancos con bugs sembrados a propósito: no se reformatea ni se "arregla".
+extend-exclude = ["bench", "bench_api"]

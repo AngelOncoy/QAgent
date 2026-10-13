@@ -220,9 +220,25 @@ class Orquestador:
         plan = self._llamar("planner", self.planner.planificar, modulo)
         if not isinstance(plan, list):
             raise FalloControlado("El Planner no devolvió una lista de contratos")
+        plan_endpoints = self._planificar_endpoints(modulo)
+        plan = [*plan, *plan_endpoints]
         for contrato in plan:
             self._validar(contracts.PLANNER, contrato, "planner")
         self._emitir("planner", None, f"Plan con {len(plan)} objetivo(s)")
+        return plan
+
+    def _planificar_endpoints(self, modulo: dict[str, Any]) -> list[Contrato]:
+        """Pide al Planner los casos de los endpoints FastAPI del módulo (EN-16)."""
+        planificar = getattr(self.planner, "planificar_endpoints", None)
+        if not modulo.get("endpoints") or planificar is None:
+            return []
+        plan = self._llamar("planner", planificar, modulo, modulo.get("fuente"))
+        if not isinstance(plan, list):
+            raise FalloControlado("El Planner no devolvió una lista de contratos")
+        for aviso in getattr(self.planner, "avisos", None) or []:
+            self._emitir("planner", None, f"Aviso: {aviso}")
+        for descarte in getattr(self.planner, "descartados", None) or []:
+            self._emitir("planner", None, f"Caso descartado: {descarte}")
         return plan
 
     def _usar_plan_reutilizado(
