@@ -1,0 +1,25 @@
+{
+  "navegador": "Microsoft Edge headless por CDP",
+  "browser_plugin": "no disponible",
+  "url": "http://127.0.0.1:8765/index.html",
+  "titulo": "QAgent",
+  "contenido_no_vacio": true,
+  "excepciones_o_consola": 0,
+  "viewports": [
+    "960x600",
+    "1400x900",
+    "1920x1080"
+  ],
+  "capturas": [
+    "CAP-01-vista-previa-endpoints.png",
+    "CAP-02-monitor-endpoints.png",
+    "CAP-03-ejecucion-filtro-endpoints.png",
+    "CAP-04-reporte-endpoints.png",
+    "CAP-05-contrato-http.png",
+    "CAP-06-checklist-cinco-controles.png",
+    "CAP-07-results-json.png",
+    "CAP-08-html-escapado.png",
+    "RESP-1920x1080-reporte.png",
+    "RESP-960x600-ejecucion.png"
+  ]
+}

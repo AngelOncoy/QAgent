@@ -10,6 +10,8 @@ from __future__ import annotations
 
 from typing import Any
 
+from pyagent.storage.vista_ejecucion import identidad_de
+
 LARGO_MAXIMO = 400  # caracteres del texto de una fila del Monitor
 
 _VEREDICTO = {
@@ -38,16 +40,38 @@ def a_fila_monitor(evento: dict[str, Any]) -> dict[str, Any] | None:
     if len(mensaje) > LARGO_MAXIMO:  # la salida de pytest puede ser muy larga
         mensaje = mensaje[: LARGO_MAXIMO - 1].rstrip() + "…"
     progreso = evento.get("progreso") or {}
+    hechos = int(progreso.get("hechos", 0))
+    total = int(progreso.get("total", 0))
+    identidad = identidad_de(
+        {
+            "funcion": evento.get("funcion") or "",
+            "tipo": "endpoint"
+            if _parece_endpoint(evento.get("funcion"))
+            else "funcion",
+        }
+    )
+    identidad["tipo_objetivo"] = identidad.pop("tipo")
     return {
         "a": tipo_fila,
         "f": evento.get("archivo") or "",
         "fn": evento.get("funcion") or "",
+        **identidad,
         "t": mensaje,
         "guard": list(guard) if guard else None,
-        "hechos": int(progreso.get("hechos", 0)),
-        "total": int(progreso.get("total", 0)),
+        "hechos": hechos,
+        "total": total,
+        "porcentaje": round(hechos / total * 100) if total else None,
         "tipo": evento.get("tipo"),
     }
+
+
+def _parece_endpoint(objetivo: Any) -> bool:
+    """Reconoce la identidad HTTP canónica que EN-16 usa en los eventos."""
+    if not isinstance(objetivo, str):
+        return False
+    return any(objetivo.startswith(f"{metodo} /") for metodo in (
+        "GET", "POST", "PUT", "PATCH", "DELETE"
+    ))
 
 
 def a_evento_bitacora(fila: dict[str, Any]) -> dict[str, Any]:

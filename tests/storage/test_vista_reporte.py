@@ -149,3 +149,65 @@ def test_funcion_critica_sin_mutmut_queda_pendiente(corrida) -> None:
     mutation = funcion["controles"][4]
     assert mutation["estado"] == "pendiente"
     assert "Sprint 2" in mutation["nota"]
+
+
+def test_endpoint_muestra_identidad_contrato_http_y_cinco_controles(corrida) -> None:
+    raiz, _ = corrida
+    results = leer_results(raiz)
+    objetivo = results["objetivos"][0]
+    objetivo["tipo"] = "endpoint"
+    objetivo["funcion"] = "POST /items"
+    contrato = {
+        "version": "2",
+        "tipo": "endpoint",
+        "objetivo": "POST /items",
+        "manejador": "crear_item",
+        "firma": "(datos: ItemEntrada) -> Item",
+        "casos": [
+            {
+                "id": "crear_valido",
+                "descripcion": "crea un elemento",
+                "entrada": {
+                    "metodo": "POST",
+                    "ruta": "/items",
+                    "json": {"nombre": "<script>alert(1)</script>"},
+                },
+                "valor_esperado": {
+                    "status_code": 201,
+                    "json_contiene": {"nombre": "<b>lapiz</b>"},
+                },
+                "origen": "status_code",
+            }
+        ],
+    }
+    detalle = {
+        "funciones": [
+            {
+                "modulo": objetivo["modulo"],
+                "funcion": "POST /items",
+                "contrato": contrato,
+                "codigo": "def test_endpoint(): pass",
+                "traza": None,
+            }
+        ]
+    }
+
+    vista = vista_reporte(results, detalle)
+    [endpoint] = vista["funciones"]
+
+    assert endpoint["tipo"] == "endpoint"
+    assert endpoint["identificador"] == "POST /items"
+    assert endpoint["manejador"] == "crear_item"
+    assert endpoint["contrato_http"]["casos"][0] == {
+        "id": "crear_valido",
+        "descripcion": "crea un elemento",
+        "peticion": contrato["casos"][0]["entrada"],
+        "respuesta_esperada": contrato["casos"][0]["valor_esperado"],
+        "origen": "status_code",
+    }
+    assert len(endpoint["controles"]) == 5
+    assert vista["filtros_tipo"][2] == {
+        "clave": "endpoint",
+        "etiqueta": "Endpoints",
+        "cantidad": 1,
+    }

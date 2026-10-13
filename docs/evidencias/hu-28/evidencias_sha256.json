@@ -1,0 +1,23 @@
+{
+  "algoritmo": "SHA-256",
+  "corrida": "20261013-101522-eb90",
+  "archivos": [
+    {"ruta": "artefactos/eventos_monitor.json", "sha256": "c62a9c6a74724f8d693777586349b26f2bcc91defc429f38e16e74176d51266c", "bytes": 9666},
+    {"ruta": "artefactos/results.saneado.json", "sha256": "9ee534c37e4f482073065e4ea992050974f6b8ee1c3a161db89ef4d27229bc85", "bytes": 6227},
+    {"ruta": "artefactos/resumen_ejecucion.json", "sha256": "deedc87400d1c5f869d7988b065e783fec9fa8e8a434c97318f1076de057779f", "bytes": 342},
+    {"ruta": "artefactos/vista_ejecucion.json", "sha256": "45808bd611ec0594e6cb183d1bea6fd4cf669dbc520110a4cfee8ae337aa555e", "bytes": 4986},
+    {"ruta": "artefactos/vista_previa.json", "sha256": "5f34d377850651bccb398ed3de6d06a6736aa4eb716814447893e8e3e1d06f5d", "bytes": 11084},
+    {"ruta": "artefactos/vista_reporte.json", "sha256": "b0b570e288de864984168a04715bd5647dde50fefcb97e9d818a6726c633c0a8", "bytes": 37417},
+    {"ruta": "img/CAP-01-vista-previa-endpoints.png", "sha256": "f641c6c0d7638d6b49b6552271306843a79b583bea5b202b21c477aae838ec1c", "bytes": 150309},
+    {"ruta": "img/CAP-02-monitor-endpoints.png", "sha256": "0e7b54438f8a40d8971c904fee62ab89725582e2adf80297d36693ea5e59bb21", "bytes": 148558},
+    {"ruta": "img/CAP-03-ejecucion-filtro-endpoints.png", "sha256": "99fc1206a29d0e682e4905d33a5d3f4da7901f57484381c9ed68afb18f4a74ba", "bytes": 180556},
+    {"ruta": "img/CAP-04-reporte-endpoints.png", "sha256": "90837cc46b25ebcd836086a2b361c61e8bce6c3d26604f5a4f70e3e651ebe716", "bytes": 254232},
+    {"ruta": "img/CAP-05-contrato-http.png", "sha256": "e710c188b60647316d8e62b88fb78762eb541c5f59db77218ada7a22a718950e", "bytes": 135357},
+    {"ruta": "img/CAP-06-checklist-cinco-controles.png", "sha256": "567692613b5396af6b47be2c424b03a2d5d08dd4582ddf1b976fe8ddfe5bd560", "bytes": 181467},
+    {"ruta": "img/CAP-07-results-json.png", "sha256": "724b0538b0f2c4ff97aeaf61799173c17b571aa56a96fc2a2f08d8a38f329d47", "bytes": 44344},
+    {"ruta": "img/CAP-08-html-escapado.png", "sha256": "ddadb9afe9ffc0d77f2645c7429336f9ca2c6ad9dc5f37d175e130bc5a4be260", "bytes": 101005},
+    {"ruta": "img/RESP-1920x1080-reporte.png", "sha256": "b874b63b6683755f816f193a0aafca2852df773d7e4b2f92da0c5f92e9fe45ed", "bytes": 294729},
+    {"ruta": "img/RESP-960x600-ejecucion.png", "sha256": "ec5fafbdd01ef8d64fc84c2993f4f8aad7654982e0415c2f59a8b4ae85c69707", "bytes": 98159},
+    {"ruta": "qa_visual.json", "sha256": "4aff5935a67dc88f95af9910d158cfcd1e2da8ab26b32d083354491ec7d2913f", "bytes": 671}
+  ]
+}

@@ -28,3 +28,24 @@ def test_desktop_api_obtener_vista_previa(tmp_path: Path) -> None:
 
     alias = api.analizar_proyecto(str(tmp_path))
     assert alias == vista
+
+
+def test_vista_previa_expone_endpoint_por_metodo_y_ruta(tmp_path: Path) -> None:
+    _crear_archivo(
+        tmp_path,
+        "api.py",
+        "from fastapi import FastAPI\n"
+        "app = FastAPI()\n"
+        "@app.post('/items')\n"
+        "def crear_item() -> dict:\n"
+        "    return {'ok': True}\n",
+    )
+
+    vista = DesktopAPI().obtener_vista_previa(str(tmp_path))
+
+    [modulo] = vista["modulos"]
+    [endpoint] = modulo["endpoints"]
+    assert endpoint["objetivo"] == "POST /items"
+    assert (endpoint["metodo"], endpoint["ruta"]) == ("POST", "/items")
+    assert modulo["funciones"] == []
+    assert vista["resumen"]["total_endpoints"] == 1

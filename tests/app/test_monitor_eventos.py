@@ -91,3 +91,23 @@ def test_formato_para_la_consola() -> None:
     assert linea["tipo"] == "oracle"  # tipo de alerta: sale como WARNING
     assert linea["progreso"] == "1/6"
     assert "[Oráculo" in linea["mensaje"]
+
+
+def test_endpoint_conserva_metodo_ruta_tipo_y_progreso_oficial() -> None:
+    fila = a_fila_monitor(
+        evento(funcion="DELETE /items/1", progreso={"hechos": 2, "total": 5})
+    )
+
+    assert fila["tipo_objetivo"] == "endpoint"
+    assert fila["identificador"] == "DELETE /items/1"
+    assert (fila["metodo"], fila["ruta"]) == ("DELETE", "/items/1")
+    assert fila["porcentaje"] == 40
+
+
+def test_texto_peligroso_del_evento_permanece_como_dato() -> None:
+    fila = a_fila_monitor(
+        evento(funcion="normal", mensaje='<img src=x onerror="alert(1)">')
+    )
+
+    assert fila["t"] == '<img src=x onerror="alert(1)">'
+    assert fila["tipo_objetivo"] == "funcion"

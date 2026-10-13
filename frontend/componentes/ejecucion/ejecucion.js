@@ -6,7 +6,7 @@ registrarComponente('ejecucion/ejecucion', `<!-- ===== 5. EJECUCIÓN DE PRUEBAS 
     <div class="kpis" id="kpis"></div>
 
     <div class="toolbar">
-      <div class="tleft"><span class="flbl"><span class='ico' data-i='filter' data-c='var(--slate-300-c)'></span> Filtrar:</span><div id="fbtns"></div></div>
+      <div class="tleft"><span class="flbl"><span class='ico' data-i='filter' data-c='var(--slate-300-c)'></span> Tipo:</span><div id="tipoBtns"></div><span class="flbl">Estado:</span><div id="fbtns"></div></div>
       <div class="cmd2"><span class='ico' data-i='term' data-c='var(--blue-400)'></span> docker run --rm --network none pyagent-sandbox:base pytest -v --cov --cov-branch</div>
     </div>
     <div id="suites"></div>
@@ -29,6 +29,7 @@ function irAReporteFinal(){
 
 /* ---------------- Ejecución de pruebas ---------------- */
 let filterState = 'ALL';
+let filterType = 'todos';
 const expanded = {fn_1:true, fn_2:true};
 function renderExecKpis(){
   const m = metrics(), passOk = m.pass >= META.pass[0], msOk = m.ms >= META.ms, est = runEstimate;
@@ -65,6 +66,7 @@ function renderExec(){
   document.querySelectorAll('#views a[data-v=report]').forEach(a=>a.classList.remove('off'));
   if (ejecucionReal) { renderExecReal(ejecucionReal); return; }   // corrida real (HU-18)
   renderExecKpis();
+  $('tipoBtns').innerHTML = `<button class="fb2 on" style="background:var(--blue-600)">Funciones (${RUN.length})</button>`;
   const keys = ['ALL', ...Object.keys(ST)];
   $('fbtns').innerHTML = keys.map(k => {
     const n = k==='ALL' ? RUN.length : RUN.filter(f=>f.status===k).length;
@@ -131,7 +133,7 @@ async function cargarEjecucionReal(runId){
   if(!api || !api.obtener_ejecucion) return;
   const r = await api.obtener_ejecucion(projectPath, runId || null);
   if(!r || !r.ok){ toastError(escHtml((r && r.motivo) || 'No se pudieron leer los resultados de la corrida.')); return; }
-  ejecucionReal = r; filterState = 'ALL';
+  ejecucionReal = r; filterState = 'ALL'; filterType = 'todos';
   document.querySelectorAll('#views a[data-v=exec]').forEach(a=>a.classList.remove('off'));
   go('exec');
 }
@@ -170,32 +172,34 @@ function actualizarBarraReal(v){   // barra superior: la corrida que se está mo
   const ok = v.estado_final === 'fin';
   $('ctxChip').className = 'chip ' + (ok ? 'done' : 'amber');
   $('ctxLbl').textContent = 'Corrida ' + v.run_id + ':'; $('curFile').textContent = ok ? 'completada' : 'detenida';
-  $('progNum').textContent = v.total_funciones + ' funciones revisadas'; $('progBar').style.width = '100%';
+  $('progNum').textContent = v.total_objetivos + ' objetivos revisados'; $('progBar').style.width = '100%';
   $('liveBtn').className = 'live done'; $('liveTxt').innerHTML = ok ? '✓ COMPLETADO' : 'DETENIDA';
 }
 function renderExecReal(v){
   actualizarBarraReal(v);
   renderExecRealKpis(v);
-  const total = v.modulos.reduce((n, m) => n + m.pruebas.length, 0);
-  const botones = [{clave:'ALL', etiqueta:'Todos', cantidad: total}, ...v.filtros];
+  $('tipoBtns').innerHTML = v.filtros_tipo.map(f => `<button class="fb2 ${filterType===f.clave?'on':''}" style="${filterType===f.clave?'background:var(--blue-600)':''}" onclick="filterType='${f.clave}';renderExec()">${escHtml(f.etiqueta)} (${Number(f.cantidad)})</button>`).join('');
+  const botones = [{clave:'ALL', etiqueta:'Todos', cantidad: v.total_objetivos}, ...v.filtros];
   $('fbtns').innerHTML = botones.map(f => {
     const color = f.clave==='ALL' ? 'var(--blue-600)' : ST[ESTADO_REAL[f.clave].st].c, activo = filterState===f.clave;
     return `<button class="fb2 ${activo?'on':''}" style="${activo?'background:'+color:''}" onclick="filterState='${f.clave}';renderExec()">${f.clave!=='ALL'?`<i class="fdot" style="background:${color}"></i>`:''}${escHtml(f.etiqueta)} (${Number(f.cantidad)})</button>`;
   }).join('');
-  const grupos = v.modulos.map(m => ({modulo: m.modulo, pruebas: m.pruebas.filter(p => filterState==='ALL' || p.estado===filterState)}))
+  const grupos = v.modulos.map(m => ({modulo: m.modulo, pruebas: m.pruebas.filter(p =>
+                            (filterState==='ALL' || p.estado===filterState)
+                            && (filterType==='todos' || p.tipo===filterType))}))
                           .filter(g => g.pruebas.length);
   $('suites').innerHTML = grupos.length ? grupos.map(g => `
     <div class="suite2">
-      <div class="sh2"><div class="l">${I('file','var(--blue-400)',15)}<b>${escHtml(g.modulo)}</b><span class="c">(${g.pruebas.length} ${g.pruebas.length===1?'función':'funciones'})</span></div>
+      <div class="sh2"><div class="l">${I('file','var(--blue-400)',15)}<b>${escHtml(g.modulo)}</b></div>
         <div class="r"><span>Corrida ${escHtml(v.run_id)}</span>${v.es_simulado?'<span>IA simulada</span>':''}</div></div>
       ${g.pruebas.map(p => { const e = ESTADO_REAL[p.estado], s = ST[e.st].exec;
         const etiqueta = p.estado==='estancado' ? `Estancado ${p.intento_final}/3` + (MOTIVO_ESTANCADO[p.motivo_estancado] ? ` · ${MOTIVO_ESTANCADO[p.motivo_estancado]}` : '') : e.txt;
         return `<div class="fnrow"><div class="fnhead" style="cursor:default">
-          <div class="l"><span class="nm">${I(s[0],s[1],16)} test_${escHtml(p.funcion)}()</span>${p.critical?'<span class="bdg b-orc">Crítica</span>':''}</div>
+          <div class="l"><span class="nm">${I(s[0],s[1],16)} ${p.tipo==='endpoint'?escHtml(p.identificador):`test_${escHtml(p.identificador)}()`}</span><span class="bdg ${p.tipo==='endpoint'?'b-blue':'b-grey'}">${p.tipo==='endpoint'?'Endpoint':'Función'}</span>${p.critical?'<span class="bdg b-orc">Crítica</span>':''}</div>
           <div class="r"><span>Intento final: <b style="color:${p.intento_final>1?'var(--amber-400)':'var(--slate-200)'}">${Number(p.intento_final)}/3</b></span>
             <span>${I('clock','var(--slate-300-c)',12)} ${tiempoReal(p.duracion_s)}</span>
             <span>Cov: <b style="color:var(--blue-400)">${numReal(p.cobertura_lineas)}</b> líneas · <b style="color:var(--blue-400)">${numReal(p.cobertura_ramas)}</b> ramas</span>
             <span class="sbdg ${s[2]}">${I(s[3],'currentColor',12)} ${escHtml(etiqueta)}</span></div>
         </div></div>`; }).join('')}
-    </div>`).join('') : '<div class="suite2" style="padding:18px;color:var(--mut)">No hay pruebas con ese estado en esta corrida.</div>';
+    </div>`).join('') : '<div class="suite2" style="padding:18px;color:var(--mut)">No hay resultados para los filtros seleccionados.</div>';
 }

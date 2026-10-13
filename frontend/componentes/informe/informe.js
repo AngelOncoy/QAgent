@@ -17,7 +17,7 @@ registrarComponente('informe/informe', `<!-- ===== 6. REPORTE FINAL (según tu d
     </div>
 
     <div class="toolbar">
-      <div class="tleft"><span class="flbl" style="font-weight:600">Filtro de inspección:</span><div id="rfbtns" style="display:flex;gap:6px;flex-wrap:wrap"></div></div>
+      <div class="tleft"><span class="flbl" style="font-weight:600">Tipo:</span><div id="rtypebtns" style="display:flex;gap:6px;flex-wrap:wrap"></div><span class="flbl">Resultado:</span><div id="rfbtns" style="display:flex;gap:6px;flex-wrap:wrap"></div></div>
       <div class="legend2" id="legend2"></div>
     </div>
     <div id="rcards" style="display:flex;flex-direction:column;gap:16px"></div>
@@ -43,6 +43,7 @@ function renderReport(){
   modoReporte(!!reporteReal);
   if (reporteReal) { renderReportReal(reporteReal); return; }   // corrida real (HU-21)
   const m = metrics();
+  $('rtypebtns').innerHTML = `<button class="fb2 on" style="background:var(--blue-600)">Funciones (${m.n})</button>`;
   $('rmeta').innerHTML = `Corrida <b>#${RUN_ID}</b> · ${RUN_DATE} · perfil <b>Profundo</b> · ${m.n} funciones · rama <b>${$('branchLbl').textContent}</b><br><span style="font-size:11px">Modelos: Planner · ${AGENTS_CFG.P.model} &nbsp;|&nbsp; Generator · ${AGENTS_CFG.G.model} &nbsp;|&nbsp; Reviewer · ${AGENTS_CFG.R.model}</span>`;
   
   $('pillars').innerHTML = `
@@ -90,6 +91,7 @@ function renderReport(){
    y el contrato, el test y la traza de detalle.json. Aquí no se calcula ninguna cifra. */
 let reporteReal = null;
 const rRealAbierto = {}, rRealTab = {};
+let rTypeFilter = 'todos';
 const ESTADO_REP = {   // estado de la función -> estilos del catálogo ST y texto de la etiqueta
   aprobado:{st:'passed', txt:'APROBADO'},
   bug_detectado:{st:'rejected_oracle', txt:'BUG DETECTADO'},
@@ -115,20 +117,30 @@ async function cargarReporteReal(runId){
   if(!api || !api.obtener_reporte) return;
   const r = await api.obtener_reporte(projectPath, runId || null);
   if(!r || !r.ok){
-    reporteReal = null; rFilter = 'ALL';
+    reporteReal = null; rFilter = 'ALL'; rTypeFilter = 'todos';
     document.querySelectorAll('#views a[data-v=report]').forEach(a=>a.classList.remove('off'));
     go('report');
     return;
   }
-  reporteReal = r; rFilter = 'todas';
+  reporteReal = r; rFilter = 'todas'; rTypeFilter = 'todos';
   document.querySelectorAll('#views a[data-v=report]').forEach(a=>a.classList.remove('off'));
   go('report');
+}
+function contratoRealHtml(f){
+  if(!f.contrato) return `<div class="rhd"><span style="color:var(--mut)">Esta corrida no guardó el contrato (fue anterior al reporte de auditoría).</span></div>`;
+  let html = `<div class="rhd"><span>${I('code','var(--blue-400)',14)} ${f.tipo==='endpoint'?'Petición y respuesta esperada definidas por el Planner:':'Casos y valores esperados definidos por el Planner:'}</span><span class="rtag" style="color:var(--blue-400);background:var(--blue-950-a60);border-color:var(--blue-800-a40)">planner_contract.v2</span></div>`;
+  if(f.tipo==='endpoint' && f.contrato_http){
+    html += `<div class="httpcases">${f.contrato_http.casos.map(c => `<section class="httpcase"><div class="httpcase-title"><b>${escHtml(c.id || 'Caso sin id')}</b>${c.descripcion?`<span>${escHtml(c.descripcion)}</span>`:''}</div><div class="httpgrid"><div><h5>Petición preparada</h5><div class="rcode json">${jsonHL(c.peticion)}</div></div><div><h5>Respuesta esperada</h5><div class="rcode json">${jsonHL(c.respuesta_esperada)}</div></div></div><div class="httporigin">Origen del oráculo: ${escHtml(c.origen || 'sin dato')}</div></section>`).join('')}</div>`;
+  } else {
+    html += `<div class="rcode json">${jsonHL(f.contrato)}</div>`;
+  }
+  return html;
 }
 function renderReportReal(v){
   if (typeof actualizarBarraReal === 'function') actualizarBarraReal(v);
   const k = v.indicadores, fecha = new Date(v.fecha);
   const modelos = AGENTES_REP.filter(([a]) => v.modelos[a]).map(([a, n]) => `${n} · ${escHtml(v.modelos[a].modelo)} <span style="color:var(--dim)">(${escHtml(v.modelos[a].proveedor)})</span>`).join(' &nbsp;|&nbsp; ');
-  $('rmeta').innerHTML = `Corrida <b>${escHtml(v.run_id)}</b> · ${escHtml(isNaN(fecha) ? v.fecha : fecha.toLocaleString('es-PE'))} · perfil <b>${escHtml(v.perfil)}</b> · ${v.funciones.length} funciones · rama <b>${escHtml(v.rama || 'sin repositorio Git')}</b><br><span style="font-size:11px">Modelos: ${modelos}</span>`
+  $('rmeta').innerHTML = `Corrida <b>${escHtml(v.run_id)}</b> · ${escHtml(isNaN(fecha) ? v.fecha : fecha.toLocaleString('es-PE'))} · perfil <b>${escHtml(v.perfil)}</b> · ${Number(v.total_objetivos)} objetivos · rama <b>${escHtml(v.rama || 'sin repositorio Git')}</b><br><span style="font-size:11px">Modelos: ${modelos}</span>`
     + (v.motivo_fallo ? `<br><span style="color:var(--amber-300);font-size:11px">Corrida detenida: ${escHtml(v.motivo_fallo)}</span>` : '');
   const pr = k.pass_rate, cv = k.cobertura, cs = k.costo, bal = k.balance;
   $('pillars').innerHTML = `
@@ -137,9 +149,10 @@ function renderReportReal(v){
     <div class="pil"><div class="pt">${I('coins','var(--amber-400)',12)}Costo</div><div class="pv" style="color:var(--amber-300);font-size:18px">US$ ${Number(cs.usd).toFixed(4)}</div><div class="ps">${Number(cs.tokens).toLocaleString('es-PE')} tokens${cs.tope_usd!==null && cs.tope_usd!==undefined?' · tope US$ '+Number(cs.tope_usd).toFixed(2):''}</div></div>
     <div class="pil"><div class="pt">${I('shieldA','var(--rose-400)',12)}Balance</div><div class="pv" style="font-size:19px"><span style="color:var(--emerald-400)">${bal.ok} OK</span> <span style="color:var(--slate-600)">/</span> <span style="color:var(--rose-400)">${bal.alertas} alertas</span></div><div class="ps">OK = aceptada y con los 5 controles en orden</div></div>`;
   const colores = {todas:'var(--blue-600)', verde:'var(--emerald-600)', incidentes:'var(--rose-600)'};
+  $('rtypebtns').innerHTML = v.filtros_tipo.map(f => `<button class="fb2 ${rTypeFilter===f.clave?'on':''}" style="${rTypeFilter===f.clave?'background:var(--blue-600)':''}" onclick="rTypeFilter='${f.clave}';renderReport()">${escHtml(f.etiqueta)} (${Number(f.cantidad)})</button>`).join('');
   $('rfbtns').innerHTML = v.filtros.map(f => `<button class="fb2 ${rFilter===f.clave?'on':''}" style="${rFilter===f.clave?'background:'+colores[f.clave]:''}" onclick="rFilter='${f.clave}';renderReport()">${escHtml(f.etiqueta)} (${Number(f.cantidad)})</button>`).join('');
   $('legend2').innerHTML = Object.values(ESTADO_REP).filter((e, i, a) => a.findIndex(x => x.st===e.st)===i).map(e => `<span><i style="background:${ST[e.st].c}"></i> ${escHtml(e.txt.toLowerCase())}</span>`).join('');
-  const lista = v.funciones.filter(f => rFilter==='todas' || (rFilter==='verde' ? f.verde : !f.verde));
+  const lista = v.funciones.filter(f => (rTypeFilter==='todos' || f.tipo===rTypeFilter) && (rFilter==='todas' || (rFilter==='verde' ? f.verde : !f.verde)));
   $('rcards').innerHTML = lista.length ? lista.map((f, i) => {
     const id = f.modulo + '::' + f.funcion, e = ESTADO_REP[f.estado], st = ST[e.st], abierto = !!rRealAbierto[id], tab = rRealTab[id] || 'checklist';
     const etiqueta = f.estado==='estancado' ? `ESTANCADO ${f.iteraciones}/3` : e.txt;
@@ -148,9 +161,7 @@ function renderReportReal(v){
     if(abierto){
       const tabs = [['contract','file','1. Contrato JSON (Planner)','var(--blue-400)'],['test','code','2. Test generado (pytest)','var(--purple-400)'],['checklist','check','3. Checklist de verificación','var(--emerald-400)']];
       cuerpo = `<div class="rbody"><div class="rtabs">${tabs.map(([t,ic,n,c]) => `<button class="${tab===t?'on':''}" style="${tab===t?`color:${c};border-color:${c}`:''}" onclick="event.stopPropagation();rRealTab[${idJs}]='${t}';renderReport()">${I(ic,'currentColor',14)} ${n}</button>`).join('')}</div>`;
-      if(tab==='contract') cuerpo += f.contrato
-        ? `<div class="rhd"><span>${I('code','var(--blue-400)',14)} Casos y valores esperados que propuso el Planner a partir de la firma y el docstring:</span><span class="rtag" style="color:var(--blue-400);background:var(--blue-950-a60);border-color:var(--blue-800-a40)">planner_contract.v2</span></div><div class="rcode json">${jsonHL(f.contrato)}</div>`
-        : `<div class="rhd"><span style="color:var(--mut)">Esta corrida no guardó el contrato (fue anterior al reporte de auditoría).</span></div>`;
+      if(tab==='contract') cuerpo += contratoRealHtml(f);
       if(tab==='test') cuerpo += (f.codigo
         ? `<div class="rhd"><span>${I('term','var(--purple-400)',14)} Último test generado por el Generator (intento ${f.iteraciones}/3):</span></div><pre class="rcode">${hl(f.codigo)}</pre>`
         : `<div class="rhd"><span style="color:var(--mut)">Esta corrida no guardó el test generado.</span></div>`)
@@ -163,10 +174,10 @@ function renderReportReal(v){
     return `<div class="rcard" style="border-left-color:${st.c};${f.verde?'':`box-shadow:0 0 0 1px ${st.halo}`}">
       <div class="rch" onclick="rRealAbierto[${idJs}]=!rRealAbierto[${idJs}];renderReport()">
         <div class="l"><span class="mtag" style="${st.mb}">${f.verde?'OK':'ALERTA'}</span>
-          <div style="min-width:0"><div class="rn">${escHtml(f.funcion)}() <span class="rmod">${escHtml(f.modulo)}</span>${f.critical?'<span class="rcrit">★ crítica</span>':''}</div><div class="rsig">${escHtml(f.firma || '')}</div></div></div>
+          <div style="min-width:0"><div class="rn">${f.tipo==='endpoint'?escHtml(f.identificador):escHtml(f.identificador)+'()'} <span class="rmod">${escHtml(f.modulo)}</span><span class="rkind">${f.tipo==='endpoint'?'Endpoint':'Función'}</span>${f.critical?'<span class="rcrit">★ crítica</span>':''}</div><div class="rsig">${f.tipo==='endpoint'&&f.manejador?`Manejador: ${escHtml(f.manejador)} · `:''}${escHtml(f.firma || '')}</div></div></div>
         <div class="r"><span class="rpill"><span style="color:var(--mut)">Cob:</span> <b style="color:var(--blue-400)">${numRep(f.cobertura_lineas)}</b></span>
           <span class="rpill"><span style="color:var(--mut)">Mutantes:</span> <b style="color:var(--mut)">${f.mutation_score===null?'N/A':numRep(f.mutation_score,0)}</b></span>
           <span class="rsb ${st.repCls}">${I(st.repIco,'currentColor',13)} ${escHtml(etiqueta)}</span>${I(abierto?'chevU':'chevD','var(--slate-300-c)',20)}</div>
       </div>${cuerpo}</div>`;
-  }).join('') : '<div class="rcard" style="padding:18px;color:var(--mut)">No hay funciones en este filtro.</div>';
+  }).join('') : '<div class="rcard" style="padding:18px;color:var(--mut)">No hay resultados para los filtros seleccionados.</div>';
 }

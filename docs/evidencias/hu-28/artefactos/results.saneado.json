@@ -1,0 +1,246 @@
+{
+  "version": "1",
+  "tipo": "results",
+  "run_id": "20261013-101522-eb90",
+  "fecha": "2026-10-13T10:15:35-05:00",
+  "proyecto": "bench_api (copia temporal saneada)",
+  "perfil": "deep",
+  "modelos": {
+    "planner": {
+      "proveedor": "xiaomi",
+      "modelo": "mimo-v2.6-pro",
+      "precio_entrada_usd_m": 0.435,
+      "precio_salida_usd_m": 0.87
+    },
+    "generator": {
+      "proveedor": "xiaomi",
+      "modelo": "mimo-v2.6-pro",
+      "precio_entrada_usd_m": 0.435,
+      "precio_salida_usd_m": 0.87
+    },
+    "reviewer": {
+      "proveedor": "openai",
+      "modelo": "gpt-6-luna",
+      "precio_entrada_usd_m": 0.1,
+      "precio_salida_usd_m": 0.5
+    }
+  },
+  "estado_final": "fin",
+  "motivo_fallo": null,
+  "es_simulado": true,
+  "objetivos": [
+    {
+      "modulo": "api_mvp.py",
+      "funcion": "GET /salud",
+      "tipo": "endpoint",
+      "critical": false,
+      "decision": "accept",
+      "motivo_estancado": null,
+      "laundering_detectado": false,
+      "duracion_s": 2.179,
+      "controles": {
+        "sintaxis": true,
+        "sandbox": true,
+        "aserciones": true,
+        "cobertura": true,
+        "mutation": null
+      },
+      "metricas": {
+        "paso": true,
+        "cobertura_lineas": 100.0,
+        "cobertura_ramas": null,
+        "iteraciones": 1,
+        "tokens_por_agente": {
+          "generator": {
+            "prompt_tokens": 0,
+            "completion_tokens": 0
+          }
+        },
+        "mutation_score": null
+      }
+    },
+    {
+      "modulo": "api_mvp.py",
+      "funcion": "POST /items",
+      "tipo": "endpoint",
+      "critical": false,
+      "decision": "accept",
+      "motivo_estancado": null,
+      "laundering_detectado": false,
+      "duracion_s": 2.141,
+      "controles": {
+        "sintaxis": true,
+        "sandbox": true,
+        "aserciones": true,
+        "cobertura": true,
+        "mutation": null
+      },
+      "metricas": {
+        "paso": true,
+        "cobertura_lineas": 100.0,
+        "cobertura_ramas": null,
+        "iteraciones": 1,
+        "tokens_por_agente": {
+          "generator": {
+            "prompt_tokens": 0,
+            "completion_tokens": 0
+          }
+        },
+        "mutation_score": null
+      }
+    },
+    {
+      "modulo": "api_mvp.py",
+      "funcion": "GET /items",
+      "tipo": "endpoint",
+      "critical": false,
+      "decision": "accept",
+      "motivo_estancado": null,
+      "laundering_detectado": false,
+      "duracion_s": 2.172,
+      "controles": {
+        "sintaxis": true,
+        "sandbox": true,
+        "aserciones": true,
+        "cobertura": true,
+        "mutation": null
+      },
+      "metricas": {
+        "paso": true,
+        "cobertura_lineas": 100.0,
+        "cobertura_ramas": null,
+        "iteraciones": 1,
+        "tokens_por_agente": {
+          "generator": {
+            "prompt_tokens": 0,
+            "completion_tokens": 0
+          }
+        },
+        "mutation_score": null
+      }
+    },
+    {
+      "modulo": "api_mvp.py",
+      "funcion": "GET /items/{item_id}",
+      "tipo": "endpoint",
+      "critical": false,
+      "decision": "bug_detectado",
+      "motivo_estancado": null,
+      "laundering_detectado": false,
+      "duracion_s": 2.117,
+      "controles": {
+        "sintaxis": true,
+        "sandbox": true,
+        "aserciones": true,
+        "cobertura": true,
+        "mutation": null
+      },
+      "metricas": {
+        "paso": false,
+        "cobertura_lineas": 100.0,
+        "cobertura_ramas": null,
+        "iteraciones": 1,
+        "tokens_por_agente": {
+          "generator": {
+            "prompt_tokens": 0,
+            "completion_tokens": 0
+          }
+        },
+        "mutation_score": null
+      }
+    },
+    {
+      "modulo": "api_mvp.py",
+      "funcion": "DELETE /items/{item_id}",
+      "tipo": "endpoint",
+      "critical": false,
+      "decision": "bug_detectado",
+      "motivo_estancado": null,
+      "laundering_detectado": false,
+      "duracion_s": 2.222,
+      "controles": {
+        "sintaxis": true,
+        "sandbox": true,
+        "aserciones": true,
+        "cobertura": true,
+        "mutation": null
+      },
+      "metricas": {
+        "paso": false,
+        "cobertura_lineas": 100.0,
+        "cobertura_ramas": 100.0,
+        "iteraciones": 1,
+        "tokens_por_agente": {
+          "generator": {
+            "prompt_tokens": 0,
+            "completion_tokens": 0
+          }
+        },
+        "mutation_score": null
+      }
+    },
+    {
+      "modulo": "api_mvp.py",
+      "funcion": "GET /descuento",
+      "tipo": "endpoint",
+      "critical": false,
+      "decision": "bug_detectado",
+      "motivo_estancado": null,
+      "laundering_detectado": false,
+      "duracion_s": 2.178,
+      "controles": {
+        "sintaxis": true,
+        "sandbox": true,
+        "aserciones": true,
+        "cobertura": true,
+        "mutation": null
+      },
+      "metricas": {
+        "paso": false,
+        "cobertura_lineas": 100.0,
+        "cobertura_ramas": null,
+        "iteraciones": 1,
+        "tokens_por_agente": {
+          "generator": {
+            "prompt_tokens": 0,
+            "completion_tokens": 0
+          }
+        },
+        "mutation_score": null
+      }
+    }
+  ],
+  "resumen": {
+    "total_funciones": 6,
+    "aceptadas": 3,
+    "bugs_detectados": 3,
+    "stalled": 0,
+    "sin_veredicto": 0,
+    "pass_rate": 50.0,
+    "cobertura_lineas_promedio": 100.0,
+    "cobertura_ramas_promedio": 100.0,
+    "iteraciones_promedio": 1.0,
+    "costo_total_usd": 0.0,
+    "por_agente": {
+      "planner": {
+        "prompt_tokens": 0,
+        "completion_tokens": 0,
+        "costo_usd": 0.0,
+        "llamadas": 2
+      },
+      "generator": {
+        "prompt_tokens": 0,
+        "completion_tokens": 0,
+        "costo_usd": 0.0,
+        "llamadas": 6
+      }
+    },
+    "metas": {
+      "pass_rate_min": 70.0,
+      "cobertura_lineas_min": 60.0,
+      "iteraciones_promedio_max": 2.0,
+      "tope_por_corrida_usd": 1.0
+    }
+  },
+  "rama": null
+}
