@@ -170,6 +170,15 @@ def test_listar_specs_y_tiene_specs(almacen):
         **copy.deepcopy(CONTRATO),
         "tipo": "endpoint",
         "objetivo": "GET /precios/{id}",
+        "manejador": "leer_precio",
+        "casos": [
+            {
+                "id": "precio_existente",
+                "entrada": {"metodo": "GET", "ruta": "/precios/1"},
+                "valor_esperado": {"status_code": 200},
+                "origen": "status_code",
+            }
+        ],
     }
 
     almacen.guardar_spec(CONTRATO, RUN_ID)

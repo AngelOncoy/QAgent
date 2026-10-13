@@ -41,6 +41,7 @@ def test_schema_es_json_schema_valido(nombre: str) -> None:
 # (contrato, archivo de contracts/ejemplos/): run_log tiene un ejemplo por tipo.
 EJEMPLOS = [
     (PLANNER, PLANNER),
+    (PLANNER, "planner_contract.endpoint"),
     (GENERATED_TEST, GENERATED_TEST),
     (REVIEW_RESULT, REVIEW_RESULT),
     (RUN_LOG, "run_log.log"),
@@ -130,7 +131,10 @@ def test_plan_sin_casos() -> None:
 def test_contrato_de_endpoint() -> None:
     dato = ejemplo(PLANNER)
     dato.update(
-        tipo="endpoint", objetivo="GET /items/{item_id}", firma="(item_id: int)"
+        tipo="endpoint",
+        objetivo="GET /items/{item_id}",
+        manejador="leer_item",
+        firma="(item_id: int)",
     )
     dato["casos"] = [
         {
@@ -253,3 +257,59 @@ def test_respuesta_simulada_del_planner_cumple_el_contrato() -> None:
 def test_respuesta_simulada_del_reviewer_cumple_el_contrato() -> None:
     respuesta = FakeLLMClient().generar("revisar", rol="reviewer").contenido
     validar(REVIEW_RESULT, json.loads(respuesta))
+
+
+# --- Contrato de endpoints (EN-14) ----------------------------------------------
+
+
+def endpoint() -> dict[str, Any]:
+    return ejemplo("planner_contract.endpoint")
+
+
+def test_endpoint_exige_manejador() -> None:
+    dato = endpoint()
+    del dato["manejador"]
+    assert not es_valido(PLANNER, dato)
+
+
+def test_funcion_no_necesita_manejador() -> None:
+    dato = ejemplo(PLANNER)
+    assert "manejador" not in dato
+    assert es_valido(PLANNER, dato)
+
+
+@pytest.mark.parametrize(
+    "cambio",
+    [
+        lambda caso: caso.update(excepcion="ValueError"),
+        lambda caso: caso["entrada"].pop("ruta"),
+        lambda caso: caso["entrada"].update(metodo="HEAD"),
+        lambda caso: caso["entrada"].update(ruta="items"),
+        lambda caso: caso["entrada"].update(cuerpo={}),
+        lambda caso: caso.update(valor_esperado=201),
+        lambda caso: caso["valor_esperado"].pop("status_code"),
+        lambda caso: caso["valor_esperado"].update(status_code=99),
+        lambda caso: caso["valor_esperado"].update(json={"nombre": "lapiz"}),
+    ],
+    ids=[
+        "excepcion",
+        "sin_ruta",
+        "metodo_no_soportado",
+        "ruta_sin_barra",
+        "campo_desconocido",
+        "valor_esperado_no_objeto",
+        "sin_status",
+        "status_invalido",
+        "json_y_json_contiene",
+    ],
+)
+def test_caso_de_endpoint_invalido(cambio) -> None:
+    dato = endpoint()
+    cambio(dato["casos"][0])
+    assert not es_valido(PLANNER, dato)
+
+
+def test_caso_de_funcion_no_sirve_para_un_endpoint() -> None:
+    dato = endpoint()
+    dato["casos"] = ejemplo(PLANNER)["casos"]
+    assert not es_valido(PLANNER, dato)
