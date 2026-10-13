@@ -118,6 +118,7 @@ def ejecutar_corrida(
 
     almacen = AlmacenProyecto(ruta)
     resumen = ResumenCorrida(run_id=run_id, estado=FIN, motivo=None, total_funciones=0)
+    tipos: list[str] = ["funcion"]
     try:
         if not ruta.is_dir():
             raise ErrorCorrida(f"La carpeta del proyecto no existe: {ruta}")
@@ -125,16 +126,29 @@ def ejecutar_corrida(
             resumen.run_id = almacen.crear_run(tipos_prueba=["funcion"])["run_id"]
 
         analisis = analizar_proyecto(ruta)
-        modulos = [m for m in analisis["modulos"] if m["funciones"]]
-        progreso["total"] = resumen.total_funciones = sum(
-            len(m["funciones"]) for m in modulos
-        )
-        avisar(
-            f"Análisis estático: {len(modulos)} módulo(s) con "
-            f"{resumen.total_funciones} función(es) pública(s)"
-        )
+        modulos = [
+            _con_fuente(ruta, m)
+            for m in analisis["modulos"]
+            if m["funciones"] or m.get("endpoints")
+        ]
+        n_funciones = sum(len(m["funciones"]) for m in modulos)
+        n_endpoints = sum(len(m.get("endpoints") or []) for m in modulos)
+        progreso["total"] = resumen.total_funciones = n_funciones + n_endpoints
+        if n_endpoints:
+            tipos = ["funcion", "endpoint"] if n_funciones else ["endpoint"]
+            avisar(
+                f"Análisis estático: {len(modulos)} módulo(s) con {n_funciones} "
+                f"función(es) pública(s) y {n_endpoints} endpoint(s)"
+            )
+        else:
+            avisar(
+                f"Análisis estático: {len(modulos)} módulo(s) con "
+                f"{n_funciones} función(es) pública(s)"
+            )
         if not modulos:
-            raise ErrorCorrida("El proyecto no tiene funciones públicas que revisar.")
+            raise ErrorCorrida(
+                "El proyecto no tiene funciones públicas ni endpoints que revisar."
+            )
 
         tracker = TokenTracker(configuracion.agentes)
         clientes = {
@@ -223,12 +237,13 @@ def ejecutar_corrida(
             configuracion,
             perfil,
             planes_specs,
+            tipos,
         )
     except Exception as error:  # noqa: BLE001 — la corrida nunca debe tumbar la app
         resumen.estado = FALLO
         resumen.motivo = resumen.motivo or _texto_error(error)
         avisar(f"Corrida detenida: {resumen.motivo}", "fallo")
-        _cerrar_run(almacen, resumen)
+        _cerrar_run(almacen, resumen, tipos)
 
     resumen.duracion_s = round(time.monotonic() - inicio, 3)
     avisar(
@@ -285,6 +300,7 @@ def _registrar(
     configuracion: Any,
     perfil: str,
     planes_specs: list[dict[str, Any]],
+    tipos: list[str] | None = None,
 ) -> None:
     """log.json y results.json, specs y pruebas aprobadas, y cierre del run.json."""
     if resultados:
@@ -338,7 +354,7 @@ def _registrar(
                     resumen.run_id,
                     error,
                 )
-    _cerrar_run(almacen, resumen)
+    _cerrar_run(almacen, resumen, tipos)
 
 
 def _existe_plan_modulo(almacen: AlmacenProyecto, modulo: str) -> bool:
@@ -361,7 +377,22 @@ def metas_de(configuracion: Any) -> dict[str, float]:
     }
 
 
-def _cerrar_run(almacen: AlmacenProyecto, resumen: ResumenCorrida) -> None:
+def _con_fuente(ruta: Path, modulo: dict[str, Any]) -> dict[str, Any]:
+    """Agrega el código del módulo si tiene endpoints: el Planner recorta sus rutas."""
+    if not modulo.get("endpoints"):
+        return modulo
+    try:
+        fuente = (ruta / modulo["ruta"]).read_text(encoding="utf-8")
+    except (OSError, UnicodeDecodeError):
+        return modulo
+    return {**modulo, "fuente": fuente}
+
+
+def _cerrar_run(
+    almacen: AlmacenProyecto,
+    resumen: ResumenCorrida,
+    tipos: list[str] | None = None,
+) -> None:
     """Marca el `run.json` como terminado. Si no se puede, la corrida no se pierde."""
     if resumen.run_id is None or not almacen.existe():
         return
@@ -373,7 +404,7 @@ def _cerrar_run(almacen: AlmacenProyecto, resumen: ResumenCorrida) -> None:
             fallaron=resumen.bugs_detectados
             + resumen.estancadas
             + resumen.sin_veredicto,
-            tipos_prueba=["funcion"],
+            tipos_prueba=tipos or ["funcion"],
         )
     except Exception as error:  # noqa: BLE001 — run.json dañado: no es motivo de fallo
         _registro.warning(

@@ -28,6 +28,7 @@ RIGOR: dict[str, int] = {
     "true": 1,  # assert expr
     "false": 1,  # assert not expr
     "is_none": 2,  # assert expr is None
+    "rango": 3,  # assert expr < valor, <=, >, >= (p. ej. status_code < 500)
     "is_not_none": 3,  # assert expr is not None
     "is": 4,  # assert expr is valor
     "is_not": 5,  # assert expr is not valor
@@ -130,6 +131,8 @@ def _clasificar_assert(nodo: ast.Assert) -> tuple[str, str | None, str]:
             if isinstance(comparador, ast.Constant) and comparador.value is None:
                 return "is_none", None, sujeto
             return "is", valor, sujeto
+        if isinstance(op, (ast.Lt, ast.LtE, ast.Gt, ast.GtE)):
+            return "rango", valor, sujeto
         if isinstance(op, ast.IsNot):
             if isinstance(comparador, ast.Constant) and comparador.value is None:
                 return "is_not_none", None, sujeto

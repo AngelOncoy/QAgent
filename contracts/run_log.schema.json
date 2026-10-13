@@ -143,6 +143,7 @@
       "properties": {
         "modulo": { "type": "string", "minLength": 1 },
         "funcion": { "type": "string", "minLength": 1 },
+        "tipo": { "enum": ["funcion", "endpoint"], "description": "EN-16. Qué se probó; en un endpoint, funcion es \"MÉTODO /ruta\". Si falta, es una función." },
         "critical": { "type": "boolean" },
         "decision": {
           "enum": ["accept", "bug_detectado", "stalled", null],
