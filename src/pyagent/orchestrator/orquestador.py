@@ -225,7 +225,12 @@ class Orquestador:
         plan = [*plan, *plan_endpoints]
         for contrato in plan:
             self._validar(contracts.PLANNER, contrato, "planner")
-        self._emitir("planner", None, f"Plan con {len(plan)} objetivo(s)")
+        self._emitir(
+            "planner",
+            None,
+            f"Plan con {len(plan)} objetivo(s)",
+            datos={"objetivos_planificados": len(plan)},
+        )
         return plan
 
     def _planificar_endpoints(self, modulo: dict[str, Any]) -> list[Contrato]:
@@ -262,6 +267,7 @@ class Orquestador:
             "planner",
             None,
             f"Spec reutilizado: Planner omitido (0 tokens, {len(copia)} objetivo(s))",
+            datos={"objetivos_planificados": len(copia)},
         )
         return copia
 

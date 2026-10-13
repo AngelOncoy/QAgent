@@ -231,6 +231,8 @@ def test_emite_eventos_con_los_campos_del_monitor() -> None:
         "reviewer",
     }
     assert any(e.funcion == "duplicar" for e in recibidos)
+    evento_plan = next(e for e in recibidos if e.mensaje.startswith("Plan con "))
+    assert evento_plan.datos == {"objetivos_planificados": 1}
     assert recibidos[-1].tipo == "fin"
 
 

@@ -13,7 +13,7 @@ from pathlib import Path
 from typing import Any
 
 from pyagent.storage.registro import ARCHIVO_DETALLE, CARPETA_RUNS
-from pyagent.storage.vista_ejecucion import estado_de
+from pyagent.storage.vista_ejecucion import estado_de, identidad_de, tipo_de
 
 #: Meta de Mutation Score de la carta (ADR-001); se aplica cuando EN-09 ejecute mutmut.
 MUTATION_SCORE_MIN = 60
@@ -54,6 +54,7 @@ def vista_reporte(
         for o in results["objetivos"]
     ]
     verdes = sum(1 for f in funciones if f["verde"])
+    tipos = [tipo_de(o) for o in results["objetivos"]]
     pasaron = sum(1 for o in results["objetivos"] if o["metricas"]["paso"])
     por_agente = resumen.get("por_agente") or {}
 
@@ -67,6 +68,7 @@ def vista_reporte(
         "estado_final": results["estado_final"],
         "motivo_fallo": results["motivo_fallo"],
         "total_funciones": resumen["total_funciones"],
+        "total_objetivos": len(funciones),
         "modelos": {
             agente: {"proveedor": m["proveedor"], "modelo": m["modelo"]}
             for agente, m in results["modelos"].items()
@@ -102,6 +104,19 @@ def vista_reporte(
                 "cantidad": len(funciones) - verdes,
             },
         ],
+        "filtros_tipo": [
+            {"clave": "todos", "etiqueta": "Todos", "cantidad": len(funciones)},
+            {
+                "clave": "funcion",
+                "etiqueta": "Funciones",
+                "cantidad": tipos.count("funcion"),
+            },
+            {
+                "clave": "endpoint",
+                "etiqueta": "Endpoints",
+                "cantidad": tipos.count("endpoint"),
+            },
+        ],
         "funciones": funciones,
     }
 
@@ -121,7 +136,11 @@ def _funcion(
     return {
         "modulo": objetivo["modulo"],
         "funcion": objetivo["funcion"],
+        **identidad_de(objetivo),
         "firma": contrato.get("firma") if isinstance(contrato, dict) else None,
+        "manejador": contrato.get("manejador")
+        if isinstance(contrato, dict)
+        else None,
         "critical": objetivo["critical"],
         "decision": objetivo["decision"],
         "estado": estado_de(objetivo),
@@ -131,10 +150,35 @@ def _funcion(
         "cobertura_ramas": metricas["cobertura_ramas"],
         "mutation_score": metricas["mutation_score"],
         "contrato": contrato,
+        "contrato_http": _contrato_http(contrato),
         "codigo": (texto or {}).get("codigo"),
         "traza": (texto or {}).get("traza"),
         "controles": controles,
     }
+
+
+def _contrato_http(contrato: Any) -> dict[str, Any] | None:
+    """Petición y respuesta del endpoint, copiadas sin inferencias del contrato."""
+    if not isinstance(contrato, dict) or contrato.get("tipo") != "endpoint":
+        return None
+    casos = []
+    for caso in contrato.get("casos") or []:
+        if not isinstance(caso, dict):
+            continue
+        entrada = caso.get("entrada")
+        esperado = caso.get("valor_esperado")
+        if not isinstance(entrada, dict) or not isinstance(esperado, dict):
+            continue
+        casos.append(
+            {
+                "id": caso.get("id"),
+                "descripcion": caso.get("descripcion"),
+                "peticion": entrada,
+                "respuesta_esperada": esperado,
+                "origen": caso.get("origen"),
+            }
+        )
+    return {"casos": casos}
 
 
 def _controles(objetivo: dict[str, Any], metas: dict[str, Any]) -> list[dict[str, Any]]:
@@ -161,11 +205,12 @@ def _controles(objetivo: dict[str, Any], metas: dict[str, Any]) -> list[dict[str
         cobertura["estado"] = OK if cumple else FALLA
 
     if not objetivo["critical"]:
+        sujeto = "el endpoint" if tipo_de(objetivo) == "endpoint" else "la función"
         mutation = {
             "clave": "mutation",
             "etiqueta": f"Mutation Score ≥ {MUTATION_SCORE_MIN} %",
             "estado": NO_APLICA,
-            "nota": "No aplica: la función no es crítica",
+            "nota": f"No aplica: {sujeto} no es crítico",
         }
     elif metricas["mutation_score"] is None:
         mutation = {

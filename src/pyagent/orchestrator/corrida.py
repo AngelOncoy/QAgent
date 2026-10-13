@@ -106,8 +106,18 @@ def ejecutar_corrida(
     inicio = time.monotonic()
     ruta = Path(ruta_proyecto)
     progreso = {"hechos": 0, "total": 0}
+    estimados_por_modulo: dict[str, int] = {}
+    planificados_por_modulo: dict[str, int] = {}
 
     def emitir(evento: Evento) -> None:
+        datos = evento.datos or {}
+        planificados = datos.get("objetivos_planificados")
+        if evento.archivo and isinstance(planificados, int):
+            anterior = planificados_por_modulo.get(
+                evento.archivo, estimados_por_modulo.get(evento.archivo, 0)
+            )
+            progreso["total"] += planificados - anterior
+            planificados_por_modulo[evento.archivo] = planificados
         if evento.tipo == "veredicto":
             progreso["hechos"] += 1
         if al_evento is not None:
@@ -133,6 +143,12 @@ def ejecutar_corrida(
         ]
         n_funciones = sum(len(m["funciones"]) for m in modulos)
         n_endpoints = sum(len(m.get("endpoints") or []) for m in modulos)
+        estimados_por_modulo.update(
+            {
+                m["ruta"]: len(m["funciones"]) + len(m.get("endpoints") or [])
+                for m in modulos
+            }
+        )
         progreso["total"] = resumen.total_funciones = n_funciones + n_endpoints
         if n_endpoints:
             tipos = ["funcion", "endpoint"] if n_funciones else ["endpoint"]
@@ -228,6 +244,7 @@ def ejecutar_corrida(
                 resumen.motivo = f"{resultado.modulo}: {resultado.motivo_fallo}"
 
         _contar(resumen, resultados, tracker)
+        progreso["total"] = resumen.total_funciones
         _registrar(
             ruta,
             almacen,
@@ -283,6 +300,7 @@ def _contar(
     tracker: TokenTracker,
 ) -> None:
     decisiones = [o.decision for r in resultados for o in r.objetivos]
+    resumen.total_funciones = len(decisiones)
     resumen.aceptadas = decisiones.count("accept")
     resumen.bugs_detectados = decisiones.count("bug_detectado")
     resumen.estancadas = decisiones.count("stalled")

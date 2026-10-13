@@ -318,7 +318,7 @@ def test_la_ejecucion_real_no_calcula_cifras_y_escapa_los_nombres() -> None:
     real = js[js.index("let ejecucionReal") :]
     assert "api.obtener_ejecucion(" in real
     assert "metrics()" not in real and "RUN." not in real and "AGENT_SPLIT" not in real
-    for campo in ("escHtml(g.modulo)", "escHtml(p.funcion)"):
+    for campo in ("escHtml(g.modulo)", "escHtml(p.identificador)"):
         assert campo in real
     assert "Disponible en Sprint 2" not in real  # el texto también viene de Python
 
@@ -335,7 +335,7 @@ def test_el_reporte_real_no_calcula_cifras_y_escapa_los_textos() -> None:
     assert "api.obtener_reporte(" in real
     assert "metrics()" not in real and "RUN." not in real and "AGENTS_CFG" not in real
     for campo in (
-        "escHtml(f.funcion)",
+        "escHtml(f.identificador)",
         "escHtml(f.modulo)",
         "escHtml(f.traza)",
         "escHtml(c.etiqueta)",
