@@ -24,6 +24,11 @@
       "minLength": 1,
       "description": "Nombre de la función (calcular_descuento) o método y ruta del endpoint (GET /items/{id})."
     },
+    "manejador": {
+      "type": "string",
+      "pattern": "^[A-Za-z_][A-Za-z0-9_]*$",
+      "description": "Endpoints (EN-14): función que atiende la ruta. Sirve para medir la cobertura de su cuerpo."
+    },
     "firma": { "type": "string", "minLength": 1 },
     "critical": {
       "type": "boolean",
@@ -48,10 +53,46 @@
     },
     {
       "if": { "properties": { "tipo": { "const": "endpoint" } } },
-      "then": { "properties": { "objetivo": { "pattern": "^(GET|POST|PUT|PATCH|DELETE) /" } } }
+      "then": {
+        "required": ["manejador"],
+        "properties": {
+          "objetivo": { "pattern": "^(GET|POST|PUT|PATCH|DELETE) /" },
+          "casos": { "items": { "$ref": "#/$defs/caso_endpoint" } }
+        }
+      }
     }
   ],
   "$defs": {
+    "caso_endpoint": {
+      "description": "Restricciones extra de un caso de endpoint (EN-14): la entrada es una petición HTTP y el valor esperado, la respuesta. Un endpoint no espera excepciones de Python: un error es un código de estado.",
+      "required": ["valor_esperado"],
+      "not": { "required": ["excepcion"] },
+      "properties": {
+        "entrada": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["metodo", "ruta"],
+          "properties": {
+            "metodo": { "enum": ["GET", "POST", "PUT", "PATCH", "DELETE"] },
+            "ruta": { "type": "string", "pattern": "^/", "description": "Ruta con los parámetros ya sustituidos, ej. /items/1." },
+            "query": { "type": "object", "description": "Parámetros de consulta (?clave=valor)." },
+            "json": { "description": "Cuerpo JSON de la petición." },
+            "headers": { "type": "object", "additionalProperties": { "type": "string" } }
+          }
+        },
+        "valor_esperado": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["status_code"],
+          "not": { "required": ["json", "json_contiene"] },
+          "properties": {
+            "status_code": { "type": "integer", "minimum": 100, "maximum": 599 },
+            "json": { "description": "Cuerpo de la respuesta, comparado completo." },
+            "json_contiene": { "type": "object", "description": "Solo estos campos deben estar en la respuesta, con estos valores." }
+          }
+        }
+      }
+    },
     "caso": {
       "type": "object",
       "additionalProperties": false,

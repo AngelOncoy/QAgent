@@ -85,8 +85,11 @@ def test_analiza_tres_archivos_de_ejemplo(tmp_path):
                         "ramas": 2,
                         "tipada": True,
                         "es_async": False,
+                        "llama_a": [],
                     }
                 ],
+                "endpoints": [],
+                "modelos": [],
             },
             {
                 "ruta": "utilidades.py",
@@ -105,6 +108,7 @@ def test_analiza_tres_archivos_de_ejemplo(tmp_path):
                         "ramas": 1,
                         "tipada": False,
                         "es_async": False,
+                        "llama_a": [],
                     },
                     {
                         "nombre": "cargar",
@@ -118,14 +122,18 @@ def test_analiza_tres_archivos_de_ejemplo(tmp_path):
                         "ramas": 1,
                         "tipada": True,
                         "es_async": True,
+                        "llama_a": [],
                     },
                 ],
+                "endpoints": [],
+                "modelos": [],
             },
         ],
         "errores": [{"ruta": "roto.py", "tipo": "SyntaxError", "linea": 1}],
         "resumen": {
             "total_modulos": 2,
             "total_funciones_publicas": 3,
+            "total_endpoints": 0,
             "total_errores": 1,
             "inconsistencias": {
                 "sin_docstring": {"cantidad": 1, "porcentaje": 33.3},

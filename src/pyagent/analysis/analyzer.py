@@ -11,6 +11,11 @@ Qué analiza:
       Las funciones privadas (prefijo ``_``) se ignoran. Los métodos de clases
       y las funciones anidadas quedan fuera de este alcance.
 
+    * Endpoints FastAPI, modelos Pydantic y el mapa de llamadas ``llama_a``
+      (EN-14, en :mod:`pyagent.analysis.rutas`). Las funciones que atienden una
+      ruta salen de ``funciones`` y aparecen en ``endpoints``, para no probarlas
+      dos veces.
+
 Qué ignora:
     * Carpetas ``tests/``, ``.pyagent/`` y cualquier carpeta que empiece con
       punto (``.git``, ``.venv``, ``.idea``...), además de ``__pycache__``,
@@ -40,6 +45,8 @@ import sys
 import tokenize
 from pathlib import Path
 from typing import Any
+
+from pyagent.analysis.rutas import analizar_rutas
 
 DIRECTORIOS_IGNORADOS = frozenset(
     {"tests", "__pycache__", "venv", "node_modules", "site-packages", "mutants"}
@@ -175,16 +182,34 @@ def calcular_huella(fuente: str) -> str:
     return hashlib.sha256(normalizado.encode("utf-8")).hexdigest()
 
 
-def _analizar_modulo(ruta: Path, relativa: str) -> dict[str, Any]:
+def _analizar_modulo(ruta: Path, relativa: str) -> tuple[dict[str, Any], ast.Module]:
     """Analiza un archivo. Lanza las excepciones de lectura o de sintaxis."""
     with tokenize.open(ruta) as archivo:  # respeta BOM y cookie de codificación
         fuente = archivo.read()
     arbol = ast.parse(fuente, filename=relativa)
-    return {
+    modulo = {
         "ruta": relativa,
         "huella": calcular_huella(fuente),
         "funciones": _funciones_publicas(arbol),
     }
+    return modulo, arbol
+
+
+def _agregar_rutas(
+    modulos: list[dict[str, Any]], arboles: dict[str, ast.Module]
+) -> None:
+    """Agrega endpoints, modelos y ``llama_a`` (EN-14) a cada módulo analizado."""
+    rutas = analizar_rutas(arboles)
+    for modulo in modulos:
+        info = rutas[modulo["ruta"]]
+        manejadores = set(info["manejadores"])
+        modulo["funciones"] = [
+            {**funcion, "llama_a": info["llama_a"].get(funcion["nombre"], [])}
+            for funcion in modulo["funciones"]
+            if funcion["nombre"] not in manejadores
+        ]
+        modulo["endpoints"] = info["endpoints"]
+        modulo["modelos"] = info["modelos"]
 
 
 def _error(relativa: str, causa: Exception) -> dict[str, Any]:
@@ -214,6 +239,7 @@ def _resumen(
     return {
         "total_modulos": len(modulos),
         "total_funciones_publicas": total,
+        "total_endpoints": sum(len(m.get("endpoints", [])) for m in modulos),
         "total_errores": len(errores),
         "inconsistencias": {
             "sin_docstring": _conteo(sin_docstring, total),
@@ -228,12 +254,14 @@ def analizar_proyecto(raiz: str | os.PathLike[str]) -> dict[str, Any]:
 
     Devuelve un diccionario serializable a JSON con tres claves:
 
-    * ``modulos``: por módulo, ``ruta``, ``huella`` y ``funciones`` públicas
+    * ``modulos``: por módulo, ``ruta``, ``huella``, ``funciones`` públicas
       (``nombre``, ``linea``, ``firma``, ``parametros``, ``retorno``,
-      ``docstring``, ``ramas``, ``tipada``, ``es_async``).
+      ``docstring``, ``ramas``, ``tipada``, ``es_async``, ``llama_a``),
+      ``endpoints`` FastAPI y ``modelos`` Pydantic (EN-14, ver
+      :func:`pyagent.analysis.rutas.analizar_rutas`).
     * ``errores``: archivos no analizables (``ruta``, ``tipo``, ``linea``,
       ``mensaje``). No detienen el análisis del resto.
-    * ``resumen``: totales de módulos, funciones públicas y errores, más las
+    * ``resumen``: totales de módulos, funciones públicas, endpoints y errores, más las
       inconsistencias (sin docstring, sin tipos, con alguna de las dos) con su
       porcentaje sobre el total de funciones públicas.
 
@@ -245,13 +273,16 @@ def analizar_proyecto(raiz: str | os.PathLike[str]) -> dict[str, Any]:
         raise NotADirectoryError(f"No es una carpeta: {carpeta}")
 
     modulos: list[dict[str, Any]] = []
+    arboles: dict[str, ast.Module] = {}
     errores: list[dict[str, Any]] = []
     for ruta in listar_archivos_py(carpeta):
         relativa = ruta.relative_to(carpeta).as_posix()
         try:
-            modulos.append(_analizar_modulo(ruta, relativa))
+            modulo, arboles[relativa] = _analizar_modulo(ruta, relativa)
+            modulos.append(modulo)
         except _ERRORES_LECTURA as causa:
             errores.append(_error(relativa, causa))
+    _agregar_rutas(modulos, arboles)
 
     return {
         "modulos": modulos,
