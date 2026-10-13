@@ -25,9 +25,6 @@ registrarComponente('config-pruebas/config-pruebas', `<!-- ===== 3. CONFIGURACI�
           <span><span class="caja caja-negra">Caja negra</span>: evalúa entradas y salidas sin mirar el código.</span>
           <span><span class="caja caja-blanca">Caja blanca</span>: evalúa el código por dentro (caminos, ramas, cobertura).</span>
         </div>
-        <div class="phase2"><span class="hint" style="margin:0">Fuera del alcance de la Fase 1:</span>
-          <span class="x">Integración</span><span class="x">API REST</span><span class="x">Carga / estrés</span><span class="x">Extremo a extremo</span><span class="pill p-grey">Fase 2</span></div>
-
       </div>
     </div>
 
