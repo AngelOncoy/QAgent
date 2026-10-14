@@ -30,10 +30,10 @@ registrarComponente('config-pruebas/config-pruebas', `<!-- ===== 3. CONFIGURACI�
     <!-- Comparación de los 4 perfiles con la selección actual -->
     <div class="card">
       <h4>Comparación de perfiles <span class="pill p-grey">con las funciones que seleccionaste</span></h4>
-      <table class="cmp">
+      <div class="table-scroll"><table class="cmp">
         <thead><tr><th>Perfil</th><th>Qué genera</th><th>Usa IA</th><th>Mutation testing</th><th>Tokens aprox.</th><th>Costo aprox.</th><th>Tiempo aprox.</th></tr></thead>
         <tbody id="cmpBody"></tbody>
-      </table>
+      </table></div>
       <div class="hint" style="padding:8px 16px 14px">Haz clic en una fila para elegir ese perfil. El costo baja cuando se reutilizan specs vigentes y es cero en Regresión.</div>
     </div>
 
@@ -72,7 +72,11 @@ function estFor(k){
   const saved = Math.round(reused * p.tok * EST_SPLIT.P), savedPen = saved * AGENTS_CFG.P.price / 1e6 * FX;
   return {p, fns, reused, et, tok, cost, saved, savedPen, time: Math.max(1, Math.round(fns.length * p.t))};
 }
-function pickProfile(k){ profile = k; calc(); }
+function pickProfile(k){
+  profile = k;
+  calc();
+  if (typeof desbloquearVista === 'function') desbloquearVista('monitor');
+}
 function renderProfiles(){
   $('profiles').innerHTML = PROFILES.map(p => {
     const locked = p.k==='reg' && !HAS_PRIOR_RUN;

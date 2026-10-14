@@ -9,7 +9,7 @@ registrarComponente('informe/informe', `<!-- ===== 6. REPORTE FINAL (según tu d
     <div class="banner2">
       <div class="glow"></div>
       <div class="bl">
-        <div class="brow"><span class="bbadge"><span class="ico" data-i="award" data-c="var(--emerald-400)"></span>INFORME EJECUTIVO DE ASEGURAMIENTO DE CALIDAD</span><span class="bmeta">QAgent Engine v2.4 • Run #8841-B</span></div>
+        <div class="brow"><span class="bbadge"><span class="ico" data-i="award" data-c="var(--emerald-400)"></span>INFORME EJECUTIVO DE ASEGURAMIENTO DE CALIDAD</span><span class="bmeta">QAgent Engine v2.4</span></div>
         <h2>Auditoría de Suites de Prueba &amp; Mitigación de Vulnerabilidades de Código</h2>
         <p>Consolidado formal generado tras la ejecución de los agentes <span style="color:var(--blue-400)">Planner (AST)</span>, <span style="color:var(--purple-400)">Generator (Pytest)</span> y <span style="color:var(--emerald-400)">Reviewer (Sandbox &amp; Anti-Laundering)</span>. Verificación estricta de contratos inmutables, aislamiento de mocks y detección de relajación de aserciones.</p>
       </div>
@@ -40,8 +40,15 @@ function chk(state, label, okTxt, badTxt, icoOk, icoBad, badCls='bad', wide=fals
   return `<div class="ck ${state?'ok':badCls}${wide?' wide':''}"><div class="cl">${I(state?icoOk:icoBad,'currentColor',15)}<span>${label}</span></div><span class="ct">${state?okTxt:badTxt}</span></div>`;
 }
 function renderReport(){
+  if (typeof desbloquearVista === 'function') {
+    desbloquearVista('report');
+    desbloquearVista('history');
+  }
   modoReporte(!!reporteReal);
   if (reporteReal) { renderReportReal(reporteReal); return; }   // corrida real (HU-21)
+  if (window.pywebview && window.pywebview.api && typeof cargarReporteReal === 'function') {
+    cargarReporteReal(); return;
+  }
   const m = metrics();
   $('rmeta').innerHTML = `Corrida <b>#${RUN_ID}</b> · ${RUN_DATE} · perfil <b>Profundo</b> · ${m.n} funciones · rama <b>${$('branchLbl').textContent}</b><br><span style="font-size:11px">Modelos: Planner · ${AGENTS_CFG.P.model} &nbsp;|&nbsp; Generator · ${AGENTS_CFG.G.model} &nbsp;|&nbsp; Reviewer · ${AGENTS_CFG.R.model}</span>`;
   
@@ -108,7 +115,7 @@ function modoReporte(real){   // la carpeta simulada de la demo se oculta en una
   document.querySelectorAll('#s-report .ractions .btn:not(.primary)').forEach(b => b.classList.toggle('hide', real));
   const bm = document.querySelector('#s-report .bmeta'); if(!bm) return;
   if(bmetaDemo===null) bmetaDemo = bm.textContent;
-  bm.textContent = real ? 'Corrida ' + reporteReal.run_id + (reporteReal.es_simulado ? ' · IA simulada' : '') : bmetaDemo;
+  bm.textContent = (real && reporteReal) ? 'Corrida #' + reporteReal.run_id + (reporteReal.es_simulado ? ' · IA simulada' : '') : 'QAgent Engine v2.4';
 }
 async function cargarReporteReal(runId){
   const api = window.pywebview && window.pywebview.api;
@@ -116,11 +123,25 @@ async function cargarReporteReal(runId){
   const r = await api.obtener_reporte(projectPath, runId || null);
   if(!r || !r.ok){
     reporteReal = null; rFilter = 'ALL';
+    modoReporte(false);
+    $('rmeta').innerHTML = 'Proyecto sin corridas con reporte registradas aún.';
+    $('pillars').innerHTML = '<div class="pil" style="grid-column:1/-1;padding:22px"><div class="pt">Reporte no disponible</div><div class="pv" style="font-size:16px;color:var(--mut)">No hay resultados aún</div><div class="ps" style="margin-top:8px"><button class="btn primary" onclick="go(\'tests\')">Iniciar corrida de pruebas →</button></div></div>';
+    $('rfbtns').innerHTML = '';
+    $('legend2').innerHTML = '';
+    $('rcards').innerHTML = '<div class="rcard" style="padding:28px;text-align:center;color:var(--mut)"><p style="font-size:14px;margin-bottom:8px">Completa una corrida para generar el informe de auditoría formal.</p><p style="font-size:12px;color:var(--dim)">El informe incluirá el resumen de métricas, los contratos del Planner, las suites de pytest y las verificaciones anti-laundering.</p></div>';
+    if (typeof desbloquearVista === 'function') {
+      desbloquearVista('report');
+      desbloquearVista('history');
+    }
     document.querySelectorAll('#views a[data-v=report]').forEach(a=>a.classList.remove('off'));
     go('report');
     return;
   }
   reporteReal = r; rFilter = 'todas';
+  if (typeof desbloquearVista === 'function') {
+    desbloquearVista('report');
+    desbloquearVista('history');
+  }
   document.querySelectorAll('#views a[data-v=report]').forEach(a=>a.classList.remove('off'));
   go('report');
 }

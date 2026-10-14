@@ -79,3 +79,32 @@ def test_monitor_envuelve_el_resumen_y_recorta_las_rutas_largas() -> None:
     assert 'style="margin-left:auto"' not in logica_monitor
     assert "style.marginLeft = 'auto'" not in logica_monitor
     assert ".nextbox{" not in ejecucion
+
+
+def test_vistas_sidebar_se_desbloquean_secuencialmente() -> None:
+    sidebar = _leer("componentes/sidebar/sidebar.js")
+    vista_previa = _leer("componentes/vista-previa/vista-previa.js")
+    config_pruebas = _leer("componentes/config-pruebas/config-pruebas.js")
+    monitor = _leer("componentes/monitor/monitor.js")
+
+    # Al inicio, solo Vista previa y Configuración de pruebas son visibles
+    assert '<a data-v="preview">' in sidebar
+    assert '<a data-v="tests">' in sidebar
+    assert '<a data-v="monitor" class="hide off">' in sidebar
+    assert '<a data-v="exec" class="hide off">' in sidebar
+    assert '<a data-v="report" class="hide off">' in sidebar
+    assert '<a data-v="history" class="hide off">' in sidebar
+
+    # Funciones de control de secuencia en la barra lateral
+    assert "function desbloquearVista(" in sidebar
+    assert "function reiniciarVistasProyecto(" in sidebar
+
+    # Al cargar un proyecto (local o git), se reinicia el flujo
+    assert "reiniciarVistasProyecto()" in vista_previa
+
+    # Escoger un perfil en configuración de pruebas desbloquea el Monitor
+    assert "desbloquearVista('monitor')" in config_pruebas
+
+    # Al terminar la corrida en el monitor, se desbloquean ejecución e historial
+    assert "desbloquearVista('exec')" in monitor
+    assert "desbloquearVista('history')" in monitor

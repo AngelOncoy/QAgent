@@ -19,6 +19,10 @@ registrarComponente('ejecucion/ejecucion', `<!-- ===== 5. EJECUCIÓN DE PRUEBAS 
 `);
 
 function irAReporteFinal(){
+  if (typeof desbloquearVista === 'function') {
+    desbloquearVista('report');
+    desbloquearVista('history');
+  }
   document.querySelectorAll('#views a[data-v=report]').forEach(a=>a.classList.remove('off'));
   if (ejecucionReal && ejecucionReal.run_id) {
     cargarReporteReal(ejecucionReal.run_id);
@@ -62,8 +66,16 @@ function renderExecKpis(){
     <div class="kscale"><span>0%</span><span class="c">Meta: ${META.ms}%</span><span>100%</span></div></div></div>`;
 }
 function renderExec(){
+  if (typeof desbloquearVista === 'function') {
+    desbloquearVista('exec');
+    desbloquearVista('report');
+  }
   document.querySelectorAll('#views a[data-v=report]').forEach(a=>a.classList.remove('off'));
   if (ejecucionReal) { renderExecReal(ejecucionReal); return; }   // corrida real (HU-18)
+  if (window.pywebview && window.pywebview.api && typeof cargarEjecucionReal === 'function') {
+    cargarEjecucionReal();
+    return;
+  }
   renderExecKpis();
   const keys = ['ALL', ...Object.keys(ST)];
   $('fbtns').innerHTML = keys.map(k => {
@@ -130,8 +142,24 @@ async function cargarEjecucionReal(runId){
   const api = window.pywebview && window.pywebview.api;
   if(!api || !api.obtener_ejecucion) return;
   const r = await api.obtener_ejecucion(projectPath, runId || null);
-  if(!r || !r.ok){ toastError(escHtml((r && r.motivo) || 'No se pudieron leer los resultados de la corrida.')); return; }
+  if(!r || !r.ok){
+    ejecucionReal = null;
+    $('kpis').innerHTML = '<div class="kpi" style="grid-column:1/-1;padding:24px"><div class="kh"><span>EJECUCIÓN DE PRUEBAS</span></div><div class="kmid"><div class="kv" style="font-size:16px;color:var(--mut)">No hay resultados de ejecución de pruebas para este proyecto aún</div></div><div style="margin-top:12px"><button class="btn primary" onclick="go(\'tests\')">Ir a Configuración de pruebas →</button></div></div>';
+    $('fbtns').innerHTML = '';
+    $('suites').innerHTML = '<div class="suite2" style="padding:24px;text-align:center;color:var(--mut)">Inicia una corrida desde la configuración de pruebas para evaluar el código con los agentes.</div>';
+    if (typeof desbloquearVista === 'function') {
+      desbloquearVista('exec');
+      desbloquearVista('report');
+    }
+    document.querySelectorAll('#views a[data-v=exec]').forEach(a=>a.classList.remove('off'));
+    go('exec');
+    return;
+  }
   ejecucionReal = r; filterState = 'ALL';
+  if (typeof desbloquearVista === 'function') {
+    desbloquearVista('exec');
+    desbloquearVista('report');
+  }
   document.querySelectorAll('#views a[data-v=exec]').forEach(a=>a.classList.remove('off'));
   go('exec');
 }

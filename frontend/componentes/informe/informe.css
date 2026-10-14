@@ -16,6 +16,8 @@
 .banner2 h2{font-size:19px;font-weight:700;letter-spacing:-.01em}
 .banner2 p{font-size:12px;color:var(--mut);line-height:1.6}
 .pillars{display:grid;grid-template-columns:repeat(4,minmax(118px,1fr));gap:12px;position:relative;font-family:var(--mono)}
+@media(max-width:750px){.pillars{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:480px){.pillars{grid-template-columns:1fr}}
 .pil{background:var(--slate-950-a90);border:1px solid var(--line);border-radius:12px;padding:12px;text-align:center}
 .pil .pt{font-size:9.5px;text-transform:uppercase;font-weight:700;color:var(--mut);display:flex;justify-content:center;align-items:center;gap:4px}
 .pil .pv{font-size:23px;font-weight:800;margin-top:5px;white-space:nowrap}.pil .pv small{font-size:11px;font-weight:400;color:var(--mut)}
@@ -49,6 +51,7 @@
 .rerr b{display:flex;gap:8px;align-items:center;color:var(--rose-400);margin-bottom:7px}
 .rerr pre,.raud pre{font-family:var(--mono);font-size:11px;line-height:1.6;white-space:pre-wrap;color:var(--rose-200-a90);background:var(--slate-950-a60);padding:10px;border-radius:6px;border:1px solid var(--rose-900-a50);margin:0}
 .cks{display:grid;grid-template-columns:1fr 1fr;gap:12px;font-family:var(--mono);font-size:12px}
+@media(max-width:900px){.cks{grid-template-columns:1fr}.ck.wide{grid-column:span 1}}
 .ck{padding:12px;border-radius:8px;border:1px solid;display:flex;justify-content:space-between;align-items:center;gap:10px}
 .ck.wide{grid-column:span 2}.ck .cl{display:flex;align-items:center;gap:10px}
 .ck .ct{font-size:10px;font-weight:700;padding:2px 8px;border-radius:4px;background:var(--slate-900);border:1px solid var(--slate-700);white-space:nowrap}

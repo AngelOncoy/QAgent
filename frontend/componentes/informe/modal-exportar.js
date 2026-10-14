@@ -2,7 +2,7 @@
 // HTML del componente (se monta en el marcador data-componente="informe/modal-exportar" de index.html)
 registrarComponente('informe/modal-exportar', `<!-- Exportar informe (HU-22) -->
 <div class="overlay" id="m-export"><div class="modal" style="width:640px">
-  <div class="mhead"><span class="ico" data-i="download" data-c="var(--blue-400)"></span> <span id="expTitle">Exportar informe de auditoría · corrida #8841-B</span><button class="x" onclick="closeModal()">×</button></div>
+  <div class="mhead"><span class="ico" data-i="download" data-c="var(--blue-400)"></span> <span id="expTitle">Exportar informe de auditoría</span><button class="x" onclick="closeModal()">×</button></div>
   <div class="mcontent">
     <div><label class="l">Formato</label>
       <div class="fmts">
@@ -214,7 +214,7 @@ const PESTANAS_PDF_JS = [
 
 function buildPdfBytes(){
   const m = metrics(), inc = id => $(id).checked, runId = runIdExportar();
-  const repo = (document.querySelector('.repoLbl') && document.querySelector('.repoLbl').textContent) || projectPath || 'ecommerce-core';
+  const repo = (document.querySelector('.repoLbl') && document.querySelector('.repoLbl').textContent) || projectPath || 'proyecto';
   const rama = ($('branchLbl') && $('branchLbl').textContent) || 'main';
   const modelosTxt = `Planner: ${AGENTS_CFG.P.model} (Anthropic) | Generator: ${AGENTS_CFG.G.model} (Xiaomi) | Reviewer: ${AGENTS_CFG.R.model} (OpenAI)`;
   const costoAgTxt = `Planner: ${Math.round(m.agentTok.P)} tokens (US$ ${m.agentUsd.P.toFixed(4)}) | Generator: ${Math.round(m.agentTok.G)} tokens (US$ ${m.agentUsd.G.toFixed(4)}) | Reviewer: ${Math.round(m.agentTok.R)} tokens (US$ ${m.agentUsd.R.toFixed(4)})`;
@@ -740,7 +740,7 @@ async function doExport(){
 function buildHtmlInteractivo(opts){
   const m = metrics(), runId = runIdExportar();
   const inc = id => opts ? opts[id] : true;
-  const repo = (document.querySelector('.repoLbl') && document.querySelector('.repoLbl').textContent) || projectPath || 'ecommerce-core';
+  const repo = (document.querySelector('.repoLbl') && document.querySelector('.repoLbl').textContent) || projectPath || 'proyecto';
   const rama = ($('branchLbl') && $('branchLbl').textContent) || 'main';
   const ok = b => b ? '<span class="pill pass">✓ Cumple</span>' : '<span class="pill fail">✗ No cumple</span>';
   const pctH = (v,d=1) => Number(v).toFixed(d)+'%';

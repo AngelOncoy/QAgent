@@ -9,10 +9,10 @@ registrarComponente('configuracion/configuracion', `<!-- ===== CONFIGURACIÓN DE
     </div></div>
     <div class="card">
       <h4>Modelo de cada agente <span class="pill p-amber">precios de ejemplo</span></h4>
-      <table><thead><tr><th>Agente</th><th>Modelo</th><th>Precio (US$ por millón de tokens)</th><th>Por qué este modelo</th></tr></thead><tbody id="cfgAgents"></tbody></table>
+      <div class="table-scroll"><table><thead><tr><th>Agente</th><th>Modelo</th><th>Precio (US$ por millón de tokens)</th><th>Por qué este modelo</th></tr></thead><tbody id="cfgAgents"></tbody></table></div>
       <div class="hint" style="padding:10px 16px 14px">Los modelos son fijos para que todas las corridas sean comparables. Cada corrida guarda en su registro qué modelos usó.</div>
     </div>
-    <div class="grid2" style="grid-template-columns:1fr 1fr">
+    <div class="grid2 cfg-grid">
       <div class="card"><h4>Límites de cada corrida</h4><div class="bd checks" id="cfgLimits"></div></div>
       <div class="card"><h4>Entorno y datos</h4><div class="bd checks">
         <div class="c"><span class="i ok">✓</span><div>Sandbox: contenedor <span class="mono">pyagent-sandbox:base</span>, <b>sin red</b> y sin acceso a los archivos del equipo</div></div>
