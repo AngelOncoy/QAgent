@@ -16,7 +16,7 @@ MOMENTO = datetime(2026, 10, 1, 9, 0, tzinfo=timezone.utc)
 @pytest.fixture
 def archivo(tmp_path: Path) -> Path:
     """Archivo de recientes temporal: nunca se toca el home real."""
-    return tmp_path / "home" / ".pyagent" / "recientes.json"
+    return tmp_path / "home" / ".qagent" / "recientes.json"
 
 
 def _abrir_proyectos(tmp_path: Path, archivo: Path, cantidad: int) -> list[str]:

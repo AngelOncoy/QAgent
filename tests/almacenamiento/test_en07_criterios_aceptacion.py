@@ -1,11 +1,11 @@
-"""EN-07: Almacenamiento del proyecto (.pyagent/) — Criterios de Aceptación.
+"""EN-07: Almacenamiento del proyecto (.qagent/) — Criterios de Aceptación.
 
 Verifica formalmente los 4 criterios de aceptación del PBI EN-07:
-1. Estructura: .pyagent/runs/<run_id>/, .pyagent/specs/ y .pyagent/tests/.
+1. Estructura: .qagent/runs/<run_id>/, .qagent/specs/ y .qagent/tests/.
 2. Guarda y lee specs, pruebas aprobadas e historial; los datos persisten entre sesiones.
-3. Proyectos recientes en ~/.pyagent/recientes.json.
+3. Proyectos recientes en ~/.qagent/recientes.json.
 4. Evidencia de aceptación: tras cerrar y reabrir la aplicación, las corridas, specs
-   y pruebas aprobadas siguen en .pyagent/ y los proyectos recientes en ~/.pyagent/recientes.json.
+   y pruebas aprobadas siguen en .qagent/ y los proyectos recientes en ~/.qagent/recientes.json.
 """
 
 from __future__ import annotations
@@ -46,13 +46,13 @@ def carpeta_proyecto(tmp_path: Path) -> Path:
 
 @pytest.fixture
 def archivo_recientes(tmp_path: Path) -> Path:
-    archivo = tmp_path / "home" / ".pyagent" / "recientes.json"
+    archivo = tmp_path / "home" / ".qagent" / "recientes.json"
     archivo.parent.mkdir(parents=True, exist_ok=True)
     return archivo
 
 
 def test_criterio_1_estructura_directorios(carpeta_proyecto: Path) -> None:
-    """Criterio 1: Estructura .pyagent/runs/<run_id>/, .pyagent/specs/ y .pyagent/tests/."""
+    """Criterio 1: Estructura .qagent/runs/<run_id>/, .qagent/specs/ y .qagent/tests/."""
     almacen = AlmacenProyecto(carpeta_proyecto)
     assert not almacen.existe()
 
@@ -68,19 +68,19 @@ def test_criterio_1_estructura_directorios(carpeta_proyecto: Path) -> None:
     assert gitignore.is_file()
     assert "runs/" in gitignore.read_text(encoding="utf-8")
 
-    # Al crear una corrida se genera la estructura .pyagent/runs/<run_id>/ con run.json
+    # Al crear una corrida se genera la estructura .qagent/runs/<run_id>/ con run.json
     run = almacen.crear_run(tipos_prueba=["funcion"], ahora=MOMENTO)
     run_id = run["run_id"]
     carpeta_run = almacen.carpeta_run(run_id)
     assert carpeta_run.is_dir()
     assert (carpeta_run / "run.json").is_file()
 
-    # Al guardar spec se almacena en .pyagent/specs/<spec_id>.json
+    # Al guardar spec se almacena en .qagent/specs/<spec_id>.json
     spec = almacen.guardar_spec(CONTRATO_PLANNER, run_origen=run_id, ahora=MOMENTO)
     ruta_spec = almacen.carpeta_specs / f"{spec['id']}.json"
     assert ruta_spec.is_file()
 
-    # Al guardar prueba aprobada se almacena en .pyagent/tests/test_*.py
+    # Al guardar prueba aprobada se almacena en .qagent/tests/test_*.py
     nombre_archivo = nombre_prueba(spec["id"])
     codigo_prueba = "def test_calcular():\n    assert True\n"
     ruta_prueba = almacen.guardar_prueba_aprobada(nombre_archivo, codigo_prueba)
@@ -125,10 +125,10 @@ def test_criterio_2_guarda_y_lee_specs_pruebas_e_historial(
 
 
 def test_criterio_3_proyectos_recientes_en_home(archivo_recientes: Path) -> None:
-    """Criterio 3: Proyectos recientes en ~/.pyagent/recientes.json."""
+    """Criterio 3: Proyectos recientes en ~/.qagent/recientes.json."""
     # Comprobar la convención de ruta por defecto
     ruta_default = recientes.ruta_por_defecto()
-    assert ruta_default == Path.home() / ".pyagent" / "recientes.json"
+    assert ruta_default == Path.home() / ".qagent" / "recientes.json"
 
     # Registrar proyectos en archivo destino
     recientes.registrar(
@@ -167,8 +167,8 @@ def test_criterio_4_evidencia_persistencia_tras_reinicio_sesion(
 ) -> None:
     """Criterio 4: Evidencia de aceptación tras cerrar y reabrir la aplicación.
 
-    Las corridas, specs y pruebas aprobadas siguen en .pyagent/ y los proyectos
-    recientes en ~/.pyagent/recientes.json sin ninguna pérdida.
+    Las corridas, specs y pruebas aprobadas siguen en .qagent/ y los proyectos
+    recientes en ~/.qagent/recientes.json sin ninguna pérdida.
     """
     # === SESIÓN 1 (Antes de cerrar la aplicación) ===
     almacen_sesion1 = AlmacenProyecto(carpeta_proyecto)

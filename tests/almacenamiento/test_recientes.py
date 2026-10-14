@@ -17,7 +17,7 @@ MOMENTO = datetime(2026, 10, 3, 9, 30, 15, tzinfo=timezone.utc)
 @pytest.fixture
 def archivo(tmp_path: Path) -> Path:
     """Archivo de recientes temporal: nunca se toca el home real."""
-    return tmp_path / "home" / ".pyagent" / "recientes.json"
+    return tmp_path / "home" / ".qagent" / "recientes.json"
 
 
 def _abrir(ruta: Path, archivo: Path) -> dict:
@@ -31,7 +31,7 @@ def _abrir(ruta: Path, archivo: Path) -> dict:
 
 
 def test_ruta_por_defecto_esta_en_el_home() -> None:
-    assert recientes.ruta_por_defecto() == Path.home() / ".pyagent" / "recientes.json"
+    assert recientes.ruta_por_defecto() == Path.home() / ".qagent" / "recientes.json"
 
 
 def test_evidencia_criterio_5_solo_se_registra_la_carpeta_con_py(

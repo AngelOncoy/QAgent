@@ -274,7 +274,7 @@ def test_sin_corridas_avisa(tmp_path) -> None:
 
 
 def test_results_invalido_avisa(tmp_path) -> None:
-    carpeta = tmp_path / ".pyagent" / "runs" / "20261010-120000-abcd"
+    carpeta = tmp_path / ".qagent" / "runs" / "20261010-120000-abcd"
     carpeta.mkdir(parents=True)
     (carpeta / "results.json").write_text("{}", encoding="utf-8")
 

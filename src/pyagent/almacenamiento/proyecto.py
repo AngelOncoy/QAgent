@@ -1,8 +1,8 @@
-"""Almacenamiento de QAgent dentro del proyecto del usuario: `.pyagent/` (EN-07).
+"""Almacenamiento de QAgent dentro del proyecto del usuario: `.qagent/` (EN-07).
 
 Estructura::
 
-    <proyecto>/.pyagent/
+    <proyecto>/.qagent/
         .gitignore          ignora runs/ (specs y pruebas aprobadas sí se pueden versionar)
         runs/<run_id>/      una carpeta por corrida: run.json, y log.json y
                             results.json (EN-05, `pyagent.storage`)
@@ -37,7 +37,9 @@ from pyagent.almacenamiento.disco import (
 )
 from pyagent.storage.registro import nuevo_run_id
 
-CARPETA = ".pyagent"
+CARPETA = ".qagent"
+#: Nombre de la carpeta en versiones anteriores (cuando el producto se llamaba PyAgent).
+CARPETA_ANTERIOR = ".pyagent"
 CONTENIDO_GITIGNORE = (
     "# Generado por QAgent: las corridas no se versionan.\n"
     "# specs/ y tests/ (pruebas aprobadas) sí se pueden subir al repositorio.\n"
@@ -48,6 +50,28 @@ ARCHIVO_RUN = "run.json"
 # Estados de una corrida: "en_curso" hasta que termina; luego el estado final del
 # orquestador ("fin" o "fallo_controlado"). Si la app se cierra a mitad, queda "en_curso".
 ESTADOS_RUN = ("en_curso", "fin", "fallo_controlado")
+
+
+def migrar_carpeta_anterior(raiz: str | Path) -> bool:
+    """Renombra `<raiz>/.pyagent/` a `<raiz>/.qagent/` si solo existe la anterior.
+
+    Conserva las corridas, specs y pruebas aprobadas de versiones previas. Si ya existe
+    `.qagent/` no toca nada: nunca mezcla ni sobrescribe carpetas.
+
+    Returns:
+        True si se renombró la carpeta.
+
+    Raises:
+        OSError: si la carpeta anterior existe pero no se puede renombrar.
+    """
+    raiz = Path(raiz)
+    anterior, nueva = raiz / CARPETA_ANTERIOR, raiz / CARPETA
+    if not anterior.is_dir() or nueva.exists():
+        return False
+    anterior.rename(nueva)
+    return True
+
+
 # "vigente" se reutiliza en regresión; "obsoleta" cuando el código cambió (HU-24).
 ESTADOS_SPEC = ("vigente", "obsoleta")
 ACCIONES_SPEC_MODULO = ("generado", "reutilizado", "regenerado")
@@ -124,16 +148,16 @@ def id_de_modulo(modulo: str) -> str:
 
 
 def nombre_spec_modulo(modulo: str) -> str:
-    """Nombre de `.pyagent/specs/<modulo>.spec.json` sin colisiones por carpetas."""
+    """Nombre de `.qagent/specs/<modulo>.spec.json` sin colisiones por carpetas."""
     return f"{id_de_modulo(modulo)}.spec.json"
 
 
 class AlmacenProyecto:
-    """Acceso a `.pyagent/` de un proyecto. Cada instancia lee del disco: no guarda caché.
+    """Acceso a `.qagent/` de un proyecto. Cada instancia lee del disco: no guarda caché.
 
     Atributos:
         raiz: carpeta del proyecto del usuario.
-        carpeta: `<raiz>/.pyagent`.
+        carpeta: `<raiz>/.qagent`.
         carpeta_runs, carpeta_specs, carpeta_tests: subcarpetas de `carpeta`.
     """
 
@@ -146,17 +170,18 @@ class AlmacenProyecto:
         self.carpeta_tests = self.carpeta / "tests"
 
     def existe(self) -> bool:
-        """Indica si el proyecto ya tiene la carpeta `.pyagent/`."""
+        """Indica si el proyecto ya tiene la carpeta `.qagent/`."""
         return self.carpeta.is_dir()
 
     def inicializar(self) -> None:
-        """Crea `.pyagent/`, sus subcarpetas y el `.gitignore` si faltan (idempotente).
+        """Crea `.qagent/`, sus subcarpetas y el `.gitignore` si faltan (idempotente).
 
         Nunca borra ni sobrescribe nada: un `.gitignore` editado por el usuario se respeta.
 
         Raises:
             OSError: si no se puede escribir en la carpeta del proyecto.
         """
+        migrar_carpeta_anterior(self.raiz)
         for carpeta in (self.carpeta_runs, self.carpeta_specs, self.carpeta_tests):
             carpeta.mkdir(parents=True, exist_ok=True)
         gitignore = self.carpeta / ".gitignore"

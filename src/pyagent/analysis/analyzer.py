@@ -17,7 +17,7 @@ Qué analiza:
       dos veces.
 
 Qué ignora:
-    * Carpetas ``tests/``, ``.pyagent/`` y cualquier carpeta que empiece con
+    * Carpetas ``tests/``, ``.qagent/`` y cualquier carpeta que empiece con
       punto (``.git``, ``.venv``, ``.idea``...), además de ``__pycache__``,
       ``venv``, ``node_modules``, ``site-packages``, ``mutants`` y ``*.egg-info``.
 

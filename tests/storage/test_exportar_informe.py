@@ -35,7 +35,7 @@ CLAVE_ANTHROPIC_FALSA = "sk-ant-" + "Z9y8X7w6" * 4
 
 @pytest.fixture
 def corrida_con_specs(tmp_path: Path, precios):  # noqa: F811
-    """Corrida registrada en .pyagent/runs/<run_id>/ con specs reutilizados y regenerados."""
+    """Corrida registrada en .qagent/runs/<run_id>/ con specs reutilizados y regenerados."""
     almacen = AlmacenProyecto(tmp_path)
     almacen.inicializar()
     run = almacen.crear_run(tipos_prueba=["funcion"])
@@ -80,7 +80,7 @@ def test_criterio2_guarda_por_defecto_en_carpeta_de_la_corrida_con_nombres_ofici
 ) -> None:
     raiz, rutas = corrida_con_specs
     run_id = rutas.run_id
-    carpeta_esperada = raiz / ".pyagent" / "runs" / run_id
+    carpeta_esperada = raiz / ".qagent" / "runs" / run_id
 
     res_pdf = exportar_informe(raiz, run_id=run_id, formato="pdf")
     res_md = exportar_informe(raiz, run_id=run_id, formato="md")

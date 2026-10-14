@@ -28,7 +28,8 @@ EXCLUIDOS_DE_LA_COPIA = (
     ".git",
     ".venv",
     "venv",
-    ".pyagent",
+    ".qagent",
+    ".pyagent",  # carpeta de versiones anteriores, por si quedó sin migrar
     "__pycache__",
     "node_modules",
     ".env",
@@ -55,7 +56,7 @@ AlTerminar = Callable[[Path, Path], None]
 def copiar_proyecto(ruta_proyecto: str | Path, destino: str | Path) -> Path:
     """Copia el proyecto a `destino` sin carpetas pesadas ni secretos.
 
-    Excluye `.git`, entornos virtuales, `.pyagent`, cachés, `node_modules`, archivos `.env`
+    Excluye `.git`, entornos virtuales, `.qagent`, cachés, `node_modules`, archivos `.env`
     y otros archivos de credenciales (llaves `.pem`/`.key`/SSH, `.netrc`, `.pypirc`).
     Los enlaces simbólicos se copian como enlaces, sin seguirlos.
 

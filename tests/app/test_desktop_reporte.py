@@ -97,9 +97,9 @@ def test_exportar_informe_en_modo_demostracion_crea_archivos_reales(tmp_path) ->
         assert verificar_archivo_sin_claves(ruta) == []
 
     # Verifica que results.json quedó creado en la carpeta de la corrida y el PDF abre con las 5 métricas
-    assert (tmp_path / ".pyagent" / "runs" / "8841-B" / "results.json").is_file()
+    assert (tmp_path / ".qagent" / "runs" / "8841-B" / "results.json").is_file()
     texto_pdf = extraer_texto_pdf(
-        tmp_path / ".pyagent" / "runs" / "8841-B" / "informe_8841-B.pdf"
+        tmp_path / ".qagent" / "runs" / "8841-B" / "informe_8841-B.pdf"
     )
     assert "66.7% (6/9)" in texto_pdf
     assert "53.3% (6 críticas)" in texto_pdf

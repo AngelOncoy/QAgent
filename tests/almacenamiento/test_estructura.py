@@ -1,4 +1,4 @@
-"""EN-07 (criterio 1): estructura `.pyagent/` dentro del proyecto abierto."""
+"""EN-07 (criterio 1): estructura `.qagent/` dentro del proyecto abierto."""
 
 from __future__ import annotations
 
@@ -23,7 +23,7 @@ def test_inicializar_crea_runs_specs_tests_y_gitignore(tmp_path: Path):
     almacen = AlmacenProyecto(tmp_path)
     almacen.inicializar()
 
-    carpeta = tmp_path / ".pyagent"
+    carpeta = tmp_path / ".qagent"
     assert almacen.existe()
     assert sorted(p.name for p in carpeta.iterdir()) == [
         ".gitignore",
@@ -67,7 +67,7 @@ def test_inicializar_respeta_un_gitignore_editado_por_el_usuario(tmp_path: Path)
 @pytest.fixture
 def api(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> desktop.DesktopAPI:
     """Puente sin ventana y con recientes en un home temporal (nunca el real)."""
-    archivo = tmp_path / "home" / ".pyagent" / "recientes.json"
+    archivo = tmp_path / "home" / ".qagent" / "recientes.json"
     monkeypatch.setattr(desktop.recientes, "ruta_por_defecto", lambda: archivo)
     return desktop.DesktopAPI()
 
@@ -84,17 +84,17 @@ def test_abrir_proyecto_crea_pyagent(api, tmp_path: Path):
 
     assert api.abrir_proyecto(str(carpeta))["ok"]
 
-    assert (carpeta / ".pyagent" / "runs").is_dir()
+    assert (carpeta / ".qagent" / "runs").is_dir()
 
 
 def test_abrir_reciente_crea_pyagent_si_falta(api, tmp_path: Path):
     carpeta = _proyecto(tmp_path)
     api.abrir_proyecto(str(carpeta))
-    shutil.rmtree(carpeta / ".pyagent")
+    shutil.rmtree(carpeta / ".qagent")
 
     assert api.abrir_reciente(str(carpeta))["ok"]
 
-    assert (carpeta / ".pyagent" / "specs").is_dir()
+    assert (carpeta / ".qagent" / "specs").is_dir()
 
 
 def test_si_no_se_puede_crear_pyagent_el_proyecto_se_abre_igual(
@@ -107,4 +107,4 @@ def test_si_no_se_puede_crear_pyagent_el_proyecto_se_abre_igual(
     carpeta = _proyecto(tmp_path)
 
     assert api.abrir_proyecto(str(carpeta))["ok"]
-    assert not (carpeta / ".pyagent").exists()
+    assert not (carpeta / ".qagent").exists()

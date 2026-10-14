@@ -69,10 +69,10 @@ def test_los_pasos_normales_salen_como_info(salida, tipo):
 
 
 def test_quita_el_html_y_las_entidades_de_los_mensajes():
-    texto = 'Spec vigente (<span class="mono">.pyagent/specs/a.json</span>) &amp; reutilizado'
+    texto = 'Spec vigente (<span class="mono">.qagent/specs/a.json</span>) &amp; reutilizado'
     assert (
         bitacora.limpiar_texto(texto)
-        == "Spec vigente (.pyagent/specs/a.json) & reutilizado"
+        == "Spec vigente (.qagent/specs/a.json) & reutilizado"
     )
 
 

@@ -154,7 +154,7 @@ def test_ignora_carpetas_excluidas_y_funciones_privadas(tmp_path):
         "def publica():\n    pass\n\ndef _privada():\n    pass\n",
     )
     escribir(tmp_path, "tests/test_algo.py", "def test_algo():\n    pass\n")
-    escribir(tmp_path, ".pyagent/specs/x.py", "def spec():\n    pass\n")
+    escribir(tmp_path, ".qagent/specs/x.py", "def spec():\n    pass\n")
     escribir(tmp_path, ".venv/lib/paquete.py", "def externa():\n    pass\n")
     escribir(tmp_path, "app/tests/test_interno.py", "def test_interno():\n    pass\n")
 

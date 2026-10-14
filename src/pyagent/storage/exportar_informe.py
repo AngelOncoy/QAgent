@@ -5,7 +5,7 @@ Genera el informe de una corrida en tres formatos:
 - Markdown (`informe_<run_id>.md`)
 - JSON (`results_<run_id>.json`)
 
-Por defecto se guarda en `<proyecto>/.pyagent/runs/<run_id>/`, o en la carpeta que el
+Por defecto se guarda en `<proyecto>/.qagent/runs/<run_id>/`, o en la carpeta que el
 usuario elija. Todas las cifras salen de `results.json` (las mismas que muestra la
 pantalla en HU-18 y HU-21), y todo el contenido pasa por el filtro de secretos (RN-07)
 para que nunca incluya claves de IA.
@@ -88,7 +88,7 @@ def nombre_archivo_informe(run_id: str, formato: str) -> str:
 
 
 def carpeta_por_defecto(raiz_proyecto: str | Path, run_id: str) -> Path:
-    """Carpeta por defecto donde se guarda el informe: `<proyecto>/.pyagent/runs/<run_id>/`."""
+    """Carpeta por defecto donde se guarda el informe: `<proyecto>/.qagent/runs/<run_id>/`."""
     return Path(raiz_proyecto) / CARPETA_RUNS / Path(run_id).name
 
 
@@ -202,7 +202,7 @@ def resumen_specs_corrida(raiz_proyecto: str | Path, run_id: str) -> dict[str, A
     if generados:
         mods = f" ({', '.join(por_estado['generado'])})"
         partes.append(f"{generados} generados{mods}")
-    texto = " · ".join(partes) + " · guardados en `.pyagent/specs/`"
+    texto = " · ".join(partes) + " · guardados en `.qagent/specs/`"
 
     return {
         "reutilizados": reutilizados,

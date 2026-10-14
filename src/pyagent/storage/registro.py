@@ -1,6 +1,6 @@
 """Escritura de log.json y results.json de una corrida (EN-05).
 
-Ruta: `<proyecto>/.pyagent/runs/<run_id>/`. Ambos archivos se validan contra
+Ruta: `<proyecto>/.qagent/runs/<run_id>/`. Ambos archivos se validan contra
 `contracts/run_log.schema.json` antes de escribirse y se escriben de forma atómica.
 """
 
@@ -26,7 +26,8 @@ if (
 ):  # solo para type hints: storage no depende del orquestador en ejecución
     from pyagent.orchestrator import ResultadoCorrida
 
-CARPETA_RUNS = Path(".pyagent") / "runs"
+# Igual que `pyagent.almacenamiento.proyecto.CARPETA` (no se importa: sería circular).
+CARPETA_RUNS = Path(".qagent") / "runs"
 ARCHIVO_DETALLE = "detalle.json"
 #: Mínimo de cobertura si la corrida no trae metas (meta de la carta, ADR-001).
 COBERTURA_MINIMA = 60.0
@@ -67,7 +68,7 @@ def escribir_corrida(
     """Genera, valida y escribe log.json y results.json de una corrida.
 
     Args:
-        raiz_proyecto: carpeta del proyecto analizado (donde vive `.pyagent/`).
+        raiz_proyecto: carpeta del proyecto analizado (donde vive `.qagent/`).
         resultados: un `ResultadoCorrida` por módulo procesado.
         tracker: registro de llamadas compartido con los agentes.
         precios: modelos y precios por agente (`cargar_precios()`).

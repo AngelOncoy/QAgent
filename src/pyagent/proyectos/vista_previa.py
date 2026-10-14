@@ -10,7 +10,7 @@ Criterios de aceptación (HU-04):
    de ramas (if/else, try/except).
 2. La información se obtiene por análisis estático (AST): el código del usuario
    no se ejecuta.
-3. La carpeta tests/ existente y la carpeta .pyagent/ se ignoran.
+3. La carpeta tests/ existente y la carpeta .qagent/ se ignoran.
 4. Las funciones sin docstring se marcan "⚠ falta" con el aviso: el valor esperado
    no tendrá fuente (oráculo débil).
 5. Un archivo con error de sintaxis se marca "no se pudo analizar" sin detener el

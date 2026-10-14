@@ -2,7 +2,7 @@
 
 Cerrar y reabrir la app se simula de dos formas: con instancias nuevas sobre las mismas
 carpetas y, en la última prueba, leyendo desde otro proceso de Python. El home del
-usuario es siempre una carpeta temporal: nunca se toca el `~/.pyagent` real.
+usuario es siempre una carpeta temporal: nunca se toca el `~/.qagent` real.
 """
 
 from __future__ import annotations
@@ -107,7 +107,7 @@ def test_recientes_persisten_en_el_home_entre_sesiones(home: Path, proyecto: Pat
 
     otra_sesion = desktop.DesktopAPI()
 
-    archivo = home / ".pyagent" / "recientes.json"
+    archivo = home / ".qagent" / "recientes.json"
     assert recientes.ruta_por_defecto() == archivo
     [entrada] = json.loads(archivo.read_text(encoding="utf-8"))
     assert set(entrada) == {"nombre", "origen", "ruta", "url", "ultima_apertura"}
@@ -116,7 +116,7 @@ def test_recientes_persisten_en_el_home_entre_sesiones(home: Path, proyecto: Pat
 
 def test_un_recientes_json_del_formato_anterior_se_sigue_leyendo(home: Path):
     """El archivo que dejó la HU-01 antes de mover el módulo se lee igual."""
-    archivo = home / ".pyagent" / "recientes.json"
+    archivo = home / ".qagent" / "recientes.json"
     archivo.parent.mkdir()
     anterior = [
         {
@@ -134,7 +134,7 @@ def test_un_recientes_json_del_formato_anterior_se_sigue_leyendo(home: Path):
 
 
 def test_recientes_json_corrupto_no_tumba_la_app(home: Path, proyecto: Path):
-    archivo = home / ".pyagent" / "recientes.json"
+    archivo = home / ".qagent" / "recientes.json"
     archivo.parent.mkdir()
     archivo.write_text("[{", encoding="utf-8")
     api = desktop.DesktopAPI()

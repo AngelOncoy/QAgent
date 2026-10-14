@@ -1,7 +1,7 @@
 """Datos de la vista «Ejecución de pruebas» (HU-18), calculados solo desde results.json.
 
 La pantalla no calcula ni inventa cifras: muestra lo que devuelve `vista_ejecucion()`,
-que sale de `.pyagent/runs/<run_id>/results.json`. Así los indicadores de la pantalla
+que sale de `.qagent/runs/<run_id>/results.json`. Así los indicadores de la pantalla
 coinciden siempre con el archivo (criterio de aceptación 5).
 
 Las corridas guardadas antes de HU-18 no traen algunos campos del resumen (ramas,

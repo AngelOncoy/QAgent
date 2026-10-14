@@ -262,7 +262,7 @@ class DesktopAPI:
     def obtener_ejecucion(self, ruta: str, run_id: str | None = None) -> dict:
         """Datos de la vista Ejecución de una corrida (HU-18).
 
-        Todo sale de `.pyagent/runs/<run_id>/results.json` (por defecto, la corrida más
+        Todo sale de `.qagent/runs/<run_id>/results.json` (por defecto, la corrida más
         reciente con resultados): indicadores comparados con las metas, filtros por
         estado y pruebas agrupadas por módulo.
 
@@ -305,7 +305,7 @@ class DesktopAPI:
         return {"ok": True, **vista_reporte(results, detalle)}
 
     def carpeta_corrida(self, ruta: str, run_id: str | None = None) -> str:
-        """Devuelve la carpeta por defecto `<proyecto>/.pyagent/runs/<run_id>/` para exportar."""
+        """Devuelve la carpeta por defecto `<proyecto>/.qagent/runs/<run_id>/` para exportar."""
         from pyagent.storage.corrida_demo import CORRIDA_DEMO_ID
         from pyagent.storage.exportar_informe import carpeta_por_defecto
 
@@ -314,7 +314,7 @@ class DesktopAPI:
         return str(carpeta) + "\\"
 
     def abrir_carpeta_corrida(self, ruta: str, run_id: str | None = None) -> dict:
-        """Abre la carpeta `.pyagent/runs/<run_id>/` en el explorador de archivos."""
+        """Abre la carpeta `.qagent/runs/<run_id>/` en el explorador de archivos."""
         from pyagent.storage.corrida_demo import CORRIDA_DEMO_ID, asegurar_corrida_demo
         from pyagent.storage.exportar_informe import carpeta_por_defecto
 
@@ -343,7 +343,7 @@ class DesktopAPI:
     ) -> dict:
         """Exporta el informe de la corrida como evidencia en PDF, Markdown o JSON (HU-22).
 
-        Por defecto se guarda en `<proyecto>/.pyagent/runs/<run_id>/` como
+        Por defecto se guarda en `<proyecto>/.qagent/runs/<run_id>/` como
         `informe_<run_id>.pdf` o `.md`, o `results_<run_id>.json`; si se indica
         `carpeta_destino`, se escribe en esa carpeta.
 
@@ -429,7 +429,7 @@ class DesktopAPI:
         Returns:
             dict: ``{"status": "started", ..., "run_id", "modo"}`` con ``modo`` igual
             a ``"real"`` o ``"demostracion"`` (``run_id`` es None si el proyecto no
-            tiene ``.pyagent/``); si Docker no está disponible,
+            tiene ``.qagent/``); si Docker no está disponible,
             ``{"status": "docker_no_disponible", "mensaje": str}``; si falta otra cosa
             del entorno, ``{"status": "blocked", "motivo": str, "problemas": list}``;
             si ya hay una corrida en curso, ``{"status": "en_curso", "mensaje": str}``.
@@ -680,20 +680,20 @@ def _mostrar_en_explorador(objetivo: Path, seleccionar_archivo: bool = True) -> 
 
 
 def _preparar_almacen(ruta: str) -> None:
-    """Crea `.pyagent/` en el proyecto abierto (EN-07) sin impedir que se abra.
+    """Crea `.qagent/` en el proyecto abierto (EN-07) sin impedir que se abra.
 
     Si la carpeta es de solo lectura, el proyecto se abre igual y queda un aviso.
     """
     try:
         AlmacenProyecto(ruta).inicializar()
     except OSError as exc:
-        bitacora.registro.warning("No se pudo crear .pyagent/ en '%s': %s", ruta, exc)
+        bitacora.registro.warning("No se pudo crear .qagent/ en '%s': %s", ruta, exc)
 
 
 def _registrar_run(ruta: str, usa_docker: bool) -> str | None:
-    """Crea `.pyagent/runs/<run_id>/run.json` de la corrida que empieza (EN-07).
+    """Crea `.qagent/runs/<run_id>/run.json` de la corrida que empieza (EN-07).
 
-    Solo en proyectos abiertos (con `.pyagent/` ya creado al abrirlos). Un fallo al
+    Solo en proyectos abiertos (con `.qagent/` ya creado al abrirlos). Un fallo al
     escribir no impide la corrida: queda un aviso y se devuelve None. `usa_docker` es
     False en modo demostración: ahí no se ejecuta nada en el sandbox.
     """
@@ -760,6 +760,10 @@ def _registrar_estado_configuracion() -> None:
 def main() -> None:
     """Punto de entrada de la aplicación de escritorio."""
     _registrar_estado_configuracion()
+    if recientes.migrar_carpeta_anterior():
+        bitacora.registro.info(
+            "Se migró ~/.pyagent/ a ~/.qagent/ (proyectos recientes)."
+        )
     # Se carga como file:// y no como ruta: con una ruta, pywebview sirve la carpeta con un servidor
     # HTTP interno cuya cola admite 5 conexiones, y al abrir la ventana (decenas de CSS, JS y fuentes
     # a la vez) rechaza algunas peticiones al azar y la interfaz queda sin estilos o sin scripts.

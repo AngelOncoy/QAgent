@@ -9,7 +9,7 @@ Une las piezas que ya existían por separado:
 4. Corta antes del siguiente módulo si se alcanzó el tope de gasto de `config.toml`.
 5. Reutiliza la spec modular si su huella sigue vigente; si cambió, llama al Planner.
 6. Escribe `log.json` y `results.json` (EN-05) en la carpeta de la corrida, guarda las
-   specs y las pruebas aprobadas en `.pyagent/` y cierra el `run.json` (EN-07).
+   specs y las pruebas aprobadas en `.qagent/` y cierra el `run.json` (EN-07).
 
 No depende de la interfaz: la app la llama en un hilo y le pasa una función para los
 eventos. Nunca lanza excepciones: cualquier problema termina en `fallo_controlado` con
@@ -97,7 +97,7 @@ def ejecutar_corrida(
         simulado: True con `PYAGENT_FAKE_LLM=1` (0 tokens).
         al_evento: recibe cada evento como dict (`Evento.a_dict()` + `progreso`).
         run_id: corrida creada al pulsar «Iniciar» (`run.json`); si es None se crea una
-            si el proyecto tiene `.pyagent/`.
+            si el proyecto tiene `.qagent/`.
         preparar_imagen: devuelve la imagen Docker del sandbox para el proyecto; por
             defecto `sandbox.preparar_imagen` (construye la base si falta).
         ejecutor: cómo ejecuta el Reviewer las pruebas (Docker; reemplazable en pruebas).

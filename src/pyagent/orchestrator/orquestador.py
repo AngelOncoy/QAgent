@@ -56,7 +56,7 @@ class ResultadoObjetivo:
     laundering_detectado: bool = False
     motivo_estancado: str | None = None
     revisiones: list[Contrato] = field(default_factory=list)
-    #: Contrato del Planner (se guarda como spec en `.pyagent/specs/`, EN-07).
+    #: Contrato del Planner (se guarda como spec en `.qagent/specs/`, EN-07).
     contrato: Contrato | None = None
     #: Código del último test generado; si la decisión es `accept`, es la prueba aprobada.
     codigo: str | None = None

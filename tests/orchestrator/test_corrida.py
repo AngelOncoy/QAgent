@@ -1,4 +1,4 @@
-"""Corrida completa sobre el banco: análisis → agentes → registro en .pyagent/ (EN-04).
+"""Corrida completa sobre el banco: análisis → agentes → registro en .qagent/ (EN-04).
 
 Usa la IA simulada y un ejecutor que reemplaza a Docker: no ejecuta ningún código, solo
 responde como lo haría pytest según la función que prueba el test generado.

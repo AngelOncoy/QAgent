@@ -1,4 +1,4 @@
-"""Registro de proyectos recientes en ``~/.pyagent/recientes.json`` — HU-01.
+"""Registro de proyectos recientes en ``~/.qagent/recientes.json`` — HU-01.
 
 Formato del archivo: una lista JSON (más reciente primero) de entradas
 ``{"nombre", "origen", "ruta", "url", "ultima_apertura"}``.
@@ -7,7 +7,7 @@ La HU-03 agrega ``listar`` (hasta 10, con ``encontrada``), ``abrir``, ``quitar``
 y ``registrar_corrida``. Esta última guarda el campo opcional ``ultima_corrida``,
 que ``registrar`` conserva al volver a abrir un proyecto.
 
-Vive en ``pyagent.almacenamiento`` (EN-07) junto con ``.pyagent/`` de cada proyecto;
+Vive en ``pyagent.almacenamiento`` (EN-07) junto con ``.qagent/`` de cada proyecto;
 el formato del archivo no cambió.
 """
 
@@ -22,6 +22,9 @@ from typing import Any
 from pyagent.almacenamiento.disco import escribir_json_atomico
 
 MAXIMO_RECIENTES = 50
+CARPETA_HOME = ".qagent"
+#: Carpeta del home en versiones anteriores (cuando el producto se llamaba PyAgent).
+CARPETA_HOME_ANTERIOR = ".pyagent"
 MAXIMO_VISIBLES = 10
 ORIGENES = ("local", "git")
 CAMPOS = ("nombre", "origen", "ruta", "url", "ultima_apertura")
@@ -32,7 +35,28 @@ CAMPO_CORRIDA = (
 
 def ruta_por_defecto() -> Path:
     """Devuelve la ubicación del archivo de recientes en el home del usuario."""
-    return Path.home() / ".pyagent" / "recientes.json"
+    return Path.home() / CARPETA_HOME / "recientes.json"
+
+
+def migrar_carpeta_anterior(home: str | os.PathLike[str] | None = None) -> bool:
+    """Renombra `~/.pyagent/` a `~/.qagent/` si solo existe la anterior.
+
+    Así se conservan los proyectos recientes de versiones previas. Si ya existe
+    `~/.qagent/` no toca nada. Nunca lanza excepciones: si no se puede renombrar,
+    la app arranca igual con la lista vacía.
+
+    Returns:
+        True si se renombró la carpeta.
+    """
+    base = Path(home) if home is not None else Path.home()
+    anterior, nueva = base / CARPETA_HOME_ANTERIOR, base / CARPETA_HOME
+    if not anterior.is_dir() or nueva.exists():
+        return False
+    try:
+        anterior.rename(nueva)
+    except OSError:
+        return False
+    return True
 
 
 def _clave(ruta: str) -> str:

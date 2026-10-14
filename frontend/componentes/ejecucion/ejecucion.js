@@ -123,7 +123,7 @@ function logCls(l){ return l.includes('PASSED')?'lg-ok':(l.includes('REJECT')||l
 
 /* ---------------- Ejecución de una corrida real (HU-18) ----------------
    Todo lo que se muestra viene de obtener_ejecucion() de Python, que lo calcula desde
-   .pyagent/runs/<run_id>/results.json: aquí no se calcula ni se escribe ninguna cifra. */
+   .qagent/runs/<run_id>/results.json: aquí no se calcula ni se escribe ninguna cifra. */
 let ejecucionReal = null;
 const ESTADO_REAL = {   // estado de la vista -> colores e íconos del catálogo ST
   aprobado:{st:'passed', txt:'APROBADO'},

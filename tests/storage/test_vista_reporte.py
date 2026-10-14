@@ -23,7 +23,7 @@ METAS = {
 
 @pytest.fixture
 def corrida(tmp_path, precios):  # noqa: F811
-    """Corrida aceptada en el segundo intento, escrita en .pyagent/runs/."""
+    """Corrida aceptada en el segundo intento, escrita en .qagent/runs/."""
     tracker, resultado = correr(precios, decisiones=("retry", "accept"))
     rutas = escribir_corrida(
         tmp_path, resultado, tracker, precios, "deep", metas=METAS, rama="develop"

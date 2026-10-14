@@ -1,4 +1,4 @@
-"""Almacenamiento de las corridas en `.pyagent/` dentro del proyecto analizado."""
+"""Almacenamiento de las corridas en `.qagent/` dentro del proyecto analizado."""
 
 from pyagent.storage.exportar_informe import (
     FormatoInvalido,

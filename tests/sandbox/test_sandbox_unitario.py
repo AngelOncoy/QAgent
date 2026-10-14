@@ -41,7 +41,7 @@ def proyecto(tmp_path: Path) -> Path:
     (raiz / ".env.local").write_text("CLAVE=secreta\n", encoding="utf-8")
     (raiz / ".git").mkdir()
     (raiz / ".git" / "config").write_text("[core]\n", encoding="utf-8")
-    for carpeta in (".venv", "venv", ".pyagent", "node_modules", "paquete/__pycache__"):
+    for carpeta in (".venv", "venv", ".qagent", "node_modules", "paquete/__pycache__"):
         (raiz / carpeta).mkdir(parents=True)
         (raiz / carpeta / "x.txt").write_text("x", encoding="utf-8")
     return raiz

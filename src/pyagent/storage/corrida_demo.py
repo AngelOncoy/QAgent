@@ -1,7 +1,7 @@
 """Datos simulados de la corrida #8841-B para demostración y exportación en escritorio (HU-22).
 
 Cuando la aplicación de escritorio corre en modo demostración (sin Docker activo),
-materializa `.pyagent/runs/8841-B/results.json`, `detalle.json` y `run.json` con los
+materializa `.qagent/runs/8841-B/results.json`, `detalle.json` y `run.json` con los
 mismos datos que muestra la pantalla para que `exportar_informe` genere archivos reales
 (`.pdf`, `.md` y `.json`) a partir de `results.json`.
 """
@@ -622,7 +622,7 @@ def construir_archivos_demo(
 def asegurar_corrida_demo(
     raiz_proyecto: str | Path, run_id: str = CORRIDA_DEMO_ID
 ) -> Path:
-    """Garantiza que exista `.pyagent/runs/<run_id>/results.json` y `detalle.json`."""
+    """Garantiza que exista `.qagent/runs/<run_id>/results.json` y `detalle.json`."""
     carpeta = Path(raiz_proyecto) / CARPETA_RUNS / Path(run_id).name
     carpeta.mkdir(parents=True, exist_ok=True)
     ruta_results = carpeta / ARCHIVO
