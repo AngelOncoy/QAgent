@@ -41,14 +41,14 @@ registrarComponente('sidebar/sidebar', `<!-- ======================= SIDEBAR ===
       <div class="row" id="sbRow"><b>Sandbox Runner:</b></div>
       <div class="row"><span>Reintentos max:</span><span>3 por test</span></div>
     </div>
-    <div class="sidebottom"><span>☾ Tema Oscuro</span><span class="mono">⑂ <span id="branchLbl">main</span></span></div>
+    <div class="sidebottom"><span>Tema:</span><span>Oscuro</span><span id="branchLbl" style="display:none">main</span></div>
   </div>
 </aside>
 `);
 
 /* Indicador de estado del sandbox: consulta a Python al abrir y cada 15 s */
 const SANDBOX_UI = {
-  ok:           {dot:'dot',       txt:'ok',   label:'pyagent-sandbox:base',          ayuda:''},
+  ok:           {dot:'dot',       txt:'ok',   label:'qagent-sandbox:base',          ayuda:''},
   sin_imagen:   {dot:'dot amber', txt:'warn', label:'Falta imagen base',     ayuda:''},
   no_iniciado:  {dot:'dot red',   txt:'no',   label:'Sandbox no disponible', ayuda:'Abre Docker Desktop'},
   no_instalado: {dot:'dot red',   txt:'no',   label:'Sandbox no disponible', ayuda:'Instala Docker Desktop'},

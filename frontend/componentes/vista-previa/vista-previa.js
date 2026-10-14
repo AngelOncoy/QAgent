@@ -302,7 +302,7 @@ function renderTree(){
     }
   });
   h += '<div class="row dir ign">📁 tests/ <span class="n">ignorado</span></div>';
-  h += '<div class="row dir ign">📁 .pyagent/ <span class="n">ignorado</span></div>';
+  h += '<div class="row dir ign">📁 .qagent/ <span class="n">ignorado</span></div>';
   $('tree').innerHTML = h;
   renderFns();
 }

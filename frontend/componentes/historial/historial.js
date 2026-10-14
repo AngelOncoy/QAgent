@@ -5,7 +5,7 @@ registrarComponente('historial/historial', `<!-- ===== 7. HISTORIAL DE CORRIDAS 
   <div class="page">
     <div class="card"><div class="projhead">
       <span class="t">Historial · <span class="repoName"></span></span>
-      <span class="pill p-grey">Se guarda en <span class="mono">.pyagent/</span> dentro del proyecto · no se borra entre sesiones</span>
+      <span class="pill p-grey">Se guarda en <span class="mono">.qagent/</span> dentro del proyecto · no se borra entre sesiones</span>
     </div></div>
     <div class="card">
       <h4>Corridas <span class="pill p-grey" id="histCount"></span></h4>
@@ -16,7 +16,7 @@ registrarComponente('historial/historial', `<!-- ===== 7. HISTORIAL DE CORRIDAS 
       <div class="hint" style="padding:10px 16px 14px">El costo baja cuando se reutilizan specs (se omite el Planner, el agente más caro) y es cero en Regresión (no se llama a ninguna IA). La columna Modelos distingue corridas de control, por ejemplo los 3 agentes con el mismo modelo.</div>
     </div>
     <div class="card">
-      <h4>Specs guardados <span class="pill p-grey">.pyagent/specs/</span>
+      <h4>Specs guardados <span class="pill p-grey">.qagent/specs/</span>
         <button class="btn" style="margin-left:auto;font-size:10.5px;padding:6px 10px;text-transform:none;letter-spacing:0" onclick="descargarSpecsReal(null)">⤓ Descargar todos (.zip)</button></h4>
       <div class="table-scroll"><table>
         <thead><tr><th>Archivo</th><th>Funciones</th><th>Huella del código</th><th>Generado en</th><th>Estado</th><th></th></tr></thead>
@@ -60,7 +60,7 @@ function renderHistoryDemo(){
     const fns = RUN.filter(f=>f.module===mod), st = SPEC_STATUS[mod], name = specName(mod);
     const data = {modulo:mod, huella_codigo:SPEC_HASH[mod], generado_en:'#'+(st==='reuse'?'8730-A':RUN_ID), generado_por:'Planner v2.4', funciones:fns.map(f=>f.contract)};
     return `<tr>
-      <td class="fn">.pyagent/specs/${name}<div class="sub">${mod}</div></td>
+      <td class="fn">.qagent/specs/${name}<div class="sub">${mod}</div></td>
       <td>${fns.map(f=>`<div class="mono" style="font-size:11px">${f.name}</div>`).join('')}</td>
       <td class="mono">${SPEC_HASH[mod]}</td>
       <td class="mono">#${st==='reuse'?'8730-A':RUN_ID}</td>
@@ -100,7 +100,7 @@ function renderHistoryReal(datos){
         ? '<span class="pill p-amber">↻ Regenerado (el código cambió)</span>'
         : '<span class="pill p-blue">Generado</span>';
     return `<tr>
-      <td class="fn">.pyagent/specs/${escHtml(spec.archivo)}<div class="sub">${escHtml(spec.modulo)}</div></td>
+      <td class="fn">.qagent/specs/${escHtml(spec.archivo)}<div class="sub">${escHtml(spec.modulo)}</div></td>
       <td>${(spec.funciones || []).map(f=>`<div class="mono" style="font-size:11px">${escHtml(f)}</div>`).join('')}</td>
       <td class="mono" title="${escHtml(spec.huella)}">${escHtml(spec.huella.slice(0,12))}…</td>
       <td class="mono">#${escHtml(spec.run_origen)}</td><td>${estado}</td>

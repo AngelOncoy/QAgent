@@ -42,7 +42,7 @@ function proyectoBaseExportar(){
 
 function carpetaPorDefectoExportar(){
   const base = String(proyectoBaseExportar() || '').replace(/[\\/]+$/, '');
-  return base + '\\.pyagent\\runs\\' + runIdExportar() + '\\';
+  return base + '\\.qagent\\runs\\' + runIdExportar() + '\\';
 }
 
 function opcionesExportar(){
@@ -87,7 +87,7 @@ async function abrirCarpetaCorrida(){
       return;
     }
   }
-  toast('En la app de escritorio se abre la carpeta '+projectPath+'\\.pyagent\\runs\\'+RUN_ID+' <span style="color:var(--dim)">(simulado)</span>');
+  toast('En la app de escritorio se abre la carpeta '+projectPath+'\\.qagent\\runs\\'+RUN_ID+' <span style="color:var(--dim)">(simulado)</span>');
 }
 
 function setFmt(f){
@@ -218,7 +218,7 @@ function buildPdfBytes(){
   const rama = ($('branchLbl') && $('branchLbl').textContent) || 'main';
   const modelosTxt = `Planner: ${AGENTS_CFG.P.model} (Anthropic) | Generator: ${AGENTS_CFG.G.model} (Xiaomi) | Reviewer: ${AGENTS_CFG.R.model} (OpenAI)`;
   const costoAgTxt = `Planner: ${Math.round(m.agentTok.P)} tokens (US$ ${m.agentUsd.P.toFixed(4)}) | Generator: ${Math.round(m.agentTok.G)} tokens (US$ ${m.agentUsd.G.toFixed(4)}) | Reviewer: ${Math.round(m.agentTok.R)} tokens (US$ ${m.agentUsd.R.toFixed(4)})`;
-  const specsTxt = '4 reutilizados (services/pricing.py, services/inventory.py, services/payments.py, services/shipping.py) · 2 regenerados (services/cart.py, services/discounts.py) · guardados en .pyagent/specs/';
+  const specsTxt = '4 reutilizados (services/pricing.py, services/inventory.py, services/payments.py, services/shipping.py) · 2 regenerados (services/cart.py, services/discounts.py) · guardados en .qagent/specs/';
 
   const bloques = [];
   bloques.push({
@@ -943,7 +943,7 @@ function buildHtmlInteractivo(opts){
       <span class="meta-item">🌿 <b>Rama:</b> ${escHtml(rama)}</span>
       <span class="meta-item">📅 <b>Fecha:</b> ${escHtml(RUN_DATE)}</span>
       <span class="meta-item">🤖 <b>Modelos:</b> Planner: ${escHtml(AGENTS_CFG.P.model)} · Generator: ${escHtml(AGENTS_CFG.G.model)} · Reviewer: ${escHtml(AGENTS_CFG.R.model)}</span>
-      <span class="meta-item">♻️ <b>Specs:</b> 4 reutilizados · 2 regenerados (.pyagent/specs/)</span>
+      <span class="meta-item">♻️ <b>Specs:</b> 4 reutilizados · 2 regenerados (.qagent/specs/)</span>
     </div>
     <div class="card">
       <div class="card-head">📋 1. Resumen de las 5 métricas vs. metas de la carta</div>

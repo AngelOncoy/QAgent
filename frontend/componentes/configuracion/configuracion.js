@@ -15,15 +15,15 @@ registrarComponente('configuracion/configuracion', `<!-- ===== CONFIGURACIÓN DE
     <div class="grid2 cfg-grid">
       <div class="card"><h4>Límites de cada corrida</h4><div class="bd checks" id="cfgLimits"></div></div>
       <div class="card"><h4>Entorno y datos</h4><div class="bd checks">
-        <div class="c"><span class="i ok">✓</span><div>Sandbox: contenedor <span class="mono">pyagent-sandbox:base</span>, <b>sin red</b> y sin acceso a los archivos del equipo</div></div>
+        <div class="c"><span class="i ok">✓</span><div>Sandbox: contenedor <span class="mono">qagent-sandbox:base</span>, <b>sin red</b> y sin acceso a los archivos del equipo</div></div>
         <div class="c"><span class="i ok">✓</span><div>Claves de IA: solo en <span class="mono">.env</span> · aquí se ven enmascaradas, nunca se suben al repositorio y nunca entran al sandbox</div></div>
-        <div class="c"><span class="i ok">✓</span><div>Resultados, specs y pruebas guardadas: <span class="mono">&lt;proyecto&gt;/.pyagent/</span></div></div>
+        <div class="c"><span class="i ok">✓</span><div>Resultados, specs y pruebas guardadas: <span class="mono">&lt;proyecto&gt;/.qagent/</span></div></div>
         <div class="c"><span class="i ok">✓</span><div>Tipo de cambio para costos: S/ 3.37 por US$ (carta del proyecto)</div></div>
       </div></div>
     </div>
     <div class="card">
       <h4>Cómo se guarda</h4>
-      <div class="bd"><p class="hint" style="margin:0 0 10px">«Agregar API» escribe la key en <span class="mono">.env</span> (una variable por agente, ej. <span class="mono">GEMINI_API_KEY_PLANNER</span>) y en <span class="mono">config.toml</span> solo el proveedor y el modelo del agente. La lista de proveedores y modelos se edita en <span class="mono">src/pyagent/llm/proveedores.toml</span>.</p>
+      <div class="bd"><p class="hint" style="margin:0 0 10px">«Agregar API» escribe la key en <span class="mono">.env</span> (una variable por agente, ej. <span class="mono">GEMINI_API_KEY_PLANNER</span>) y en <span class="mono">config.toml</span> solo el proveedor y el modelo del agente. La lista de proveedores y modelos se edita en <span class="mono">config.toml</span>.</p>
 <pre class="rcode">[agentes.planner]
 proveedor = "gemini"
 modelo = "gemini-2.5-flash"
@@ -119,7 +119,6 @@ async function eliminarApi(agente){
 function renderConfig(){
   cargarRoles();
   $('cfgLimits').innerHTML = `
-    <div class="c"><span class="i ok">✓</span><div><b>Tope de gasto: S/ ${TOPE_PEN.toFixed(2)} por corrida</b><div class="hint" style="margin:0">La corrida no inicia si el costo estimado lo supera, y se detiene si el gasto real lo alcanza.</div></div></div>
     <div class="c"><span class="i ok">✓</span><div><b>Reintentos: ${MAX_RETRIES} por prueba</b><div class="hint" style="margin:0">Corte anticipado si el mismo error se repite dos veces seguidas.</div></div></div>
     <div class="c"><span class="i ok">✓</span><div><b>Mutation testing: solo en funciones críticas</b><div class="hint" style="margin:0">Nunca sobre el repositorio completo.</div></div></div>
     <div class="c"><span class="i ok">✓</span><div><b>Specs: se reutilizan si la huella del código no cambió</b></div></div>`;

@@ -13,4 +13,5 @@ window.onPyAgentEvent = function(event) {
     monitorFinReal(event.data);      // resumen de la corrida real (monitor.js)
   }
 };
+window.onQAgentEvent = window.onPyAgentEvent;
 
