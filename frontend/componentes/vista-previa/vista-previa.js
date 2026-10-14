@@ -209,6 +209,8 @@ async function loadProject(name, src, where, br='main', ruta=''){
     aplicarResumenDemo();   // modo demostración (navegador, sin Python)
   }
   HAS_PRIOR_RUN = await hayCorridaPrevia(ruta);
+  ejecucionReal = null;
+  reporteReal = null;
   if (typeof reiniciarVistasProyecto === 'function') reiniciarVistasProyecto();
   else document.querySelectorAll('#views a[data-v=exec],#views a[data-v=report],#views a[data-v=monitor],#views a[data-v=history]').forEach(a=>a.classList.add('hide','off'));
 

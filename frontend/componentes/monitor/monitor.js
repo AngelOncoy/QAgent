@@ -114,6 +114,7 @@ async function startMonitor(){
 }
 function finishRun(){
   if(runDone) return; runDone = true; clearInterval(monTimer);
+  ejecucionReal = null; reporteReal = null;
   registrarEnPython({tipo:'fin', agente:'Corrida #' + RUN_ID, mensaje:`completada: ${RUN_TOTAL} funciones procesadas`});
   $('ctxChip').className = 'chip done'; $('ctxLbl').textContent = 'Corrida #' + RUN_ID + ':'; $('curFile').textContent = 'completada';
   $('liveBtn').className = 'live done'; $('liveTxt').innerHTML = '✓ COMPLETADO';
@@ -198,6 +199,8 @@ function monitorFinReal(r){
     } else {
       document.querySelectorAll('#views a[data-v=exec],#views a[data-v=history]').forEach(a=>a.classList.remove('hide','off'));
     }
+    if (typeof cargarEjecucionReal === 'function') cargarEjecucionReal(r.run_id, false);
+    if (typeof cargarReporteReal === 'function') cargarReporteReal(r.run_id, false);
     const b = document.createElement('button'); b.className = 'btn primary';
     b.textContent = 'Ver ejecución de pruebas →';
     b.onclick = () => {

@@ -46,9 +46,6 @@ function renderReport(){
   }
   modoReporte(!!reporteReal);
   if (reporteReal) { renderReportReal(reporteReal); return; }   // corrida real (HU-21)
-  if (window.pywebview && window.pywebview.api && typeof cargarReporteReal === 'function') {
-    cargarReporteReal(); return;
-  }
   const m = metrics();
   $('rtypebtns').innerHTML = `<button class="fb2 on" style="background:var(--blue-600)">Funciones (${m.n})</button>`;
   $('rmeta').innerHTML = `Corrida <b>#${RUN_ID}</b> · ${RUN_DATE} · perfil <b>Profundo</b> · ${m.n} funciones · rama <b>${$('branchLbl').textContent}</b><br><span style="font-size:11px">Modelos: Planner · ${AGENTS_CFG.P.model} &nbsp;|&nbsp; Generator · ${AGENTS_CFG.G.model} &nbsp;|&nbsp; Reviewer · ${AGENTS_CFG.R.model}</span>`;
@@ -120,33 +117,32 @@ function modoReporte(real){   // la carpeta simulada de la demo se oculta en una
   if(bmetaDemo===null) bmetaDemo = bm.textContent;
   bm.textContent = (real && reporteReal) ? 'Corrida #' + reporteReal.run_id + (reporteReal.es_simulado ? ' · IA simulada' : '') : 'QAgent Engine v2.4';
 }
-async function cargarReporteReal(runId){
+let cargandoReporte = false;
+async function cargarReporteReal(runId = null, navegar = true){
   const api = window.pywebview && window.pywebview.api;
   if(!api || !api.obtener_reporte) return;
-  const r = await api.obtener_reporte(projectPath, runId || null);
-  if(!r || !r.ok){
-    reporteReal = null; rFilter = 'ALL'; rTypeFilter = 'todos';
-    modoReporte(false);
-    $('rmeta').innerHTML = 'Proyecto sin corridas con reporte registradas aún.';
-    $('pillars').innerHTML = '<div class="pil" style="grid-column:1/-1;padding:22px"><div class="pt">Reporte no disponible</div><div class="pv" style="font-size:16px;color:var(--mut)">No hay resultados aún</div><div class="ps" style="margin-top:8px"><button class="btn primary" onclick="go(\'tests\')">Iniciar corrida de pruebas →</button></div></div>';
-    $('rfbtns').innerHTML = '';
-    $('legend2').innerHTML = '';
-    $('rcards').innerHTML = '<div class="rcard" style="padding:28px;text-align:center;color:var(--mut)"><p style="font-size:14px;margin-bottom:8px">Completa una corrida para generar el informe de auditoría formal.</p><p style="font-size:12px;color:var(--dim)">El informe incluirá el resumen de métricas, los contratos del Planner, las suites de pytest y las verificaciones anti-laundering.</p></div>';
+  if(cargandoReporte) return;
+  cargandoReporte = true;
+  try {
+    const r = await api.obtener_reporte(projectPath, runId || null);
+    if(!r || !r.ok){
+      if (typeof toastError === 'function') toastError(escHtml((r && r.motivo) || 'No se pudo leer el reporte de la corrida.'));
+      return;
+    }
+    reporteReal = r; rFilter = 'todas'; rTypeFilter = 'todos';
     if (typeof desbloquearVista === 'function') {
       desbloquearVista('report');
       desbloquearVista('history');
     }
     document.querySelectorAll('#views a[data-v=report]').forEach(a=>a.classList.remove('off'));
-    go('report');
-    return;
+    if (navegar) {
+      go('report');
+    } else {
+      renderReportReal(r);
+    }
+  } finally {
+    cargandoReporte = false;
   }
-  reporteReal = r; rFilter = 'todas'; rTypeFilter = 'todos';
-  if (typeof desbloquearVista === 'function') {
-    desbloquearVista('report');
-    desbloquearVista('history');
-  }
-  document.querySelectorAll('#views a[data-v=report]').forEach(a=>a.classList.remove('off'));
-  go('report');
 }
 function contratoRealHtml(f){
   if(!f.contrato) return `<div class="rhd"><span style="color:var(--mut)">Esta corrida no guardó el contrato (fue anterior al reporte de auditoría).</span></div>`;

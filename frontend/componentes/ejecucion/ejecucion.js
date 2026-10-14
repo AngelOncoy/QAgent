@@ -73,10 +73,6 @@ function renderExec(){
   }
   document.querySelectorAll('#views a[data-v=report]').forEach(a=>a.classList.remove('off'));
   if (ejecucionReal) { renderExecReal(ejecucionReal); return; }   // corrida real (HU-18)
-  if (window.pywebview && window.pywebview.api && typeof cargarEjecucionReal === 'function') {
-    cargarEjecucionReal();
-    return;
-  }
   renderExecKpis();
   $('tipoBtns').innerHTML = `<button class="fb2 on" style="background:var(--blue-600)">Funciones (${RUN.length})</button>`;
   const keys = ['ALL', ...Object.keys(ST)];
@@ -141,30 +137,32 @@ const AGENTE_REAL = {planner:['P','var(--blue-400)'], generator:['G','var(--purp
 const numReal = (v, d=1, suf='%') => v===null || v===undefined ? '—' : Number(v).toFixed(d) + suf;
 const usdReal = v => v===null || v===undefined ? '—' : 'US$ ' + Number(v).toFixed(4);
 const tiempoReal = s => s===null || s===undefined ? '—' : (s < 1 ? Math.round(s*1000) + ' ms' : Number(s).toFixed(1) + ' s');
-async function cargarEjecucionReal(runId){
+let cargandoEjecucion = false;
+async function cargarEjecucionReal(runId = null, navegar = true){
   const api = window.pywebview && window.pywebview.api;
   if(!api || !api.obtener_ejecucion) return;
-  const r = await api.obtener_ejecucion(projectPath, runId || null);
-  if(!r || !r.ok){
-    ejecucionReal = null;
-    $('kpis').innerHTML = '<div class="kpi" style="grid-column:1/-1;padding:24px"><div class="kh"><span>EJECUCIÓN DE PRUEBAS</span></div><div class="kmid"><div class="kv" style="font-size:16px;color:var(--mut)">No hay resultados de ejecución de pruebas para este proyecto aún</div></div><div style="margin-top:12px"><button class="btn primary" onclick="go(\'tests\')">Ir a Configuración de pruebas →</button></div></div>';
-    $('fbtns').innerHTML = '';
-    $('suites').innerHTML = '<div class="suite2" style="padding:24px;text-align:center;color:var(--mut)">Inicia una corrida desde la configuración de pruebas para evaluar el código con los agentes.</div>';
+  if(cargandoEjecucion) return;
+  cargandoEjecucion = true;
+  try {
+    const r = await api.obtener_ejecucion(projectPath, runId || null);
+    if(!r || !r.ok){
+      if (typeof toastError === 'function') toastError(escHtml((r && r.motivo) || 'No se pudieron leer los resultados de la corrida.'));
+      return;
+    }
+    ejecucionReal = r; filterState = 'ALL'; filterType = 'todos';
     if (typeof desbloquearVista === 'function') {
       desbloquearVista('exec');
       desbloquearVista('report');
     }
     document.querySelectorAll('#views a[data-v=exec]').forEach(a=>a.classList.remove('off'));
-    go('exec');
-    return;
+    if (navegar) {
+      go('exec');
+    } else {
+      renderExecReal(r);
+    }
+  } finally {
+    cargandoEjecucion = false;
   }
-  ejecucionReal = r; filterState = 'ALL'; filterType = 'todos';
-  if (typeof desbloquearVista === 'function') {
-    desbloquearVista('exec');
-    desbloquearVista('report');
-  }
-  document.querySelectorAll('#views a[data-v=exec]').forEach(a=>a.classList.remove('off'));
-  go('exec');
 }
 function metaTexto(cumple, conMeta, sinMeta){
   if(cumple===null || cumple===undefined) return `<div class="ks" style="color:var(--mut)">${sinMeta}</div>`;
