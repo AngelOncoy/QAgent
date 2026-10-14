@@ -77,7 +77,11 @@ def test_ping_ok_sin_imagen_base():
     estado, _ = _consultar(cliente)
 
     assert estado["estado"] == "sin_imagen"
-    assert "construir_imagen_base" in estado["mensaje"]
+    # Instalado no hay `PYTHONPATH=src`: el mensaje explica que la imagen se prepara
+    # sola en la primera corrida (TA-06), en vez de dar un comando de desarrollo.
+    assert IMAGEN_BASE in estado["mensaje"]
+    assert "primera corrida" in estado["mensaje"]
+    assert "PYTHONPATH" not in estado["mensaje"]
     cliente.images.get.assert_called_once_with(IMAGEN_BASE)
     cliente.close.assert_called_once()
 

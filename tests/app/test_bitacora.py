@@ -151,3 +151,28 @@ def test_iniciar_y_bloquear_la_corrida_quedan_en_la_bitacora(salida, monkeypatch
     }  # type: ignore[method-assign]
     api.start_run("C:/demo", "deep")
     assert "WARNING Corrida no iniciada: Falta algo" in salida.getvalue()
+
+
+def test_sin_consola_la_bitacora_va_a_un_archivo_del_usuario(tmp_path, monkeypatch):
+    """El ejecutable de Windows abre sin consola (`sys.stdout` es None): TA-06."""
+    import sys
+
+    from qagent import usuario
+    from qagent.app import bitacora as modulo
+    from qagent.config.carga import Claves
+
+    monkeypatch.setattr(sys, "stdout", None)
+    monkeypatch.setattr(usuario, "carpeta_usuario", lambda: tmp_path / ".qagent")
+    registro = modulo.configurar_registro(
+        Claves({"GEMINI_API_KEY": "clave-secreta-123"})
+    )
+    try:
+        registro.info("Corrida iniciada con clave-secreta-123")
+    finally:
+        for h in list(registro.handlers):
+            h.close()
+            registro.removeHandler(h)
+
+    texto = (tmp_path / ".qagent" / modulo.ARCHIVO_REGISTRO).read_text(encoding="utf-8")
+    assert "Corrida iniciada" in texto
+    assert "clave-secreta-123" not in texto  # el filtro de secretos sigue activo

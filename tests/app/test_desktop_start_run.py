@@ -91,3 +91,34 @@ def test_con_ia_simulada_en_el_env_tampoco_se_exige_docker(api, monkeypatch):
         side_effect=AssertionError("no debe llamarse"),
     ):
         assert api.start_run("C:/Mis proyectos/demo", "deep")["status"] == "started"
+
+
+# ---------- TA-06: sin la imagen base, la primera corrida real la prepara ----------
+
+
+def test_sin_imagen_base_la_corrida_real_inicia_para_prepararla(
+    monkeypatch, tmp_path, corridas_lanzadas
+):
+    """Instalado no hay comando para construir la imagen: no se bloquea, se lanza la
+    corrida real y el orquestador la construye (`corrida._preparar_imagen`)."""
+    from qagent.config import carga
+
+    env = tmp_path / ".env"
+    env.write_text(
+        "ANTHROPIC_API_KEY=a-prueba-1\nOPENAI_API_KEY=o-prueba-1\nXIAOMI_API_KEY=x-prueba-1\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(carga, "RUTA_ENV", env)
+    monkeypatch.setenv("QAGENT_FAKE_LLM", "0")
+    puente = DesktopAPI()
+    puente.set_window(MagicMock())
+
+    with patch.object(
+        modulo_estado,
+        "estado_docker",
+        return_value={"estado": "sin_imagen", "mensaje": "Falta la imagen base"},
+    ):
+        resultado = puente.start_run(str(tmp_path), "deep")
+
+    assert resultado["status"] == "started", resultado
+    assert len(corridas_lanzadas) == 1

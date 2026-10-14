@@ -8,6 +8,8 @@
 
 > **Nota (2026-10-14, TA-05):** las rutas `src/pyagent/...` de este ADR son las de su fecha. El paquete ahora es `src/qagent/` y `python -m pyagent` pasó a `python -m qagent` (ver ADR-004).
 
+> **Nota (2026-10-14, TA-06):** la carpeta `frontend/` se movió a `src/qagent/frontend/` para que la interfaz se instale con el paquete (`pip install qagent`, ejecutable). La separación de esta decisión se mantiene: la interfaz sigue en su propia carpeta, fuera de `app/`, y `tests/frontend/` verifica que el resto de `src/` no guarde pantallas.
+
 ## 1. Contexto
 
 La interfaz vivía en un único archivo, `src/pyagent/app/ui/index.html`, de 2070 líneas: CSS (~415 líneas), HTML de ocho pantallas y tres modales, y ~1200 líneas de JavaScript con variables globales. Cualquier cambio de una pantalla obligaba a tocar ese archivo, y el frontend estaba dentro del paquete Python del backend.

@@ -9,13 +9,13 @@ Decisión de diseño: [ADR-003](../docs/decisiones/ADR-003-frontend-modular.md).
 | Qué | Cómo |
 |---|---|
 | Aplicación real | `qagent` (o `python -m qagent`), tras `pip install -e .[dev]` en la raíz |
-| Solo la interfaz, en modo demo | Abrir `frontend/index.html` en el navegador (no necesita servidor) |
+| Solo la interfaz, en modo demo | Abrir `src/qagent/frontend/index.html` en el navegador (no necesita servidor) |
 | Verificar la estructura | `python test.py` (incluye `tests/frontend/`) |
 
 ## Estructura
 
 ```text
-frontend/
+src/qagent/frontend/
 ├── index.html            Esqueleto: <div data-componente="..."> y la lista de <link>/<script>
 ├── assets/
 │   ├── logo/             qagent-icono.svg (solo el hexágono) · qagent-logo.svg (completo)

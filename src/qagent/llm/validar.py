@@ -118,6 +118,7 @@ def main(argv: list[str] | None = None) -> int:
         help="lista también los modelos :free de OpenRouter",
     )
     args = parser.parse_args(argv)
+    config_carga.migrar_desde_repositorio()  # .env y config.local.toml → ~/.qagent/
     return validar(con_gratis=args.gratis)
 
 

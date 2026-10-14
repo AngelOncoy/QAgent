@@ -6,7 +6,7 @@ import re
 from pathlib import Path
 
 RAIZ = Path(__file__).resolve().parents[2]
-FRONTEND = RAIZ / "frontend"
+FRONTEND = RAIZ / "src" / "qagent" / "frontend"
 
 ESPERADO = {
     "humo": "negra",

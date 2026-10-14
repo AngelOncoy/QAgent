@@ -9,7 +9,7 @@ registrarComponente('informe/informe', `<!-- ===== 6. REPORTE FINAL (según tu d
     <div class="banner2">
       <div class="glow"></div>
       <div class="bl">
-        <div class="brow"><span class="bbadge"><span class="ico" data-i="award" data-c="var(--emerald-400)"></span>INFORME EJECUTIVO DE ASEGURAMIENTO DE CALIDAD</span><span class="bmeta">QAgent Engine v2.4</span></div>
+        <div class="brow"><span class="bbadge"><span class="ico" data-i="award" data-c="var(--emerald-400)"></span>INFORME EJECUTIVO DE ASEGURAMIENTO DE CALIDAD</span><span class="bmeta">QAgent Engine</span></div>
         <h2>Auditoría de Suites de Prueba &amp; Mitigación de Vulnerabilidades de Código</h2>
         <p>Consolidado formal generado tras la ejecución de los agentes <span style="color:var(--blue-400)">Planner (AST)</span>, <span style="color:var(--purple-400)">Generator (Pytest)</span> y <span style="color:var(--emerald-400)">Reviewer (Sandbox &amp; Anti-Laundering)</span>. Verificación estricta de contratos inmutables, aislamiento de mocks y detección de relajación de aserciones.</p>
       </div>
@@ -115,7 +115,7 @@ function modoReporte(real){   // la carpeta simulada de la demo se oculta en una
   document.querySelectorAll('#s-report .ractions .btn:not(.primary)').forEach(b => b.classList.toggle('hide', real));
   const bm = document.querySelector('#s-report .bmeta'); if(!bm) return;
   if(bmetaDemo===null) bmetaDemo = bm.textContent;
-  bm.textContent = (real && reporteReal) ? 'Corrida #' + reporteReal.run_id + (reporteReal.es_simulado ? ' · IA simulada' : '') : 'QAgent Engine v2.4';
+  bm.textContent = (real && reporteReal) ? 'Corrida #' + reporteReal.run_id + (reporteReal.es_simulado ? ' · IA simulada' : '') : 'QAgent Engine ' + textoVersion();
 }
 let cargandoReporte = false;
 async function cargarReporteReal(runId = null, navegar = true){

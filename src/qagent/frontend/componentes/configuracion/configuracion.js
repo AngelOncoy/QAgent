@@ -5,7 +5,7 @@ registrarComponente('configuracion/configuracion', `<!-- ===== CONFIGURACIÓN DE
   <div class="page">
     <div class="card"><div class="projhead">
       <span class="t">Configuración del sistema</span>
-      <span class="pill p-grey">Proveedor y modelo en <span class="mono">config.toml</span> · claves solo en <span class="mono">.env</span></span>
+      <span class="pill p-grey">Se guarda en tu carpeta <span class="mono">~/.qagent/</span> · claves solo en <span class="mono">.env</span></span>
     </div></div>
     <div class="card">
       <h4>Modelo de cada agente</h4>
@@ -23,14 +23,15 @@ registrarComponente('configuracion/configuracion', `<!-- ===== CONFIGURACIÓN DE
     </div>
     <div class="card">
       <h4>Cómo se guarda</h4>
-      <div class="bd"><p class="hint" style="margin:0 0 10px">«Agregar API» escribe la key en <span class="mono">.env</span> (una variable por agente, ej. <span class="mono">GEMINI_API_KEY_PLANNER</span>) y en <span class="mono">config.toml</span> solo el proveedor y el modelo del agente. La lista de proveedores y modelos se edita en <span class="mono">src/qagent/llm/proveedores.toml</span>.</p>
-<pre class="rcode">[agentes.planner]
+      <div class="bd"><p class="hint" style="margin:0 0 10px">«Agregar API» escribe la key en <span class="mono">~/.qagent/.env</span> (una variable por agente, ej. <span class="mono">GEMINI_API_KEY_PLANNER</span>) y en <span class="mono">~/.qagent/config.local.toml</span> solo el proveedor y el modelo del agente. Eso tiene prioridad sobre los modelos por defecto del equipo (<span class="mono">config.toml</span>, que viaja con el programa y no se modifica). La lista de proveedores y modelos se edita en <span class="mono">src/qagent/llm/proveedores.toml</span>.</p>
+<pre class="rcode"># ~/.qagent/config.local.toml
+[agentes.planner]
 proveedor = "gemini"
 modelo = "gemini-2.5-flash"
 precio_entrada_usd_m = 0
 precio_salida_usd_m = 0
 
-# .env (no se sube al repositorio)
+# ~/.qagent/.env (no se sube al repositorio)
 # GEMINI_API_KEY_PLANNER=...</pre></div>
     </div>
   </div>
@@ -60,7 +61,7 @@ function filaRol(r){
   if(!r.genera_texto) avisos.push(`<div class="hint warn" style="margin:2px 0 0">Modelo de tipo «${escHtml(r.tipo_nombre)}»: no genera texto; las llamadas del ${escHtml(r.nombre)} fallarán.</div>`);
   if(!r.en_catalogo) avisos.push('<div class="hint warn" style="margin:2px 0 0">Modelo fuera del catálogo (editado a mano).</div>');
   if((r.clave_repetida_con || []).length) avisos.push(`<div class="hint warn" style="margin:2px 0 0">Usa la misma API key que el ${(r.clave_repetida_con).map(escHtml).join(' y el ')}: cada agente necesita la suya. Pulsa «Editar» y pon otra.</div>`);
-  if(r.desde_local) avisos.push('<div class="hint warn" style="margin:2px 0 0">Definido en config.local.toml, que tiene prioridad sobre config.toml.</div>');
+  if(r.configurado && !r.desde_local) avisos.push('<div class="hint" style="margin:2px 0 0">Modelo por defecto del equipo (config.toml): agrega tu API para usar la tuya.</div>');
   const clave = r.tiene_clave
     ? `<span class="mono">${escHtml(r.clave_enmascarada)}</span><div class="sub">${escHtml(r.variable)}</div>`
     : `<span class="pill p-red">Falta la key</span><div class="sub">${escHtml(r.variable || '')}</div>`;

@@ -1,7 +1,7 @@
 """Corrida de punta a punta sobre el banco con la IA simulada y Docker real (HU-11).
 
 Ensayo de EV-01 sin gastar tokens: Planner y Generator simulados (casos grabados en
-`bench/ia_simulada.json`), Reviewer real ejecutando en el sandbox. Las 3 funciones
+`qagent/llm/ia_simulada.json`), Reviewer real ejecutando en el sandbox. Las 3 funciones
 con bug sembrado deben terminar en `bug_detectado` y las 3 correctas en `accept`.
 """
 

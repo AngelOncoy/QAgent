@@ -15,7 +15,8 @@ if sys.version_info >= (3, 11):
 else:  # Python 3.10
     import tomli as tomllib
 
-RUTA_CONFIG = Path(__file__).resolve().parents[3] / "config.toml"
+#: Configuración del equipo (modelos y precios); se instala con el paquete: qagent/config/.
+RUTA_CONFIG = Path(__file__).resolve().parents[1] / "config" / "config.toml"
 AGENTES = ("planner", "generator", "reviewer")
 TOKENS_POR_MILLON = 1_000_000
 DECIMALES_COSTO = 8

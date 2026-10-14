@@ -16,9 +16,8 @@ TIMEOUT_PING_S = 3
 
 MENSAJE_OK = "Docker Desktop iniciado y la imagen base del sandbox está lista."
 MENSAJE_SIN_IMAGEN = (
-    f"Falta la imagen base '{IMAGEN_BASE}'. Constrúyela una vez con Docker Desktop abierto: "
-    'set PYTHONPATH=src y python -c "from qagent.sandbox import construir_imagen_base; '
-    'construir_imagen_base()"'
+    f"Falta la imagen base '{IMAGEN_BASE}'. Se prepara sola al iniciar la primera corrida "
+    "con Docker Desktop abierto e internet (tarda unos minutos, una sola vez)."
 )
 
 

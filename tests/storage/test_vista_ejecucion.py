@@ -21,6 +21,8 @@ from tests.storage.test_registro import correr, precios  # noqa: F401 (fixture)
 
 EJEMPLO = (
     Path(__file__).resolve().parents[2]
+    / "src"
+    / "qagent"
     / "contracts"
     / "ejemplos"
     / "run_log.results.json"

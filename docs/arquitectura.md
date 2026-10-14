@@ -111,7 +111,7 @@ flowchart TB
 
 | Contenedor | Tecnología | Responsabilidad | Ítems |
 |---|---|---|---|
-| **Interfaz** | HTML, CSS, JS dentro de pywebview (carpeta `frontend/`, sin compilación; un componente por pantalla, ver ADR-003) | Pantallas: Bienvenida, Vista previa, Monitor en vivo, Ejecución, Reporte, Historial, Configuración | EN-08, HU-* |
+| **Interfaz** | HTML, CSS, JS dentro de pywebview (carpeta `src/qagent/frontend/`, sin compilación; un componente por pantalla, ver ADR-003) | Pantallas: Bienvenida, Vista previa, Monitor en vivo, Ejecución, Reporte, Historial, Configuración | EN-08, HU-* |
 | **Backend** | Python 3.10+ | Análisis, orquestación, agentes, cálculo de métricas y costo | EN-02 a EN-07, EN-14, EN-15 |
 | **Configuración** | TOML + variables de entorno | Modelos, precios, topes y reintentos (`config.toml`, se versiona); claves de API (`.env`, no se versiona) | EN-06 |
 | **Almacenamiento** | Archivos JSON | `.qagent/` dentro del proyecto analizado: corridas, specs, pruebas aprobadas. `~/.qagent/recientes.json`: proyectos recientes | EN-07, HU-01, HU-03 |
@@ -167,7 +167,7 @@ flowchart TB
 | Almacenamiento | `src/qagent/almacenamiento/` | `AlmacenProyecto`: crea `.qagent/` y lee y escribe `runs/<run_id>/run.json`, `specs/` y `tests/` (pruebas aprobadas); `recientes.py`: `~/.qagent/recientes.json`. Escritura atómica en UTF-8. | EN-07, HU-01, HU-03 |
 | Registro de corridas | `src/qagent/storage/` | `log.json` y `results.json` de cada corrida, validados contra `run_log.schema.json`. | EN-05 |
 | Configuración | `src/qagent/config/` | Carga `config.toml` y `.env`, audita las claves y verifica Docker y Git. | EN-06 |
-| Contratos | `contracts/` | JSON Schema de cada mensaje; se validan en cada paso. | EN-01 |
+| Contratos | `src/qagent/contracts/` | JSON Schema de cada mensaje; se validan en cada paso. | EN-01 |
 
 ### Reglas de dependencia
 
@@ -309,13 +309,13 @@ Fuera del diagrama, `ReviewerAgent` usa dos funciones: `sandbox.ejecutar_pruebas
 | Tokens y costo | `llm/tracker.py`, `llm/precios.py` | `TokenTracker`, `cargar_precios()` |
 | Sandbox | `sandbox/imagen.py`, `sandbox/ejecucion.py` | `preparar_imagen()`, `ejecutar_pruebas()` |
 | Hash del error | `sandbox/normalizacion.py` | `hash_error()` |
-| Contratos | `contracts.py` + `contracts/*.schema.json` | `validar(nombre, dato)` |
+| Contratos | `contracts/__init__.py` + `contracts/*.schema.json` | `validar(nombre, dato)` |
 | Registro de corridas | `storage/registro.py` | `escribir_corrida()` (`log.json`, `results.json`) |
 | Almacenamiento | `almacenamiento/proyecto.py`, `almacenamiento/recientes.py` | `AlmacenProyecto`, `recientes.registrar()` |
 | Configuración | `config/carga.py`, `config/entorno.py` | `cargar_configuracion()`, `verificar_entorno()` |
 | Proyectos | `proyectos/proyecto_local.py`, `clonador.py`, `vista_previa.py` | `inspeccionar_carpeta()`, `clonar()`, `generar_vista_previa()` |
 
-Todas las rutas son relativas a `src/qagent/`, salvo `contracts/`.
+Todas las rutas son relativas a `src/qagent/`.
 
 ### 5.3 Patrones de diseño del orquestador
 
@@ -657,7 +657,7 @@ No existe ninguna comunicación directa entre PlannerAgent, GeneratorAgent y Rev
 
 ## 9. Contratos JSON
 
-Los schemas completos van en `contracts/` y los valida `tests/test_contracts.py`.
+Los schemas completos van en `src/qagent/contracts/` y los valida `tests/test_contracts.py`.
 
 | Contrato | De → a | Campos principales | Schema |
 |---|---|---|---|

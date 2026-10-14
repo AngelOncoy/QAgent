@@ -11,7 +11,9 @@ pip install -e .[dev]          # instalación editable, una vez por máquina (py
 python test.py                 # lint + formato + TODAS las pruebas, con la IA simulada
 python test.py --rapido        # sin lint, sin pruebas de Docker ni de red
 python test.py -k clonador     # los demás argumentos van a pytest
-qagent                         # abre la app (también: python -m qagent)
+qagent                         # abre la app (también: python -m qagent; qagent --version)
+python scripts/verificar_paquete.py  # paquete instalado limpio, fuera del repo (antes de una release)
+python scripts/construir_windows.py  # QAgent.exe e instalador en dist/windows/ (solo en Windows)
 ruff check . && ruff format .  # lint y formato (bench/ está excluido a propósito)
 ```
 
@@ -22,22 +24,22 @@ ruff check . && ruff format .  # lint y formato (bench/ está excluido a propós
 | Ruta | Qué hay | Dónde se documenta |
 |---|---|---|
 | `src/qagent/` | Backend. `app/desktop.py` es solo el puente pywebview; la lógica de proyectos está en `proyectos/` y todo lo que se guarda en `.qagent/` y `~/.qagent/` en `almacenamiento/` | `docs/arquitectura.md` |
-| `frontend/` | Interfaz HTML/CSS/JS sin build, un componente por pantalla | `frontend/README.md` |
-| `tests/` | Refleja `src/` (`almacenamiento`, `analysis`, `app`, `config`, `llm`, `orchestrator`, `proyectos`, `sandbox`, `storage`) más `frontend/` | — |
-| `docs/decisiones/` | ADR: modelos (001), análisis con `ast` (002), frontend modular (003), nombre único QAgent (004) | — |
+| `src/qagent/frontend/` | Interfaz HTML/CSS/JS sin build, un componente por pantalla | `src/qagent/frontend/README.md` |
+| `tests/` | Refleja `src/` (`almacenamiento`, `analysis`, `app`, `config`, `llm`, `orchestrator`, `proyectos`, `sandbox`, `storage`) más `frontend/` (estructura de la interfaz) | — |
+| `docs/decisiones/` | ADR: modelos (001), análisis con `ast` (002), frontend modular (003), nombre único QAgent (004), distribución (005) | — |
 
 Regla de dependencia: la interfaz (`app/`) llama a la lógica; la lógica (`proyectos/`, `analysis/`, `sandbox/`…) nunca importa `qagent.app` ni `webview`.
 
 ## Frontend: lo que hay que saber
 
-Detalle completo en `frontend/README.md`. Lo esencial:
+Detalle completo en `src/qagent/frontend/README.md`. Lo esencial:
 
-- **Un componente = una carpeta** en `frontend/componentes/`, con su `.js` (el HTML va en una plantilla y se registra con `registrarComponente`) y, si hace falta, su `.css`. Se enlaza en `frontend/index.html` con un marcador `data-componente` y los `<link>`/`<script>`.
+- **Un componente = una carpeta** en `src/qagent/frontend/componentes/`, con su `.js` (el HTML va en una plantilla y se registra con `registrarComponente`) y, si hace falta, su `.css`. Se enlaza en `src/qagent/frontend/index.html` con un marcador `data-componente` y los `<link>`/`<script>`.
 - **Scripts clásicos con ámbito global**, sin módulos ES, sin `fetch` de HTML, sin bundler. El orden de los `<script>` importa.
-- **Colores, tipografía y logo se cambian en `frontend/css/tokens.css`.** Ningún componente lleva colores literales: todo es `var(--token)` (lo exige `tests/frontend/`). Un color nuevo se declara en `tokens.css`; no se concatena texto a un color (`${c}33`), se usa un token con opacidad (`-aNN`).
+- **Colores, tipografía y logo se cambian en `src/qagent/frontend/css/tokens.css`.** Ningún componente lleva colores literales: todo es `var(--token)` (lo exige `tests/frontend/`). Un color nuevo se declara en `tokens.css`; no se concatena texto a un color (`${c}33`), se usa un token con opacidad (`-aNN`).
 - **La regla `.logo` debe permanecer en `css/layout.css`:** `--logo-icono` usa una ruta relativa a `css/`.
 - **Nombres técnicos:** `qagent-sandbox:base`, `.qagent/`, el módulo `qagent` y `window.onQAgentEvent`. `pyagent` solo queda en la migración de carpetas y en el respaldo de `PYAGENT_FAKE_LLM` (ADR-004); no usarlo en código nuevo.
-- La ventana carga `index.html` como URL `file://`; no cambiarlo a una ruta ni activar `http_server` (el servidor interno de pywebview rechaza conexiones al abrir y deja la interfaz sin estilos; ver `frontend/README.md`).
+- La ventana carga `index.html` como URL `file://`; no cambiarlo a una ruta ni activar `http_server` (el servidor interno de pywebview rechaza conexiones al abrir y deja la interfaz sin estilos; ver `src/qagent/frontend/README.md`).
 - Tras tocar el frontend: `python test.py` (incluye `tests/frontend/`) y revisar la **ventana real** (`qagent`), no solo el navegador. Un fallo de carga es intermitente: probar varios arranques en frío, porque las peticiones rechazadas no aparecen en el log del servidor y contar respuestas 200 no basta.
 
 ## Pruebas

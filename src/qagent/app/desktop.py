@@ -1,6 +1,7 @@
 """Módulo principal de la aplicación de escritorio con pywebview."""
 
 import logging
+import sys
 import threading
 from pathlib import Path
 
@@ -11,8 +12,8 @@ from qagent.app import bitacora
 from qagent.app.monitor_eventos import a_evento_bitacora, a_fila_monitor
 from qagent.proyectos import proyecto_local
 
-# Interfaz web (HTML/CSS/JS), separada del backend: <raíz del repo>/frontend/
-FRONTEND_DIR = Path(__file__).resolve().parents[3] / "frontend"
+# Interfaz web (HTML/CSS/JS), separada del backend e instalada con el paquete: qagent/frontend/
+FRONTEND_DIR = Path(__file__).resolve().parents[1] / "frontend"
 
 
 class DesktopAPI:
@@ -192,6 +193,12 @@ class DesktopAPI:
 
         return listar_proveedores()
 
+    def obtener_version(self) -> str:
+        """Versión instalada de QAgent (la de `qagent --version`), para la interfaz."""
+        from qagent import __version__
+
+        return __version__
+
     def obtener_roles(self) -> list[dict]:
         """Proveedor, modelo y clave enmascarada de cada agente (HU-30)."""
         from qagent.config import carga as config_carga
@@ -208,8 +215,8 @@ class DesktopAPI:
     ) -> dict:
         """Prueba la conexión y, si responde, guarda la API del agente (HU-30).
 
-        La clave va solo a `.env`, en la variable propia del agente; `config.toml`
-        recibe proveedor y modelo. El proveedor puede repetirse entre agentes, la clave
+        La clave va solo a `.env`, en la variable propia del agente; el
+        `config.local.toml` del usuario (`~/.qagent/`) recibe proveedor y modelo. El proveedor puede repetirse entre agentes, la clave
         no. Si la prueba falla no se guarda nada. La respuesta nunca incluye la clave.
 
         Returns:
@@ -244,7 +251,7 @@ class DesktopAPI:
         return {**resultado, "roles": self.obtener_roles()}
 
     def eliminar_api_rol(self, agente: str) -> dict:
-        """Deja al agente «Sin configurar»: quita su sección de config.toml y su clave (HU-30).
+        """Deja al agente «Sin configurar» en esta computadora y quita su clave (HU-30).
 
         Returns:
             dict: ``{"ok", "mensaje", "roles"}``.
@@ -253,7 +260,10 @@ class DesktopAPI:
         from qagent.config.roles import eliminar_rol
 
         resultado = eliminar_rol(
-            agente, ruta_config=config_carga.RUTA_CONFIG, ruta_env=config_carga.RUTA_ENV
+            agente,
+            ruta_config=config_carga.RUTA_CONFIG,
+            ruta_env=config_carga.RUTA_ENV,
+            ruta_local=config_carga.RUTA_CONFIG_LOCAL,
         )
         if resultado["ok"]:
             bitacora.registro.info("API del %s eliminada: sin configurar.", agente)
@@ -625,7 +635,7 @@ class DesktopAPI:
 
 
 def _resolver_ruta_proyecto(ruta: str, run_id: str | None = None) -> Path:
-    """Devuelve la carpeta real del proyecto; en modo demo usa la raíz del repositorio si la ruta no existe."""
+    """Devuelve la carpeta real del proyecto; en modo demo, `~/.qagent/demo/` si la ruta no existe."""
     from qagent.storage.corrida_demo import CORRIDA_DEMO_ID
 
     candidata = Path(ruta) if ruta else Path()
@@ -635,7 +645,10 @@ def _resolver_ruta_proyecto(ruta: str, run_id: str | None = None) -> Path:
     except OSError:
         pass
     if run_id == CORRIDA_DEMO_ID or not ruta:
-        return FRONTEND_DIR.parent
+        from qagent.usuario import carpeta_usuario
+
+        # Nunca la carpeta del programa: instalado puede ser de solo lectura (TA-06).
+        return carpeta_usuario() / "demo"
     return candidata
 
 
@@ -757,13 +770,35 @@ def _registrar_estado_configuracion() -> None:
             bitacora.registro.warning("  - %s", aviso)
 
 
+def ejecutar(argv: list[str] | None = None) -> None:
+    """Comando `qagent` (y `python -m qagent`): atiende `--version` y abre la app."""
+    import argparse
+
+    from qagent import __version__
+
+    parser = argparse.ArgumentParser(
+        prog="qagent", description="Abre la aplicación de escritorio de QAgent."
+    )
+    parser.add_argument("--version", action="version", version=f"QAgent {__version__}")
+    parser.parse_args(argv)
+    main()
+
+
 def main() -> None:
-    """Punto de entrada de la aplicación de escritorio."""
-    _registrar_estado_configuracion()
+    """Abre la aplicación de escritorio."""
+    from qagent.config.carga import migrar_desde_repositorio
+
+    # Orden importante: ~/.pyagent/ solo se renombra si ~/.qagent/ aún no existe, y
+    # mover el .env la crearía. La configuración se lee después de las dos migraciones.
     if recientes.migrar_carpeta_anterior():
         bitacora.registro.info(
             "Se migró ~/.pyagent/ a ~/.qagent/ (proyectos recientes)."
         )
+    for nombre in migrar_desde_repositorio():
+        bitacora.registro.info(
+            "Se movió %s de la carpeta del código a ~/.qagent/.", nombre
+        )
+    _registrar_estado_configuracion()
     # Se carga como file:// y no como ruta: con una ruta, pywebview sirve la carpeta con un servidor
     # HTTP interno cuya cola admite 5 conexiones, y al abrir la ventana (decenas de CSS, JS y fuentes
     # a la vez) rechaza algunas peticiones al azar y la interfaz queda sin estilos o sin scripts.
@@ -781,7 +816,8 @@ def main() -> None:
     )
 
     api.set_window(window)
-    webview.start(debug=True)
+    # Herramientas de desarrollo solo al programar, nunca en el ejecutable (TA-06).
+    webview.start(debug=not getattr(sys, "frozen", False))
 
 
 if __name__ == "__main__":

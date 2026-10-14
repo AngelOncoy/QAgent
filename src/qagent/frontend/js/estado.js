@@ -65,3 +65,17 @@ const SPEC_STATUS = {'services/pricing.py':'reuse','services/inventory.py':'reus
 let profile = 'deep';
 let runEstimate = {tok:0}, projectPath = 'E:\\Proyectos\\ecommerce-core';
 
+
+// Versión de QAgent: la entrega Python (la misma de `qagent --version`, sale de pyproject.toml).
+// Abierta en el navegador, sin Python, es la demostración: se muestra «demo», nunca un número inventado.
+let VERSION_QAGENT = null;
+function textoVersion(){ return VERSION_QAGENT ? 'v' + VERSION_QAGENT : 'demo'; }
+function cargarVersion(){
+  const api = window.pywebview && window.pywebview.api;
+  if(!api || !api.obtener_version) return;
+  api.obtener_version().then(v => {
+    VERSION_QAGENT = v;
+    document.querySelectorAll('.ver').forEach(e => { e.textContent = textoVersion(); });
+  });
+}
+window.addEventListener('pywebviewready', cargarVersion);

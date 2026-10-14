@@ -2,17 +2,23 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import pytest
 
 
 @pytest.fixture(autouse=True)
-def sin_config_local(monkeypatch: pytest.MonkeyPatch, tmp_path_factory) -> None:
+def sin_config_local(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     """Las pruebas usan solo el `config.toml` del equipo, nunca el `config.local.toml`
-    personal (modelos gratuitos u otros) de la computadora donde se ejecutan."""
+    ni el `.env` personales (`~/.qagent/`) de la computadora donde se ejecutan.
+
+    Cada prueba tiene sus propias rutas: la pantalla Configuración escribe en
+    `config.local.toml` (TA-06) y lo que guarde una prueba no debe verlo la siguiente.
+    """
     from qagent.config import carga
 
-    ausente = tmp_path_factory.getbasetemp() / "sin-config-local.toml"
-    monkeypatch.setattr(carga, "RUTA_CONFIG_LOCAL", ausente)
+    monkeypatch.setattr(carga, "RUTA_CONFIG_LOCAL", tmp_path / "sin-config-local.toml")
+    monkeypatch.setattr(carga, "RUTA_ENV", tmp_path / "sin-env" / ".env")
 
 
 @pytest.fixture(autouse=True)

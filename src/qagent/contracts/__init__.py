@@ -1,6 +1,6 @@
 """Validación de los contratos JSON entre agentes (EN-01).
 
-Los schemas viven en `contracts/` (raíz del repositorio). El orquestador valida cada
+Los schemas viven junto a este módulo (`qagent/contracts/`, se instalan con el paquete). El orquestador valida cada
 mensaje con `validar()` antes de pasarlo al siguiente agente.
 """
 
@@ -13,7 +13,7 @@ from typing import Any
 
 from jsonschema import Draft202012Validator
 
-DIR_CONTRATOS = Path(__file__).resolve().parents[2] / "contracts"
+DIR_CONTRATOS = Path(__file__).resolve().parent
 
 PLANNER = "planner_contract.v2"
 GENERATED_TEST = "generated_test"

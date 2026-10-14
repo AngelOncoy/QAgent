@@ -132,9 +132,17 @@ def _comprobar(identificador: str, estado: dict[str, str]) -> dict[str, Any]:
 
 
 def _comprobar_docker(estado: dict[str, str], simulado: bool) -> dict[str, Any]:
-    """Docker es obligatorio, salvo con la IA simulada: ahí se informa pero no bloquea."""
+    """Docker es obligatorio, salvo con la IA simulada: ahí se informa pero no bloquea.
+
+    Si Docker responde pero falta la imagen base, no bloquea: la primera corrida real la
+    construye (`orchestrator.corrida._preparar_imagen`). Con el programa instalado no hay
+    otro modo de construirla, así que bloquear dejaría al usuario sin salida (TA-06).
+    """
     comprobacion = _comprobar("docker", estado)
-    if simulado and not comprobacion["ok"]:
+    if estado["estado"] == "sin_imagen":
+        comprobacion["ok"] = True
+        comprobacion["pendiente"] = True  # se prepara en la primera corrida
+    elif simulado and not comprobacion["ok"]:
         comprobacion["ok"] = True
         comprobacion["opcional"] = True
         comprobacion["mensaje"] = f"{MENSAJE_DOCKER_OPCIONAL} ({estado['mensaje']})"
