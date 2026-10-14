@@ -6,7 +6,7 @@ Contexto para asistentes de IA (Claude, Copilot, Cursor, etc.) que trabajen en e
 
 Sistema multiagente en Python que genera y valida pruebas pytest para código Python 3.10+: pruebas unitarias de funciones y pruebas de endpoints de APIs FastAPI (con `TestClient`, sin red).
 
-**Nombre:** el producto, el comando, el paquete de Python y los nombres técnicos son **QAgent** / `qagent`: `src/qagent/`, `.qagent/`, `~/.qagent/`, `qagent-sandbox:base`, `QAGENT_FAKE_LLM` y `window.onQAgentEvent`. El nombre anterior (`pyagent`) solo queda en el código de compatibilidad: la migración de `.pyagent/` y `~/.pyagent/`, y el respaldo de `PYAGENT_FAKE_LLM` (ADR-004).
+**Nombre:** el producto, el comando, el paquete de Python y los nombres técnicos son **QAgent** / `qagent`: `src/qagent/`, `.qagent/`, `~/.qagent/`, `qagent-sandbox:base`, `QAGENT_FAKE_LLM` y `window.onQAgentEvent`. En PyPI se publica como `qagent-pytest` (`qagent` ya era de otro proyecto): solo cambia lo que se escribe en `pip install`, no el producto, el comando ni el `import`. El nombre anterior (`pyagent`) solo queda en el código de compatibilidad: la migración de `.pyagent/` y `~/.pyagent/`, y el respaldo de `PYAGENT_FAKE_LLM` (ADR-004).
 Tres agentes coordinados por un orquestador (metodología GAIA), comunicados **solo por contratos JSON**:
 
 1. **Planner:** analiza el código (AST, firmas, docstrings) y decide los casos de prueba.
