@@ -9,7 +9,7 @@ registrarComponente('configuracion/configuracion', `<!-- ===== CONFIGURACIÓN DE
     </div></div>
     <div class="card">
       <h4>Modelo de cada agente</h4>
-      <div class="table-scroll"><table class="cfg-roles"><thead><tr><th>Agente</th><th>Proveedor y modelo</th><th>API key</th><th>Precio</th><th></th></tr></thead><tbody id="cfgAgents"></tbody></table></div>
+      <div class="table-scroll"><table class="cfg-roles"><thead><tr><th>Agente</th><th>Proveedor y modelo</th><th>API key</th><th></th></tr></thead><tbody id="cfgAgents"></tbody></table></div>
       <div class="hint" style="padding:10px 16px 14px">Cada agente puede usar un proveedor distinto, o el mismo que otro agente. Conviene una API key por agente: si dos agentes comparten la key, también comparten su límite de uso. Al guardar se hace una llamada de prueba con la key y el modelo elegidos; si falla, no se guarda nada. Cada corrida guarda en su registro qué modelos usó.</div>
     </div>
     <div class="grid2 cfg-grid">
@@ -51,18 +51,11 @@ function insigniaProveedor(id){
   return `<span class="prov-logo prov-${clase}" aria-hidden="true">${escHtml(SIGLA_PROVEEDOR[id] || '?')}</span>`;
 }
 
-// Precio del modelo por millón de tokens; vacío si el catálogo no lo trae.
-function textoPrecio(r){
-  if(!r.precio_confirmado) return '';
-  if(!r.entrada_usd_m && !r.salida_usd_m) return '<span class="pill p-grey">Gratis</span>';
-  return `<span class="mono">US$ ${r.entrada_usd_m} / ${r.salida_usd_m}</span><div class="sub">entrada / salida por millón de tokens</div>`;
-}
-
 function filaRol(r){
   const boton = `<button class="btn btn-api" onclick="abrirModalApi('${r.agente}')">${r.configurado ? 'Editar' : 'Agregar API'}</button>`;
   const agente = `<div class="cfg-agente"><b style="color:${COLOR_AGENTE[r.agente]}">${escHtml(r.nombre)}</b>${boton}</div>`;
   if(!r.configurado){
-    return `<tr><td>${agente}</td><td colspan="4"><span class="pill p-amber">Sin configurar</span> <span class="hint" style="margin:0 0 0 6px">No se pueden iniciar corridas hasta configurarlo.</span></td></tr>`;
+    return `<tr><td>${agente}</td><td colspan="3"><span class="pill p-amber">Sin configurar</span> <span class="hint" style="margin:0 0 0 6px">No se pueden iniciar corridas hasta configurarlo.</span></td></tr>`;
   }
   const avisos = [];
   if(!r.genera_texto) avisos.push(`<div class="hint warn" style="margin:2px 0 0">Modelo de tipo «${escHtml(r.tipo_nombre)}»: no genera texto; las llamadas del ${escHtml(r.nombre)} fallarán.</div>`);
@@ -72,11 +65,10 @@ function filaRol(r){
   const clave = r.tiene_clave
     ? `<span class="mono">${escHtml(r.clave_enmascarada)}</span><div class="sub">${escHtml(r.variable)}</div>`
     : `<span class="pill p-red">Falta la key</span><div class="sub">${escHtml(r.variable || '')}</div>`;
-  const precio = textoPrecio(r);
   const eliminar = eliminarPendiente === r.agente ? 'Confirmar' : 'Eliminar';
   return `<tr><td>${agente}</td>
     <td><div class="cfg-modelo">${insigniaProveedor(r.proveedor)}<div><div class="mono">${escHtml(r.modelo)}</div><div class="sub">${escHtml(r.proveedor_nombre)}</div>${avisos.join('')}</div></div></td>
-    <td>${clave}</td><td>${precio}</td>
+    <td>${clave}</td>
     <td style="text-align:right"><button class="btn" onclick="eliminarApi('${r.agente}')">${eliminar}</button></td></tr>`;
 }
 
