@@ -51,6 +51,13 @@ function insigniaProveedor(id){
   return `<span class="prov-logo prov-${clase}" aria-hidden="true">${escHtml(SIGLA_PROVEEDOR[id] || '?')}</span>`;
 }
 
+// Precio del modelo por millón de tokens; vacío si el catálogo no lo trae.
+function textoPrecio(r){
+  if(!r.precio_confirmado) return '';
+  if(!r.entrada_usd_m && !r.salida_usd_m) return '<span class="pill p-grey">Gratis</span>';
+  return `<span class="mono">US$ ${r.entrada_usd_m} / ${r.salida_usd_m}</span><div class="sub">entrada / salida por millón de tokens</div>`;
+}
+
 function filaRol(r){
   const boton = `<button class="btn btn-api" onclick="abrirModalApi('${r.agente}')">${r.configurado ? 'Editar' : 'Agregar API'}</button>`;
   const agente = `<div class="cfg-agente"><b style="color:${COLOR_AGENTE[r.agente]}">${escHtml(r.nombre)}</b>${boton}</div>`;
@@ -65,7 +72,7 @@ function filaRol(r){
   const clave = r.tiene_clave
     ? `<span class="mono">${escHtml(r.clave_enmascarada)}</span><div class="sub">${escHtml(r.variable)}</div>`
     : `<span class="pill p-red">Falta la key</span><div class="sub">${escHtml(r.variable || '')}</div>`;
-  const precio = r.precio_confirmado ? '' : '<span class="pill p-grey">precio sin confirmar</span>';
+  const precio = textoPrecio(r);
   const eliminar = eliminarPendiente === r.agente ? 'Confirmar' : 'Eliminar';
   return `<tr><td>${agente}</td>
     <td><div class="cfg-modelo">${insigniaProveedor(r.proveedor)}<div><div class="mono">${escHtml(r.modelo)}</div><div class="sub">${escHtml(r.proveedor_nombre)}</div>${avisos.join('')}</div></div></td>

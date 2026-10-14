@@ -128,7 +128,8 @@ def leer_roles(
         Un dict por agente (en orden Planner, Generator, Reviewer) con `agente`,
         `nombre`, `configurado`, `proveedor`, `proveedor_nombre`, `modelo`,
         `modelo_nombre`, `tipo`, `tipo_nombre`, `genera_texto`, `en_catalogo`,
-        `precio_confirmado`, `variable` (la que se usa, o la propia si falta),
+        `precio_confirmado`, `entrada_usd_m`, `salida_usd_m`, `variable` (la que se
+        usa, o la propia si falta),
         `tiene_clave`, `clave_enmascarada`, `clave_repetida_con` (otros agentes con la
         misma clave) y `desde_local`. Nunca incluye la clave completa.
     """
@@ -173,6 +174,8 @@ def _estado_rol(
         "genera_texto": tipo == "texto",
         "en_catalogo": modelo is not None,
         "precio_confirmado": bool(modelo and modelo.precio_confirmado),
+        "entrada_usd_m": modelo.entrada_usd_m if modelo else 0.0,
+        "salida_usd_m": modelo.salida_usd_m if modelo else 0.0,
         "variable": variable or variable_de_agente(agente, pid) or "",
         "tiene_clave": bool(clave),
         "clave_enmascarada": enmascarar(clave),

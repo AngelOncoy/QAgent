@@ -57,3 +57,9 @@ def test_los_textos_del_backend_se_escapan():
         if _TEXTO_DEL_BACKEND.search(linea) and "textContent" not in linea
     ]
     assert sin_escapar == []
+
+
+def test_no_se_muestra_precio_sin_confirmar():
+    """BU-01: ni la lista de modelos ni la tabla dicen «precio sin confirmar»."""
+    texto = MODAL_JS.read_text(encoding="utf-8") + CONFIG_JS.read_text(encoding="utf-8")
+    assert "sin confirmar" not in texto

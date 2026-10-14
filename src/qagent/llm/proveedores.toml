@@ -100,6 +100,9 @@ modelos = [
 
 # API compatible con OpenAI: se reutiliza esa integración. Los modelos llevan el
 # nombre completo de OpenRouter (`<empresa>/<modelo>`).
+# Solo modelos gratuitos (`:free`), que no piden crédito en la cuenta. Revisados el
+# 2026-10-14 en https://openrouter.ai/models?variant=free; la lista cambia seguido:
+# `python -m qagent.llm.validar --gratis` muestra la de hoy.
 [proveedores.openrouter]
 nombre = "OpenRouter"
 variable = "OPENROUTER_API_KEY"
@@ -107,11 +110,12 @@ endpoint = "https://openrouter.ai/api/v1/chat/completions"
 modelos_url = "https://openrouter.ai/api/v1/models"
 tipo = "texto"
 modelos = [
-  { id = "anthropic/claude-sonnet-5.5", nombre = "anthropic/claude-sonnet-5.5 (verificar)" },
-  { id = "google/gemini-2.5-flash", nombre = "google/gemini-2.5-flash" },
-  { id = "openai/gpt-oss-120b", nombre = "openai/gpt-oss-120b" },
-  { id = "meta-llama/llama-3.3-70b-instruct:free", nombre = "meta-llama/llama-3.3-70b-instruct:free", entrada = 0, salida = 0 },
-  { id = "apodex/apodex-1.1-mini:free", nombre = "apodex/apodex-1.1-mini:free", entrada = 0, salida = 0 },
+  { id = "google/gemma-4-31b-it:free", nombre = "Gemma 4 31B (gratis)", entrada = 0, salida = 0 },
+  { id = "google/gemma-4-26b-a4b-it:free", nombre = "Gemma 4 26B A4B (gratis)", entrada = 0, salida = 0 },
+  { id = "nvidia/nemotron-3-super-120b-a12b:free", nombre = "Nemotron 3 Super 120B (gratis)", entrada = 0, salida = 0 },
+  { id = "nvidia/nemotron-3-ultra-550b-a55b:free", nombre = "Nemotron 3 Ultra 550B (gratis)", entrada = 0, salida = 0 },
+  { id = "nvidia/nemotron-3.5-lightning:free", nombre = "Nemotron 3.5 Lightning (gratis)", entrada = 0, salida = 0 },
+  { id = "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free", nombre = "Nemotron 3 Nano Omni 30B (gratis)", entrada = 0, salida = 0 },
 ]
 
 [proveedores.gemini]

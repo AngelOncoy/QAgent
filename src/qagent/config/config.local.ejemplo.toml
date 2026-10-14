@@ -30,6 +30,6 @@ precio_salida_usd_m = 0
 
 [agentes.reviewer]
 proveedor = "openrouter"
-modelo = "apodex/apodex-1.1-mini:free"   # el catálogo :free cambia: python -m qagent.llm.validar --gratis
+modelo = "google/gemma-4-31b-it:free"   # el catálogo :free cambia: python -m qagent.llm.validar --gratis
 precio_entrada_usd_m = 0
 precio_salida_usd_m = 0

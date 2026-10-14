@@ -136,7 +136,9 @@ def test_cada_rol_usa_su_proveedor_sin_afectar_a_los_otros(rutas):
 
 
 def test_la_configuracion_persiste_en_disco(rutas):
-    _guardar(rutas, "reviewer", "openrouter", "openai/gpt-oss-120b", CLAVE_OPENAI)
+    _guardar(
+        rutas, "reviewer", "openrouter", "google/gemma-4-31b-it:free", CLAVE_OPENAI
+    )
     # Una lectura nueva (como al volver a abrir la app) encuentra lo guardado.
     with open(rutas[0], "rb") as archivo:
         datos = tomllib.load(archivo)
@@ -239,7 +241,9 @@ def test_cambiar_la_key_de_un_rol_no_afecta_al_otro(rutas):
 @pytest.mark.parametrize("proveedor", ["gemini", "openrouter"])
 def test_la_key_de_otro_rol_se_acepta_con_aviso(rutas, proveedor):
     _guardar(rutas, "planner", "gemini", "gemini-2.5-flash", CLAVE_GEMINI)
-    modelo = "gemini-2.5-flash" if proveedor == "gemini" else "openai/gpt-oss-120b"
+    modelo = (
+        "gemini-2.5-flash" if proveedor == "gemini" else "google/gemma-4-31b-it:free"
+    )
     transporte = Transporte()
 
     r = _guardar(rutas, "reviewer", proveedor, modelo, CLAVE_GEMINI, transporte)
@@ -493,3 +497,14 @@ def test_un_rol_de_config_local_se_marca(rutas, tmp_path):
     roles = {r["agente"]: r for r in leer_roles(config, env, local)}
     assert roles["planner"]["desde_local"] and roles["planner"]["proveedor"] == "gemini"
     assert not roles["generator"]["desde_local"]
+
+
+def test_leer_roles_trae_el_precio_del_catalogo(rutas):
+    _guardar(
+        rutas, "reviewer", "openrouter", "google/gemma-4-31b-it:free", CLAVE_GEMINI
+    )
+
+    reviewer = _roles(rutas)["reviewer"]
+
+    assert reviewer["precio_confirmado"] is True
+    assert (reviewer["entrada_usd_m"], reviewer["salida_usd_m"]) == (0.0, 0.0)

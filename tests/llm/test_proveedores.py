@@ -132,11 +132,11 @@ def test_validar_texto_envia_una_llamada_minima():
 
 def test_validar_openrouter_reutiliza_la_api_de_openai_con_su_key():
     transporte = Transporte()
-    cliente_de("openrouter", transporte).validar(CLAVE, "google/gemini-2.5-flash")
+    cliente_de("openrouter", transporte).validar(CLAVE, "google/gemma-4-31b-it:free")
 
     [envio] = transporte.envios
     assert envio["url"] == "https://openrouter.ai/api/v1/chat/completions"
-    assert envio["datos"]["model"] == "google/gemini-2.5-flash"
+    assert envio["datos"]["model"] == "google/gemma-4-31b-it:free"
     assert envio["datos"]["max_tokens"] == 16
 
 
@@ -217,3 +217,16 @@ def test_el_detalle_nunca_lleva_la_key():
     resultado = cliente_de("openai", Transporte(error)).validar(CLAVE, "gpt-5")
     assert CLAVE not in resultado.detalle
     assert "***" in resultado.detalle
+
+
+def test_openrouter_ofrece_solo_modelos_gratuitos_de_gemma_4_y_nemotron():
+    """BU-01: los modelos de pago fallaban sin crédito (HTTP 402)."""
+    modelos = catalogo()["openrouter"].modelos
+
+    assert all(m.id.endswith(":free") for m in modelos)
+    assert all(
+        m.precio_confirmado and m.entrada_usd_m == m.salida_usd_m == 0 for m in modelos
+    )
+    ids = [m.id for m in modelos]
+    assert any(i.startswith("google/gemma-4-") for i in ids)
+    assert any(i.startswith("nvidia/nemotron-") for i in ids)

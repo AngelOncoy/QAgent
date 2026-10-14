@@ -53,7 +53,7 @@ function claveActualDelAgente(p){
 function apiCambioProveedor(modeloInicial = null){
   const p = proveedorElegido();
   if(!p) return;
-  $('apiModelo').innerHTML = p.modelos.map(m => `<option value="${escHtml(m.id)}">${escHtml(m.nombre)}${m.precio_confirmado ? '' : ' · precio sin confirmar'}</option>`).join('');
+  $('apiModelo').innerHTML = p.modelos.map(m => `<option value="${escHtml(m.id)}">${escHtml(m.nombre)}</option>`).join('');
   if(modeloInicial && p.modelos.some(m => m.id === modeloInicial)) $('apiModelo').value = modeloInicial;
   $('apiVariable').textContent = (p.variables || {})[agenteApi] || '';
   const actual = claveActualDelAgente(p);
