@@ -32,6 +32,7 @@ from qagent.llm.cliente import (
     ErrorLLM,
     LimiteProveedor,
     SinConexion,
+    SinCupoGratuito,
     TransporteHTTP,
     TransporteLLM,
 )
@@ -57,7 +58,19 @@ CONECTADO = "Conectado ✓"
 KEY_INVALIDA = "Key inválida"
 SIN_CONEXION = "Sin conexión"
 MODELO_NO_DISPONIBLE = "Modelo no disponible"
-LIMITE_DE_USO = "Límite de uso del proveedor alcanzado; inténtalo más tarde"
+LIMITE_DE_USO = (
+    "Límite de uso de la cuenta alcanzado; inténtalo más tarde (las keys de la misma "
+    "cuenta o proyecto comparten este límite)"
+)
+SATURADO = "El modelo está saturado en el proveedor; inténtalo en unos minutos"
+SIN_CUPO_GRATUITO = (
+    "Este modelo no tiene cupo gratuito en tu cuenta (limit: 0); elige otro modelo "
+    "o activa la facturación del proveedor"
+)
+SIN_CREDITO = (
+    "La cuenta no tiene crédito para este modelo; recarga crédito o elige un modelo "
+    "gratuito (:free)"
+)
 
 PROMPT_PRUEBA = "Responde solo con la palabra OK."
 TOKENS_PRUEBA = 16
@@ -359,12 +372,17 @@ def motivo_de_error(error: BaseException, clave: str = "") -> ResultadoValidacio
         detalle = detalle.replace(clave, "***")
     if isinstance(error, SinConexion):
         return ResultadoValidacion(False, SIN_CONEXION, detalle)
+    if isinstance(error, SinCupoGratuito):
+        return ResultadoValidacion(False, SIN_CUPO_GRATUITO, detalle)
     if isinstance(error, LimiteProveedor):
-        return ResultadoValidacion(False, LIMITE_DE_USO, detalle)
+        motivo = SATURADO if error.codigo == 503 else LIMITE_DE_USO
+        return ResultadoValidacion(False, motivo, detalle)
     if not isinstance(error, ErrorLLM) or error.codigo is None:
         return ResultadoValidacion(False, f"Error inesperado del proveedor: {detalle}")
 
     cuerpo = error.detalle.lower()
+    if error.codigo == 402:
+        return ResultadoValidacion(False, SIN_CREDITO, detalle)
     if error.codigo in (401, 403):
         return ResultadoValidacion(False, KEY_INVALIDA, detalle)
     if error.codigo == 404:

@@ -10,7 +10,7 @@ registrarComponente('configuracion/configuracion', `<!-- ===== CONFIGURACIÓN DE
     <div class="card">
       <h4>Modelo de cada agente</h4>
       <div class="table-scroll"><table class="cfg-roles"><thead><tr><th>Agente</th><th>Proveedor y modelo</th><th>API key</th><th>Precio</th><th></th></tr></thead><tbody id="cfgAgents"></tbody></table></div>
-      <div class="hint" style="padding:10px 16px 14px">Cada agente puede usar un proveedor distinto, o el mismo que otro agente, pero siempre con su propia API key. Al guardar se hace una llamada de prueba con la key y el modelo elegidos; si falla, no se guarda nada. Cada corrida guarda en su registro qué modelos usó.</div>
+      <div class="hint" style="padding:10px 16px 14px">Cada agente puede usar un proveedor distinto, o el mismo que otro agente. Conviene una API key por agente: si dos agentes comparten la key, también comparten su límite de uso. Al guardar se hace una llamada de prueba con la key y el modelo elegidos; si falla, no se guarda nada. Cada corrida guarda en su registro qué modelos usó.</div>
     </div>
     <div class="grid2 cfg-grid">
       <div class="card"><h4>Límites de cada corrida</h4><div class="bd checks" id="cfgLimits"></div></div>
@@ -60,7 +60,7 @@ function filaRol(r){
   const avisos = [];
   if(!r.genera_texto) avisos.push(`<div class="hint warn" style="margin:2px 0 0">Modelo de tipo «${escHtml(r.tipo_nombre)}»: no genera texto; las llamadas del ${escHtml(r.nombre)} fallarán.</div>`);
   if(!r.en_catalogo) avisos.push('<div class="hint warn" style="margin:2px 0 0">Modelo fuera del catálogo (editado a mano).</div>');
-  if((r.clave_repetida_con || []).length) avisos.push(`<div class="hint warn" style="margin:2px 0 0">Usa la misma API key que el ${(r.clave_repetida_con).map(escHtml).join(' y el ')}: cada agente necesita la suya. Pulsa «Editar» y pon otra.</div>`);
+  if((r.clave_repetida_con || []).length) avisos.push(`<div class="hint warn" style="margin:2px 0 0">Usa la misma API key que el ${(r.clave_repetida_con).map(escHtml).join(' y el ')}: comparten el límite de uso del proveedor. Si se agota pronto, pulsa «Editar» y pon otra.</div>`);
   if(r.configurado && !r.desde_local) avisos.push('<div class="hint" style="margin:2px 0 0">Modelo por defecto del equipo (config.toml): agrega tu API para usar la tuya.</div>');
   const clave = r.tiene_clave
     ? `<span class="mono">${escHtml(r.clave_enmascarada)}</span><div class="sub">${escHtml(r.variable)}</div>`

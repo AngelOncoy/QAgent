@@ -1,6 +1,7 @@
 """API de cada agente elegida desde la interfaz (HU-30): config.toml + .env de EN-06.
 
-Regla: el proveedor se puede repetir entre agentes, la API key no (una por agente).
+Regla: el proveedor y la API key se pueden repetir entre agentes; una key compartida
+se acepta con un aviso, porque comparte el límite de uso (BU-01).
 
 Las llamadas a los proveedores se simulan con un transporte falso: ninguna prueba sale a
 la red ni usa claves reales.
@@ -236,22 +237,51 @@ def test_cambiar_la_key_de_un_rol_no_afecta_al_otro(rutas):
 
 
 @pytest.mark.parametrize("proveedor", ["gemini", "openrouter"])
-def test_la_key_de_otro_rol_se_rechaza_sin_llamar_al_proveedor(rutas, proveedor):
-    config, env = rutas
+def test_la_key_de_otro_rol_se_acepta_con_aviso(rutas, proveedor):
     _guardar(rutas, "planner", "gemini", "gemini-2.5-flash", CLAVE_GEMINI)
-    antes = (config.read_text(encoding="utf-8"), env.read_text(encoding="utf-8"))
     modelo = "gemini-2.5-flash" if proveedor == "gemini" else "openai/gpt-oss-120b"
     transporte = Transporte()
 
     r = _guardar(rutas, "reviewer", proveedor, modelo, CLAVE_GEMINI, transporte)
 
-    assert not r["ok"]
-    assert "ya la usa el Planner" in r["mensaje"]
-    assert transporte.envios == []
+    assert r["ok"] and r["mensaje"] == "Conectado ✓"
+    assert "misma API key que el Planner" in r["aviso"]
+    assert "límite de uso" in r["aviso"]
+    assert len(transporte.envios) == 1  # se prueba la conexión igual que siempre
+    variable = "GEMINI_API_KEY" if proveedor == "gemini" else "OPENROUTER_API_KEY"
+    assert leer_env(rutas[1])[f"{variable}_REVIEWER"] == CLAVE_GEMINI
+    roles = _roles(rutas)
+    assert roles["reviewer"]["clave_repetida_con"] == ["Planner"]
+    assert roles["planner"]["clave_repetida_con"] == ["Reviewer"]
+
+
+def test_una_key_compartida_que_falla_la_prueba_no_se_guarda(rutas):
+    config, env = rutas
+    _guardar(rutas, "planner", "gemini", "gemini-2.5-flash", CLAVE_GEMINI)
+    antes = (config.read_text(encoding="utf-8"), env.read_text(encoding="utf-8"))
+
+    r = _guardar(
+        rutas,
+        "reviewer",
+        "gemini",
+        "gemini-2.5-flash",
+        CLAVE_GEMINI,
+        Transporte(ErrorLLM("HTTP 401", codigo=401)),
+    )
+
+    assert not r["ok"] and "aviso" not in r
     assert (
         config.read_text(encoding="utf-8"),
         env.read_text(encoding="utf-8"),
     ) == antes
+
+
+def test_una_key_propia_no_trae_aviso(rutas):
+    _guardar(rutas, "planner", "gemini", "gemini-2.5-flash", CLAVE_GEMINI)
+
+    r = _guardar(rutas, "reviewer", "gemini", "gemini-2.5-flash", CLAVE_GEMINI_2)
+
+    assert r["ok"] and "aviso" not in r
 
 
 def test_sin_key_en_otro_rol_del_mismo_proveedor_se_pide_una(rutas):
@@ -295,8 +325,9 @@ def test_una_key_compartida_de_antes_se_marca_como_repetida(rutas):
     assert roles["planner"]["variable"] == "XIAOMI_API_KEY"
     assert roles["planner"]["clave_repetida_con"] == ["Generator"]
     assert roles["generator"]["clave_repetida_con"] == ["Planner"]
-    # Mantenerla al editar no se permite: se pide una key propia.
-    assert not _guardar(rutas, "planner", "xiaomi", "mimo-v2.6-pro")["ok"]
+    # Mantenerla al editar se permite, con aviso; poner otra quita la repetición.
+    mantener = _guardar(rutas, "planner", "xiaomi", "mimo-v2.6-pro")
+    assert mantener["ok"] and "Generator" in mantener["aviso"]
     assert _guardar(rutas, "planner", "xiaomi", "mimo-v2.6-pro", CLAVE_GEMINI_2)["ok"]
     assert _roles(rutas)["generator"]["clave_repetida_con"] == []
 

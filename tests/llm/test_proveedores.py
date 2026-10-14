@@ -8,13 +8,16 @@ import pytest
 
 from qagent.config import Claves
 from qagent.llm import PrecioAgente, crear_cliente
-from qagent.llm.cliente import ErrorLLM, LimiteProveedor, SinConexion
+from qagent.llm.cliente import ErrorLLM, LimiteProveedor, SinConexion, error_http
 from qagent.llm.proveedores import (
     CONECTADO,
     KEY_INVALIDA,
     LIMITE_DE_USO,
     MODELO_NO_DISPONIBLE,
+    SATURADO,
     SIN_CONEXION,
+    SIN_CREDITO,
+    SIN_CUPO_GRATUITO,
     CatalogoInvalido,
     ClienteCompatibleOpenAI,
     ClienteOpenRouter,
@@ -189,6 +192,12 @@ def test_la_fabrica_usa_el_catalogo_y_la_variable_del_proveedor():
         ),
         (SinConexion("sin red"), SIN_CONEXION),
         (LimiteProveedor("HTTP 429", codigo=429), LIMITE_DE_USO),
+        (LimiteProveedor("HTTP 503", codigo=503), SATURADO),
+        (ErrorLLM("HTTP 402", codigo=402), SIN_CREDITO),
+        (error_http(429), LIMITE_DE_USO),
+        (error_http(503), SATURADO),
+        (error_http(402, '{"error": "Insufficient credits"}'), SIN_CREDITO),
+        (error_http(429, "Quota exceeded, limit: 0, model: x"), SIN_CUPO_GRATUITO),
     ],
 )
 def test_motivo_de_error(error, motivo):

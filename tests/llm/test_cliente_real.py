@@ -6,7 +6,17 @@ from typing import Any
 
 import pytest
 
-from qagent.llm.cliente import ClienteLLMReal, ErrorLLM, LimiteProveedor
+from qagent.llm.cliente import (
+    LARGO_DETALLE_ERROR,
+    ClienteLLMReal,
+    CupoAgotado,
+    ErrorLLM,
+    LimiteProveedor,
+    ProveedorSaturado,
+    SinCredito,
+    SinCupoGratuito,
+    error_http,
+)
 
 CLAVE_PRUEBA = "clave-super-secreta-de-prueba"
 ENDPOINT_PRUEBA = "https://proveedor.example/v1/chat/completions"
@@ -302,3 +312,103 @@ def test_envia_un_user_agent_propio_para_no_ser_bloqueado() -> None:
 
     [solicitud] = transporte.solicitudes
     assert solicitud["cabeceras"]["User-Agent"] == "QAgent/1.0"
+
+
+# --- Clasificación de errores HTTP del proveedor (BU-01) ---------------------------
+
+#: Respuesta real de Gemini a un modelo sin cupo gratuito: el `limit: 0` viene después
+#: de los primeros 300 caracteres, que es lo que se guarda en el detalle.
+CUERPO_GEMINI_LIMITE_CERO = (
+    '[{"error": {"code": 429, "message": "You exceeded your current quota, please '
+    "check your plan and billing details. For more information on this error, head "
+    "to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current "
+    "usage, head to: https://ai.dev/usage?tab=rate-limit. * Quota exceeded for "
+    "metric: generativelanguage.googleapis.com/generate_content_free_tier_requests, "
+    'limit: 0, model: gemini-2.5-pro", "status": "RESOURCE_EXHAUSTED"}}]'
+)
+
+
+@pytest.mark.parametrize(
+    ("codigo", "cuerpo", "tipo"),
+    [
+        (429, '{"error": "rate limit reached"}', CupoAgotado),
+        (429, "Quota exceeded ... limit: 250, model: gemini-2.5-flash", CupoAgotado),
+        (429, "limit: 0.5 requests per second", CupoAgotado),
+        (429, CUERPO_GEMINI_LIMITE_CERO, SinCupoGratuito),
+        (429, '{"quota": {"limit": 0}}', SinCupoGratuito),
+        (503, '{"error": {"message": "The model is overloaded."}}', ProveedorSaturado),
+        (402, '{"error": {"message": "Insufficient credits"}}', SinCredito),
+        (500, "error interno", ErrorLLM),
+    ],
+)
+def test_error_http_distingue_cada_caso(codigo, cuerpo, tipo) -> None:
+    error = error_http(codigo, cuerpo)
+
+    assert type(error) is tipo
+    assert error.codigo == codigo
+    assert f"HTTP {codigo}" in str(error)
+
+
+def test_saturado_y_cupo_agotado_se_reintentan_sin_cupo_gratuito_no() -> None:
+    assert isinstance(error_http(429), LimiteProveedor)
+    assert isinstance(error_http(503), LimiteProveedor)
+    assert not isinstance(error_http(429, CUERPO_GEMINI_LIMITE_CERO), LimiteProveedor)
+    assert not isinstance(error_http(402), LimiteProveedor)
+
+
+def test_saturado_y_cupo_agotado_dicen_cosas_distintas() -> None:
+    assert "saturado" in str(error_http(503))
+    assert "límite de uso" in str(error_http(429))
+    assert "saturado" not in str(error_http(429))
+
+
+def test_el_detalle_se_recorta_pero_limit_0_se_detecta_en_el_cuerpo_completo() -> None:
+    assert CUERPO_GEMINI_LIMITE_CERO.index("limit: 0") > LARGO_DETALLE_ERROR
+
+    error = error_http(429, CUERPO_GEMINI_LIMITE_CERO)
+
+    assert isinstance(error, SinCupoGratuito)
+    assert len(error.detalle) == LARGO_DETALLE_ERROR
+
+
+def test_transporte_http_detecta_limit_0_de_gemini(monkeypatch) -> None:
+    import io
+    from email.message import Message
+    from urllib.error import HTTPError
+
+    from qagent.llm import cliente as modulo
+
+    def falla(*_: Any, **__: Any) -> None:
+        raise HTTPError(
+            ENDPOINT_PRUEBA,
+            429,
+            "Too Many Requests",
+            Message(),
+            io.BytesIO(CUERPO_GEMINI_LIMITE_CERO.encode("utf-8")),
+        )
+
+    monkeypatch.setattr(modulo, "urlopen", falla)
+
+    with pytest.raises(SinCupoGratuito):
+        modulo.TransporteHTTP().enviar(
+            url=ENDPOINT_PRUEBA, cabeceras={}, datos={}, timeout_s=1
+        )
+
+
+def test_sin_cupo_gratuito_no_se_reintenta() -> None:
+    esperas: list[float] = []
+    transporte = TransporteGrabado(error=error_http(429, CUERPO_GEMINI_LIMITE_CERO))
+    cliente = ClienteLLMReal(
+        modelo="m",
+        clave=CLAVE_PRUEBA,
+        endpoint=ENDPOINT_PRUEBA,
+        transporte=transporte,
+        esperar=esperas.append,
+    )
+
+    with pytest.raises(ErrorLLM) as error:
+        cliente.generar("hola")
+
+    assert len(transporte.solicitudes) == 1
+    assert esperas == []
+    assert "cupo en la capa gratuita" in str(error.value)
