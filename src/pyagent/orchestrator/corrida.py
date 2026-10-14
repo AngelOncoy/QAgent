@@ -362,9 +362,7 @@ def _registrar(
                     spec_id = id_de_spec(resultado.modulo, objetivo.objetivo)
                     archivo = nombre_prueba(spec_id)
                     almacen.guardar_prueba_aprobada(archivo, objetivo.codigo)
-                huella = huellas_objetivos.get(
-                    (resultado.modulo, objetivo.objetivo)
-                )
+                huella = huellas_objetivos.get((resultado.modulo, objetivo.objetivo))
                 almacen.guardar_spec(
                     objetivo.contrato,
                     resumen.run_id,

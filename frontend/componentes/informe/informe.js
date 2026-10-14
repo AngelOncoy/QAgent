@@ -9,7 +9,7 @@ registrarComponente('informe/informe', `<!-- ===== 6. REPORTE FINAL (según tu d
     <div class="banner2">
       <div class="glow"></div>
       <div class="bl">
-        <div class="brow"><span class="bbadge"><span class="ico" data-i="award" data-c="var(--emerald-400)"></span>INFORME EJECUTIVO DE ASEGURAMIENTO DE CALIDAD</span><span class="bmeta">QAgent Engine v2.4 • Run #8841-B</span></div>
+        <div class="brow"><span class="bbadge"><span class="ico" data-i="award" data-c="var(--emerald-400)"></span>INFORME EJECUTIVO DE ASEGURAMIENTO DE CALIDAD</span><span class="bmeta">QAgent Engine v2.4</span></div>
         <h2>Auditoría de Suites de Prueba &amp; Mitigación de Vulnerabilidades de Código</h2>
         <p>Consolidado formal generado tras la ejecución de los agentes <span style="color:var(--blue-400)">Planner (AST)</span>, <span style="color:var(--purple-400)">Generator (Pytest)</span> y <span style="color:var(--emerald-400)">Reviewer (Sandbox &amp; Anti-Laundering)</span>. Verificación estricta de contratos inmutables, aislamiento de mocks y detección de relajación de aserciones.</p>
       </div>
@@ -40,6 +40,10 @@ function chk(state, label, okTxt, badTxt, icoOk, icoBad, badCls='bad', wide=fals
   return `<div class="ck ${state?'ok':badCls}${wide?' wide':''}"><div class="cl">${I(state?icoOk:icoBad,'currentColor',15)}<span>${label}</span></div><span class="ct">${state?okTxt:badTxt}</span></div>`;
 }
 function renderReport(){
+  if (typeof desbloquearVista === 'function') {
+    desbloquearVista('report');
+    desbloquearVista('history');
+  }
   modoReporte(!!reporteReal);
   if (reporteReal) { renderReportReal(reporteReal); return; }   // corrida real (HU-21)
   const m = metrics();
@@ -111,21 +115,34 @@ function modoReporte(real){   // la carpeta simulada de la demo se oculta en una
   document.querySelectorAll('#s-report .ractions .btn:not(.primary)').forEach(b => b.classList.toggle('hide', real));
   const bm = document.querySelector('#s-report .bmeta'); if(!bm) return;
   if(bmetaDemo===null) bmetaDemo = bm.textContent;
-  bm.textContent = real ? 'Corrida ' + reporteReal.run_id + (reporteReal.es_simulado ? ' · IA simulada' : '') : bmetaDemo;
+  bm.textContent = (real && reporteReal) ? 'Corrida #' + reporteReal.run_id + (reporteReal.es_simulado ? ' · IA simulada' : '') : 'QAgent Engine v2.4';
 }
-async function cargarReporteReal(runId){
+let cargandoReporte = false;
+async function cargarReporteReal(runId = null, navegar = true){
   const api = window.pywebview && window.pywebview.api;
   if(!api || !api.obtener_reporte) return;
-  const r = await api.obtener_reporte(projectPath, runId || null);
-  if(!r || !r.ok){
-    reporteReal = null; rFilter = 'ALL'; rTypeFilter = 'todos';
+  if(cargandoReporte) return;
+  cargandoReporte = true;
+  try {
+    const r = await api.obtener_reporte(projectPath, runId || null);
+    if(!r || !r.ok){
+      if (typeof toastError === 'function') toastError(escHtml((r && r.motivo) || 'No se pudo leer el reporte de la corrida.'));
+      return;
+    }
+    reporteReal = r; rFilter = 'todas'; rTypeFilter = 'todos';
+    if (typeof desbloquearVista === 'function') {
+      desbloquearVista('report');
+      desbloquearVista('history');
+    }
     document.querySelectorAll('#views a[data-v=report]').forEach(a=>a.classList.remove('off'));
-    go('report');
-    return;
+    if (navegar) {
+      go('report');
+    } else {
+      renderReportReal(r);
+    }
+  } finally {
+    cargandoReporte = false;
   }
-  reporteReal = r; rFilter = 'todas'; rTypeFilter = 'todos';
-  document.querySelectorAll('#views a[data-v=report]').forEach(a=>a.classList.remove('off'));
-  go('report');
 }
 function contratoRealHtml(f){
   if(!f.contrato) return `<div class="rhd"><span style="color:var(--mut)">Esta corrida no guardó el contrato (fue anterior al reporte de auditoría).</span></div>`;

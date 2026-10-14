@@ -102,9 +102,7 @@ def test_escenario_a_reutiliza_aprobadas_y_costo_cero(preparado, monkeypatch):
     assert all(o["reutilizada"] for o in results["objetivos"])
 
 
-def test_escenario_b_funcion_modificada_requiere_corrida_nueva(
-    preparado, monkeypatch
-):
+def test_escenario_b_funcion_modificada_requiere_corrida_nueva(preparado, monkeypatch):
     raiz, _, _ = preparado
     archivo = raiz / "banco_mvp.py"
     archivo.write_text(
@@ -165,9 +163,7 @@ def test_modulo_movido_bloquea_sus_pruebas(preparado, monkeypatch):
     resumen, results, _ = _regresion(preparado, monkeypatch, llamadas)
     assert resumen.requieren_corrida_nueva == 3
     assert llamadas == []
-    assert {o["motivo_regresion"] for o in results["objetivos"]} == {
-        "objetivo_ausente"
-    }
+    assert {o["motivo_regresion"] for o in results["objetivos"]} == {"objetivo_ausente"}
 
 
 def test_escenario_d_rechazadas_no_se_guardan_ni_reutilizan(preparado, monkeypatch):
@@ -184,9 +180,7 @@ def test_escenario_d_rechazadas_no_se_guardan_ni_reutilizan(preparado, monkeypat
     ("valor", "motivo"),
     [(None, "huella_ausente"), ("hash-corrupto", "metadatos_corruptos")],
 )
-def test_huella_ausente_o_corrupta_se_bloquea(
-    preparado, monkeypatch, valor, motivo
-):
+def test_huella_ausente_o_corrupta_se_bloquea(preparado, monkeypatch, valor, motivo):
     _, almacen, _ = preparado
     ruta = next(
         p
@@ -211,8 +205,12 @@ def test_huella_ausente_o_corrupta_se_bloquea(
 
 
 def test_identidad_incluye_modulo_si_hay_nombres_duplicados(tmp_path: Path):
-    (tmp_path / "uno.py").write_text("def calcular():\n    return 1\n", encoding="utf-8")
-    (tmp_path / "dos.py").write_text("def calcular():\n    return 2\n", encoding="utf-8")
+    (tmp_path / "uno.py").write_text(
+        "def calcular():\n    return 1\n", encoding="utf-8"
+    )
+    (tmp_path / "dos.py").write_text(
+        "def calcular():\n    return 2\n", encoding="utf-8"
+    )
     huellas = huellas_de_objetivos(tmp_path)
     assert ("uno.py", "calcular") in huellas
     assert ("dos.py", "calcular") in huellas
@@ -220,7 +218,9 @@ def test_identidad_incluye_modulo_si_hay_nombres_duplicados(tmp_path: Path):
 
 
 def test_proyecto_sin_pruebas_aprobadas_falla_controladamente(tmp_path, config):
-    (tmp_path / "modulo.py").write_text("def funcion():\n    return 1\n", encoding="utf-8")
+    (tmp_path / "modulo.py").write_text(
+        "def funcion():\n    return 1\n", encoding="utf-8"
+    )
     almacen = AlmacenProyecto(tmp_path)
     almacen.inicializar()
     run_id = almacen.crear_run()["run_id"]

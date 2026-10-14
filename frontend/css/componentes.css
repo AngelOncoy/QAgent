@@ -54,3 +54,4 @@ td .sub{font-family:var(--mono);font-size:10.5px;color:var(--dim)}
 .dot.amber{background:var(--amber)} .dot.red{background:var(--red)}
 .dot.grey{background:var(--dim)}
 .neutro{color:var(--mut)}
+.cfg-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px}

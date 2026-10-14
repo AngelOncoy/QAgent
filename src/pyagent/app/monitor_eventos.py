@@ -69,9 +69,10 @@ def _parece_endpoint(objetivo: Any) -> bool:
     """Reconoce la identidad HTTP canónica que EN-16 usa en los eventos."""
     if not isinstance(objetivo, str):
         return False
-    return any(objetivo.startswith(f"{metodo} /") for metodo in (
-        "GET", "POST", "PUT", "PATCH", "DELETE"
-    ))
+    return any(
+        objetivo.startswith(f"{metodo} /")
+        for metodo in ("GET", "POST", "PUT", "PATCH", "DELETE")
+    )
 
 
 def a_evento_bitacora(fila: dict[str, Any]) -> dict[str, Any]:

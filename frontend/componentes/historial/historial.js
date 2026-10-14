@@ -4,7 +4,7 @@ registrarComponente('historial/historial', `<!-- ===== 7. HISTORIAL DE CORRIDAS 
 <section id="s-history" class="hide scroll">
   <div class="page">
     <div class="card"><div class="projhead">
-      <span class="t">Historial · <span class="repoName">ecommerce-core</span></span>
+      <span class="t">Historial · <span class="repoName"></span></span>
       <span class="pill p-grey">Se guarda en <span class="mono">.pyagent/</span> dentro del proyecto · no se borra entre sesiones</span>
     </div></div>
     <div class="card">
@@ -70,6 +70,8 @@ function renderHistoryDemo(){
 }
 
 function renderHistoryReal(datos){
+  const nombreProyecto = (datos.proyecto || (typeof projectPath === 'string' ? projectPath.split(/[\\/]/).filter(Boolean).pop() : '') || '').trim();
+  if(nombreProyecto) document.querySelectorAll('.repoName').forEach(e => e.textContent = nombreProyecto);
   const corridas = datos.corridas || [], specs = datos.specs || [];
   $('histCount').textContent = corridas.length + ' registradas';
   $('histTable').innerHTML = corridas.length ? corridas.map((h, indice) => {
@@ -88,7 +90,7 @@ function renderHistoryReal(datos){
       <td class="mono">${Number(h.total_tokens || 0).toLocaleString('es-PE')}<div class="sub">Planner: ${Number(h.tokens_planner || 0).toLocaleString('es-PE')}</div></td>
       <td class="mono">US$ ${Number(h.costo_usd || 0).toFixed(4)}</td>
       <td><button class="btn" style="font-size:10.5px;padding:6px 10px" onclick="cargarReporteReal('${escHtml(h.run_id)}')">Ver reporte</button></td></tr>`;
-  }).join('') : '<tr><td colspan="9" class="hint">Todavía no hay corridas registradas.</td></tr>';
+  }).join('') : '<tr><td colspan="9" class="hint">Todavía no hay corridas registradas en este proyecto.</td></tr>';
 
   $('specTable').innerHTML = specs.length ? specs.map(spec => {
     const accion = spec.ultima_accion;
@@ -103,7 +105,7 @@ function renderHistoryReal(datos){
       <td class="mono" title="${escHtml(spec.huella)}">${escHtml(spec.huella.slice(0,12))}…</td>
       <td class="mono">#${escHtml(spec.run_origen)}</td><td>${estado}</td>
       <td><button class="btn" style="font-size:10.5px;padding:5px 9px" title="Descargar este spec en ZIP" onclick='descargarSpecsReal(${JSON.stringify(spec.modulo)})'>⤓</button></td></tr>`;
-  }).join('') : '<tr><td colspan="6" class="hint">Todavía no hay specs modulares guardadas.</td></tr>';
+  }).join('') : '<tr><td colspan="6" class="hint">Todavía no hay specs guardados en este proyecto.</td></tr>';
 }
 
 async function descargarSpecsReal(modulo){

@@ -29,17 +29,16 @@ registrarComponente('sidebar/sidebar', `<!-- ======================= SIDEBAR ===
     <nav id="views">
       <a data-v="preview"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 12h10M4 18h7"/><circle cx="18" cy="16" r="3"/></svg>Vista previa<span class="pill p-grey">Alcance</span></a>
       <a data-v="tests"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 3h6M10 3v6l-5 9a2 2 0 0 0 2 3h10a2 2 0 0 0 2-3l-5-9V3"/><path d="M8 15h8"/></svg>Configuración de pruebas<span class="pill p-grey">Perfil</span></a>
-      <a data-v="monitor"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12h4l3-7 4 14 3-7h4"/></svg>Monitor en Vivo<span class="pill p-grey">Live</span></a>
-      <a data-v="exec" class="off"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="m10 8 6 4-6 4z"/></svg>Ejecución de Pruebas<span class="pill p-grey">PyTest CI</span></a>
-      <a data-v="report" class="off"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 3h9l4 4v14H6z"/><path d="M9 12h7M9 16h7"/></svg>Reporte Final<span class="pill p-grey">Auditoría</span></a>
-      <a data-v="history"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18"/><path d="M7 14l3-3 3 3 5-6"/></svg>Historial<span class="pill p-grey">Corridas</span></a>
+      <a data-v="monitor" class="hide off"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12h4l3-7 4 14 3-7h4"/></svg>Monitor en Vivo<span class="pill p-grey">Live</span></a>
+      <a data-v="exec" class="hide off"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="m10 8 6 4-6 4z"/></svg>Ejecución de Pruebas<span class="pill p-grey">PyTest CI</span></a>
+      <a data-v="report" class="hide off"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 3h9l4 4v14H6z"/><path d="M9 12h7M9 16h7"/></svg>Reporte Final<span class="pill p-grey">Auditoría</span></a>
+      <a data-v="history" class="hide off"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18"/><path d="M7 14l3-3 3 3 5-6"/></svg>Historial<span class="pill p-grey">Corridas</span></a>
     </nav>
   </div>
 
   <div class="sidefoot">
     <div class="runner">
-      <div class="row" id="sbRow"><b>Sandbox Runner:</b><span id="sbEstado" class="ok"><span id="sbDot" class="dot"></span><span id="sbTxt">pyagent-sandbox:base</span></span></div>
-      <div class="row sbhelp" id="sbAyuda" style="display:none"><span id="sbAyudaTxt" class="no">Abre Docker Desktop</span><button type="button" onclick="actualizarSandbox()">Reintentar</button></div>
+      <div class="row" id="sbRow"><b>Sandbox Runner:</b></div>
       <div class="row"><span>Reintentos max:</span><span>3 por test</span></div>
     </div>
     <div class="sidebottom"><span>☾ Tema Oscuro</span><span class="mono">⑂ <span id="branchLbl">main</span></span></div>
@@ -67,13 +66,15 @@ async function actualizarSandbox() {
     // IA simulada y Docker sin responder (o sin imagen): se muestra como opcional, no como error.
     const clave = r && r.simulado && r.estado !== 'ok' ? 'opcional' : r && r.estado;
     const ui = SANDBOX_UI[clave] || SANDBOX_UI.no_iniciado;
-    $('sbDot').className = ui.dot;
-    $('sbEstado').className = ui.txt;
-    $('sbTxt').textContent = ui.label;
-    $('sbRow').title = ui === SANDBOX_UI.ok ? '' : (ui === SANDBOX_UI.opcional ? 'No se usa con la IA simulada. ' : '') + ((r && r.mensaje) || '');
-    $('sbAyudaTxt').textContent = ui.ayuda;
-    $('sbAyuda').title = (r && r.mensaje) || '';
-    $('sbAyuda').style.display = ui.ayuda ? '' : 'none';
+    if ($('sbDot')) $('sbDot').className = ui.dot;
+    if ($('sbEstado')) $('sbEstado').className = ui.txt;
+    if ($('sbTxt')) $('sbTxt').textContent = ui.label;
+    if ($('sbRow')) $('sbRow').title = ui === SANDBOX_UI.ok ? '' : (ui === SANDBOX_UI.opcional ? 'No se usa con la IA simulada. ' : '') + ((r && r.mensaje) || '');
+    if ($('sbAyudaTxt')) $('sbAyudaTxt').textContent = ui.ayuda;
+    if ($('sbAyuda')) {
+      $('sbAyuda').title = (r && r.mensaje) || '';
+      $('sbAyuda').style.display = ui.ayuda ? '' : 'none';
+    }
   } catch (err) {
     console.error("Error al consultar el estado del sandbox:", err);
   } finally {
@@ -98,13 +99,32 @@ function actualizarSidebar(v){
   });
 }
 
+function desbloquearVista(v){
+  document.querySelectorAll(`#views a[data-v="${v}"]`).forEach(a => {
+    a.classList.remove('hide', 'off');
+  });
+}
+
+function reiniciarVistasProyecto(){
+  document.querySelectorAll('#views a').forEach(a => {
+    const v = a.dataset.v;
+    if(v === 'preview' || v === 'tests'){
+      a.classList.remove('hide', 'off');
+    } else {
+      a.classList.add('hide', 'off');
+    }
+  });
+}
+
 // Se llama desde main.js cuando el HTML de la barra lateral ya está montado.
 function iniciarSidebar(){
+  reiniciarVistasProyecto();
   document.querySelectorAll('#views a').forEach(a => a.onclick = () => {
-    if(a.classList.contains('off')) return;
+    if(a.classList.contains('off') || a.classList.contains('hide')) return;
     if(a.dataset.v==='monitor' && !monitorStarted) { startMonitor(); return; }
     go(a.dataset.v);
   });
   if (window.pywebview && window.pywebview.api) iniciarEstadoSandbox();
   else window.addEventListener('pywebviewready', iniciarEstadoSandbox, {once:true});
 }
+

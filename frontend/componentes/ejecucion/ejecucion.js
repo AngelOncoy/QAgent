@@ -19,6 +19,10 @@ registrarComponente('ejecucion/ejecucion', `<!-- ===== 5. EJECUCIÓN DE PRUEBAS 
 `);
 
 function irAReporteFinal(){
+  if (typeof desbloquearVista === 'function') {
+    desbloquearVista('report');
+    desbloquearVista('history');
+  }
   document.querySelectorAll('#views a[data-v=report]').forEach(a=>a.classList.remove('off'));
   if (ejecucionReal && ejecucionReal.run_id) {
     cargarReporteReal(ejecucionReal.run_id);
@@ -63,6 +67,10 @@ function renderExecKpis(){
     <div class="kscale"><span>0%</span><span class="c">Meta: ${META.ms}%</span><span>100%</span></div></div></div>`;
 }
 function renderExec(){
+  if (typeof desbloquearVista === 'function') {
+    desbloquearVista('exec');
+    desbloquearVista('report');
+  }
   document.querySelectorAll('#views a[data-v=report]').forEach(a=>a.classList.remove('off'));
   if (ejecucionReal) { renderExecReal(ejecucionReal); return; }   // corrida real (HU-18)
   renderExecKpis();
@@ -129,14 +137,32 @@ const AGENTE_REAL = {planner:['P','var(--blue-400)'], generator:['G','var(--purp
 const numReal = (v, d=1, suf='%') => v===null || v===undefined ? '—' : Number(v).toFixed(d) + suf;
 const usdReal = v => v===null || v===undefined ? '—' : 'US$ ' + Number(v).toFixed(4);
 const tiempoReal = s => s===null || s===undefined ? '—' : (s < 1 ? Math.round(s*1000) + ' ms' : Number(s).toFixed(1) + ' s');
-async function cargarEjecucionReal(runId){
+let cargandoEjecucion = false;
+async function cargarEjecucionReal(runId = null, navegar = true){
   const api = window.pywebview && window.pywebview.api;
   if(!api || !api.obtener_ejecucion) return;
-  const r = await api.obtener_ejecucion(projectPath, runId || null);
-  if(!r || !r.ok){ toastError(escHtml((r && r.motivo) || 'No se pudieron leer los resultados de la corrida.')); return; }
-  ejecucionReal = r; filterState = 'ALL'; filterType = 'todos';
-  document.querySelectorAll('#views a[data-v=exec]').forEach(a=>a.classList.remove('off'));
-  go('exec');
+  if(cargandoEjecucion) return;
+  cargandoEjecucion = true;
+  try {
+    const r = await api.obtener_ejecucion(projectPath, runId || null);
+    if(!r || !r.ok){
+      if (typeof toastError === 'function') toastError(escHtml((r && r.motivo) || 'No se pudieron leer los resultados de la corrida.'));
+      return;
+    }
+    ejecucionReal = r; filterState = 'ALL'; filterType = 'todos';
+    if (typeof desbloquearVista === 'function') {
+      desbloquearVista('exec');
+      desbloquearVista('report');
+    }
+    document.querySelectorAll('#views a[data-v=exec]').forEach(a=>a.classList.remove('off'));
+    if (navegar) {
+      go('exec');
+    } else {
+      renderExecReal(r);
+    }
+  } finally {
+    cargandoEjecucion = false;
+  }
 }
 function metaTexto(cumple, conMeta, sinMeta){
   if(cumple===null || cumple===undefined) return `<div class="ks" style="color:var(--mut)">${sinMeta}</div>`;

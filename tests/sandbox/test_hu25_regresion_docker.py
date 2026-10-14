@@ -43,9 +43,7 @@ def _contrato() -> dict:
     return dato
 
 
-def test_regresion_real_sin_ia_sin_red_y_fallo_posterior(
-    tmp_path: Path, imagen_base
-):
+def test_regresion_real_sin_ia_sin_red_y_fallo_posterior(tmp_path: Path, imagen_base):
     raiz = tmp_path / "proyecto"
     raiz.mkdir()
     modulo = (
@@ -101,7 +99,9 @@ def test_regresion_real_sin_ia_sin_red_y_fallo_posterior(
 
     # Cambia una dependencia privada, no el AST de la funcion objetivo: la prueba
     # sigue siendo elegible y debe detectar la regresion real.
-    (raiz / "calc.py").write_text(modulo.replace("return 2", "return 3"), encoding="utf-8")
+    (raiz / "calc.py").write_text(
+        modulo.replace("return 2", "return 3"), encoding="utf-8"
+    )
     run_fallo = almacen.crear_run(tipos_prueba=["funcion"])["run_id"]
     fallo = ejecutar_corrida(
         raiz,
@@ -179,9 +179,7 @@ def test_flujo_real_generacion_regresion_y_funcion_modificada(
         preparar_imagen=lambda ruta: imagen_base,
     )
     results = json.loads(
-        (almacen.carpeta_run(run_cambio) / "results.json").read_text(
-            encoding="utf-8"
-        )
+        (almacen.carpeta_run(run_cambio) / "results.json").read_text(encoding="utf-8")
     )
     obsoleto = next(o for o in results["objetivos"] if o["funcion"] == "es_palindromo")
     assert cambio.requieren_corrida_nueva == 1

@@ -45,15 +45,15 @@ registrarComponente('vista-previa/vista-previa', `<!-- ===== 2. VISTA PREVIA Y C
       </div>
       <div class="card">
         <h4>Funciones detectadas (AST) <span class="pill p-grey" id="fnCount"></span></h4>
-        <table>
+        <div class="table-scroll"><table>
           <thead><tr><th>Función</th><th>Tipada</th><th>Docstring</th><th>Ramas</th><th title="Crítica: se le aplica mutation testing en el perfil Profundo">Crítica</th><th>Incluir</th></tr></thead>
           <tbody id="fnTable"></tbody>
-        </table>
+        </table></div>
         <h4 class="endpoint-title">Endpoints detectados (AST) <span class="pill p-blue" id="endpointCount">0 endpoints</span></h4>
-        <table class="endpoint-table">
+        <div class="table-scroll"><table class="endpoint-table">
           <thead><tr><th>Método y ruta</th><th>Manejador</th><th>Dependencias</th></tr></thead>
           <tbody id="endpointTable"></tbody>
-        </table>
+        </table></div>
         <div class="legend">
           <span>★ Crítica = ≥ 1 rama if/else o try/except (propuesta por AST, editable)</span>
           <span class="warn">⚠ Sin docstring: el valor esperado no tendrá fuente; la prueba puede copiar el comportamiento actual</span>
@@ -209,7 +209,10 @@ async function loadProject(name, src, where, br='main', ruta=''){
     aplicarResumenDemo();   // modo demostración (navegador, sin Python)
   }
   HAS_PRIOR_RUN = await hayCorridaPrevia(ruta);
-  document.querySelectorAll('#views a[data-v=exec],#views a[data-v=report]').forEach(a=>a.classList.add('off'));
+  ejecucionReal = null;
+  reporteReal = null;
+  if (typeof reiniciarVistasProyecto === 'function') reiniciarVistasProyecto();
+  else document.querySelectorAll('#views a[data-v=exec],#views a[data-v=report],#views a[data-v=monitor],#views a[data-v=history]').forEach(a=>a.classList.add('hide','off'));
 
   renderTree();
   renderProfiles();

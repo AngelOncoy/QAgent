@@ -24,7 +24,9 @@ def test_vista_previa_renderiza_metodo_ruta_y_manejador_escapados() -> None:
 
 def test_monitor_usa_identidad_y_porcentaje_del_backend() -> None:
     js = leer("componentes/monitor/monitor.js")
-    real = js[js.index("function monitorEventoReal") : js.index("function monitorFinReal")]
+    real = js[
+        js.index("function monitorEventoReal") : js.index("function monitorFinReal")
+    ]
 
     assert "d.identificador" in real
     assert "d.tipo_objetivo==='endpoint'" in real
