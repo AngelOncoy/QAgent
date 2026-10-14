@@ -8,9 +8,11 @@ Se apoya en la configuración fija de EN-06 (`carga.py`):
 - `.env` guarda las claves, **una por agente**, en `<VARIABLE_DEL_PROVEEDOR>_<AGENTE>`
   (ej. `GEMINI_API_KEY_PLANNER`, `GEMINI_API_KEY_GENERATOR`).
 
-Regla: el mismo proveedor puede estar en dos o tres agentes, pero cada agente necesita
-su propia API key; una clave que ya usa otro agente se rechaza antes de llamar al
-proveedor.
+El mismo proveedor puede estar en dos o tres agentes. Cada agente guarda su clave en su
+propia variable, pero puede ser la misma que usa otro agente (BU-01): se acepta con un
+aviso, porque los agentes que la comparten también comparten su límite de uso. Con
+Gemini el límite es por proyecto, así que dos keys del mismo proyecto lo comparten
+igual.
 
 Antes de guardar se prueba la conexión con el proveedor (`llm.proveedores`); si falla,
 no se escribe nada. Ninguna función de este módulo devuelve ni registra una clave
@@ -126,7 +128,8 @@ def leer_roles(
         Un dict por agente (en orden Planner, Generator, Reviewer) con `agente`,
         `nombre`, `configurado`, `proveedor`, `proveedor_nombre`, `modelo`,
         `modelo_nombre`, `tipo`, `tipo_nombre`, `genera_texto`, `en_catalogo`,
-        `precio_confirmado`, `variable` (la que se usa, o la propia si falta),
+        `precio_confirmado`, `entrada_usd_m`, `salida_usd_m`, `variable` (la que se
+        usa, o la propia si falta),
         `tiene_clave`, `clave_enmascarada`, `clave_repetida_con` (otros agentes con la
         misma clave) y `desde_local`. Nunca incluye la clave completa.
     """
@@ -171,6 +174,8 @@ def _estado_rol(
         "genera_texto": tipo == "texto",
         "en_catalogo": modelo is not None,
         "precio_confirmado": bool(modelo and modelo.precio_confirmado),
+        "entrada_usd_m": modelo.entrada_usd_m if modelo else 0.0,
+        "salida_usd_m": modelo.salida_usd_m if modelo else 0.0,
         "variable": variable or variable_de_agente(agente, pid) or "",
         "tiene_clave": bool(clave),
         "clave_enmascarada": enmascarar(clave),
@@ -274,8 +279,8 @@ def configurar_rol(
 
     Returns:
         `{"ok": True, "mensaje": "Conectado ✓"}` o `{"ok": False, "mensaje": motivo,
-        "detalle": str}`. Si `ok` es False no se modificó ningún archivo. Una clave
-        que ya usa otro agente se rechaza sin llamar al proveedor.
+        "detalle": str}`. Si `ok` es False no se modificó ningún archivo. Si la clave
+        es la misma que usa otro agente se guarda igual y el resultado trae `"aviso"`.
     """
     try:
         datos_proveedor = _validar_eleccion(agente, proveedor, modelo)
@@ -302,11 +307,6 @@ def configurar_rol(
             f"{NOMBRE_AGENTE[agente]}."
         )
     repetida = _repetida_con(agente, clave_a_usar, actuales)
-    if repetida:
-        return _fallo(
-            f"Esa API key ya la usa el {' y el '.join(repetida)}. Cada agente necesita "
-            "su propia API key."
-        )
 
     resultado = cliente_de(datos_proveedor, transporte).validar(clave_a_usar, modelo)
     if not resultado.ok:
@@ -333,7 +333,21 @@ def configurar_rol(
             "La conexión funcionó, pero no se pudo guardar la configuración.",
             str(error).replace(clave_a_usar, "***"),
         )
+    if repetida:
+        return {
+            "ok": True,
+            "mensaje": resultado.mensaje,
+            "aviso": aviso_clave_compartida(repetida),
+        }
     return {"ok": True, "mensaje": resultado.mensaje}
+
+
+def aviso_clave_compartida(otros: list[str]) -> str:
+    """Aviso para un agente que usa la misma API key que `otros` (nombres visibles)."""
+    return (
+        f"Usa la misma API key que el {' y el '.join(otros)}: comparten el límite de "
+        "uso del proveedor, así que se agota antes."
+    )
 
 
 def eliminar_rol(

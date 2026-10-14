@@ -10,8 +10,8 @@ con dos operaciones:
 
 Todos los proveedores del catálogo exponen una API compatible con OpenAI (OpenRouter
 incluido), así que comparten `ClienteCompatibleOpenAI`; solo cambian la URL, la cabecera
-de la clave y el parámetro que limita la salida. Los modelos de voz (canopylabs) y de
-audio (whisper) no generan texto: se validan consultando el modelo y no completan.
+de la clave y el parámetro que limita la salida. Si el catálogo trae modelos de voz o
+de audio (`tipo`), no generan texto: se validan consultando el modelo y no completan.
 
 Este módulo nunca guarda ni registra claves: las recibe del llamador y las redacta de
 cualquier mensaje de error.
@@ -32,6 +32,7 @@ from qagent.llm.cliente import (
     ErrorLLM,
     LimiteProveedor,
     SinConexion,
+    SinCupoGratuito,
     TransporteHTTP,
     TransporteLLM,
 )
@@ -57,7 +58,19 @@ CONECTADO = "Conectado ✓"
 KEY_INVALIDA = "Key inválida"
 SIN_CONEXION = "Sin conexión"
 MODELO_NO_DISPONIBLE = "Modelo no disponible"
-LIMITE_DE_USO = "Límite de uso del proveedor alcanzado; inténtalo más tarde"
+LIMITE_DE_USO = (
+    "Límite de uso de la cuenta alcanzado; inténtalo más tarde (las keys de la misma "
+    "cuenta o proyecto comparten este límite)"
+)
+SATURADO = "El modelo está saturado en el proveedor; inténtalo en unos minutos"
+SIN_CUPO_GRATUITO = (
+    "Este modelo no tiene cupo gratuito en tu cuenta (limit: 0); elige otro modelo "
+    "o activa la facturación del proveedor"
+)
+SIN_CREDITO = (
+    "La cuenta no tiene crédito para este modelo; recarga crédito o elige un modelo "
+    "gratuito (:free)"
+)
 
 PROMPT_PRUEBA = "Responde solo con la palabra OK."
 TOKENS_PRUEBA = 16
@@ -274,7 +287,7 @@ class ClienteOpenRouter(ClienteCompatibleOpenAI):
 
 
 class ClienteSinTexto(ClienteProveedor):
-    """Modelos de voz o de audio (canopylabs, whisper): no devuelven texto de chat.
+    """Modelos de voz o de audio (`tipo` "voz" o "audio"): no devuelven texto de chat.
 
     La validación consulta el modelo (`GET <modelos_url>/<id>`), lo que comprueba la
     clave y que el modelo exista sin generar audio. Si se asignan a un agente, cada
@@ -359,12 +372,17 @@ def motivo_de_error(error: BaseException, clave: str = "") -> ResultadoValidacio
         detalle = detalle.replace(clave, "***")
     if isinstance(error, SinConexion):
         return ResultadoValidacion(False, SIN_CONEXION, detalle)
+    if isinstance(error, SinCupoGratuito):
+        return ResultadoValidacion(False, SIN_CUPO_GRATUITO, detalle)
     if isinstance(error, LimiteProveedor):
-        return ResultadoValidacion(False, LIMITE_DE_USO, detalle)
+        motivo = SATURADO if error.codigo == 503 else LIMITE_DE_USO
+        return ResultadoValidacion(False, motivo, detalle)
     if not isinstance(error, ErrorLLM) or error.codigo is None:
         return ResultadoValidacion(False, f"Error inesperado del proveedor: {detalle}")
 
     cuerpo = error.detalle.lower()
+    if error.codigo == 402:
+        return ResultadoValidacion(False, SIN_CREDITO, detalle)
     if error.codigo in (401, 403):
         return ResultadoValidacion(False, KEY_INVALIDA, detalle)
     if error.codigo == 404:

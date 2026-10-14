@@ -9,8 +9,8 @@ registrarComponente('configuracion/configuracion', `<!-- ===== CONFIGURACIÓN DE
     </div></div>
     <div class="card">
       <h4>Modelo de cada agente</h4>
-      <div class="table-scroll"><table class="cfg-roles"><thead><tr><th>Agente</th><th>Proveedor y modelo</th><th>API key</th><th>Precio</th><th></th></tr></thead><tbody id="cfgAgents"></tbody></table></div>
-      <div class="hint" style="padding:10px 16px 14px">Cada agente puede usar un proveedor distinto, o el mismo que otro agente, pero siempre con su propia API key. Al guardar se hace una llamada de prueba con la key y el modelo elegidos; si falla, no se guarda nada. Cada corrida guarda en su registro qué modelos usó.</div>
+      <div class="table-scroll"><table class="cfg-roles"><thead><tr><th>Agente</th><th>Proveedor y modelo</th><th>API key</th><th></th></tr></thead><tbody id="cfgAgents"></tbody></table></div>
+      <div class="hint" style="padding:10px 16px 14px">Cada agente puede usar un proveedor distinto, o el mismo que otro agente. Conviene una API key por agente: si dos agentes comparten la key, también comparten su límite de uso. Al guardar se hace una llamada de prueba con la key y el modelo elegidos; si falla, no se guarda nada. Cada corrida guarda en su registro qué modelos usó.</div>
     </div>
     <div class="grid2 cfg-grid">
       <div class="card"><h4>Límites de cada corrida</h4><div class="bd checks" id="cfgLimits"></div></div>
@@ -39,7 +39,7 @@ precio_salida_usd_m = 0
 `);
 
 const COLOR_AGENTE = {planner:'var(--blue-300)', generator:'var(--purple-300)', reviewer:'var(--green-300)'};
-const SIGLA_PROVEEDOR = {anthropic:'A', xiaomi:'Mi', openai:'OA', canopylabs:'CL', 'meta-llama':'ML', whisper:'W', openrouter:'OR', gemini:'G', groq:'GQ'};
+const SIGLA_PROVEEDOR = {anthropic:'A', xiaomi:'Mi', openai:'OA', openrouter:'OR', gemini:'G', groq:'GQ'};
 let rolesApi = [];          // estado de cada agente (DesktopAPI.obtener_roles)
 let eliminarPendiente = null;
 
@@ -55,21 +55,20 @@ function filaRol(r){
   const boton = `<button class="btn btn-api" onclick="abrirModalApi('${r.agente}')">${r.configurado ? 'Editar' : 'Agregar API'}</button>`;
   const agente = `<div class="cfg-agente"><b style="color:${COLOR_AGENTE[r.agente]}">${escHtml(r.nombre)}</b>${boton}</div>`;
   if(!r.configurado){
-    return `<tr><td>${agente}</td><td colspan="4"><span class="pill p-amber">Sin configurar</span> <span class="hint" style="margin:0 0 0 6px">No se pueden iniciar corridas hasta configurarlo.</span></td></tr>`;
+    return `<tr><td>${agente}</td><td colspan="3"><span class="pill p-amber">Sin configurar</span> <span class="hint" style="margin:0 0 0 6px">No se pueden iniciar corridas hasta configurarlo.</span></td></tr>`;
   }
   const avisos = [];
   if(!r.genera_texto) avisos.push(`<div class="hint warn" style="margin:2px 0 0">Modelo de tipo «${escHtml(r.tipo_nombre)}»: no genera texto; las llamadas del ${escHtml(r.nombre)} fallarán.</div>`);
   if(!r.en_catalogo) avisos.push('<div class="hint warn" style="margin:2px 0 0">Modelo fuera del catálogo (editado a mano).</div>');
-  if((r.clave_repetida_con || []).length) avisos.push(`<div class="hint warn" style="margin:2px 0 0">Usa la misma API key que el ${(r.clave_repetida_con).map(escHtml).join(' y el ')}: cada agente necesita la suya. Pulsa «Editar» y pon otra.</div>`);
+  if((r.clave_repetida_con || []).length) avisos.push(`<div class="hint warn" style="margin:2px 0 0">Usa la misma API key que el ${(r.clave_repetida_con).map(escHtml).join(' y el ')}: comparten el límite de uso del proveedor. Si se agota pronto, pulsa «Editar» y pon otra.</div>`);
   if(r.configurado && !r.desde_local) avisos.push('<div class="hint" style="margin:2px 0 0">Modelo por defecto del equipo (config.toml): agrega tu API para usar la tuya.</div>');
   const clave = r.tiene_clave
     ? `<span class="mono">${escHtml(r.clave_enmascarada)}</span><div class="sub">${escHtml(r.variable)}</div>`
     : `<span class="pill p-red">Falta la key</span><div class="sub">${escHtml(r.variable || '')}</div>`;
-  const precio = r.precio_confirmado ? '' : '<span class="pill p-grey">precio sin confirmar</span>';
   const eliminar = eliminarPendiente === r.agente ? 'Confirmar' : 'Eliminar';
   return `<tr><td>${agente}</td>
     <td><div class="cfg-modelo">${insigniaProveedor(r.proveedor)}<div><div class="mono">${escHtml(r.modelo)}</div><div class="sub">${escHtml(r.proveedor_nombre)}</div>${avisos.join('')}</div></div></td>
-    <td>${clave}</td><td>${precio}</td>
+    <td>${clave}</td>
     <td style="text-align:right"><button class="btn" onclick="eliminarApi('${r.agente}')">${eliminar}</button></td></tr>`;
 }
 

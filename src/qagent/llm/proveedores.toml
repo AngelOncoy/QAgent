@@ -20,8 +20,6 @@
 #                   millón de tokens. Sin precio = «precio sin confirmar» (se usa 0).
 #
 # Los IDs marcados «verificar» deben confirmarse en la consola de cada proveedor.
-# canopylabs, meta-llama y whisper se sirven desde Groq: usan su URL, cada uno con su
-# propia variable de .env (puede ser la misma clave de Groq).
 
 [proveedores.anthropic]
 nombre = "Anthropic"
@@ -63,43 +61,11 @@ modelos = [
   { id = "gpt-4.1-mini", nombre = "GPT-4.1 mini" },
 ]
 
-[proveedores.canopylabs]
-nombre = "Canopy Labs (vía Groq)"
-variable = "CANOPYLABS_API_KEY"
-endpoint = "https://api.groq.com/openai/v1/chat/completions"
-modelos_url = "https://api.groq.com/openai/v1/models"
-tipo = "voz"
-modelos = [
-  { id = "canopylabs/orpheus-v1-english", nombre = "Orpheus v1 (inglés)" },
-  { id = "canopylabs/orpheus-arabic-saudi", nombre = "Orpheus (árabe saudí)" },
-]
-
-[proveedores.meta-llama]
-nombre = "Meta Llama (vía Groq)"
-variable = "META_LLAMA_API_KEY"
-endpoint = "https://api.groq.com/openai/v1/chat/completions"
-modelos_url = "https://api.groq.com/openai/v1/models"
-tipo = "texto"
-modelos = [
-  { id = "meta-llama/llama-4-scout-17b-16e-instruct", nombre = "Llama 4 Scout 17B" },
-  { id = "meta-llama/llama-4-maverick-17b-128e-instruct", nombre = "Llama 4 Maverick 17B" },
-  { id = "llama-3.3-70b-versatile", nombre = "Llama 3.3 70B Versatile" },
-  { id = "llama-3.1-8b-instant", nombre = "Llama 3.1 8B Instant" },
-]
-
-[proveedores.whisper]
-nombre = "Whisper (vía Groq)"
-variable = "WHISPER_API_KEY"
-endpoint = "https://api.groq.com/openai/v1/chat/completions"
-modelos_url = "https://api.groq.com/openai/v1/models"
-tipo = "audio"
-modelos = [
-  { id = "whisper-large-v3", nombre = "Whisper Large v3" },
-  { id = "whisper-large-v3-turbo", nombre = "Whisper Large v3 Turbo" },
-]
-
 # API compatible con OpenAI: se reutiliza esa integración. Los modelos llevan el
 # nombre completo de OpenRouter (`<empresa>/<modelo>`).
+# Solo modelos gratuitos (`:free`), que no piden crédito en la cuenta. Revisados el
+# 2026-10-14 en https://openrouter.ai/models?variant=free; la lista cambia seguido:
+# `python -m qagent.llm.validar --gratis` muestra la de hoy.
 [proveedores.openrouter]
 nombre = "OpenRouter"
 variable = "OPENROUTER_API_KEY"
@@ -107,11 +73,12 @@ endpoint = "https://openrouter.ai/api/v1/chat/completions"
 modelos_url = "https://openrouter.ai/api/v1/models"
 tipo = "texto"
 modelos = [
-  { id = "anthropic/claude-sonnet-5.5", nombre = "anthropic/claude-sonnet-5.5 (verificar)" },
-  { id = "google/gemini-2.5-flash", nombre = "google/gemini-2.5-flash" },
-  { id = "openai/gpt-oss-120b", nombre = "openai/gpt-oss-120b" },
-  { id = "meta-llama/llama-3.3-70b-instruct:free", nombre = "meta-llama/llama-3.3-70b-instruct:free", entrada = 0, salida = 0 },
-  { id = "apodex/apodex-1.1-mini:free", nombre = "apodex/apodex-1.1-mini:free", entrada = 0, salida = 0 },
+  { id = "google/gemma-4-31b-it:free", nombre = "Gemma 4 31B (gratis)", entrada = 0, salida = 0 },
+  { id = "google/gemma-4-26b-a4b-it:free", nombre = "Gemma 4 26B A4B (gratis)", entrada = 0, salida = 0 },
+  { id = "nvidia/nemotron-3-super-120b-a12b:free", nombre = "Nemotron 3 Super 120B (gratis)", entrada = 0, salida = 0 },
+  { id = "nvidia/nemotron-3-ultra-550b-a55b:free", nombre = "Nemotron 3 Ultra 550B (gratis)", entrada = 0, salida = 0 },
+  { id = "nvidia/nemotron-3.5-lightning:free", nombre = "Nemotron 3.5 Lightning (gratis)", entrada = 0, salida = 0 },
+  { id = "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free", nombre = "Nemotron 3 Nano Omni 30B (gratis)", entrada = 0, salida = 0 },
 ]
 
 [proveedores.gemini]
@@ -126,15 +93,18 @@ modelos = [
   { id = "gemini-2.5-flash-lite", nombre = "Gemini 2.5 Flash-Lite" },
 ]
 
-# Se acepta en config.toml (config.local.ejemplo.toml lo usa) pero no se ofrece en la
-# interfaz de HU-30.
+# Groq: solo los modelos de texto de su capa gratuita (Free Plan), revisados el
+# 2026-10-14 en https://console.groq.com/docs/rate-limits. Los Llama pasaron a
+# Enterprise y no están en la capa gratuita; los modelos de moderación (prompt-guard,
+# safeguard), de voz (Orpheus) y de audio (Whisper) no sirven como agente.
 [proveedores.groq]
 nombre = "Groq"
 variable = "GROQ_API_KEY"
 endpoint = "https://api.groq.com/openai/v1/chat/completions"
 modelos_url = "https://api.groq.com/openai/v1/models"
 tipo = "texto"
-visible = false
 modelos = [
-  { id = "openai/gpt-oss-120b", nombre = "openai/gpt-oss-120b", entrada = 0, salida = 0 },
+  { id = "openai/gpt-oss-120b", nombre = "GPT-OSS 120B (gratis)", entrada = 0, salida = 0 },
+  { id = "openai/gpt-oss-20b", nombre = "GPT-OSS 20B (gratis)", entrada = 0, salida = 0 },
+  { id = "qwen/qwen3.8-27b", nombre = "Qwen 3.8 27B (gratis)", entrada = 0, salida = 0 },
 ]

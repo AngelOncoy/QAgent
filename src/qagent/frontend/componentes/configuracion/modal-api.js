@@ -9,7 +9,7 @@ registrarComponente('configuracion/modal-api', `<!-- Agregar o editar la API de 
     <div class="hint warn hide" id="apiTipo" style="margin:0"></div>
     <label class="chk hide" id="apiReusarFila"><input type="checkbox" id="apiReusar" onchange="apiCambioReusar()"> <span id="apiReusarTexto">Mantener la key actual de este agente</span> <span class="mono" id="apiReusarMascara"></span></label>
     <div class="frow" id="apiClaveFila"><label for="apiClave">API key</label><input class="inp" id="apiClave" type="password" autocomplete="off" spellcheck="false" placeholder="Pega aquí tu API key"></div>
-    <div class="hint" style="margin:0">Cada agente necesita su propia API key: el proveedor se puede repetir, la key no. Se guarda solo en <span class="mono">.env</span> (<span class="mono" id="apiVariable"></span>) y nunca se muestra completa.</div>
+    <div class="hint" style="margin:0">Conviene una API key por agente: se puede repetir, pero los agentes que la comparten comparten su límite de uso. Se guarda solo en <span class="mono">.env</span> (<span class="mono" id="apiVariable"></span>) y nunca se muestra completa.</div>
     <div class="api-estado" id="apiEstado" role="status" aria-live="polite"></div>
   </div>
   <div class="mfoot"><button class="btn" id="apiCancelar" onclick="cerrarModalApi()">Cancelar</button><button class="btn primary" id="apiGuardar" onclick="guardarApi()">Probar y guardar</button></div>
@@ -41,11 +41,11 @@ async function abrirModalApi(agente){
   openModal('m-api');
 }
 
-// Key actual del agente: se puede mantener solo si sigue con el mismo proveedor y no la
-// comparte con otro agente. La key de otro agente nunca se ofrece.
+// Key actual del agente: se puede mantener si sigue con el mismo proveedor (aunque otro
+// agente use la misma). La key de otro agente nunca se ofrece.
 function claveActualDelAgente(p){
   const rol = rolesApi.find(r => r.agente === agenteApi) || {};
-  const sirve = rol.configurado && rol.proveedor === p.id && rol.tiene_clave && !(rol.clave_repetida_con || []).length;
+  const sirve = rol.configurado && rol.proveedor === p.id && rol.tiene_clave;
   return sirve ? rol : null;
 }
 
@@ -53,7 +53,7 @@ function claveActualDelAgente(p){
 function apiCambioProveedor(modeloInicial = null){
   const p = proveedorElegido();
   if(!p) return;
-  $('apiModelo').innerHTML = p.modelos.map(m => `<option value="${escHtml(m.id)}">${escHtml(m.nombre)}${m.precio_confirmado ? '' : ' · precio sin confirmar'}</option>`).join('');
+  $('apiModelo').innerHTML = p.modelos.map(m => `<option value="${escHtml(m.id)}">${escHtml(m.nombre)}</option>`).join('');
   if(modeloInicial && p.modelos.some(m => m.id === modeloInicial)) $('apiModelo').value = modeloInicial;
   $('apiVariable').textContent = (p.variables || {})[agenteApi] || '';
   const actual = claveActualDelAgente(p);
@@ -116,9 +116,11 @@ async function guardarApi(){
   }
   if(r.ok){
     $('apiClave').value = '';
-    mostrarEstadoApi('ok', escHtml(r.mensaje));
+    const aviso = r.aviso ? `<div class="hint warn" style="margin:4px 0 0">${escHtml(r.aviso)}</div>` : '';
+    mostrarEstadoApi('ok', escHtml(r.mensaje) + aviso);
     rolesActualizados(r.roles);
-    setTimeout(() => { if(!probandoApi && $('apiEstado').classList.contains('ok')) closeModal(); }, 1200);
+    // Con aviso se deja más tiempo para leerlo.
+    setTimeout(() => { if(!probandoApi && $('apiEstado').classList.contains('ok')) closeModal(); }, r.aviso ? 4000 : 1200);
   } else {
     const detalle = r.detalle ? `<div class="hint" style="margin:4px 0 0">${escHtml(r.detalle)}</div>` : '';
     mostrarEstadoApi('no', `✕ ${escHtml(r.mensaje)} · no se guardó nada.${detalle}`);

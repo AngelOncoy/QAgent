@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import time
 from collections.abc import Callable, Mapping
 from typing import Any, Protocol
@@ -36,7 +37,9 @@ class SinConexion(ErrorLLM):
 
 
 class LimiteProveedor(ErrorLLM):
-    """El proveedor rechazó la llamada por límite de uso (HTTP 429) o saturación (503).
+    """El proveedor rechazó la llamada por un motivo pasajero: se puede reintentar.
+
+    Las subclases dicen cuál: `CupoAgotado` (HTTP 429) o `ProveedorSaturado` (503).
 
     Atributos:
         espera_s: segundos que pidió esperar el proveedor (`Retry-After`), o None.
@@ -54,8 +57,31 @@ class LimiteProveedor(ErrorLLM):
         self.espera_s = espera_s
 
 
+class CupoAgotado(LimiteProveedor):
+    """HTTP 429: se agotó el límite de uso de la cuenta (por minuto o por día)."""
+
+
+class ProveedorSaturado(LimiteProveedor):
+    """HTTP 503: el modelo está saturado en el proveedor; no es culpa de la cuenta."""
+
+
+class SinCupoGratuito(ErrorLLM):
+    """HTTP 429 con `limit: 0`: el modelo no tiene cupo en la capa gratuita.
+
+    Gemini responde así a los modelos que la cuenta no puede usar sin facturación. No
+    es pasajero: reintentar no sirve, hay que elegir otro modelo.
+    """
+
+
+class SinCredito(ErrorLLM):
+    """HTTP 402: la cuenta no tiene crédito para el modelo (p. ej. OpenRouter)."""
+
+
 #: Códigos HTTP que se reintentan: límite de uso de la capa gratuita y saturación.
 CODIGOS_REINTENTABLES = frozenset({429, 503})
+#: Cupo de la capa gratuita igual a cero en la respuesta de Gemini
+#: («Quota exceeded for metric: …, limit: 0, model: …»).
+_LIMITE_CERO = re.compile(r"\blimit\W{0,3}\s*0(?![\d.])", re.IGNORECASE)
 #: Identifica al cliente ante el proveedor. Sin esta cabecera, `urllib` se presenta
 #: como «Python-urllib» y Cloudflare (p. ej. Groq) lo rechaza con HTTP 403 / error 1010.
 AGENTE_USUARIO = "QAgent/1.0"
@@ -117,20 +143,8 @@ class TransporteHTTP:
             with urlopen(solicitud, timeout=timeout_s) as respuesta:
                 contenido = respuesta.read().decode("utf-8")
         except HTTPError as error:
-            cuerpo_error = _cuerpo_error(error)
-            detalle = f" Detalle: {cuerpo_error}" if cuerpo_error else ""
-            if error.code in CODIGOS_REINTENTABLES:
-                raise LimiteProveedor(
-                    f"El proveedor LLM respondió con HTTP {error.code} "
-                    f"(límite de uso o saturación).{detalle}",
-                    espera_s=_segundos_retry_after(error),
-                    codigo=error.code,
-                    detalle=cuerpo_error,
-                ) from error
-            raise ErrorLLM(
-                f"El proveedor LLM respondió con HTTP {error.code}.{detalle}",
-                codigo=error.code,
-                detalle=cuerpo_error,
+            raise error_http(
+                error.code, _cuerpo_error(error), _segundos_retry_after(error)
             ) from error
         except URLError as error:
             raise SinConexion(
@@ -399,9 +413,49 @@ def _segundos_retry_after(error: HTTPError) -> float | None:
 
 
 def _cuerpo_error(error: HTTPError) -> str:
-    """Primeras líneas del cuerpo del error (p. ej. «modelo no encontrado»)."""
+    """Cuerpo completo del error en una sola línea (p. ej. «modelo no encontrado»)."""
     try:
         cuerpo = error.read().decode("utf-8", errors="replace").strip()
     except (OSError, AttributeError):
         return ""
-    return " ".join(cuerpo.split())[:LARGO_DETALLE_ERROR]
+    return " ".join(cuerpo.split())
+
+
+def error_http(
+    codigo: int, cuerpo: str = "", espera_s: float | None = None
+) -> ErrorLLM:
+    """Error que corresponde a una respuesta HTTP fallida del proveedor.
+
+    `cuerpo` se mira completo (el `limit: 0` de Gemini suele venir después de los
+    primeros 300 caracteres) y se guarda recortado en `detalle`.
+    """
+    detalle = cuerpo[:LARGO_DETALLE_ERROR]
+    sufijo = f" Detalle: {detalle}" if detalle else ""
+    prefijo = f"El proveedor LLM respondió con HTTP {codigo}"
+    if codigo == 429 and _LIMITE_CERO.search(cuerpo):
+        return SinCupoGratuito(
+            f"{prefijo} (el modelo no tiene cupo en la capa gratuita: limit 0).{sufijo}",
+            codigo=codigo,
+            detalle=detalle,
+        )
+    if codigo == 429:
+        return CupoAgotado(
+            f"{prefijo} (límite de uso de la cuenta alcanzado).{sufijo}",
+            espera_s=espera_s,
+            codigo=codigo,
+            detalle=detalle,
+        )
+    if codigo == 503:
+        return ProveedorSaturado(
+            f"{prefijo} (modelo saturado en el proveedor).{sufijo}",
+            espera_s=espera_s,
+            codigo=codigo,
+            detalle=detalle,
+        )
+    if codigo == 402:
+        return SinCredito(
+            f"{prefijo} (la cuenta no tiene crédito para este modelo).{sufijo}",
+            codigo=codigo,
+            detalle=detalle,
+        )
+    return ErrorLLM(f"{prefijo}.{sufijo}", codigo=codigo, detalle=detalle)

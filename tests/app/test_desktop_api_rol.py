@@ -43,7 +43,8 @@ def api(tmp_path: Path, monkeypatch) -> DesktopAPI:
 
 def test_listar_proveedores_para_el_formulario(api):
     ids = [p["id"] for p in api.listar_proveedores()]
-    assert ids[0] == "anthropic" and "openrouter" in ids and "groq" not in ids
+    assert ids[0] == "anthropic" and "openrouter" in ids and "groq" in ids
+    assert not {"canopylabs", "whisper", "meta-llama"} & set(ids)
 
 
 def test_guardar_devuelve_conectado_y_los_roles_sin_la_key(api):

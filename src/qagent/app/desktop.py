@@ -240,6 +240,8 @@ class DesktopAPI:
             bitacora.registro.info(
                 "API del %s guardada: %s / %s", agente, proveedor, modelo
             )
+            if resultado.get("aviso"):
+                bitacora.registro.warning("  %s", resultado["aviso"])
         else:
             bitacora.registro.warning(
                 "API del %s no guardada (%s / %s): %s",

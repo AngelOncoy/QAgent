@@ -35,7 +35,7 @@ def test_el_catalogo_no_esta_en_la_interfaz():
     assert "listar_proveedores" in texto
     assert [
         m
-        for m in ("claude-opus-5-5", "mimo-v2.6-pro", "whisper-large-v3")
+        for m in ("claude-opus-5-5", "mimo-v2.6-pro", "qwen/qwen3.8-27b")
         if m in texto
     ] == []
 
@@ -57,3 +57,9 @@ def test_los_textos_del_backend_se_escapan():
         if _TEXTO_DEL_BACKEND.search(linea) and "textContent" not in linea
     ]
     assert sin_escapar == []
+
+
+def test_no_se_muestra_precio_sin_confirmar():
+    """BU-01: ni la lista de modelos ni la tabla dicen «precio sin confirmar»."""
+    texto = MODAL_JS.read_text(encoding="utf-8") + CONFIG_JS.read_text(encoding="utf-8")
+    assert "sin confirmar" not in texto
