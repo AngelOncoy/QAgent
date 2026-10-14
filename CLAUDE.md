@@ -11,7 +11,7 @@ pip install -e .[dev]          # instalación editable, una vez por máquina (py
 python test.py                 # lint + formato + TODAS las pruebas, con la IA simulada
 python test.py --rapido        # sin lint, sin pruebas de Docker ni de red
 python test.py -k clonador     # los demás argumentos van a pytest
-qagent                         # abre la app (también: python -m pyagent)
+qagent                         # abre la app (también: python -m qagent)
 ruff check . && ruff format .  # lint y formato (bench/ está excluido a propósito)
 ```
 
@@ -21,12 +21,12 @@ ruff check . && ruff format .  # lint y formato (bench/ está excluido a propós
 
 | Ruta | Qué hay | Dónde se documenta |
 |---|---|---|
-| `src/pyagent/` | Backend. `app/desktop.py` es solo el puente pywebview; la lógica de proyectos está en `proyectos/` y todo lo que se guarda en `.pyagent/` y `~/.pyagent/` en `almacenamiento/` | `docs/arquitectura.md` |
+| `src/qagent/` | Backend. `app/desktop.py` es solo el puente pywebview; la lógica de proyectos está en `proyectos/` y todo lo que se guarda en `.qagent/` y `~/.qagent/` en `almacenamiento/` | `docs/arquitectura.md` |
 | `frontend/` | Interfaz HTML/CSS/JS sin build, un componente por pantalla | `frontend/README.md` |
 | `tests/` | Refleja `src/` (`almacenamiento`, `analysis`, `app`, `config`, `llm`, `orchestrator`, `proyectos`, `sandbox`, `storage`) más `frontend/` | — |
-| `docs/decisiones/` | ADR: modelos (001), análisis con `ast` (002), frontend modular (003) | — |
+| `docs/decisiones/` | ADR: modelos (001), análisis con `ast` (002), frontend modular (003), nombre único QAgent (004) | — |
 
-Regla de dependencia: la interfaz (`app/`) llama a la lógica; la lógica (`proyectos/`, `analysis/`, `sandbox/`…) nunca importa `pyagent.app` ni `webview`.
+Regla de dependencia: la interfaz (`app/`) llama a la lógica; la lógica (`proyectos/`, `analysis/`, `sandbox/`…) nunca importa `qagent.app` ni `webview`.
 
 ## Frontend: lo que hay que saber
 
@@ -36,14 +36,14 @@ Detalle completo en `frontend/README.md`. Lo esencial:
 - **Scripts clásicos con ámbito global**, sin módulos ES, sin `fetch` de HTML, sin bundler. El orden de los `<script>` importa.
 - **Colores, tipografía y logo se cambian en `frontend/css/tokens.css`.** Ningún componente lleva colores literales: todo es `var(--token)` (lo exige `tests/frontend/`). Un color nuevo se declara en `tokens.css`; no se concatena texto a un color (`${c}33`), se usa un token con opacidad (`-aNN`).
 - **La regla `.logo` debe permanecer en `css/layout.css`:** `--logo-icono` usa una ruta relativa a `css/`.
-- **Nombres técnicos que no se renombran:** `pyagent-sandbox:base`, `.pyagent/`, el módulo `pyagent` y `window.onPyAgentEvent`.
+- **Nombres técnicos:** `qagent-sandbox:base`, `.qagent/`, el módulo `qagent` y `window.onQAgentEvent`. `pyagent` solo queda en la migración de carpetas y en el respaldo de `PYAGENT_FAKE_LLM` (ADR-004); no usarlo en código nuevo.
 - La ventana carga `index.html` como URL `file://`; no cambiarlo a una ruta ni activar `http_server` (el servidor interno de pywebview rechaza conexiones al abrir y deja la interfaz sin estilos; ver `frontend/README.md`).
 - Tras tocar el frontend: `python test.py` (incluye `tests/frontend/`) y revisar la **ventana real** (`qagent`), no solo el navegador. Un fallo de carga es intermitente: probar varios arranques en frío, porque las peticiones rechazadas no aparecen en el log del servidor y contar respuestas 200 no basta.
 
 ## Pruebas
 
-- Todas usan la IA simulada (`PYAGENT_FAKE_LLM=1`, que `test.py` fija solo). Ninguna llama a una API real.
-- Las que necesitan Docker llevan `@pytest.mark.docker` y se omiten si Docker Desktop no está iniciado; las que necesitan internet, `@pytest.mark.red`. Cualquier otra prueba debe poder correr sin Docker ni red: simula `pyagent.sandbox.estado.estado_docker`.
+- Todas usan la IA simulada (`QAGENT_FAKE_LLM=1`, que `test.py` fija solo). Ninguna llama a una API real.
+- Las que necesitan Docker llevan `@pytest.mark.docker` y se omiten si Docker Desktop no está iniciado; las que necesitan internet, `@pytest.mark.red`. Cualquier otra prueba debe poder correr sin Docker ni red: simula `qagent.sandbox.estado.estado_docker`.
 - No relajar ni borrar aserciones para que una prueba pase.
 
 ## Trabajar con Git en este repositorio

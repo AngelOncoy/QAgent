@@ -6,6 +6,8 @@
 - **Responsable:** Oncoy Patricio, Angel
 - **Relacionado:** EN-08 (aplicación de escritorio), HU-01, HU-02, HU-03, ADR-001, ADR-002
 
+> **Nota (2026-10-14, TA-05):** las rutas `src/pyagent/...` de este ADR son las de su fecha. El paquete ahora es `src/qagent/` y `python -m pyagent` pasó a `python -m qagent` (ver ADR-004).
+
 ## 1. Contexto
 
 La interfaz vivía en un único archivo, `src/pyagent/app/ui/index.html`, de 2070 líneas: CSS (~415 líneas), HTML de ocho pantallas y tres modales, y ~1200 líneas de JavaScript con variables globales. Cualquier cambio de una pantalla obligaba a tocar ese archivo, y el frontend estaba dentro del paquete Python del backend.

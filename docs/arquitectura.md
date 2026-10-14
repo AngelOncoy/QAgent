@@ -97,7 +97,7 @@ flowchart TB
             BE["Backend<br/>orquestador + agentes + servicios"]
         end
         CFG[("Configuración<br/>config.toml · .env")]
-        STO[("Almacenamiento<br/>.pyagent/ · ~/.pyagent/")]
+        STO[("Almacenamiento<br/>.qagent/ · ~/.qagent/")]
         SB["Sandbox<br/>contenedor Docker efímero"]
     end
     API["APIs de LLM"]
@@ -114,7 +114,7 @@ flowchart TB
 | **Interfaz** | HTML, CSS, JS dentro de pywebview (carpeta `frontend/`, sin compilación; un componente por pantalla, ver ADR-003) | Pantallas: Bienvenida, Vista previa, Monitor en vivo, Ejecución, Reporte, Historial, Configuración | EN-08, HU-* |
 | **Backend** | Python 3.10+ | Análisis, orquestación, agentes, cálculo de métricas y costo | EN-02 a EN-07, EN-14, EN-15 |
 | **Configuración** | TOML + variables de entorno | Modelos, precios, topes y reintentos (`config.toml`, se versiona); claves de API (`.env`, no se versiona) | EN-06 |
-| **Almacenamiento** | Archivos JSON | `.pyagent/` dentro del proyecto analizado: corridas, specs, pruebas aprobadas. `~/.pyagent/recientes.json`: proyectos recientes | EN-07, HU-01, HU-03 |
+| **Almacenamiento** | Archivos JSON | `.qagent/` dentro del proyecto analizado: corridas, specs, pruebas aprobadas. `~/.qagent/recientes.json`: proyectos recientes | EN-07, HU-01, HU-03 |
 | **Sandbox** | Docker (Python 3.11, pytest, coverage, mutmut, fastapi, httpx) | Ejecutar cada prueba aislada: `--network none`, `--rm`, 1 CPU, 256 MB, 60 s | EN-03, EN-09, EN-15 |
 
 ---
@@ -139,7 +139,7 @@ flowchart TB
         PRY["proyectos/<br/>abrir, clonar y vista previa (HU-01 a HU-04)"]
         LLM["llm/<br/>cliente real | simulado · tokens y costo (EN-05, EN-11)"]
         SBX["sandbox/<br/>ejecución Docker (EN-03)"]
-        STO["almacenamiento/<br/>.pyagent/ y recientes (EN-07)"]
+        STO["almacenamiento/<br/>.qagent/ y recientes (EN-07)"]
         CFG["configuración (EN-06)"]
         CON["validación de contratos<br/>contracts/*.schema.json (EN-01)"]
     end
@@ -155,18 +155,18 @@ flowchart TB
 
 | Componente | Carpeta | Responsabilidad | Ítems |
 |---|---|---|---|
-| Puente js_api | `src/pyagent/app/` | Recibe las acciones de la interfaz (`desktop.py`) y le envía eventos. No contiene lógica de negocio. | EN-08 |
-| Proyectos | `src/pyagent/proyectos/` | Lógica de los proyectos del usuario: abrir una carpeta, clonar un repositorio y vista previa. Sin dependencia de pywebview. | HU-01 a HU-04 |
-| Orquestador | `src/pyagent/orchestrator/` | Máquina de estados de la corrida: ordena funciones por dependencias (`llama_a`), reparte trabajo, controla reintentos, topes de gasto y fallos. Sin LLM. | EN-04 |
-| Planner | `src/pyagent/agents/` | Diseña casos de prueba y valores esperados por función o endpoint. | HU-11, HU-27 |
-| Generator | `src/pyagent/agents/` | Escribe el test pytest de una función o endpoint. | HU-11, EN-15 |
-| Reviewer / Executor | `src/pyagent/agents/` | Ejecuta en el sandbox, detecta laundering y decide. | HU-14, HU-16 |
-| Analizador | `src/pyagent/analysis/` | Análisis estático con `ast`: firmas, tipos, docstrings, ramas, rutas FastAPI, `llama_a`, SHA-256. | EN-02, EN-14 |
-| Cliente LLM | `src/pyagent/llm/` | Llama a la API del modelo de cada agente (o a la IA simulada) y registra el `usage`. | EN-05, EN-11 |
-| Sandbox | `src/pyagent/sandbox/` | Prepara la imagen, copia el proyecto y ejecuta pytest, coverage y mutmut. | EN-03, EN-09 |
-| Almacenamiento | `src/pyagent/almacenamiento/` | `AlmacenProyecto`: crea `.pyagent/` y lee y escribe `runs/<run_id>/run.json`, `specs/` y `tests/` (pruebas aprobadas); `recientes.py`: `~/.pyagent/recientes.json`. Escritura atómica en UTF-8. | EN-07, HU-01, HU-03 |
-| Registro de corridas | `src/pyagent/storage/` | `log.json` y `results.json` de cada corrida, validados contra `run_log.schema.json`. | EN-05 |
-| Configuración | `src/pyagent/config/` | Carga `config.toml` y `.env`, audita las claves y verifica Docker y Git. | EN-06 |
+| Puente js_api | `src/qagent/app/` | Recibe las acciones de la interfaz (`desktop.py`) y le envía eventos. No contiene lógica de negocio. | EN-08 |
+| Proyectos | `src/qagent/proyectos/` | Lógica de los proyectos del usuario: abrir una carpeta, clonar un repositorio y vista previa. Sin dependencia de pywebview. | HU-01 a HU-04 |
+| Orquestador | `src/qagent/orchestrator/` | Máquina de estados de la corrida: ordena funciones por dependencias (`llama_a`), reparte trabajo, controla reintentos, topes de gasto y fallos. Sin LLM. | EN-04 |
+| Planner | `src/qagent/agents/` | Diseña casos de prueba y valores esperados por función o endpoint. | HU-11, HU-27 |
+| Generator | `src/qagent/agents/` | Escribe el test pytest de una función o endpoint. | HU-11, EN-15 |
+| Reviewer / Executor | `src/qagent/agents/` | Ejecuta en el sandbox, detecta laundering y decide. | HU-14, HU-16 |
+| Analizador | `src/qagent/analysis/` | Análisis estático con `ast`: firmas, tipos, docstrings, ramas, rutas FastAPI, `llama_a`, SHA-256. | EN-02, EN-14 |
+| Cliente LLM | `src/qagent/llm/` | Llama a la API del modelo de cada agente (o a la IA simulada) y registra el `usage`. | EN-05, EN-11 |
+| Sandbox | `src/qagent/sandbox/` | Prepara la imagen, copia el proyecto y ejecuta pytest, coverage y mutmut. | EN-03, EN-09 |
+| Almacenamiento | `src/qagent/almacenamiento/` | `AlmacenProyecto`: crea `.qagent/` y lee y escribe `runs/<run_id>/run.json`, `specs/` y `tests/` (pruebas aprobadas); `recientes.py`: `~/.qagent/recientes.json`. Escritura atómica en UTF-8. | EN-07, HU-01, HU-03 |
+| Registro de corridas | `src/qagent/storage/` | `log.json` y `results.json` de cada corrida, validados contra `run_log.schema.json`. | EN-05 |
+| Configuración | `src/qagent/config/` | Carga `config.toml` y `.env`, audita las claves y verifica Docker y Git. | EN-06 |
 | Contratos | `contracts/` | JSON Schema de cada mensaje; se validan en cada paso. | EN-01 |
 
 ### Reglas de dependencia
@@ -176,7 +176,7 @@ flowchart TB
 3. **Los agentes no se importan entre sí** ni importan al orquestador. Solo reciben y devuelven contratos.
 4. Los agentes usan el Cliente LLM; solo el Reviewer usa el Sandbox.
 5. Ningún componente ejecuta el código del usuario fuera del Sandbox.
-6. **Los servicios no dependen de la interfaz:** `proyectos/`, `almacenamiento/`, `analysis/`, `sandbox/`, `llm/` y `storage/` nunca importan `pyagent.app` ni pywebview. Así se prueban sin ventana.
+6. **Los servicios no dependen de la interfaz:** `proyectos/`, `almacenamiento/`, `analysis/`, `sandbox/`, `llm/` y `storage/` nunca importan `qagent.app` ni pywebview. Así se prueban sin ventana.
 
 ---
 
@@ -315,7 +315,7 @@ Fuera del diagrama, `ReviewerAgent` usa dos funciones: `sandbox.ejecutar_pruebas
 | Configuración | `config/carga.py`, `config/entorno.py` | `cargar_configuracion()`, `verificar_entorno()` |
 | Proyectos | `proyectos/proyecto_local.py`, `clonador.py`, `vista_previa.py` | `inspeccionar_carpeta()`, `clonar()`, `generar_vista_previa()` |
 
-Todas las rutas son relativas a `src/pyagent/`, salvo `contracts/`.
+Todas las rutas son relativas a `src/qagent/`, salvo `contracts/`.
 
 ### 5.3 Patrones de diseño del orquestador
 
@@ -332,7 +332,7 @@ Todas las rutas son relativas a `src/pyagent/`, salvo `contracts/`.
 
 ### 5.4 Dependencias reales entre paquetes
 
-Grafo obtenido de los `import` de `src/pyagent/`.
+Grafo obtenido de los `import` de `src/qagent/`.
 
 ```mermaid
 flowchart TB
@@ -351,7 +351,7 @@ flowchart TB
 |---|---|
 | 3 · Los agentes no se importan entre sí ni al orquestador | Sí. Y el orquestador tampoco importa `agents/`: los recibe por el constructor. |
 | 4 · Solo el Reviewer usa el Sandbox | Sí. Solo `agents/reviewer.py` importa `sandbox`. |
-| 6 · Los servicios no dependen de la interfaz | Sí. Nadie importa `pyagent.app` salvo `__main__`. |
+| 6 · Los servicios no dependen de la interfaz | Sí. Nadie importa `qagent.app` salvo `__main__`. |
 
 Deuda conocida: `config` y `llm` se importan mutuamente (`llm/fabrica.py` lo resuelve con un import dentro de la función), y hay dos paquetes de persistencia, `storage/` (EN-05) y `almacenamiento/` (EN-07), donde el segundo usa `nuevo_run_id` del primero.
 
@@ -417,7 +417,7 @@ sequenceDiagram
     participant RE as Reviewer
     participant SB as Sandbox
     participant API as APIs LLM
-    participant FS as .pyagent/
+    participant FS as .qagent/
 
     UI->>OR: iniciar_corrida(ruta, perfil)
     OR->>AST: analizar(ruta)
@@ -533,7 +533,7 @@ flowchart TB
             CT["Contenedor efímero por prueba<br/>--network none · --rm"]
             IMG --> IMGP --> CT
         end
-        FS[("Disco<br/>proyecto del usuario · .pyagent/ · ~/.pyagent/")]
+        FS[("Disco<br/>proyecto del usuario · .qagent/ · ~/.qagent/")]
     end
     NET["Internet<br/>APIs LLM · Git remoto"]
 
@@ -665,7 +665,7 @@ Los schemas completos van en `contracts/` y los valida `tests/test_contracts.py`
 | `planner_contract.v2` | Planner → Generator (vía orquestador) | módulo, `tipo` (`funcion` \| `endpoint`), función o ruta, firma, `critical`, casos: [id, entrada, valor esperado, origen del valor esperado] | `planner_contract.v2.schema.json` |
 | `generated_test` | Generator → Reviewer (vía orquestador) | función o ruta, intento, código pytest, ids de casos cubiertos | `generated_test.schema.json` |
 | `review_result` | Reviewer → Orquestador | función o ruta, intento, estado del sandbox, cobertura, laundering detectado, `tipo_fallo` (`error_test` \| `bug_codigo`), hash del error, decisión (`accept` \| `retry` \| `bug_detectado` \| `stalled`), feedback | `review_result.schema.json` |
-| `log.json` / `results.json` | Orquestador → `.pyagent/` | modelos usados, perfil, llamadas con tokens por agente, costo, 5 métricas por función o endpoint | `run_log.schema.json` |
+| `log.json` / `results.json` | Orquestador → `.qagent/` | modelos usados, perfil, llamadas con tokens por agente, costo, 5 métricas por función o endpoint | `run_log.schema.json` |
 
 **Origen del valor esperado (oráculo):** firma, tipos o docstring de una función; o la declaración de la ruta (`response_model`, `status_code`, modelos Pydantic) de un endpoint. Nunca el resultado de ejecutar el código.
 

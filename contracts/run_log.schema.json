@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "run_log.schema.json",
   "title": "run_log",
-  "description": "Archivos de una corrida en .pyagent/runs/<run_id>/: log.json (cada llamada a la IA, tipo 'log') y results.json (métricas por función, tipo 'results').",
+  "description": "Archivos de una corrida en .qagent/runs/<run_id>/: log.json (cada llamada a la IA, tipo 'log') y results.json (métricas por función, tipo 'results').",
   "type": "object",
   "additionalProperties": false,
   "required": [
