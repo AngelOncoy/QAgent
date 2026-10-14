@@ -8,9 +8,9 @@ from pathlib import Path
 
 import pytest
 
-from pyagent.contracts import RUN_LOG, validar
-from pyagent.storage import escribir_corrida
-from pyagent.storage.vista_ejecucion import (
+from qagent.contracts import RUN_LOG, validar
+from qagent.storage import escribir_corrida
+from qagent.storage.vista_ejecucion import (
     ResultadosNoDisponibles,
     estado_de,
     leer_results,
@@ -274,7 +274,7 @@ def test_sin_corridas_avisa(tmp_path) -> None:
 
 
 def test_results_invalido_avisa(tmp_path) -> None:
-    carpeta = tmp_path / ".pyagent" / "runs" / "20261010-120000-abcd"
+    carpeta = tmp_path / ".qagent" / "runs" / "20261010-120000-abcd"
     carpeta.mkdir(parents=True)
     (carpeta / "results.json").write_text("{}", encoding="utf-8")
 

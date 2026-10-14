@@ -14,8 +14,8 @@ from typing import Any
 
 import pytest
 
-from pyagent.config import cargar_configuracion, leer_env, verificar_entorno
-from pyagent.config.roles import (
+from qagent.config import cargar_configuracion, leer_env, verificar_entorno
+from qagent.config.roles import (
     configurar_rol,
     eliminar_rol,
     enmascarar,
@@ -25,7 +25,7 @@ from pyagent.config.roles import (
     reemplazar_seccion_agente,
     reemplazar_variable_env,
 )
-from pyagent.llm.cliente import ErrorLLM, SinConexion
+from qagent.llm.cliente import ErrorLLM, SinConexion
 from tests.config.config_equipo import CONFIG_EQUIPO
 
 if sys.version_info >= (3, 11):
@@ -60,7 +60,7 @@ def rutas(tmp_path: Path) -> tuple[Path, Path]:
     config = tmp_path / "config.toml"
     config.write_text(CONFIG_EQUIPO, encoding="utf-8")
     env = tmp_path / ".env"
-    env.write_text("# claves\nPYAGENT_FAKE_LLM=0\n", encoding="utf-8")
+    env.write_text("# claves\nQAGENT_FAKE_LLM=0\n", encoding="utf-8")
     return config, env
 
 
@@ -195,7 +195,7 @@ def test_la_env_conserva_las_demas_lineas(rutas):
     _guardar(rutas, "planner", "gemini", "gemini-2.5-flash", CLAVE_GEMINI + "2")
 
     texto = env.read_text(encoding="utf-8")
-    assert "# claves" in texto and "PYAGENT_FAKE_LLM=0" in texto
+    assert "# claves" in texto and "QAGENT_FAKE_LLM=0" in texto
     assert texto.count("GEMINI_API_KEY_PLANNER=") == 1
     assert leer_env(env)["GEMINI_API_KEY_PLANNER"] == CLAVE_GEMINI + "2"
 

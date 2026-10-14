@@ -10,7 +10,7 @@ from pathlib import Path
 
 import pytest
 
-from pyagent.sandbox import (
+from qagent.sandbox import (
     ejecutar_en_sandbox,
     ejecutar_pruebas,
     preparar_imagen,
@@ -125,7 +125,7 @@ def test_dependencia_del_requirements_disponible_sin_red(
     imagen = preparar_imagen(proyecto_calc)
     resultado = ejecutar_pruebas(imagen, proyecto_calc, tests, "calc")
 
-    assert imagen.startswith("pyagent-sandbox:req-")
+    assert imagen.startswith("qagent-sandbox:req-")
     assert resultado.exit_code == 0, resultado.stdout
     assert preparar_imagen(proyecto_calc) == imagen
 

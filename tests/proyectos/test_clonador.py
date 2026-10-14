@@ -10,7 +10,7 @@ from pathlib import Path
 
 import pytest
 
-from pyagent.proyectos import clonador
+from qagent.proyectos import clonador
 
 URL_OK = "https://github.com/usuario/repositorio.git"
 

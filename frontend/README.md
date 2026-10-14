@@ -1,6 +1,6 @@
 # Frontend de QAgent
 
-Interfaz de la aplicación de escritorio: HTML, CSS y JavaScript **sin paso de compilación ni dependencias**. La carga pywebview (`src/pyagent/app/desktop.py`); sin pywebview funciona igual en modo demostración, con datos simulados.
+Interfaz de la aplicación de escritorio: HTML, CSS y JavaScript **sin paso de compilación ni dependencias**. La carga pywebview (`src/qagent/app/desktop.py`); sin pywebview funciona igual en modo demostración, con datos simulados.
 
 Decisión de diseño: [ADR-003](../docs/decisiones/ADR-003-frontend-modular.md).
 
@@ -8,7 +8,7 @@ Decisión de diseño: [ADR-003](../docs/decisiones/ADR-003-frontend-modular.md).
 
 | Qué | Cómo |
 |---|---|
-| Aplicación real | `qagent` (o `python -m pyagent`), tras `pip install -e .[dev]` en la raíz |
+| Aplicación real | `qagent` (o `python -m qagent`), tras `pip install -e .[dev]` en la raíz |
 | Solo la interfaz, en modo demo | Abrir `frontend/index.html` en el navegador (no necesita servidor) |
 | Verificar la estructura | `python test.py` (incluye `tests/frontend/`) |
 
@@ -32,7 +32,7 @@ frontend/
 │   ├── navegacion.js     go(pantalla), abrir/cerrar modales
 │   ├── iconos.js         Catálogo de íconos SVG y paintIcons()
 │   ├── datos-corrida.js  Datos de la corrida, métricas y catálogo de estados
-│   ├── puente-python.js  Recibe eventos de Python (window.onPyAgentEvent)
+│   ├── puente-python.js  Recibe eventos de Python (window.onQAgentEvent)
 │   └── main.js           Arranque
 └── componentes/          Un componente por pantalla o modal
     ├── sidebar/          Barra lateral y estado del sandbox
@@ -114,7 +114,7 @@ Ningún CSS, JS ni HTML de la interfaz contiene colores literales (`#34d399`, `r
 
 ## Nombres técnicos que no se renombran
 
-Aunque el producto se llama QAgent, estos identificadores son del backend y se mantienen: la imagen Docker `pyagent-sandbox:base`, la carpeta `.pyagent/` (y `~/.pyagent/`), el módulo `pyagent` y la función `window.onPyAgentEvent`, que invoca `desktop.py`.
+Los identificadores técnicos siguen el nombre del producto: la imagen Docker `qagent-sandbox:base`, la carpeta `.qagent/` (y `~/.qagent/`), el módulo `qagent` y la función `window.onQAgentEvent`, que invoca `desktop.py`. Las versiones anteriores usaban `pyagent`; ver `docs/decisiones/ADR-004-nombre-qagent.md`.
 
 ## Datos reales y datos simulados
 
@@ -122,7 +122,7 @@ La interfaz tiene un **modo demostración**: sin pywebview (abriendo `index.html
 
 | Pantalla | Con pywebview (aplicación real) | Sin pywebview (demostración) |
 |---|---|---|
-| Inicio | Proyectos recientes reales (`~/.pyagent/recientes.json`) | Lista simulada de 11 proyectos |
+| Inicio | Proyectos recientes reales (`~/.qagent/recientes.json`) | Lista simulada de 11 proyectos |
 | Vista previa | Nombre, rama (solo si hay Git), módulos, funciones y consistencias del análisis AST. Si el análisis falla, aviso de error y lista vacía | Proyecto de ejemplo `ecommerce-core` |
 | Entorno | Verificación real de EN-06: `config.toml`, claves de `.env`, Docker y Git (con la IA simulada no se piden las claves y Docker es opcional). Si falla, bloquea «Continuar» en la configuración de pruebas y el arranque de la corrida | «Modo demostración» |
 | Configuración de pruebas | El perfil Regresión solo está disponible si el proyecto ya tuvo una corrida | Disponible |
@@ -131,4 +131,4 @@ La interfaz tiene un **modo demostración**: sin pywebview (abriendo `index.html
 
 Cada paso del Monitor, la pausa y el fin de la corrida se envían además a la consola de Python (`registrar_evento` del puente), que los imprime con hora en la terminal donde se abrió la aplicación.
 
-**Pendiente:** Monitor, Ejecución, Informe, Historial y Configuración del sistema todavía se alimentan de datos simulados (`js/datos-corrida.js` y los `EVENTS` del monitor, la corrida «#8841-B», el historial de ejemplo, los precios de ejemplo de `AGENTS_CFG`), incluso en la aplicación real, porque el orquestador aún no está conectado a la interfaz: `start_run` solo comprueba Docker y emite un aviso. Conectarlos exige enviar eventos reales desde Python (`emit_event`) y leer las corridas guardadas en `.pyagent/runs/`. `tests/frontend/` impide que los datos de ejemplo vuelvan a colarse en las pantallas del flujo real.
+**Pendiente:** Monitor, Ejecución, Informe, Historial y Configuración del sistema todavía se alimentan de datos simulados (`js/datos-corrida.js` y los `EVENTS` del monitor, la corrida «#8841-B», el historial de ejemplo, los precios de ejemplo de `AGENTS_CFG`), incluso en la aplicación real, porque el orquestador aún no está conectado a la interfaz: `start_run` solo comprueba Docker y emite un aviso. Conectarlos exige enviar eventos reales desde Python (`emit_event`) y leer las corridas guardadas en `.qagent/runs/`. `tests/frontend/` impide que los datos de ejemplo vuelvan a colarse en las pantallas del flujo real.

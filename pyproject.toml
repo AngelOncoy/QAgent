@@ -22,18 +22,18 @@ dev = [
 ]
 
 [project.scripts]
-qagent = "pyagent.app.desktop:main"
+qagent = "qagent.app.desktop:main"
 
-# El paquete interno se llama `pyagent` (no renombrar); el producto es QAgent.
+# Producto, comando y paquete se llaman igual: QAgent / `qagent` (antes `pyagent`).
 [tool.setuptools.packages.find]
 where = ["src"]
 
 [tool.setuptools.package-data]
-"pyagent.sandbox" = ["Dockerfile"]
-"pyagent.llm" = ["proveedores.toml"]
+"qagent.sandbox" = ["Dockerfile"]
+"qagent.llm" = ["proveedores.toml"]
 
 [tool.pytest.ini_options]
-# src/ para importar `pyagent`; la raíz para importar helpers de las pruebas (`tests.orchestrator.fakes`).
+# src/ para importar `qagent`; la raíz para importar helpers de las pruebas (`tests.orchestrator.fakes`).
 pythonpath = ["src", "."]
 testpaths = ["tests"]
 markers = [

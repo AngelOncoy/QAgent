@@ -9,7 +9,7 @@ from typing import Any
 import pytest
 from jsonschema import Draft202012Validator
 
-from pyagent.contracts import (
+from qagent.contracts import (
     CONTRATOS,
     DIR_CONTRATOS,
     GENERATED_TEST,
@@ -21,7 +21,7 @@ from pyagent.contracts import (
     es_valido,
     validar,
 )
-from pyagent.llm import FakeLLMClient
+from qagent.llm import FakeLLMClient
 
 
 def ejemplo(nombre: str) -> dict[str, Any]:

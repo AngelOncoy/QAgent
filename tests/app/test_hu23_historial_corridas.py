@@ -3,7 +3,7 @@
 Criterios de Aceptación:
 1. Tabla con cada corrida: número, fecha, perfil, modelos, specs (generados o
    reutilizados), Pass Rate, tokens y costo.
-2. Se guarda en .pyagent/runs/ y persiste entre sesiones.
+2. Se guarda en .qagent/runs/ y persiste entre sesiones.
 3. Desde cada fila se abre el reporte de esa corrida.
 4. Evidencia de aceptación: tras 2 corridas y reiniciar la aplicación, el Historial
    lista ambas con sus valores y cada fila abre su reporte.
@@ -18,11 +18,11 @@ import pytest
 
 pytest.importorskip("webview")
 
-from pyagent import contracts
-from pyagent.almacenamiento import AlmacenProyecto
-from pyagent.app.desktop import DesktopAPI
-from pyagent.llm import cargar_precios
-from pyagent.storage import escribir_corrida
+from qagent import contracts
+from qagent.almacenamiento import AlmacenProyecto
+from qagent.app.desktop import DesktopAPI
+from qagent.llm import cargar_precios
+from qagent.storage import escribir_corrida
 from tests.storage.test_registro import correr
 
 METAS = {
@@ -60,7 +60,7 @@ def _crear_corrida_con_datos(
         "inicio": momento,
         "fin": None,
         "tipos_prueba": ["funcion"],
-        "imagen_docker": "pyagent-sandbox:base",
+        "imagen_docker": "qagent-sandbox:base",
         "estado": "en_curso",
         "resumen": None,
     }
@@ -97,11 +97,11 @@ def _crear_corrida_con_datos(
 def test_criterio1_y_criterio2_corridas_guardadas_en_runs_y_tabla_con_todos_los_campos(
     tmp_path: Path,
 ) -> None:
-    """Criterios 1 y 2: se guarda en .pyagent/runs/ y devuelve todos los campos requeridos."""
+    """Criterios 1 y 2: se guarda en .qagent/runs/ y devuelve todos los campos requeridos."""
     run_id, _info = _crear_corrida_con_datos(tmp_path, perfil="deep")
 
-    # Verifica que se guardó en .pyagent/runs/<run_id>/
-    carpeta_run = tmp_path / ".pyagent" / "runs" / run_id
+    # Verifica que se guardó en .qagent/runs/<run_id>/
+    carpeta_run = tmp_path / ".qagent" / "runs" / run_id
     assert carpeta_run.is_dir()
     assert (carpeta_run / "run.json").is_file()
     assert (carpeta_run / "results.json").is_file()

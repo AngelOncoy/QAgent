@@ -4,10 +4,10 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from pyagent import contracts
-from pyagent.agents.reviewer import ReviewerAgent
-from pyagent.llm import RespuestaLLM, TokenTracker
-from pyagent.sandbox import ResultadoSandbox
+from qagent import contracts
+from qagent.agents.reviewer import ReviewerAgent
+from qagent.llm import RespuestaLLM, TokenTracker
+from qagent.sandbox import ResultadoSandbox
 
 CONTRATO = {
     "version": "2",

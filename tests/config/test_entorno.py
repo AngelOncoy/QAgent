@@ -7,14 +7,14 @@ from pathlib import Path
 
 import pytest
 
-from pyagent.config import (
+from qagent.config import (
     MENSAJE_IA_SIMULADA,
     MENSAJE_LISTO,
     estado_git,
     verificar_entorno,
 )
-from pyagent.config import entorno as modulo_entorno
-from pyagent.config.carga import RUTA_CONFIG
+from qagent.config import entorno as modulo_entorno
+from qagent.config.carga import RUTA_CONFIG
 
 OK = {"estado": "ok", "mensaje": "ok"}
 DOCKER_APAGADO = {
@@ -111,7 +111,7 @@ def test_ia_real_se_informa(env_completo):
 
 
 def test_ia_simulada_por_variable_de_entorno(tmp_path, monkeypatch):
-    monkeypatch.setenv("PYAGENT_FAKE_LLM", "1")
+    monkeypatch.setenv("QAGENT_FAKE_LLM", "1")
     r = verificar_entorno(
         RUTA_CONFIG, tmp_path / ".env", docker=lambda: OK, git=lambda: OK
     )

@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from pyagent.llm import (
+from qagent.llm import (
     ConfiguracionInvalida,
     PrecioAgente,
     TokenTracker,

@@ -9,9 +9,9 @@ import pytest
 
 pytest.importorskip("webview")
 
-from pyagent import contracts
-from pyagent.almacenamiento import AlmacenProyecto
-from pyagent.app.desktop import DesktopAPI
+from qagent import contracts
+from qagent.almacenamiento import AlmacenProyecto
+from qagent.app.desktop import DesktopAPI
 
 
 class VentanaFalsa:

@@ -2,7 +2,7 @@
 
 Cerrar y reabrir la app se simula de dos formas: con instancias nuevas sobre las mismas
 carpetas y, en la última prueba, leyendo desde otro proceso de Python. El home del
-usuario es siempre una carpeta temporal: nunca se toca el `~/.pyagent` real.
+usuario es siempre una carpeta temporal: nunca se toca el `~/.qagent` real.
 """
 
 from __future__ import annotations
@@ -15,10 +15,10 @@ from pathlib import Path
 
 import pytest
 
-import pyagent
-from pyagent import contracts
-from pyagent.almacenamiento import AlmacenProyecto, nombre_prueba, recientes
-from pyagent.app import desktop
+import qagent
+from qagent import contracts
+from qagent.almacenamiento import AlmacenProyecto, nombre_prueba, recientes
+from qagent.app import desktop
 
 CONTRATO = json.loads(
     (contracts.DIR_CONTRATOS / "ejemplos" / "planner_contract.v2.json").read_text(
@@ -53,7 +53,7 @@ def proyecto(tmp_path: Path) -> Path:
 def _sesion_con_corrida(proyecto: Path) -> dict:
     """Primera sesión: corrida con una spec y su prueba aprobada."""
     almacen = AlmacenProyecto(proyecto)
-    run = almacen.crear_run(["funcion"], "pyagent-sandbox:base")
+    run = almacen.crear_run(["funcion"], "qagent-sandbox:base")
     spec = almacen.guardar_spec(CONTRATO, run["run_id"])
     archivo = nombre_prueba(spec["id"])
     almacen.guardar_prueba_aprobada(archivo, CODIGO)
@@ -107,7 +107,7 @@ def test_recientes_persisten_en_el_home_entre_sesiones(home: Path, proyecto: Pat
 
     otra_sesion = desktop.DesktopAPI()
 
-    archivo = home / ".pyagent" / "recientes.json"
+    archivo = home / ".qagent" / "recientes.json"
     assert recientes.ruta_por_defecto() == archivo
     [entrada] = json.loads(archivo.read_text(encoding="utf-8"))
     assert set(entrada) == {"nombre", "origen", "ruta", "url", "ultima_apertura"}
@@ -116,7 +116,7 @@ def test_recientes_persisten_en_el_home_entre_sesiones(home: Path, proyecto: Pat
 
 def test_un_recientes_json_del_formato_anterior_se_sigue_leyendo(home: Path):
     """El archivo que dejó la HU-01 antes de mover el módulo se lee igual."""
-    archivo = home / ".pyagent" / "recientes.json"
+    archivo = home / ".qagent" / "recientes.json"
     archivo.parent.mkdir()
     anterior = [
         {
@@ -134,7 +134,7 @@ def test_un_recientes_json_del_formato_anterior_se_sigue_leyendo(home: Path):
 
 
 def test_recientes_json_corrupto_no_tumba_la_app(home: Path, proyecto: Path):
-    archivo = home / ".pyagent" / "recientes.json"
+    archivo = home / ".qagent" / "recientes.json"
     archivo.parent.mkdir()
     archivo.write_text("[{", encoding="utf-8")
     api = desktop.DesktopAPI()
@@ -150,7 +150,7 @@ def test_otro_proceso_lee_lo_guardado(home: Path, proyecto: Path):
     desktop.DesktopAPI().abrir_proyecto(str(proyecto))
     lector = (
         "import json, sys\n"
-        "from pyagent.almacenamiento import AlmacenProyecto, recientes\n"
+        "from qagent.almacenamiento import AlmacenProyecto, recientes\n"
         "a = AlmacenProyecto(sys.argv[1])\n"
         "print(json.dumps({\n"
         "    'runs': [r['run_id'] for r in a.listar_runs()],\n"
@@ -159,11 +159,11 @@ def test_otro_proceso_lee_lo_guardado(home: Path, proyecto: Path):
         "    'recientes': [e['ruta'] for e in recientes.cargar()],\n"
         "}))\n"
     )
-    src = str(Path(pyagent.__file__).resolve().parents[1])  # con o sin pip install -e
+    src = str(Path(qagent.__file__).resolve().parents[1])  # con o sin pip install -e
     rutas = [src, os.environ.get("PYTHONPATH", "")]
     entorno = {
         **os.environ,
-        "PYAGENT_FAKE_LLM": "1",
+        "QAGENT_FAKE_LLM": "1",
         "PYTHONPATH": os.pathsep.join(r for r in rutas if r),
     }
 

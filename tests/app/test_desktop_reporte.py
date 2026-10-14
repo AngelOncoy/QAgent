@@ -6,9 +6,9 @@ import pytest
 
 pytest.importorskip("webview")
 
-from pyagent.app.desktop import DesktopAPI
-from pyagent.llm import cargar_precios
-from pyagent.storage import escribir_corrida
+from qagent.app.desktop import DesktopAPI
+from qagent.llm import cargar_precios
+from qagent.storage import escribir_corrida
 from tests.storage.test_registro import correr
 
 
@@ -69,7 +69,7 @@ def test_exportar_informe_en_modo_demostracion_crea_archivos_reales(tmp_path) ->
     """HU-22: en modo demostración (corrida #8841-B) también guarda el archivo real en disco."""
     from pathlib import Path
 
-    from pyagent.storage.exportar_informe import (
+    from qagent.storage.exportar_informe import (
         extraer_texto_pdf,
         verificar_archivo_sin_claves,
     )
@@ -97,9 +97,9 @@ def test_exportar_informe_en_modo_demostracion_crea_archivos_reales(tmp_path) ->
         assert verificar_archivo_sin_claves(ruta) == []
 
     # Verifica que results.json quedó creado en la carpeta de la corrida y el PDF abre con las 5 métricas
-    assert (tmp_path / ".pyagent" / "runs" / "8841-B" / "results.json").is_file()
+    assert (tmp_path / ".qagent" / "runs" / "8841-B" / "results.json").is_file()
     texto_pdf = extraer_texto_pdf(
-        tmp_path / ".pyagent" / "runs" / "8841-B" / "informe_8841-B.pdf"
+        tmp_path / ".qagent" / "runs" / "8841-B" / "informe_8841-B.pdf"
     )
     assert "66.7% (6/9)" in texto_pdf
     assert "53.3% (6 críticas)" in texto_pdf

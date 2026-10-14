@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from pyagent.app.desktop import DesktopAPI
+from qagent.app.desktop import DesktopAPI
 
 
 def test_desktop_api_inicia_corrida_con_perfil_y_evento(
@@ -12,7 +12,7 @@ def test_desktop_api_inicia_corrida_con_perfil_y_evento(
 ) -> None:
     """Verifica que al iniciar corrida la API retorne estado 'started' y emita evento."""
     # Docker (HU-13) y el entorno (EN-06) se simulan listos: aquí se prueba el monitor.
-    monkeypatch.setattr("pyagent.sandbox.verificar_docker", lambda: None)
+    monkeypatch.setattr("qagent.sandbox.verificar_docker", lambda: None)
     api = DesktopAPI()
     api.verificar_entorno = lambda: {
         "listo": True,

@@ -6,8 +6,8 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from pyagent.app.desktop import DesktopAPI
-from pyagent.sandbox import estado as modulo_estado
+from qagent.app.desktop import DesktopAPI
+from qagent.sandbox import estado as modulo_estado
 
 MENSAJE = "Docker no está abierto: inícialo y vuelve a intentar"
 
@@ -16,9 +16,9 @@ MENSAJE = "Docker no está abierto: inícialo y vuelve a intentar"
 def api(monkeypatch: pytest.MonkeyPatch) -> DesktopAPI:
     """Puente con una ventana simulada para capturar los eventos hacia la interfaz.
 
-    Se fija la IA real (PYAGENT_FAKE_LLM=0): con la IA simulada Docker es opcional.
+    Se fija la IA real (QAGENT_FAKE_LLM=0): con la IA simulada Docker es opcional.
     """
-    monkeypatch.setenv("PYAGENT_FAKE_LLM", "0")
+    monkeypatch.setenv("QAGENT_FAKE_LLM", "0")
     puente = DesktopAPI()
     puente.set_window(MagicMock())
     # EN-06 también verifica config.toml, .env y Git: aquí se da por listo para
@@ -59,7 +59,7 @@ def test_con_docker_la_corrida_inicia(api):
 
 
 def test_con_ia_simulada_la_corrida_inicia_aunque_docker_no_este(api, monkeypatch):
-    monkeypatch.setenv("PYAGENT_FAKE_LLM", "1")
+    monkeypatch.setenv("QAGENT_FAKE_LLM", "1")
     with patch.object(
         modulo_estado,
         "estado_docker",
@@ -72,9 +72,9 @@ def test_con_ia_simulada_la_corrida_inicia_aunque_docker_no_este(api, monkeypatc
 
 
 def test_con_ia_simulada_ni_siquiera_se_consulta_docker(api, monkeypatch):
-    monkeypatch.setenv("PYAGENT_FAKE_LLM", "1")
+    monkeypatch.setenv("QAGENT_FAKE_LLM", "1")
     with patch(
-        "pyagent.sandbox.verificar_docker",
+        "qagent.sandbox.verificar_docker",
         side_effect=AssertionError("no debe llamarse"),
     ):
         assert api.start_run("C:/Mis proyectos/demo", "deep")["status"] == "started"
@@ -82,12 +82,12 @@ def test_con_ia_simulada_ni_siquiera_se_consulta_docker(api, monkeypatch):
 
 def test_con_ia_simulada_en_el_env_tampoco_se_exige_docker(api, monkeypatch):
     """La bandera puede venir del .env: sin variable en el sistema decide el archivo."""
-    monkeypatch.delenv("PYAGENT_FAKE_LLM")
+    monkeypatch.delenv("QAGENT_FAKE_LLM")
     monkeypatch.setattr(
-        "pyagent.config.carga.leer_env", lambda *a, **k: {"PYAGENT_FAKE_LLM": "1"}
+        "qagent.config.carga.leer_env", lambda *a, **k: {"QAGENT_FAKE_LLM": "1"}
     )
     with patch(
-        "pyagent.sandbox.verificar_docker",
+        "qagent.sandbox.verificar_docker",
         side_effect=AssertionError("no debe llamarse"),
     ):
         assert api.start_run("C:/Mis proyectos/demo", "deep")["status"] == "started"

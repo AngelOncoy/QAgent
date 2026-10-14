@@ -13,16 +13,16 @@ from pathlib import Path
 import pytest
 from endpoints_a_mano import PRUEBAS
 
-from pyagent import contracts
-from pyagent.agents.planner import PlannerAgent
-from pyagent.agents.reviewer import ReviewerAgent
-from pyagent.almacenamiento import AlmacenProyecto
-from pyagent.analysis import analizar_proyecto, comparar_aserciones
-from pyagent.config import cargar_configuracion
-from pyagent.config.carga import RUTA_CONFIG
-from pyagent.llm import FakeLLMClient, TokenTracker
-from pyagent.orchestrator.corrida import ejecutar_corrida
-from pyagent.sandbox import ResultadoSandbox
+from qagent import contracts
+from qagent.agents.planner import PlannerAgent
+from qagent.agents.reviewer import ReviewerAgent
+from qagent.almacenamiento import AlmacenProyecto
+from qagent.analysis import analizar_proyecto, comparar_aserciones
+from qagent.config import cargar_configuracion
+from qagent.config.carga import RUTA_CONFIG
+from qagent.llm import FakeLLMClient, TokenTracker
+from qagent.orchestrator.corrida import ejecutar_corrida
+from qagent.sandbox import ResultadoSandbox
 
 RAIZ_REPO = Path(__file__).resolve().parents[2]
 BANCO_API = RAIZ_REPO / "bench_api"
@@ -308,7 +308,7 @@ def test_corrida_de_la_api_de_prueba_con_generator_real(proyecto_api):
 
 def test_planner_sin_planificar_endpoints_sigue_funcionando():
     """Un Planner antiguo (solo funciones) no rompe el orquestador."""
-    from pyagent.orchestrator.orquestador import Orquestador
+    from qagent.orchestrator.orquestador import Orquestador
 
     class SoloFunciones:
         def planificar(self, modulo):
@@ -319,7 +319,7 @@ def test_planner_sin_planificar_endpoints_sigue_funcionando():
 
 
 def test_modulo_sin_endpoints_no_llama_al_planner_de_endpoints():
-    from pyagent.orchestrator.orquestador import Orquestador
+    from qagent.orchestrator.orquestador import Orquestador
 
     class Espia:
         llamadas = 0

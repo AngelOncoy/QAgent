@@ -8,12 +8,12 @@ from pathlib import Path
 
 import pytest
 
-from pyagent.almacenamiento import AlmacenProyecto
-from pyagent.config import cargar_configuracion
-from pyagent.config.carga import RUTA_CONFIG
-from pyagent.orchestrator.corrida import ejecutar_corrida
-from pyagent.orchestrator.regresion import huellas_de_objetivos
-from pyagent.sandbox import ResultadoSandbox
+from qagent.almacenamiento import AlmacenProyecto
+from qagent.config import cargar_configuracion
+from qagent.config.carga import RUTA_CONFIG
+from qagent.orchestrator.corrida import ejecutar_corrida
+from qagent.orchestrator.regresion import huellas_de_objetivos
+from qagent.sandbox import ResultadoSandbox
 
 BANCO = Path(__file__).resolve().parents[2] / "bench"
 COBERTURA = {
@@ -70,7 +70,7 @@ def _regresion(preparado, monkeypatch, llamadas):
     def prohibida(*args, **kwargs):
         raise AssertionError("Regresion no debe crear clientes LLM")
 
-    monkeypatch.setattr("pyagent.orchestrator.corrida.crear_cliente", prohibida)
+    monkeypatch.setattr("qagent.orchestrator.corrida.crear_cliente", prohibida)
     run_id = almacen.crear_run(tipos_prueba=["funcion"])["run_id"]
     resumen = ejecutar_corrida(
         raiz,

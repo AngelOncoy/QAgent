@@ -6,9 +6,9 @@ from typing import Any
 
 import pytest
 
-from pyagent.llm import validar as modulo
-from pyagent.llm.cliente import ErrorLLM
-from pyagent.llm.modelos import RespuestaLLM
+from qagent.llm import validar as modulo
+from qagent.llm.cliente import ErrorLLM
+from qagent.llm.modelos import RespuestaLLM
 
 
 class ClienteFijo:

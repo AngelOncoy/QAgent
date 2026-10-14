@@ -11,8 +11,8 @@ from docker.errors import DockerException, ImageNotFound
 from requests.exceptions import ConnectionError as ErrorConexion
 from requests.exceptions import ReadTimeout
 
-from pyagent.sandbox import IMAGEN_BASE, estado_docker, modelos
-from pyagent.sandbox.estado import TIMEOUT_PING_S
+from qagent.sandbox import IMAGEN_BASE, estado_docker, modelos
+from qagent.sandbox.estado import TIMEOUT_PING_S
 
 
 def _consultar(

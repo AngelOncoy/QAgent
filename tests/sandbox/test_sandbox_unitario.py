@@ -11,7 +11,7 @@ import pytest
 from docker.errors import APIError, BuildError, DockerException, ImageNotFound
 from requests.exceptions import ReadTimeout
 
-from pyagent.sandbox import (
+from qagent.sandbox import (
     IMAGEN_BASE,
     DockerNoDisponible,
     ErrorConstruccionImagen,
@@ -25,8 +25,8 @@ from pyagent.sandbox import (
     obtener_cliente,
     preparar_imagen,
 )
-from pyagent.sandbox import cliente as modulo_cliente
-from pyagent.sandbox.imagen import etiqueta_para_requirements
+from qagent.sandbox import cliente as modulo_cliente
+from qagent.sandbox.imagen import etiqueta_para_requirements
 
 
 @pytest.fixture
@@ -41,7 +41,7 @@ def proyecto(tmp_path: Path) -> Path:
     (raiz / ".env.local").write_text("CLAVE=secreta\n", encoding="utf-8")
     (raiz / ".git").mkdir()
     (raiz / ".git" / "config").write_text("[core]\n", encoding="utf-8")
-    for carpeta in (".venv", "venv", ".pyagent", "node_modules", "paquete/__pycache__"):
+    for carpeta in (".venv", "venv", ".qagent", "node_modules", "paquete/__pycache__"):
         (raiz / carpeta).mkdir(parents=True)
         (raiz / carpeta / "x.txt").write_text("x", encoding="utf-8")
     return raiz
@@ -98,6 +98,8 @@ def test_contenedor_sin_red_con_limites_y_sin_privilegios(proyecto, carpeta_test
     assert argumentos["cap_drop"] == ["ALL"]
     assert argumentos["security_opt"] == ["no-new-privileges"]
     assert argumentos["detach"] is True
+    # Con esta etiqueta se buscan los contenedores que quedaron (HU-13).
+    assert argumentos["labels"] == {"qagent": "sandbox"}
     assert "/tmp" in argumentos["tmpfs"]
 
 
@@ -330,8 +332,8 @@ def _solo_existen(*etiquetas: str):
 def test_etiqueta_por_hash_del_requirements():
     etiqueta = etiqueta_para_requirements(b"fastapi==0.115.0\n")
 
-    assert etiqueta.startswith("pyagent-sandbox:req-")
-    assert len(etiqueta.removeprefix("pyagent-sandbox:req-")) == 12
+    assert etiqueta.startswith("qagent-sandbox:req-")
+    assert len(etiqueta.removeprefix("qagent-sandbox:req-")) == 12
     assert etiqueta == etiqueta_para_requirements(b"fastapi==0.115.0\n")
     assert etiqueta != etiqueta_para_requirements(b"fastapi==0.116.0\n")
 

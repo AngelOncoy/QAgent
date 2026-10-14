@@ -23,7 +23,7 @@ registrarComponente('inicio/inicio', `<!-- ===== 1. BIENVENIDA ===== -->
 </section>
 `);
 
-// App real: DesktopAPI.listar_recientes / abrir_reciente / quitar_reciente (~/.pyagent/recientes.json).
+// App real: DesktopAPI.listar_recientes / abrir_reciente / quitar_reciente (~/.qagent/recientes.json).
 // Navegador sin pywebview: lista simulada de 11 proyectos; "inventario-api" tiene la carpeta renombrada.
 const apiRec = () => (window.pywebview && window.pywebview.api && window.pywebview.api.listar_recientes) ? window.pywebview.api : null;
 let DEMO_REC = ['ecommerce-core','banco-pruebas-mvp','inventario-api','tienda-utils','data-cleaner','chat-bot','reportes-pdf','scraper-precios','auth-service','geo-tools','legacy-scripts'].map((n,i) => ({

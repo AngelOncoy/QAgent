@@ -1,5 +1,5 @@
 // puente-python.js — recibe los eventos que Python envía a la interfaz (DesktopAPI.emit_event)
-window.onPyAgentEvent = function(event) {
+window.onQAgentEvent = function(event) {
   console.log("[Python Event]", event);
   if (event.type === 'log') {
     toast(`Python: ${escHtml(event.data.message)}`);

@@ -8,9 +8,9 @@ import re
 
 import pytest
 
-from pyagent.app import bitacora
-from pyagent.app.desktop import DesktopAPI
-from pyagent.config import Claves
+from qagent.app import bitacora
+from qagent.app.desktop import DesktopAPI
+from qagent.config import Claves
 
 CLAVE_DE_PRUEBA = (
     "valor-de-prueba-" + "Z" * 14
@@ -69,10 +69,10 @@ def test_los_pasos_normales_salen_como_info(salida, tipo):
 
 
 def test_quita_el_html_y_las_entidades_de_los_mensajes():
-    texto = 'Spec vigente (<span class="mono">.pyagent/specs/a.json</span>) &amp; reutilizado'
+    texto = 'Spec vigente (<span class="mono">.qagent/specs/a.json</span>) &amp; reutilizado'
     assert (
         bitacora.limpiar_texto(texto)
-        == "Spec vigente (.pyagent/specs/a.json) & reutilizado"
+        == "Spec vigente (.qagent/specs/a.json) & reutilizado"
     )
 
 
@@ -134,7 +134,7 @@ def test_el_puente_registra_el_evento_que_envia_la_pantalla(salida):
 
 
 def test_iniciar_y_bloquear_la_corrida_quedan_en_la_bitacora(salida, monkeypatch):
-    monkeypatch.setenv("PYAGENT_FAKE_LLM", "1")
+    monkeypatch.setenv("QAGENT_FAKE_LLM", "1")
     bitacora.configurar_registro(flujo=salida)
     api = DesktopAPI()
     api.verificar_entorno = lambda: {"listo": True, "mensaje": "", "problemas": []}  # type: ignore[method-assign]

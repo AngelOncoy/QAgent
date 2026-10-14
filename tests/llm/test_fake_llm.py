@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from pyagent.llm import (
+from qagent.llm import (
     FakeLLMClient,
     TokenTracker,
     es_modo_simulado,
@@ -14,8 +14,8 @@ from pyagent.llm import (
 
 
 def test_modo_simulado_activado(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Verifica que PYAGENT_FAKE_LLM=1 activa el modo simulado y retorna FakeLLMClient."""
-    monkeypatch.setenv("PYAGENT_FAKE_LLM", "1")
+    """Verifica que QAGENT_FAKE_LLM=1 activa el modo simulado y retorna FakeLLMClient."""
+    monkeypatch.setenv("QAGENT_FAKE_LLM", "1")
     assert es_modo_simulado() is True
 
     cliente = obtener_cliente_llm(modelo="test-model")
@@ -24,8 +24,8 @@ def test_modo_simulado_activado(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 def test_modo_simulado_desactivado(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Verifica que sin PYAGENT_FAKE_LLM=1 no se active la simulación."""
-    monkeypatch.setenv("PYAGENT_FAKE_LLM", "0")
+    """Verifica que sin QAGENT_FAKE_LLM=1 no se active la simulación."""
+    monkeypatch.setenv("QAGENT_FAKE_LLM", "0")
     assert es_modo_simulado() is False
 
     with pytest.raises(NotImplementedError):
@@ -48,7 +48,7 @@ def test_corrida_completa_registra_cero_tokens_en_log_json(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     """Evidencia de aceptación: una corrida completa registra 0 tokens y 0 costo en log.json."""
-    monkeypatch.setenv("PYAGENT_FAKE_LLM", "1")
+    monkeypatch.setenv("QAGENT_FAKE_LLM", "1")
     cliente = obtener_cliente_llm(modelo="fake-pipeline")
     tracker = TokenTracker()
 
@@ -231,8 +231,8 @@ def test_planner_simulado_reconoce_clave_de_endpoint() -> None:
 
 
 def test_el_banco_tiene_casos_grabados_para_todas_sus_funciones() -> None:
-    from pyagent.analysis.analyzer import analizar_proyecto
-    from pyagent.llm.fake import RUTA_GRABACIONES, cargar_grabaciones
+    from qagent.analysis.analyzer import analizar_proyecto
+    from qagent.llm.fake import RUTA_GRABACIONES, cargar_grabaciones
 
     grabaciones = cargar_grabaciones(RUTA_GRABACIONES)
     [modulo] = analizar_proyecto(RUTA_GRABACIONES.parent)["modulos"]
@@ -242,8 +242,8 @@ def test_el_banco_tiene_casos_grabados_para_todas_sus_funciones() -> None:
 
 
 def test_el_banco_api_tiene_grabacion_para_cada_endpoint() -> None:
-    from pyagent.analysis.analyzer import analizar_proyecto
-    from pyagent.llm.fake import RUTA_GRABACIONES, cargar_grabaciones
+    from qagent.analysis.analyzer import analizar_proyecto
+    from qagent.llm.fake import RUTA_GRABACIONES, cargar_grabaciones
 
     raiz = Path(__file__).resolve().parents[2]
     grabaciones = cargar_grabaciones(RUTA_GRABACIONES)

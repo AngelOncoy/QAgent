@@ -5,10 +5,10 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from pyagent.agents import GeneratorAgent, PlannerAgent, ReviewerAgent
-from pyagent.llm import RespuestaLLM, TokenTracker
-from pyagent.orchestrator import Estado, Orquestador
-from pyagent.sandbox import ResultadoSandbox
+from qagent.agents import GeneratorAgent, PlannerAgent, ReviewerAgent
+from qagent.llm import RespuestaLLM, TokenTracker
+from qagent.orchestrator import Estado, Orquestador
+from qagent.sandbox import ResultadoSandbox
 
 MODULO = {
     "ruta": "calculadora.py",

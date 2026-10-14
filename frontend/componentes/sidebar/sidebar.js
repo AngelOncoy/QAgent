@@ -48,7 +48,7 @@ registrarComponente('sidebar/sidebar', `<!-- ======================= SIDEBAR ===
 
 /* Indicador de estado del sandbox: consulta a Python al abrir y cada 15 s */
 const SANDBOX_UI = {
-  ok:           {dot:'dot',       txt:'ok',   label:'pyagent-sandbox:base',          ayuda:''},
+  ok:           {dot:'dot',       txt:'ok',   label:'qagent-sandbox:base',          ayuda:''},
   sin_imagen:   {dot:'dot amber', txt:'warn', label:'Falta imagen base',     ayuda:''},
   no_iniciado:  {dot:'dot red',   txt:'no',   label:'Sandbox no disponible', ayuda:'Abre Docker Desktop'},
   no_instalado: {dot:'dot red',   txt:'no',   label:'Sandbox no disponible', ayuda:'Instala Docker Desktop'},

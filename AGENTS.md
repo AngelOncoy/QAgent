@@ -6,7 +6,7 @@ Contexto para asistentes de IA (Claude, Copilot, Cursor, etc.) que trabajen en e
 
 Sistema multiagente en Python que genera y valida pruebas pytest para código Python 3.10+: pruebas unitarias de funciones y pruebas de endpoints de APIs FastAPI (con `TestClient`, sin red).
 
-**Nombre:** el producto se llama **QAgent**. El paquete interno de Python se mantiene como `pyagent` (`src/pyagent/`, `PYAGENT_FAKE_LLM`, `~/.pyagent/`) para no romper imports; no renombrarlo.
+**Nombre:** el producto, el comando, el paquete de Python y los nombres técnicos son **QAgent** / `qagent`: `src/qagent/`, `.qagent/`, `~/.qagent/`, `qagent-sandbox:base`, `QAGENT_FAKE_LLM` y `window.onQAgentEvent`. El nombre anterior (`pyagent`) solo queda en el código de compatibilidad: la migración de `.pyagent/` y `~/.pyagent/`, y el respaldo de `PYAGENT_FAKE_LLM` (ADR-004).
 Tres agentes coordinados por un orquestador (metodología GAIA), comunicados **solo por contratos JSON**:
 
 1. **Planner:** analiza el código (AST, firmas, docstrings) y decide los casos de prueba.
@@ -28,9 +28,9 @@ Aplicación de escritorio local (pywebview + backend Python + Docker). No hay se
 pip install -e .[dev]           # instalación editable, una vez por máquina (pyproject.toml)
 python test.py                  # lint + formato + TODAS las pruebas (IA simulada, 0 tokens)
 python test.py --rapido         # sin lint y sin pruebas de Docker ni de red
-pytest                          # solo pytest (con IA simulada: PYAGENT_FAKE_LLM=1 en el .env o set/export en el sistema)
+pytest                          # solo pytest (con IA simulada: QAGENT_FAKE_LLM=1 en el .env o set/export en el sistema)
 ruff check . && ruff format .   # lint y formato (bench/ está excluido a propósito)
-qagent                          # abre la aplicación de escritorio (o: python -m pyagent)
+qagent                          # abre la aplicación de escritorio (o: python -m qagent)
 ```
 
 El paquete requiere instalación editable: `config.toml` y `contracts/` se buscan relativos a la raíz del repositorio.
@@ -39,16 +39,16 @@ El paquete requiere instalación editable: `config.toml` y `contracts/` se busca
 
 | Ruta | Contenido |
 |---|---|
-| `src/pyagent/agents/` | Planner, Generator, Reviewer |
-| `src/pyagent/orchestrator/` | Máquina de estados de la corrida |
-| `src/pyagent/analysis/` | Analizador AST (estático): funciones, rutas FastAPI y mapa de llamadas `llama_a`. Interfaz única `analizar(ruta) -> Estructura` |
-| `src/pyagent/sandbox/` | Ejecución en Docker |
-| `src/pyagent/llm/` | Cliente LLM real y simulado; registro de tokens |
-| `src/pyagent/app/` | Puente pywebview (`desktop.py`): recibe acciones de la interfaz y le envía eventos, y bitácora de la corrida en la consola (`bitacora.py`). Sin lógica de negocio |
-| `src/pyagent/config/` | Carga de `config.toml` y `.env`, auditoría de claves (nunca se muestran) y verificación del entorno: configuración, claves, Docker y Git (EN-06) |
-| `src/pyagent/proyectos/` | Lógica de proyectos: abrir, clonar y vista previa. No depende de pywebview |
-| `src/pyagent/almacenamiento/` | Almacenamiento del proyecto (EN-07): `AlmacenProyecto` guarda corridas (`run.json`), specs y pruebas aprobadas en `<proyecto>/.pyagent/`; `recientes.py` maneja `~/.pyagent/recientes.json`. Escritura atómica en UTF-8 |
-| `src/pyagent/storage/` | `log.json` y `results.json` de cada corrida en `.pyagent/runs/<run_id>/` (EN-05) |
+| `src/qagent/agents/` | Planner, Generator, Reviewer |
+| `src/qagent/orchestrator/` | Máquina de estados de la corrida |
+| `src/qagent/analysis/` | Analizador AST (estático): funciones, rutas FastAPI y mapa de llamadas `llama_a`. Interfaz única `analizar(ruta) -> Estructura` |
+| `src/qagent/sandbox/` | Ejecución en Docker |
+| `src/qagent/llm/` | Cliente LLM real y simulado; registro de tokens |
+| `src/qagent/app/` | Puente pywebview (`desktop.py`): recibe acciones de la interfaz y le envía eventos, y bitácora de la corrida en la consola (`bitacora.py`). Sin lógica de negocio |
+| `src/qagent/config/` | Carga de `config.toml` y `.env`, auditoría de claves (nunca se muestran) y verificación del entorno: configuración, claves, Docker y Git (EN-06) |
+| `src/qagent/proyectos/` | Lógica de proyectos: abrir, clonar y vista previa. No depende de pywebview |
+| `src/qagent/almacenamiento/` | Almacenamiento del proyecto (EN-07): `AlmacenProyecto` guarda corridas (`run.json`), specs y pruebas aprobadas en `<proyecto>/.qagent/`; `recientes.py` maneja `~/.qagent/recientes.json`. Escritura atómica en UTF-8 |
+| `src/qagent/storage/` | `log.json` y `results.json` de cada corrida en `.qagent/runs/<run_id>/` (EN-05) |
 | `frontend/` | Interfaz HTML/CSS/JS sin build: un componente por pantalla en `componentes/`, tokens de diseño en `css/tokens.css`, logo en `assets/logo/`. Ver `frontend/README.md` |
 | `contracts/` | JSON Schema de los contratos entre agentes |
 | `tests/` | Pruebas del sistema; reflejan `src/` (`almacenamiento`, `analysis`, `app`, `config`, `llm`, `orchestrator`, `proyectos`, `sandbox`, `storage`) y `tests/frontend/` para la estructura de la interfaz |
@@ -56,7 +56,7 @@ El paquete requiere instalación editable: `config.toml` y `contracts/` se busca
 | `pyproject.toml` | Dependencias, extra `dev`, configuración de pytest y ruff, script `qagent` |
 | `CLAUDE.md` | Guía específica para Claude Code (importa este archivo) |
 | `docs/arquitectura.md` | Arquitectura del sistema y modelo GAIA |
-| `docs/decisiones/` | ADR (decisiones técnicas): ADR-001 modelos por agente, ADR-002 análisis con `ast`, ADR-003 frontend modular |
+| `docs/decisiones/` | ADR (decisiones técnicas): ADR-001 modelos por agente, ADR-002 análisis con `ast`, ADR-003 frontend modular, ADR-004 nombre único QAgent |
 | `docs/evidencias/` | Salidas y mediciones de los spikes (ej. `spk-02/`) |
 | `bench/` | Banco de pruebas con bugs sembrados |
 
@@ -70,9 +70,9 @@ El paquete requiere instalación editable: `config.toml` y `contracts/` se busca
 - **Modelos y precios solo desde `config.toml`** (se versiona, sin claves), nunca hardcodeados (ver `docs/decisiones/ADR-001-modelos.md`).
 - **Tests del sistema con la IA simulada:** ningún test de `tests/` debe llamar a una API real.
 - **Los tests no dependen de Docker ni de internet**, salvo los marcados `docker` o `red` (se omiten si no hay). Docker se simula en las demás.
-- **La lógica no depende de la interfaz:** `app/` llama a `proyectos/`, `analysis/`, `sandbox/`…, nunca al revés (la lógica no importa `pyagent.app` ni `webview`).
+- **La lógica no depende de la interfaz:** `app/` llama a `proyectos/`, `analysis/`, `sandbox/`…, nunca al revés (la lógica no importa `qagent.app` ni `webview`).
 - **Frontend:** toda la interfaz (HTML, CSS y JS) vive en `frontend/`; `src/` no guarda pantallas ni demos (lo verifica `tests/frontend/`). Un componente por pantalla o modal en `frontend/componentes/`; colores, tipografía y logo en `frontend/css/tokens.css` (sin colores literales: todo es `var(--token)`, lo verifica `tests/frontend/`); sin bundler, sin módulos ES ni `fetch` de HTML (ver ADR-003).
-- **Nombres técnicos fijos:** `pyagent-sandbox:base`, `.pyagent/`, `pyagent` y `window.onPyAgentEvent` no se renombran aunque el producto sea QAgent.
+- **Un solo nombre:** todo identificador nuevo usa `qagent` / QAgent. No introducir `pyagent` fuera del código de compatibilidad (ADR-004).
 
 ## Estilo de código
 

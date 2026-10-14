@@ -6,7 +6,7 @@ import pytest
 
 pytest.importorskip("webview")
 
-from pyagent.app.desktop import DesktopAPI
+from qagent.app.desktop import DesktopAPI
 
 
 def _entorno(listo: bool) -> dict:
@@ -23,7 +23,7 @@ def _entorno(listo: bool) -> dict:
 @pytest.fixture(autouse=True)
 def _docker_disponible(monkeypatch):
     """La parte de Docker la cubre HU-13; aquí solo se prueba el bloqueo de EN-06."""
-    monkeypatch.setattr("pyagent.sandbox.verificar_docker", lambda: None)
+    monkeypatch.setattr("qagent.sandbox.verificar_docker", lambda: None)
 
 
 def test_start_run_bloqueado_si_falta_algo(monkeypatch):

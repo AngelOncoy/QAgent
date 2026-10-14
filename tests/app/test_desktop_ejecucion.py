@@ -6,9 +6,9 @@ import pytest
 
 pytest.importorskip("webview")
 
-from pyagent.app.desktop import DesktopAPI
-from pyagent.llm import cargar_precios
-from pyagent.storage import escribir_corrida
+from qagent.app.desktop import DesktopAPI
+from qagent.llm import cargar_precios
+from qagent.storage import escribir_corrida
 from tests.storage.test_registro import correr
 
 

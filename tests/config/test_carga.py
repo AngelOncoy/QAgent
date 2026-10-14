@@ -10,7 +10,7 @@ from pathlib import Path
 
 import pytest
 
-from pyagent.config import (
+from qagent.config import (
     CLAVE_POR_PROVEEDOR,
     Claves,
     FiltroSecretos,
@@ -18,8 +18,8 @@ from pyagent.config import (
     leer_env,
     verificar_entorno,
 )
-from pyagent.config import carga as carga_mod
-from pyagent.config.carga import RUTA_CONFIG
+from qagent.config import carga as carga_mod
+from qagent.config.carga import RUTA_CONFIG
 
 # Valores de prueba armados en tiempo de ejecución: no son claves reales.
 SECRETO_A = "valor-de-prueba-" + "A" * 12
@@ -78,7 +78,7 @@ def test_cada_proveedor_de_config_tiene_variable_de_clave():
 
 def test_cada_agente_del_equipo_puede_crear_su_cliente_real(env_completo):
     """Con las claves completas, config.toml alcanza para armar los 3 clientes (HU-11)."""
-    from pyagent.llm import ClienteLLMReal, crear_cliente
+    from qagent.llm import ClienteLLMReal, crear_cliente
 
     carga = cargar_configuracion(RUTA_CONFIG, env_completo, simulado=False)
     for precio in carga.config.agentes.values():
@@ -252,9 +252,9 @@ def test_con_ia_simulada_no_se_exigen_claves(tmp_path):
 
 
 def test_simulado_se_toma_de_la_variable_de_entorno(tmp_path, monkeypatch):
-    monkeypatch.setenv("PYAGENT_FAKE_LLM", "1")
+    monkeypatch.setenv("QAGENT_FAKE_LLM", "1")
     assert cargar_configuracion(RUTA_CONFIG, tmp_path / ".env").ok
-    monkeypatch.setenv("PYAGENT_FAKE_LLM", "0")
+    monkeypatch.setenv("QAGENT_FAKE_LLM", "0")
     assert not cargar_configuracion(RUTA_CONFIG, tmp_path / ".env").ok
 
 
@@ -346,12 +346,12 @@ def test_avisos_con_clave_faltante_no_incluyen_las_que_si_estan(tmp_path):
 
 @pytest.fixture
 def sin_variable_del_sistema(monkeypatch):
-    """Quita PYAGENT_FAKE_LLM del entorno del sistema para que decida el .env."""
-    monkeypatch.delenv("PYAGENT_FAKE_LLM", raising=False)
+    """Quita QAGENT_FAKE_LLM del entorno del sistema para que decida el .env."""
+    monkeypatch.delenv("QAGENT_FAKE_LLM", raising=False)
 
 
 def test_el_env_con_ia_simulada_no_exige_claves(tmp_path, sin_variable_del_sistema):
-    ruta = _escribir_env(tmp_path / ".env", PYAGENT_FAKE_LLM="1")
+    ruta = _escribir_env(tmp_path / ".env", QAGENT_FAKE_LLM="1")
     carga = cargar_configuracion(RUTA_CONFIG, ruta)
     assert carga.simulado
     assert carga.avisos_claves == []
@@ -369,15 +369,15 @@ def test_sin_la_bandera_el_env_si_exige_claves(tmp_path, sin_variable_del_sistem
 def test_solo_el_valor_1_activa_la_ia_simulada_en_el_env(
     tmp_path, sin_variable_del_sistema, valor
 ):
-    ruta = _escribir_env(tmp_path / ".env", PYAGENT_FAKE_LLM=valor)
+    ruta = _escribir_env(tmp_path / ".env", QAGENT_FAKE_LLM=valor)
     assert not carga_mod.simulado_desde_env(ruta)
 
 
 def test_lo_definido_en_el_sistema_manda_sobre_el_env(tmp_path, monkeypatch):
-    ruta = _escribir_env(tmp_path / ".env", PYAGENT_FAKE_LLM="1")
-    monkeypatch.setenv("PYAGENT_FAKE_LLM", "0")
+    ruta = _escribir_env(tmp_path / ".env", QAGENT_FAKE_LLM="1")
+    monkeypatch.setenv("QAGENT_FAKE_LLM", "0")
     assert not carga_mod.modo_simulado(ruta)
-    monkeypatch.setenv("PYAGENT_FAKE_LLM", "1")
+    monkeypatch.setenv("QAGENT_FAKE_LLM", "1")
     assert carga_mod.modo_simulado(_escribir_env(tmp_path / "otro.env", OTRA="x"))
 
 
@@ -392,30 +392,30 @@ def test_aplicar_simulacion_copia_solo_la_bandera_y_no_las_claves(
     tmp_path, monkeypatch, sin_variable_del_sistema
 ):
     ruta = _escribir_env(
-        tmp_path / ".env", PYAGENT_FAKE_LLM="1", ANTHROPIC_API_KEY=SECRETO_A
+        tmp_path / ".env", QAGENT_FAKE_LLM="1", ANTHROPIC_API_KEY=SECRETO_A
     )
     monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
     assert carga_mod.aplicar_simulacion_desde_env(ruta) is True
     import os
 
-    assert os.environ["PYAGENT_FAKE_LLM"] == "1"
+    assert os.environ["QAGENT_FAKE_LLM"] == "1"
     assert "ANTHROPIC_API_KEY" not in os.environ  # las claves nunca pasan al entorno
-    monkeypatch.delenv("PYAGENT_FAKE_LLM")  # limpieza de lo que puso la prueba
+    monkeypatch.delenv("QAGENT_FAKE_LLM")  # limpieza de lo que puso la prueba
 
 
 def test_aplicar_simulacion_no_pisa_lo_definido_en_el_sistema(tmp_path, monkeypatch):
-    ruta = _escribir_env(tmp_path / ".env", PYAGENT_FAKE_LLM="1")
-    monkeypatch.setenv("PYAGENT_FAKE_LLM", "0")
+    ruta = _escribir_env(tmp_path / ".env", QAGENT_FAKE_LLM="1")
+    monkeypatch.setenv("QAGENT_FAKE_LLM", "0")
     assert carga_mod.aplicar_simulacion_desde_env(ruta) is False
     import os
 
-    assert os.environ["PYAGENT_FAKE_LLM"] == "0"
+    assert os.environ["QAGENT_FAKE_LLM"] == "0"
 
 
 def test_el_entorno_con_ia_simulada_en_el_env_solo_pide_docker_y_git(
     tmp_path, sin_variable_del_sistema
 ):
-    ruta = _escribir_env(tmp_path / ".env", PYAGENT_FAKE_LLM="1")
+    ruta = _escribir_env(tmp_path / ".env", QAGENT_FAKE_LLM="1")
     listo = {"estado": "ok", "mensaje": "ok"}
     resultado = verificar_entorno(
         RUTA_CONFIG, ruta, docker=lambda: listo, git=lambda: listo

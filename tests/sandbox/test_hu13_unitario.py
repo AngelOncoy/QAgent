@@ -7,7 +7,7 @@ from unittest.mock import patch
 
 import pytest
 
-from pyagent.sandbox import (
+from qagent.sandbox import (
     MENSAJE_DOCKER_CERRADO,
     DockerNoDisponible,
     ResultadoSandbox,
@@ -15,7 +15,7 @@ from pyagent.sandbox import (
     copiar_proyecto,
     verificar_docker,
 )
-from pyagent.sandbox import estado as modulo_estado
+from qagent.sandbox import estado as modulo_estado
 
 
 def test_mensaje_de_docker_cerrado_es_el_del_criterio():

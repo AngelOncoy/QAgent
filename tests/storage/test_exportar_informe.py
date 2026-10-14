@@ -7,18 +7,18 @@ from pathlib import Path
 
 import pytest
 
-from pyagent.almacenamiento.proyecto import AlmacenProyecto
-from pyagent.config.auditoria import buscar_claves
-from pyagent.config.carga import Claves
-from pyagent.storage.exportar_informe import (
+from qagent.almacenamiento.proyecto import AlmacenProyecto
+from qagent.config.auditoria import buscar_claves
+from qagent.config.carga import Claves
+from qagent.storage.exportar_informe import (
     FormatoInvalido,
     exportar_informe,
     extraer_texto_pdf,
     verificar_archivo_sin_claves,
 )
-from pyagent.storage.registro import escribir_corrida
-from pyagent.storage.vista_ejecucion import leer_results, vista_ejecucion
-from pyagent.storage.vista_reporte import leer_detalle, vista_reporte
+from qagent.storage.registro import escribir_corrida
+from qagent.storage.vista_ejecucion import leer_results, vista_ejecucion
+from qagent.storage.vista_reporte import leer_detalle, vista_reporte
 from tests.storage.test_registro import correr, precios  # noqa: F401 (fixture)
 
 METAS = {
@@ -35,7 +35,7 @@ CLAVE_ANTHROPIC_FALSA = "sk-ant-" + "Z9y8X7w6" * 4
 
 @pytest.fixture
 def corrida_con_specs(tmp_path: Path, precios):  # noqa: F811
-    """Corrida registrada en .pyagent/runs/<run_id>/ con specs reutilizados y regenerados."""
+    """Corrida registrada en .qagent/runs/<run_id>/ con specs reutilizados y regenerados."""
     almacen = AlmacenProyecto(tmp_path)
     almacen.inicializar()
     run = almacen.crear_run(tipos_prueba=["funcion"])
@@ -80,7 +80,7 @@ def test_criterio2_guarda_por_defecto_en_carpeta_de_la_corrida_con_nombres_ofici
 ) -> None:
     raiz, rutas = corrida_con_specs
     run_id = rutas.run_id
-    carpeta_esperada = raiz / ".pyagent" / "runs" / run_id
+    carpeta_esperada = raiz / ".qagent" / "runs" / run_id
 
     res_pdf = exportar_informe(raiz, run_id=run_id, formato="pdf")
     res_md = exportar_informe(raiz, run_id=run_id, formato="md")

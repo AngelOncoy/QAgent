@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from pyagent.app.desktop import DesktopAPI
+from qagent.app.desktop import DesktopAPI
 
 
 def _crear_archivo(raiz: Path, ruta_relativa: str, contenido: str) -> Path:

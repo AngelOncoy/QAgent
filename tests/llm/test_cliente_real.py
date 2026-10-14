@@ -6,7 +6,7 @@ from typing import Any
 
 import pytest
 
-from pyagent.llm.cliente import ClienteLLMReal, ErrorLLM, LimiteProveedor
+from qagent.llm.cliente import ClienteLLMReal, ErrorLLM, LimiteProveedor
 
 CLAVE_PRUEBA = "clave-super-secreta-de-prueba"
 ENDPOINT_PRUEBA = "https://proveedor.example/v1/chat/completions"
@@ -270,7 +270,7 @@ def test_transporte_http_convierte_429_en_limite_con_retry_after(monkeypatch) ->
     from email.message import Message
     from urllib.error import HTTPError
 
-    from pyagent.llm import cliente as modulo
+    from qagent.llm import cliente as modulo
 
     cabeceras = Message()
     cabeceras["Retry-After"] = "12"

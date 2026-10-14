@@ -10,12 +10,13 @@ from pathlib import Path
 
 import pytest
 
-from pyagent.sandbox import (
+from qagent.sandbox import (
     LimitesSandbox,
     clasificar_resultado,
     ejecutar_en_sandbox,
     ejecutar_pruebas,
 )
+from qagent.sandbox.modelos import ETIQUETA_CONTENEDOR
 
 pytestmark = pytest.mark.docker
 
@@ -94,6 +95,7 @@ def test_timeout_mata_el_contenedor_y_lo_elimina(
     assert clasificar_resultado(resultado) == "timeout"
     assert resultado.duracion_s < 30
     restantes = cliente_docker.containers.list(
-        all=True, filters={"label": "pyagent=sandbox"}
+        all=True,
+        filters={"label": [f"{k}={v}" for k, v in ETIQUETA_CONTENEDOR.items()]},
     )
     assert restantes == []

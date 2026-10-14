@@ -7,10 +7,10 @@ import json
 
 import pytest
 
-from pyagent.contracts import RUN_LOG, validar
-from pyagent.storage import escribir_corrida
-from pyagent.storage.vista_ejecucion import leer_results
-from pyagent.storage.vista_reporte import leer_detalle, vista_reporte
+from qagent.contracts import RUN_LOG, validar
+from qagent.storage import escribir_corrida
+from qagent.storage.vista_ejecucion import leer_results
+from qagent.storage.vista_reporte import leer_detalle, vista_reporte
 from tests.storage.test_registro import correr, precios  # noqa: F401 (fixture)
 
 METAS = {
@@ -23,7 +23,7 @@ METAS = {
 
 @pytest.fixture
 def corrida(tmp_path, precios):  # noqa: F811
-    """Corrida aceptada en el segundo intento, escrita en .pyagent/runs/."""
+    """Corrida aceptada en el segundo intento, escrita en .qagent/runs/."""
     tracker, resultado = correr(precios, decisiones=("retry", "accept"))
     rutas = escribir_corrida(
         tmp_path, resultado, tracker, precios, "deep", metas=METAS, rama="develop"
