@@ -13,6 +13,7 @@ python test.py --rapido        # sin lint, sin pruebas de Docker ni de red
 python test.py -k clonador     # los demás argumentos van a pytest
 qagent                         # abre la app (también: python -m qagent; qagent --version)
 python scripts/verificar_paquete.py  # paquete instalado limpio, fuera del repo (antes de una release)
+python scripts/construir_windows.py  # QAgent.exe e instalador en dist/windows/ (solo en Windows)
 ruff check . && ruff format .  # lint y formato (bench/ está excluido a propósito)
 ```
 

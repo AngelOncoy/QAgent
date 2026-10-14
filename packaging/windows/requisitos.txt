@@ -1,0 +1,17 @@
+﻿QAgent genera y valida pruebas automáticas (pytest) para proyectos en Python 3.10+.
+
+Antes de usarlo, ten en cuenta:
+
+1. Windows 10 u 11 de 64 bits. La ventana usa Microsoft Edge WebView2, que ya viene
+   instalado en Windows 10 y 11 actualizados.
+
+2. Docker Desktop, abierto, para ejecutar las pruebas generadas en un entorno aislado
+   (sin internet ni acceso a tus archivos). Descárgalo en https://www.docker.com/
+   La primera corrida prepara ese entorno sola: necesita internet y tarda unos minutos,
+   una sola vez.
+
+3. Claves de API de los modelos de IA. Se agregan dentro del programa, en la pantalla
+   Configuración. Sin claves puedes probarlo en modo demostración.
+
+Tus datos (claves, configuración, proyectos recientes) se guardan en la carpeta
+.qagent de tu usuario. Desinstalar QAgent no los borra.

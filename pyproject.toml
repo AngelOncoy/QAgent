@@ -3,11 +3,27 @@ requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "qagent"
+# Nombre en PyPI (`pip install qagent-pytest`): «qagent» ya era de otro proyecto. El
+# producto, el comando `qagent` y el paquete `import qagent` no cambian (ADR-005).
+name = "qagent-pytest"
 version = "0.1.0"
 description = "Sistema multiagente que genera y valida pruebas pytest para código Python 3.10+"
 readme = "README.md"
 requires-python = ">=3.10"
+authors = [{ name = "Equipo QAgent - Taller Integrador I (UPAO)" }]
+keywords = ["pytest", "testing", "unit tests", "llm", "multi-agent", "test generation"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Environment :: Win32 (MS Windows)",
+    "Intended Audience :: Developers",
+    "Natural Language :: Spanish",
+    "Operating System :: Microsoft :: Windows",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Software Development :: Testing",
+]
 dependencies = [
     "pywebview>=5.0.0",
     "docker>=7.1.0",
@@ -22,6 +38,14 @@ dev = [
     "ruff>=0.4.0",
     "build>=1.2",  # scripts/verificar_paquete.py construye el wheel y el sdist
 ]
+# Solo para construir el ejecutable de Windows (scripts/construir_windows.py).
+empaquetar = [
+    "pyinstaller>=6.10",
+]
+
+[project.urls]
+Repositorio = "https://github.com/AngelOncoy/QAgent"
+Problemas = "https://github.com/AngelOncoy/QAgent/issues"
 
 [project.scripts]
 qagent = "qagent.app.desktop:ejecutar"

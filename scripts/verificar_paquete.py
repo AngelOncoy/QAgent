@@ -49,6 +49,7 @@ from qagent.llm.fake import RUTA_GRABACIONES, cargar_grabaciones
 from qagent.usuario import carpeta_usuario
 
 paquete = Path(qagent.__file__).resolve().parent
+assert qagent.__version__ != "0.0.0+desarrollo", "no encuentra su metadata (nombre en PyPI)"
 assert "site-packages" in paquete.parts, f"no se usa el paquete instalado: {paquete}"
 assert (FRONTEND_DIR / "index.html").is_file(), "falta la interfaz"
 assert carga.RUTA_ENV.parent == carpeta_usuario(), "el .env no está en ~/.qagent/"
@@ -84,7 +85,10 @@ def _correr(comando: list[str], **kwargs) -> subprocess.CompletedProcess:
 def _revisar_wheel(wheel: Path) -> None:
     nombres = set(zipfile.ZipFile(wheel).namelist())
     faltan = [r for r in RECURSOS if r not in nombres]
-    fuera = sorted({n.split("/")[0] for n in nombres if not n.startswith("qagent")})
+    carpetas = {n.split("/")[0] for n in nombres}
+    fuera = sorted(
+        c for c in carpetas if c != "qagent" and not c.endswith(".dist-info")
+    )
     assert not faltan, f"faltan en el wheel: {faltan}"
     assert not fuera, f"el wheel trae carpetas ajenas: {fuera}"
     print(f"wheel: {len(nombres)} archivos, con los {len(RECURSOS)} recursos clave")

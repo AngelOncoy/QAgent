@@ -1,6 +1,7 @@
 """Módulo principal de la aplicación de escritorio con pywebview."""
 
 import logging
+import sys
 import threading
 from pathlib import Path
 
@@ -809,7 +810,8 @@ def main() -> None:
     )
 
     api.set_window(window)
-    webview.start(debug=True)
+    # Herramientas de desarrollo solo al programar, nunca en el ejecutable (TA-06).
+    webview.start(debug=not getattr(sys, "frozen", False))
 
 
 if __name__ == "__main__":

@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import html
 import logging
+import logging.handlers
 import re
 import sys
 from typing import IO, Any
@@ -22,6 +23,9 @@ from qagent.config.carga import Claves, FiltroSecretos
 NOMBRE = "qagent"
 FORMATO = "%(asctime)s %(levelname)-7s %(message)s"
 FORMATO_HORA = "%H:%M:%S"
+#: Sin consola (el .exe de Windows) la bitácora va a `~/.qagent/<este archivo>` (TA-06).
+ARCHIVO_REGISTRO = "registro.log"
+TAMANO_MAXIMO_REGISTRO = 1_000_000  # bytes por archivo; se guardan 2 anteriores
 LARGO_MAXIMO = 300
 
 # Tipos de evento del Monitor que merecen atención (aparecen resaltados en la pantalla).
@@ -39,6 +43,8 @@ def configurar_registro(
     """Imprime la bitácora en la consola, con hora y sin claves.
 
     Se puede llamar varias veces: reemplaza el handler anterior en lugar de duplicarlo.
+    Si no hay consola (el ejecutable de Windows abre sin ella y `sys.stdout` es None),
+    la escribe en `~/.qagent/registro.log` para no perderla (TA-06).
 
     Args:
         claves: claves de `.env` que deben ocultarse si aparecen en un mensaje.
@@ -59,7 +65,9 @@ def configurar_registro(
     ]:
         registro.removeHandler(anterior)
 
-    handler = logging.StreamHandler(flujo)
+    handler = (
+        logging.StreamHandler(flujo) if flujo is not None else _handler_de_archivo()
+    )
     handler.setFormatter(logging.Formatter(FORMATO, FORMATO_HORA))
     handler.addFilter(FiltroSecretos(claves if claves is not None else Claves()))
     handler._de_la_bitacora = True  # type: ignore[attr-defined]
@@ -120,3 +128,18 @@ def registrar_evento(evento: dict[str, Any]) -> str:
     nivel = logging.WARNING if evento.get("tipo") in TIPOS_DE_ALERTA else logging.INFO
     registro.log(nivel, "%s", linea)
     return linea
+
+
+def _handler_de_archivo() -> logging.Handler:
+    """Handler para `~/.qagent/registro.log`, con rotación para que no crezca sin límite."""
+    from qagent.usuario import carpeta_usuario
+
+    carpeta = carpeta_usuario()
+    carpeta.mkdir(parents=True, exist_ok=True)
+    return logging.handlers.RotatingFileHandler(
+        carpeta / ARCHIVO_REGISTRO,
+        maxBytes=TAMANO_MAXIMO_REGISTRO,
+        backupCount=2,
+        encoding="utf-8",
+        errors="replace",
+    )
