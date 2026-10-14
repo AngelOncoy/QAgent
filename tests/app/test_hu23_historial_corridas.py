@@ -18,11 +18,11 @@ import pytest
 
 pytest.importorskip("webview")
 
-from pyagent import contracts
-from pyagent.almacenamiento import AlmacenProyecto
-from pyagent.app.desktop import DesktopAPI
-from pyagent.llm import cargar_precios
-from pyagent.storage import escribir_corrida
+from qagent import contracts
+from qagent.almacenamiento import AlmacenProyecto
+from qagent.app.desktop import DesktopAPI
+from qagent.llm import cargar_precios
+from qagent.storage import escribir_corrida
 from tests.storage.test_registro import correr
 
 METAS = {

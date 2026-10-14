@@ -10,7 +10,7 @@ from pathlib import Path
 
 import pytest
 
-from pyagent.sandbox import (
+from qagent.sandbox import (
     ejecutar_en_sandbox,
     ejecutar_pruebas,
     preparar_imagen,

@@ -6,8 +6,8 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from pyagent.app.desktop import DesktopAPI
-from pyagent.sandbox import estado as modulo_estado
+from qagent.app.desktop import DesktopAPI
+from qagent.sandbox import estado as modulo_estado
 
 MENSAJE = "Docker no está abierto: inícialo y vuelve a intentar"
 
@@ -74,7 +74,7 @@ def test_con_ia_simulada_la_corrida_inicia_aunque_docker_no_este(api, monkeypatc
 def test_con_ia_simulada_ni_siquiera_se_consulta_docker(api, monkeypatch):
     monkeypatch.setenv("QAGENT_FAKE_LLM", "1")
     with patch(
-        "pyagent.sandbox.verificar_docker",
+        "qagent.sandbox.verificar_docker",
         side_effect=AssertionError("no debe llamarse"),
     ):
         assert api.start_run("C:/Mis proyectos/demo", "deep")["status"] == "started"
@@ -84,10 +84,10 @@ def test_con_ia_simulada_en_el_env_tampoco_se_exige_docker(api, monkeypatch):
     """La bandera puede venir del .env: sin variable en el sistema decide el archivo."""
     monkeypatch.delenv("QAGENT_FAKE_LLM")
     monkeypatch.setattr(
-        "pyagent.config.carga.leer_env", lambda *a, **k: {"QAGENT_FAKE_LLM": "1"}
+        "qagent.config.carga.leer_env", lambda *a, **k: {"QAGENT_FAKE_LLM": "1"}
     )
     with patch(
-        "pyagent.sandbox.verificar_docker",
+        "qagent.sandbox.verificar_docker",
         side_effect=AssertionError("no debe llamarse"),
     ):
         assert api.start_run("C:/Mis proyectos/demo", "deep")["status"] == "started"

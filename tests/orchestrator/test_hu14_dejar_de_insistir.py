@@ -12,9 +12,9 @@ from pathlib import Path
 
 import pytest
 
-from pyagent.contracts import REVIEW_RESULT, RUN_LOG, es_valido
-from pyagent.llm import FakeLLMClient, TokenTracker, cargar_precios
-from pyagent.orchestrator import (
+from qagent.contracts import REVIEW_RESULT, RUN_LOG, es_valido
+from qagent.llm import FakeLLMClient, TokenTracker, cargar_precios
+from qagent.orchestrator import (
     ERROR_REPETIDO,
     LIMITE_INTENTOS,
     BusEventos,
@@ -23,8 +23,8 @@ from pyagent.orchestrator import (
     decidir_corte,
     etiqueta_estancado,
 )
-from pyagent.sandbox.normalizacion import hash_error, normalizar_error
-from pyagent.storage import escribir_corrida
+from qagent.sandbox.normalizacion import hash_error, normalizar_error
+from qagent.storage import escribir_corrida
 from tests.orchestrator.fakes import (
     MODULO,
     GeneratorEspia,

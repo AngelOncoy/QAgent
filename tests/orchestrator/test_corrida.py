@@ -13,11 +13,11 @@ from pathlib import Path
 
 import pytest
 
-from pyagent.almacenamiento import AlmacenProyecto
-from pyagent.config import cargar_configuracion
-from pyagent.config.carga import RUTA_CONFIG
-from pyagent.orchestrator.corrida import ejecutar_corrida
-from pyagent.sandbox import ResultadoSandbox
+from qagent.almacenamiento import AlmacenProyecto
+from qagent.config import cargar_configuracion
+from qagent.config.carga import RUTA_CONFIG
+from qagent.orchestrator.corrida import ejecutar_corrida
+from qagent.sandbox import ResultadoSandbox
 
 BANCO = Path(__file__).resolve().parents[2] / "bench"
 CON_BUG = ("calcular_descuento", "clasificar_edad", "buscar_elemento_mayor")
@@ -86,7 +86,7 @@ def test_corrida_completa_del_banco(proyecto, config) -> None:
     assert eventos[-1]["tipo"] == "fin"
 
 
-def test_deja_el_registro_completo_en_pyagent(proyecto, config) -> None:
+def test_deja_el_registro_completo_en_qagent(proyecto, config) -> None:
     resumen, _ = correr(proyecto, config)
 
     carpeta = proyecto.carpeta_run(resumen.run_id)

@@ -6,9 +6,9 @@ import json
 
 import pytest
 
-from pyagent import contracts
-from pyagent.agents.planner import ErrorRespuestaPlanner, PlannerAgent
-from pyagent.llm import RespuestaLLM, TokenTracker
+from qagent import contracts
+from qagent.agents.planner import ErrorRespuestaPlanner, PlannerAgent
+from qagent.llm import RespuestaLLM, TokenTracker
 
 MODULO = {
     "ruta": "calculadora.py",

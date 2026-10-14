@@ -7,14 +7,14 @@ from pathlib import Path
 
 import pytest
 
-from pyagent.config import (
+from qagent.config import (
     MENSAJE_IA_SIMULADA,
     MENSAJE_LISTO,
     estado_git,
     verificar_entorno,
 )
-from pyagent.config import entorno as modulo_entorno
-from pyagent.config.carga import RUTA_CONFIG
+from qagent.config import entorno as modulo_entorno
+from qagent.config.carga import RUTA_CONFIG
 
 OK = {"estado": "ok", "mensaje": "ok"}
 DOCKER_APAGADO = {

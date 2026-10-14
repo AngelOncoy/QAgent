@@ -7,15 +7,15 @@ from pathlib import Path
 
 import pytest
 
-from pyagent import contracts
-from pyagent.agents.planner import (
+from qagent import contracts
+from qagent.agents.planner import (
     ErrorRespuestaPlanner,
     PlannerAgent,
     estados_permitidos,
     ruta_coincide,
 )
-from pyagent.analysis import analizar_proyecto
-from pyagent.llm import FakeLLMClient, RespuestaLLM, TokenTracker
+from qagent.analysis import analizar_proyecto
+from qagent.llm import FakeLLMClient, RespuestaLLM, TokenTracker
 
 RAIZ_REPO = Path(__file__).resolve().parents[2]
 BANCO_API = RAIZ_REPO / "bench_api"

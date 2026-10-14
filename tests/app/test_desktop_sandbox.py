@@ -6,8 +6,8 @@ from unittest.mock import patch
 
 import pytest
 
-from pyagent.app.desktop import DesktopAPI
-from pyagent.sandbox import estado as modulo_estado
+from qagent.app.desktop import DesktopAPI
+from qagent.sandbox import estado as modulo_estado
 
 APAGADO = {"estado": "no_iniciado", "mensaje": "Docker no está abierto"}
 LISTO = {"estado": "ok", "mensaje": ""}
@@ -40,7 +40,7 @@ def test_con_ia_simulada_avisa_que_es_simulado(monkeypatch):
 def test_la_ia_simulada_tambien_puede_venir_del_env(monkeypatch):
     monkeypatch.delenv("QAGENT_FAKE_LLM", raising=False)
     monkeypatch.setattr(
-        "pyagent.config.carga.leer_env", lambda *a, **k: {"QAGENT_FAKE_LLM": "1"}
+        "qagent.config.carga.leer_env", lambda *a, **k: {"QAGENT_FAKE_LLM": "1"}
     )
     with patch.object(modulo_estado, "estado_docker", return_value=APAGADO):
         assert DesktopAPI().estado_sandbox()["simulado"] is True

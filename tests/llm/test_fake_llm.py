@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from pyagent.llm import (
+from qagent.llm import (
     FakeLLMClient,
     TokenTracker,
     es_modo_simulado,
@@ -231,8 +231,8 @@ def test_planner_simulado_reconoce_clave_de_endpoint() -> None:
 
 
 def test_el_banco_tiene_casos_grabados_para_todas_sus_funciones() -> None:
-    from pyagent.analysis.analyzer import analizar_proyecto
-    from pyagent.llm.fake import RUTA_GRABACIONES, cargar_grabaciones
+    from qagent.analysis.analyzer import analizar_proyecto
+    from qagent.llm.fake import RUTA_GRABACIONES, cargar_grabaciones
 
     grabaciones = cargar_grabaciones(RUTA_GRABACIONES)
     [modulo] = analizar_proyecto(RUTA_GRABACIONES.parent)["modulos"]
@@ -242,8 +242,8 @@ def test_el_banco_tiene_casos_grabados_para_todas_sus_funciones() -> None:
 
 
 def test_el_banco_api_tiene_grabacion_para_cada_endpoint() -> None:
-    from pyagent.analysis.analyzer import analizar_proyecto
-    from pyagent.llm.fake import RUTA_GRABACIONES, cargar_grabaciones
+    from qagent.analysis.analyzer import analizar_proyecto
+    from qagent.llm.fake import RUTA_GRABACIONES, cargar_grabaciones
 
     raiz = Path(__file__).resolve().parents[2]
     grabaciones = cargar_grabaciones(RUTA_GRABACIONES)

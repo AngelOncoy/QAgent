@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from pyagent.config.auditoria import PATRONES, buscar_claves, main
+from qagent.config.auditoria import PATRONES, buscar_claves, main
 
 # Valor falso armado en ejecución: así este archivo no contiene un patrón de clave.
 VALOR_FALSO = "abcd" * 5

@@ -6,10 +6,10 @@ from typing import Any
 
 import pytest
 
-from pyagent.config import Claves
-from pyagent.llm import PrecioAgente, crear_cliente
-from pyagent.llm.cliente import ErrorLLM, LimiteProveedor, SinConexion
-from pyagent.llm.proveedores import (
+from qagent.config import Claves
+from qagent.llm import PrecioAgente, crear_cliente
+from qagent.llm.cliente import ErrorLLM, LimiteProveedor, SinConexion
+from qagent.llm.proveedores import (
     CONECTADO,
     KEY_INVALIDA,
     LIMITE_DE_USO,

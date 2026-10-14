@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from pyagent.app.monitor_eventos import LARGO_MAXIMO, a_evento_bitacora, a_fila_monitor
+from qagent.app.monitor_eventos import LARGO_MAXIMO, a_evento_bitacora, a_fila_monitor
 
 
 def evento(**cambios) -> dict:

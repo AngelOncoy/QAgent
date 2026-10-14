@@ -6,8 +6,8 @@ from pathlib import Path
 
 import pytest
 
-from pyagent.config import carga
-from pyagent.llm.cliente import es_modo_simulado
+from qagent.config import carga
+from qagent.llm.cliente import es_modo_simulado
 
 
 @pytest.fixture(autouse=True)

@@ -6,9 +6,9 @@ import json
 import time
 from typing import Any
 
-from pyagent.llm import FakeLLMClient, TokenTracker
-from pyagent.sandbox.modelos import ErrorSandbox
-from pyagent.sandbox.normalizacion import hash_error
+from qagent.llm import FakeLLMClient, TokenTracker
+from qagent.sandbox.modelos import ErrorSandbox
+from qagent.sandbox.normalizacion import hash_error
 
 MODULO = {
     "ruta": "modulo_simulado.py",

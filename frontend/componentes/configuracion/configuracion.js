@@ -23,7 +23,7 @@ registrarComponente('configuracion/configuracion', `<!-- ===== CONFIGURACIÓN DE
     </div>
     <div class="card">
       <h4>Cómo se guarda</h4>
-      <div class="bd"><p class="hint" style="margin:0 0 10px">«Agregar API» escribe la key en <span class="mono">.env</span> (una variable por agente, ej. <span class="mono">GEMINI_API_KEY_PLANNER</span>) y en <span class="mono">config.toml</span> solo el proveedor y el modelo del agente. La lista de proveedores y modelos se edita en <span class="mono">src/pyagent/llm/proveedores.toml</span>.</p>
+      <div class="bd"><p class="hint" style="margin:0 0 10px">«Agregar API» escribe la key en <span class="mono">.env</span> (una variable por agente, ej. <span class="mono">GEMINI_API_KEY_PLANNER</span>) y en <span class="mono">config.toml</span> solo el proveedor y el modelo del agente. La lista de proveedores y modelos se edita en <span class="mono">src/qagent/llm/proveedores.toml</span>.</p>
 <pre class="rcode">[agentes.planner]
 proveedor = "gemini"
 modelo = "gemini-2.5-flash"

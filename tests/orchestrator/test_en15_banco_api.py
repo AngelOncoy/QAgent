@@ -12,12 +12,12 @@ from typing import Any
 
 import pytest
 
-from pyagent import contracts
-from pyagent.agents import GeneratorAgent, PlannerAgent, ReviewerAgent
-from pyagent.analysis import analizar_proyecto
-from pyagent.llm import FakeLLMClient, TokenTracker
-from pyagent.orchestrator import Estado, Orquestador
-from pyagent.sandbox import (
+from qagent import contracts
+from qagent.agents import GeneratorAgent, PlannerAgent, ReviewerAgent
+from qagent.analysis import analizar_proyecto
+from qagent.llm import FakeLLMClient, TokenTracker
+from qagent.orchestrator import Estado, Orquestador
+from qagent.sandbox import (
     DockerNoDisponible,
     ImagenNoEncontrada,
     construir_imagen_base,

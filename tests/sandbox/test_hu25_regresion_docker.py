@@ -8,12 +8,12 @@ from pathlib import Path
 
 import pytest
 
-from pyagent import contracts
-from pyagent.almacenamiento import AlmacenProyecto, id_de_spec, nombre_prueba
-from pyagent.config import cargar_configuracion
-from pyagent.config.carga import RUTA_CONFIG
-from pyagent.orchestrator.corrida import ejecutar_corrida
-from pyagent.orchestrator.regresion import huellas_de_objetivos
+from qagent import contracts
+from qagent.almacenamiento import AlmacenProyecto, id_de_spec, nombre_prueba
+from qagent.config import cargar_configuracion
+from qagent.config.carga import RUTA_CONFIG
+from qagent.orchestrator.corrida import ejecutar_corrida
+from qagent.orchestrator.regresion import huellas_de_objetivos
 
 pytestmark = pytest.mark.docker
 BANCO = Path(__file__).resolve().parents[2] / "bench"
@@ -146,7 +146,7 @@ def test_flujo_real_generacion_regresion_y_funcion_modificada(
     def ia_prohibida(*args, **kwargs):
         raise AssertionError("Regresion intento construir un cliente LLM")
 
-    monkeypatch.setattr("pyagent.orchestrator.corrida.crear_cliente", ia_prohibida)
+    monkeypatch.setattr("qagent.orchestrator.corrida.crear_cliente", ia_prohibida)
     run_reg = almacen.crear_run(tipos_prueba=["funcion"])["run_id"]
     reg = ejecutar_corrida(
         raiz,

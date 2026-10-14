@@ -4,12 +4,12 @@ from __future__ import annotations
 
 import pytest
 
-from pyagent.sandbox import (
+from qagent.sandbox import (
     DockerNoDisponible,
     construir_imagen_base,
     obtener_cliente,
 )
-from pyagent.sandbox.imagen import IMAGEN_BASE, _imagen_existe
+from qagent.sandbox.imagen import IMAGEN_BASE, _imagen_existe
 
 
 @pytest.fixture(scope="session")

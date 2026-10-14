@@ -10,7 +10,7 @@ from pathlib import Path
 
 import pytest
 
-from pyagent.config import (
+from qagent.config import (
     CLAVE_POR_PROVEEDOR,
     Claves,
     FiltroSecretos,
@@ -18,8 +18,8 @@ from pyagent.config import (
     leer_env,
     verificar_entorno,
 )
-from pyagent.config import carga as carga_mod
-from pyagent.config.carga import RUTA_CONFIG
+from qagent.config import carga as carga_mod
+from qagent.config.carga import RUTA_CONFIG
 
 # Valores de prueba armados en tiempo de ejecución: no son claves reales.
 SECRETO_A = "valor-de-prueba-" + "A" * 12
@@ -78,7 +78,7 @@ def test_cada_proveedor_de_config_tiene_variable_de_clave():
 
 def test_cada_agente_del_equipo_puede_crear_su_cliente_real(env_completo):
     """Con las claves completas, config.toml alcanza para armar los 3 clientes (HU-11)."""
-    from pyagent.llm import ClienteLLMReal, crear_cliente
+    from qagent.llm import ClienteLLMReal, crear_cliente
 
     carga = cargar_configuracion(RUTA_CONFIG, env_completo, simulado=False)
     for precio in carga.config.agentes.values():

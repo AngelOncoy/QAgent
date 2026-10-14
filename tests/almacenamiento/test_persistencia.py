@@ -15,10 +15,10 @@ from pathlib import Path
 
 import pytest
 
-import pyagent
-from pyagent import contracts
-from pyagent.almacenamiento import AlmacenProyecto, nombre_prueba, recientes
-from pyagent.app import desktop
+import qagent
+from qagent import contracts
+from qagent.almacenamiento import AlmacenProyecto, nombre_prueba, recientes
+from qagent.app import desktop
 
 CONTRATO = json.loads(
     (contracts.DIR_CONTRATOS / "ejemplos" / "planner_contract.v2.json").read_text(
@@ -150,7 +150,7 @@ def test_otro_proceso_lee_lo_guardado(home: Path, proyecto: Path):
     desktop.DesktopAPI().abrir_proyecto(str(proyecto))
     lector = (
         "import json, sys\n"
-        "from pyagent.almacenamiento import AlmacenProyecto, recientes\n"
+        "from qagent.almacenamiento import AlmacenProyecto, recientes\n"
         "a = AlmacenProyecto(sys.argv[1])\n"
         "print(json.dumps({\n"
         "    'runs': [r['run_id'] for r in a.listar_runs()],\n"
@@ -159,7 +159,7 @@ def test_otro_proceso_lee_lo_guardado(home: Path, proyecto: Path):
         "    'recientes': [e['ruta'] for e in recientes.cargar()],\n"
         "}))\n"
     )
-    src = str(Path(pyagent.__file__).resolve().parents[1])  # con o sin pip install -e
+    src = str(Path(qagent.__file__).resolve().parents[1])  # con o sin pip install -e
     rutas = [src, os.environ.get("PYTHONPATH", "")]
     entorno = {
         **os.environ,

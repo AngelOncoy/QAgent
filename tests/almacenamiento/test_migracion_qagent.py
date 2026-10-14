@@ -8,10 +8,10 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from pyagent.almacenamiento import AlmacenProyecto, recientes
-from pyagent.almacenamiento.proyecto import CARPETA, migrar_carpeta_anterior
-from pyagent.sandbox.ejecucion import EXCLUIDOS_DE_LA_COPIA
-from pyagent.storage.registro import CARPETA_RUNS
+from qagent.almacenamiento import AlmacenProyecto, recientes
+from qagent.almacenamiento.proyecto import CARPETA, migrar_carpeta_anterior
+from qagent.sandbox.ejecucion import EXCLUIDOS_DE_LA_COPIA
+from qagent.storage.registro import CARPETA_RUNS
 
 
 def _carpeta_anterior_con_datos(raiz: Path) -> Path:
@@ -77,7 +77,7 @@ def test_el_sandbox_no_copia_ninguna_de_las_dos_carpetas():
 
 
 def test_la_imagen_del_sandbox_se_llama_qagent():
-    from pyagent.sandbox.modelos import IMAGEN_BASE, REPOSITORIO
+    from qagent.sandbox.modelos import IMAGEN_BASE, REPOSITORIO
 
     assert REPOSITORIO == "qagent-sandbox"
     assert IMAGEN_BASE == "qagent-sandbox:base"

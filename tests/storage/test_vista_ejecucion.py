@@ -8,9 +8,9 @@ from pathlib import Path
 
 import pytest
 
-from pyagent.contracts import RUN_LOG, validar
-from pyagent.storage import escribir_corrida
-from pyagent.storage.vista_ejecucion import (
+from qagent.contracts import RUN_LOG, validar
+from qagent.storage import escribir_corrida
+from qagent.storage.vista_ejecucion import (
     ResultadosNoDisponibles,
     estado_de,
     leer_results,

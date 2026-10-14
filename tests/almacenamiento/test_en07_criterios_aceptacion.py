@@ -16,11 +16,11 @@ from pathlib import Path
 
 import pytest
 
-from pyagent import contracts
-from pyagent.almacenamiento import AlmacenProyecto, id_de_spec, nombre_prueba, recientes
-from pyagent.app.desktop import DesktopAPI
-from pyagent.llm import cargar_precios
-from pyagent.storage import escribir_corrida
+from qagent import contracts
+from qagent.almacenamiento import AlmacenProyecto, id_de_spec, nombre_prueba, recientes
+from qagent.app.desktop import DesktopAPI
+from qagent.llm import cargar_precios
+from qagent.storage import escribir_corrida
 from tests.storage.test_registro import correr
 
 MOMENTO = datetime(2026, 10, 20, 10, 0, 0, tzinfo=timezone.utc)

@@ -6,8 +6,8 @@ from typing import Any
 
 import pytest
 
-from pyagent.config import Claves
-from pyagent.llm import (
+from qagent.config import Claves
+from qagent.llm import (
     ClienteLLMReal,
     ConfiguracionLLMIncompleta,
     FakeLLMClient,

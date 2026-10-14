@@ -14,10 +14,10 @@ from typing import Any
 
 import pytest
 
-from pyagent.contracts import RUN_LOG, ContratoInvalido, validar
-from pyagent.llm import TokenTracker, cargar_precios
-from pyagent.orchestrator import Orquestador
-from pyagent.storage import escribir_corrida, nuevo_run_id
+from qagent.contracts import RUN_LOG, ContratoInvalido, validar
+from qagent.llm import TokenTracker, cargar_precios
+from qagent.orchestrator import Orquestador
+from qagent.storage import escribir_corrida, nuevo_run_id
 from tests.orchestrator.fakes import (
     MODULO,
     GeneratorSimulado,
@@ -155,7 +155,7 @@ def test_costo_de_cada_llamada_usa_el_precio_de_su_agente(
 # --- Criterio 3: ruta .qagent/runs/<run_id>/ -----------------------------------
 
 
-def test_escribe_en_pyagent_runs_run_id(tmp_path: Path, precios) -> None:
+def test_escribe_en_qagent_runs_run_id(tmp_path: Path, precios) -> None:
     tracker, resultado = correr(precios)
 
     rutas = escribir_corrida(tmp_path, resultado, tracker, precios, "deep")

@@ -9,8 +9,8 @@ from pathlib import Path
 
 import pytest
 
-from pyagent import contracts
-from pyagent.almacenamiento import (
+from qagent import contracts
+from qagent.almacenamiento import (
     AlmacenProyecto,
     DatoCorrupto,
     DatoNoEncontrado,
@@ -18,7 +18,7 @@ from pyagent.almacenamiento import (
     id_de_spec,
     nombre_prueba,
 )
-from pyagent.app import desktop
+from qagent.app import desktop
 
 MOMENTO = datetime(2026, 10, 9, 14, 30, 5, tzinfo=timezone.utc)
 RUN_ID = "20261009-143005-abcd"
@@ -92,7 +92,7 @@ def test_listar_runs_en_orden_cronologico(almacen):
     assert ids == [temprano["run_id"], medio["run_id"], tarde["run_id"]]
 
 
-def test_listar_runs_sin_pyagent_devuelve_lista_vacia(almacen):
+def test_listar_runs_sin_qagent_devuelve_lista_vacia(almacen):
     assert almacen.listar_runs() == []
     assert not almacen.existe()
 
@@ -333,7 +333,7 @@ def test_un_fallo_al_escribir_no_deja_el_json_a_medias(
     def corte(*_args, **_kwargs):
         raise OSError("se cerró la aplicación")
 
-    monkeypatch.setattr("pyagent.almacenamiento.disco.os.replace", corte)
+    monkeypatch.setattr("qagent.almacenamiento.disco.os.replace", corte)
     with pytest.raises(OSError):
         almacen.finalizar_run(run["run_id"], "fin", 1, 0)
 
@@ -369,7 +369,7 @@ def test_start_run_registra_la_corrida_en_un_proyecto_abierto(api, almacen):
     assert run["imagen_docker"] is None  # IA simulada: no se usa el sandbox
 
 
-def test_start_run_no_crea_pyagent_en_carpetas_no_abiertas(api, almacen):
+def test_start_run_no_crea_qagent_en_carpetas_no_abiertas(api, almacen):
     resultado = api.start_run(str(almacen.raiz), "deep")
 
     assert resultado["status"] == "started"

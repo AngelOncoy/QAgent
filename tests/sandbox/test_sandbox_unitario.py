@@ -11,7 +11,7 @@ import pytest
 from docker.errors import APIError, BuildError, DockerException, ImageNotFound
 from requests.exceptions import ReadTimeout
 
-from pyagent.sandbox import (
+from qagent.sandbox import (
     IMAGEN_BASE,
     DockerNoDisponible,
     ErrorConstruccionImagen,
@@ -25,8 +25,8 @@ from pyagent.sandbox import (
     obtener_cliente,
     preparar_imagen,
 )
-from pyagent.sandbox import cliente as modulo_cliente
-from pyagent.sandbox.imagen import etiqueta_para_requirements
+from qagent.sandbox import cliente as modulo_cliente
+from qagent.sandbox.imagen import etiqueta_para_requirements
 
 
 @pytest.fixture
@@ -98,6 +98,8 @@ def test_contenedor_sin_red_con_limites_y_sin_privilegios(proyecto, carpeta_test
     assert argumentos["cap_drop"] == ["ALL"]
     assert argumentos["security_opt"] == ["no-new-privileges"]
     assert argumentos["detach"] is True
+    # Con esta etiqueta se buscan los contenedores que quedaron (HU-13).
+    assert argumentos["labels"] == {"qagent": "sandbox"}
     assert "/tmp" in argumentos["tmpfs"]
 
 

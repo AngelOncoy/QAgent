@@ -8,12 +8,12 @@ from pathlib import Path
 
 import pytest
 
-from pyagent.almacenamiento import AlmacenProyecto
-from pyagent.almacenamiento.historial import construir_historial
-from pyagent.config import cargar_configuracion
-from pyagent.config.carga import RUTA_CONFIG
-from pyagent.orchestrator.corrida import ejecutar_corrida
-from pyagent.sandbox import ResultadoSandbox
+from qagent.almacenamiento import AlmacenProyecto
+from qagent.almacenamiento.historial import construir_historial
+from qagent.config import cargar_configuracion
+from qagent.config.carga import RUTA_CONFIG
+from qagent.orchestrator.corrida import ejecutar_corrida
+from qagent.sandbox import ResultadoSandbox
 
 BANCO = Path(__file__).resolve().parents[2] / "bench" / "banco_mvp.py"
 COBERTURA = {

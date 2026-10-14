@@ -7,9 +7,9 @@ from pathlib import Path
 
 import pytest
 
-from pyagent.almacenamiento import AlmacenProyecto
-from pyagent.almacenamiento.proyecto import CONTENIDO_GITIGNORE
-from pyagent.app import desktop
+from qagent.almacenamiento import AlmacenProyecto
+from qagent.almacenamiento.proyecto import CONTENIDO_GITIGNORE
+from qagent.app import desktop
 
 
 def test_no_toca_el_disco_hasta_inicializar(tmp_path: Path):
@@ -79,7 +79,7 @@ def _proyecto(tmp_path: Path) -> Path:
     return carpeta
 
 
-def test_abrir_proyecto_crea_pyagent(api, tmp_path: Path):
+def test_abrir_proyecto_crea_qagent(api, tmp_path: Path):
     carpeta = _proyecto(tmp_path)
 
     assert api.abrir_proyecto(str(carpeta))["ok"]
@@ -87,7 +87,7 @@ def test_abrir_proyecto_crea_pyagent(api, tmp_path: Path):
     assert (carpeta / ".qagent" / "runs").is_dir()
 
 
-def test_abrir_reciente_crea_pyagent_si_falta(api, tmp_path: Path):
+def test_abrir_reciente_crea_qagent_si_falta(api, tmp_path: Path):
     carpeta = _proyecto(tmp_path)
     api.abrir_proyecto(str(carpeta))
     shutil.rmtree(carpeta / ".qagent")
@@ -97,7 +97,7 @@ def test_abrir_reciente_crea_pyagent_si_falta(api, tmp_path: Path):
     assert (carpeta / ".qagent" / "specs").is_dir()
 
 
-def test_si_no_se_puede_crear_pyagent_el_proyecto_se_abre_igual(
+def test_si_no_se_puede_crear_qagent_el_proyecto_se_abre_igual(
     api, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ):
     def falla(self):

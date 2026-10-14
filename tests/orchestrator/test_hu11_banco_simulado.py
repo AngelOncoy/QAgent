@@ -11,10 +11,10 @@ from pathlib import Path
 
 import pytest
 
-from pyagent.agents import GeneratorAgent, PlannerAgent, ReviewerAgent
-from pyagent.analysis.analyzer import analizar_proyecto
-from pyagent.llm import FakeLLMClient, TokenTracker
-from pyagent.orchestrator import Estado, Orquestador
+from qagent.agents import GeneratorAgent, PlannerAgent, ReviewerAgent
+from qagent.analysis.analyzer import analizar_proyecto
+from qagent.llm import FakeLLMClient, TokenTracker
+from qagent.orchestrator import Estado, Orquestador
 
 BANCO = Path(__file__).resolve().parents[2] / "bench"
 CON_BUG = {"calcular_descuento", "clasificar_edad", "buscar_elemento_mayor"}
@@ -23,12 +23,12 @@ SIN_BUG = {"es_palindromo", "invertir_palabras", "formatear_moneda"}
 
 @pytest.fixture(scope="module")
 def imagen_base() -> str:
-    from pyagent.sandbox import (
+    from qagent.sandbox import (
         DockerNoDisponible,
         construir_imagen_base,
         obtener_cliente,
     )
-    from pyagent.sandbox.imagen import IMAGEN_BASE, _imagen_existe
+    from qagent.sandbox.imagen import IMAGEN_BASE, _imagen_existe
 
     try:
         cliente = obtener_cliente()

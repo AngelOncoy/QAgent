@@ -10,8 +10,8 @@ from pathlib import Path
 
 import pytest
 
-from pyagent.analysis import analizar_proyecto
-from pyagent.analysis.rutas import nombre_punteado
+from qagent.analysis import analizar_proyecto
+from qagent.analysis.rutas import nombre_punteado
 
 RAIZ_REPO = Path(__file__).resolve().parents[2]
 

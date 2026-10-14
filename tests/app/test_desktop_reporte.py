@@ -6,9 +6,9 @@ import pytest
 
 pytest.importorskip("webview")
 
-from pyagent.app.desktop import DesktopAPI
-from pyagent.llm import cargar_precios
-from pyagent.storage import escribir_corrida
+from qagent.app.desktop import DesktopAPI
+from qagent.llm import cargar_precios
+from qagent.storage import escribir_corrida
 from tests.storage.test_registro import correr
 
 
@@ -69,7 +69,7 @@ def test_exportar_informe_en_modo_demostracion_crea_archivos_reales(tmp_path) ->
     """HU-22: en modo demostración (corrida #8841-B) también guarda el archivo real en disco."""
     from pathlib import Path
 
-    from pyagent.storage.exportar_informe import (
+    from qagent.storage.exportar_informe import (
         extraer_texto_pdf,
         verificar_archivo_sin_claves,
     )

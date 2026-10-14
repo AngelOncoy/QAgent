@@ -7,18 +7,18 @@ from pathlib import Path
 
 import pytest
 
-from pyagent.almacenamiento.proyecto import AlmacenProyecto
-from pyagent.config.auditoria import buscar_claves
-from pyagent.config.carga import Claves
-from pyagent.storage.exportar_informe import (
+from qagent.almacenamiento.proyecto import AlmacenProyecto
+from qagent.config.auditoria import buscar_claves
+from qagent.config.carga import Claves
+from qagent.storage.exportar_informe import (
     FormatoInvalido,
     exportar_informe,
     extraer_texto_pdf,
     verificar_archivo_sin_claves,
 )
-from pyagent.storage.registro import escribir_corrida
-from pyagent.storage.vista_ejecucion import leer_results, vista_ejecucion
-from pyagent.storage.vista_reporte import leer_detalle, vista_reporte
+from qagent.storage.registro import escribir_corrida
+from qagent.storage.vista_ejecucion import leer_results, vista_ejecucion
+from qagent.storage.vista_reporte import leer_detalle, vista_reporte
 from tests.storage.test_registro import correr, precios  # noqa: F401 (fixture)
 
 METAS = {

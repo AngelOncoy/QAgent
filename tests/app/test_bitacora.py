@@ -8,9 +8,9 @@ import re
 
 import pytest
 
-from pyagent.app import bitacora
-from pyagent.app.desktop import DesktopAPI
-from pyagent.config import Claves
+from qagent.app import bitacora
+from qagent.app.desktop import DesktopAPI
+from qagent.config import Claves
 
 CLAVE_DE_PRUEBA = (
     "valor-de-prueba-" + "Z" * 14

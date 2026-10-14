@@ -23,8 +23,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from pyagent.analysis import analizar_proyecto
-from pyagent.proyectos.vista_previa import (
+from qagent.analysis import analizar_proyecto
+from qagent.proyectos.vista_previa import (
     AVISO_ORACULO_DEBIL,
     ETIQUETA_FALTA_DOCSTRING,
     ETIQUETA_NO_ANALIZABLE,
@@ -105,7 +105,7 @@ def saludar(nombre: str) -> str:
     assert not archivo_trampa.exists()
 
 
-def test_criterio_3_ignora_carpeta_tests_y_pyagent(tmp_path: Path) -> None:
+def test_criterio_3_ignora_carpeta_tests_y_qagent(tmp_path: Path) -> None:
     _crear_archivo(tmp_path, "app/nucleo.py", "def nucleo() -> int:\n    return 42\n")
     _crear_archivo(tmp_path, "tests/test_nucleo.py", "def test_f():\n    assert True\n")
     _crear_archivo(

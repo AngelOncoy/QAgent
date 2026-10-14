@@ -7,7 +7,7 @@ from unittest.mock import MagicMock, patch
 from urllib.parse import unquote, urlparse
 from urllib.request import url2pathname
 
-from pyagent.app import desktop
+from qagent.app import desktop
 
 
 def _arrancar() -> dict:

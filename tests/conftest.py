@@ -9,7 +9,7 @@ import pytest
 def sin_config_local(monkeypatch: pytest.MonkeyPatch, tmp_path_factory) -> None:
     """Las pruebas usan solo el `config.toml` del equipo, nunca el `config.local.toml`
     personal (modelos gratuitos u otros) de la computadora donde se ejecutan."""
-    from pyagent.config import carga
+    from qagent.config import carga
 
     ausente = tmp_path_factory.getbasetemp() / "sin-config-local.toml"
     monkeypatch.setattr(carga, "RUTA_CONFIG_LOCAL", ausente)
@@ -25,7 +25,7 @@ def corridas_lanzadas(monkeypatch: pytest.MonkeyPatch) -> list[tuple]:
     """
     lanzadas: list[tuple] = []
     try:
-        from pyagent.app import desktop
+        from qagent.app import desktop
     except ImportError:  # sin pywebview instalado no hay puente que parchear
         return lanzadas
     monkeypatch.setattr(

@@ -6,9 +6,9 @@ import ast
 
 import pytest
 
-from pyagent import contracts
-from pyagent.agents.generator import ErrorRespuestaGenerator, GeneratorAgent
-from pyagent.llm import RespuestaLLM, TokenTracker
+from qagent import contracts
+from qagent.agents.generator import ErrorRespuestaGenerator, GeneratorAgent
+from qagent.llm import RespuestaLLM, TokenTracker
 
 CONTRATO = {
     "version": "2",

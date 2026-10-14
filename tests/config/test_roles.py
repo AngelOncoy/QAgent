@@ -14,8 +14,8 @@ from typing import Any
 
 import pytest
 
-from pyagent.config import cargar_configuracion, leer_env, verificar_entorno
-from pyagent.config.roles import (
+from qagent.config import cargar_configuracion, leer_env, verificar_entorno
+from qagent.config.roles import (
     configurar_rol,
     eliminar_rol,
     enmascarar,
@@ -25,7 +25,7 @@ from pyagent.config.roles import (
     reemplazar_seccion_agente,
     reemplazar_variable_env,
 )
-from pyagent.llm.cliente import ErrorLLM, SinConexion
+from qagent.llm.cliente import ErrorLLM, SinConexion
 from tests.config.config_equipo import CONFIG_EQUIPO
 
 if sys.version_info >= (3, 11):

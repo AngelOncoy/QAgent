@@ -9,9 +9,9 @@ import pytest
 
 pytest.importorskip("webview")
 
-from pyagent.app.desktop import DesktopAPI
-from pyagent.orchestrator.corrida import ResumenCorrida
-from pyagent.sandbox import estado as modulo_estado
+from qagent.app.desktop import DesktopAPI
+from qagent.orchestrator.corrida import ResumenCorrida
+from qagent.sandbox import estado as modulo_estado
 
 
 @pytest.fixture
@@ -114,7 +114,7 @@ def test_el_hilo_envia_las_filas_y_el_resumen(api, monkeypatch) -> None:
             run_id=run_id, estado="fin", motivo=None, total_funciones=1, aceptadas=1
         )
 
-    monkeypatch.setattr("pyagent.orchestrator.corrida.ejecutar_corrida", corrida_falsa)
+    monkeypatch.setattr("qagent.orchestrator.corrida.ejecutar_corrida", corrida_falsa)
 
     api._correr("C:/proyecto", "deep", "20261010-020000-abcd", True)
 

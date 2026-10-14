@@ -9,9 +9,9 @@ import pytest
 
 pytest.importorskip("webview")
 
-from pyagent.app.desktop import DesktopAPI
-from pyagent.config import carga as config_carga
-from pyagent.llm import proveedores
+from qagent.app.desktop import DesktopAPI
+from qagent.config import carga as config_carga
+from qagent.llm import proveedores
 from tests.config.config_equipo import CONFIG_EQUIPO
 
 # Valor de prueba armado en tiempo de ejecución: no es una clave real.
@@ -63,7 +63,7 @@ def test_eliminar_deja_sin_configurar_y_bloquea_la_corrida(api, monkeypatch):
 
     monkeypatch.setenv("QAGENT_FAKE_LLM", "0")  # con la IA real, el rol hace falta
     monkeypatch.setattr(
-        "pyagent.sandbox.estado.estado_docker",
+        "qagent.sandbox.estado.estado_docker",
         lambda: {"estado": "ok", "mensaje": "ok"},
     )
     entorno = api.verificar_entorno()

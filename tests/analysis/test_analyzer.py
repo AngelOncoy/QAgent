@@ -6,8 +6,8 @@ from pathlib import Path
 
 import pytest
 
-from pyagent.analysis import analizar_proyecto, analizar_proyecto_json
-from pyagent.analysis.analyzer import calcular_huella, contar_ramas, main
+from qagent.analysis import analizar_proyecto, analizar_proyecto_json
+from qagent.analysis.analyzer import calcular_huella, contar_ramas, main
 
 CALCULOS = '''"""Cálculos de ejemplo."""
 

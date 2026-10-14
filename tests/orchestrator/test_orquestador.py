@@ -8,8 +8,8 @@ import time
 
 import pytest
 
-from pyagent.llm import FakeLLMClient, TokenTracker
-from pyagent.orchestrator import (
+from qagent.llm import FakeLLMClient, TokenTracker
+from qagent.orchestrator import (
     TRANSICIONES,
     BusEventos,
     Estado,

@@ -7,8 +7,8 @@ from datetime import datetime, timezone
 from io import BytesIO
 from zipfile import ZipFile
 
-from pyagent import contracts
-from pyagent.almacenamiento import (
+from qagent import contracts
+from qagent.almacenamiento import (
     AlmacenProyecto,
     id_de_modulo,
     nombre_spec_modulo,

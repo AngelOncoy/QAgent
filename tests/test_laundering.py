@@ -16,7 +16,7 @@ from __future__ import annotations
 
 import pytest
 
-from pyagent.analysis.laundering import (
+from qagent.analysis.laundering import (
     RIGOR,
     comparar_aserciones,
     extraer_aserciones,
@@ -579,12 +579,12 @@ def test_jerarquia_rigor_es_coherente() -> None:
 
 
 def test_modulo_no_importa_llm() -> None:
-    """El módulo laundering.py no depende de pyagent.llm (Criterio 4)."""
+    """El módulo laundering.py no depende de qagent.llm (Criterio 4)."""
     import inspect
 
-    import pyagent.analysis.laundering as modulo
+    import qagent.analysis.laundering as modulo
 
     codigo_fuente = inspect.getsource(modulo)
-    assert "pyagent.llm" not in codigo_fuente
+    assert "qagent.llm" not in codigo_fuente
     assert "LLMClient" not in codigo_fuente
     assert "FakeLLM" not in codigo_fuente

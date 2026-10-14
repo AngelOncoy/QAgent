@@ -7,10 +7,10 @@ import json
 
 import pytest
 
-from pyagent.contracts import RUN_LOG, validar
-from pyagent.storage import escribir_corrida
-from pyagent.storage.vista_ejecucion import leer_results
-from pyagent.storage.vista_reporte import leer_detalle, vista_reporte
+from qagent.contracts import RUN_LOG, validar
+from qagent.storage import escribir_corrida
+from qagent.storage.vista_ejecucion import leer_results
+from qagent.storage.vista_reporte import leer_detalle, vista_reporte
 from tests.storage.test_registro import correr, precios  # noqa: F401 (fixture)
 
 METAS = {
