@@ -72,11 +72,21 @@ def test_docker_apagado_es_el_motivo(env_completo):
     assert r["mensaje"] == DOCKER_APAGADO["mensaje"]
 
 
-def test_docker_sin_imagen_bloquea(env_completo):
+def test_docker_sin_imagen_no_bloquea_la_primera_corrida_la_prepara(env_completo):
+    """TA-06 (cambia el criterio de EN-06, que bloqueaba): instalado no hay comando para
+    construir la imagen, así que la prepara la primera corrida real."""
     r = _verificar(
         env_completo,
         docker=lambda: {"estado": "sin_imagen", "mensaje": "Falta la imagen"},
     )
+    assert r["listo"] is True
+    docker = next(c for c in r["comprobaciones"] if c["id"] == "docker")
+    assert docker["ok"] is True and docker["pendiente"] is True
+    assert docker["mensaje"] == "Falta la imagen"  # se sigue informando
+
+
+def test_docker_apagado_sigue_bloqueando_aunque_falte_la_imagen(env_completo):
+    r = _verificar(env_completo, docker=lambda: DOCKER_APAGADO)
     assert r["listo"] is False
 
 

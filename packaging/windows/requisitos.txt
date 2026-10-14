@@ -11,7 +11,8 @@ Antes de usarlo, ten en cuenta:
    una sola vez.
 
 3. Claves de API de los modelos de IA. Se agregan dentro del programa, en la pantalla
-   Configuración. Sin claves puedes probarlo en modo demostración.
+   Configuración. Para probarlo sin claves (IA simulada, sin costo), agrega la línea
+   QAGENT_FAKE_LLM=1 al archivo .env de la carpeta .qagent de tu usuario.
 
 Tus datos (claves, configuración, proyectos recientes) se guardan en la carpeta
 .qagent de tu usuario. Desinstalar QAgent no los borra.
