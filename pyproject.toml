@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools>=68"]
+requires = ["setuptools>=77"]  # 77+: licencia como expresión SPDX (license = "MIT")
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -10,6 +10,8 @@ version = "0.1.0"
 description = "Sistema multiagente que genera y valida pruebas pytest para código Python 3.10+"
 readme = "README.md"
 requires-python = ">=3.10"
+license = "MIT"
+license-files = ["LICENSE"]
 authors = [{ name = "Equipo QAgent - Taller Integrador I (UPAO)" }]
 keywords = ["pytest", "testing", "unit tests", "llm", "multi-agent", "test generation"]
 classifiers = [
