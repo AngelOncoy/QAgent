@@ -26,7 +26,7 @@ ruff check . && ruff format .  # lint y formato (bench/ está excluido a propós
 | `src/qagent/` | Backend. `app/desktop.py` es solo el puente pywebview; la lógica de proyectos está en `proyectos/` y todo lo que se guarda en `.qagent/` y `~/.qagent/` en `almacenamiento/` | `docs/arquitectura.md` |
 | `src/qagent/frontend/` | Interfaz HTML/CSS/JS sin build, un componente por pantalla | `src/qagent/frontend/README.md` |
 | `tests/` | Refleja `src/` (`almacenamiento`, `analysis`, `app`, `config`, `llm`, `orchestrator`, `proyectos`, `sandbox`, `storage`) más `frontend/` (estructura de la interfaz) | — |
-| `docs/decisiones/` | ADR: modelos (001), análisis con `ast` (002), frontend modular (003), nombre único QAgent (004) | — |
+| `docs/decisiones/` | ADR: modelos (001), análisis con `ast` (002), frontend modular (003), nombre único QAgent (004), distribución (005) | — |
 
 Regla de dependencia: la interfaz (`app/`) llama a la lógica; la lógica (`proyectos/`, `analysis/`, `sandbox/`…) nunca importa `qagent.app` ni `webview`.
 

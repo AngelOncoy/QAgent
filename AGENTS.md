@@ -58,9 +58,10 @@ La interfaz, los contratos y `config.toml` viajan dentro del paquete (`src/qagen
 | `pyproject.toml` | Dependencias, extra `dev`, configuración de pytest y ruff, script `qagent` |
 | `CLAUDE.md` | Guía específica para Claude Code (importa este archivo) |
 | `docs/arquitectura.md` | Arquitectura del sistema y modelo GAIA |
-| `docs/decisiones/` | ADR (decisiones técnicas): ADR-001 modelos por agente, ADR-002 análisis con `ast`, ADR-003 frontend modular, ADR-004 nombre único QAgent |
+| `docs/decisiones/` | ADR (decisiones técnicas): ADR-001 modelos por agente, ADR-002 análisis con `ast`, ADR-003 frontend modular, ADR-004 nombre único QAgent, ADR-005 distribución (instalador y PyPI) |
 | `packaging/windows/` | Ejecutable e instalador de Windows: receta de PyInstaller (`qagent.spec`), instalador de Inno Setup (`qagent.iss`), ícono y requisitos que ve quien instala. Se construye con `scripts/construir_windows.py` |
 | `scripts/` | Herramientas del equipo: verificar el paquete instalado y construir el ejecutable de Windows |
+| `docs/desarrollo.md` | Guía del equipo: entorno, pruebas, sandbox, distribución y estructura del repositorio (el README es la portada para usuarios) |
 | `docs/evidencias/` | Salidas y mediciones de los spikes (ej. `spk-02/`) |
 | `bench/` | Banco de pruebas con bugs sembrados |
 

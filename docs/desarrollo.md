@@ -1,0 +1,129 @@
+# Desarrollo de QAgent
+
+Guía para el equipo: preparar el entorno, ejecutar las pruebas, construir el instalador y publicar una versión. La portada para usuarios es el [README](../README.md); las reglas del proyecto están en [AGENTS.md](../AGENTS.md).
+
+## Preparar el entorno
+
+Requisitos: Windows 10/11, Python 3.10+, Git y Docker Desktop.
+
+```bash
+git clone https://github.com/AngelOncoy/QAgent.git
+cd QAgent
+python -m venv .venv
+.venv\Scripts\activate          # en Linux: source .venv/bin/activate
+pip install -e .[dev]           # en Linux, para la ventana: pip install "pywebview[qt]"
+python test.py
+```
+
+`pip install -e` deja el programa instalado apuntando a esta carpeta: los cambios en el código se ven sin reinstalar. Si vienes de una versión anterior a TA-06, desinstala antes el nombre viejo: `pip uninstall -y qagent`.
+
+### Tus datos viven en `~/.qagent/`
+
+| Archivo | Para qué sirve |
+|---|---|
+| `.env` | Claves de API (una variable por agente, p. ej. `GEMINI_API_KEY_PLANNER`). Se crea solo, vacío, la primera vez. |
+| `config.local.toml` | Modelos que eligió cada uno en la pantalla Configuración; reemplazan a los del `config.toml` del equipo. |
+| `recientes.json` | Proyectos recientes de la pantalla de inicio. |
+| `registro.log` | Bitácora de la corrida cuando la app se abre sin consola (el ejecutable de Windows). |
+| `demo/` | Corrida de demostración. |
+
+`~` es tu carpeta de usuario (`C:\Users\<tú>`). El programa nunca escribe en su propia carpeta (ADR-005). Si antes tenías `.env` o `config.local.toml` en la raíz del repositorio, se mueven solos a `~/.qagent/` al abrir `qagent`.
+
+Los modelos y precios del equipo están en `src/qagent/config/config.toml` (se versiona, sin claves). Para probar los modelos y las claves: `python -m qagent.llm.validar` (`--gratis` lista los modelos sin costo de OpenRouter).
+
+## Pruebas
+
+`python test.py` ejecuta **todas** las pruebas, siempre con la IA simulada (no gasta tokens ni llama a ninguna API):
+
+```bash
+python test.py                 # lint (ruff) + formato + todas las pruebas
+python test.py --rapido        # sin lint y sin las pruebas de Docker ni de internet
+python test.py --sin-lint      # solo pytest
+python test.py -k clonador     # cualquier otro argumento se pasa a pytest
+```
+
+Las pruebas que necesitan Docker (`-m docker`) se omiten solas si Docker Desktop no está iniciado. Las de `tests/frontend/` comprueban que la interfaz esté bien armada.
+
+Para abrir la aplicación con la IA simulada (sin claves ni gasto), agrega `QAGENT_FAKE_LLM=1` a `~/.qagent/.env` o define `set QAGENT_FAKE_LLM=1` (Linux: `export QAGENT_FAKE_LLM=1`) antes de abrirla. El nombre anterior, `PYAGENT_FAKE_LLM`, se sigue aceptando.
+
+## Sandbox Docker
+
+Las pruebas generadas se ejecutan solo dentro de un contenedor efímero: sin red, 1 CPU, 256 MB y 60 s como máximo (EN-03). La imagen base `qagent-sandbox:base` se construye sola en la primera corrida real (necesita internet). Para construirla antes, con Docker Desktop abierto:
+
+```bash
+python -c "from qagent.sandbox import construir_imagen_base; construir_imagen_base()"
+```
+
+## Ejecutar la aplicación
+
+```bash
+qagent                  # o: python -m qagent · qagent --version
+```
+
+La aplicación imprime cada paso de la corrida, con hora, en la terminal donde la abriste:
+
+```text
+17:57:20 INFO    Corrida iniciada en 'C:/proyectos/demo' con perfil 'deep' (IA simulada)
+17:57:27 WARNING [Reviewer / Sandbox Guard] services/inventory.py :: reserve_stock_atomic() — Aserciones rechazadas… (1/9)
+```
+
+`INFO` son los pasos normales y `WARNING` las alertas (aserciones debilitadas, valor esperado no trazable, intentos agotados). Las claves nunca aparecen: el registro pasa por el filtro de claves de EN-06. Sin consola (el ejecutable de Windows) la bitácora va a `~/.qagent/registro.log`.
+
+Para ver solo la interfaz, sin Python, abre `src/qagent/frontend/index.html` en el navegador: funciona en modo demostración. La guía de la interfaz (componentes, colores, logo) está en [`src/qagent/frontend/README.md`](../src/qagent/frontend/README.md).
+
+## Distribución
+
+| Qué | Cómo |
+|---|---|
+| Probar el paquete instalado, limpio y fuera del repositorio | `python scripts/verificar_paquete.py` |
+| Construir `QAgent.exe` y el instalador de Windows | `pip install -e .[dev,empaquetar]`, instalar Inno Setup 6 (`winget install JRSoftware.InnoSetup`) y `python scripts/construir_windows.py` → `dist\windows\` |
+| Publicar una versión | Ver abajo |
+
+### Publicar una versión
+
+1. Sube `version` en `pyproject.toml` (la única fuente: la usan `qagent --version`, la interfaz, los informes y el instalador).
+2. Une los cambios a la rama principal y crea una **Release** en GitHub con la etiqueta `v<versión>` (por ejemplo `v0.1.0`) y las notas de `docs/releases/`.
+3. Al publicarla, GitHub Actions:
+   - `publicar.yml`: verifica el paquete y lo sube a PyPI como `qagent-pytest`.
+   - `instalador.yml`: construye `QAgent-<versión>-instalador.exe` en Windows y lo adjunta a la Release.
+
+Para practicar sin publicar de verdad: Actions → **Publicar en PyPI** → *Run workflow* → `testpypi`. La configuración de PyPI (Trusted Publishing, sin contraseñas) está en [ADR-005](decisiones/ADR-005-distribucion.md).
+
+## Estructura del repositorio
+
+```text
+QAgent/
+├── .github/
+│   ├── workflows/          publicar.yml (PyPI) e instalador.yml (Windows), al publicar una Release
+│   └── pull_request_template.md
+├── bench/ · bench_api/     Bancos de prueba con bugs sembrados a propósito (excluidos de ruff)
+├── docs/
+│   ├── arquitectura.md     Arquitectura, pipeline y modelo GAIA (EN-01)
+│   ├── decisiones/         ADR-001 a ADR-005
+│   ├── desarrollo.md       Esta guía
+│   ├── imagenes/           Capturas de la portada
+│   └── releases/           Notas de cada versión
+├── packaging/windows/      Receta de PyInstaller, instalador de Inno Setup, ícono y requisitos
+├── scripts/                verificar_paquete.py y construir_windows.py
+├── src/qagent/
+│   ├── agents/             Planner, Generator y Reviewer (EN-04)
+│   ├── almacenamiento/     .qagent/ del proyecto y ~/.qagent/recientes.json (EN-07)
+│   ├── analysis/           Analizador estático con ast (EN-02, EN-14)
+│   ├── app/                Puente pywebview y bitácora (EN-08); sin lógica de negocio
+│   ├── config/             config.toml del equipo, carga de .env, auditoría de claves, entorno (EN-06)
+│   ├── contracts/          JSON Schema de los mensajes entre agentes y validar() (EN-01)
+│   ├── frontend/           Interfaz HTML/CSS/JS sin compilación (ADR-003)
+│   ├── llm/                Cliente LLM real y simulado, tokens y costo (EN-05, EN-11)
+│   ├── orchestrator/       Máquina de estados de la corrida (EN-04)
+│   ├── proyectos/          Abrir, clonar y vista previa (HU-01 a HU-04)
+│   ├── sandbox/            Ejecución en Docker, sin red (EN-03)
+│   ├── storage/            log.json y results.json de cada corrida (EN-05)
+│   └── usuario.py          Carpeta de datos del usuario: ~/.qagent/
+├── tests/                  Pruebas del sistema, siempre con la IA simulada; reflejan src/
+├── AGENTS.md · CLAUDE.md   Reglas para el equipo y para asistentes de IA
+├── LICENSE                 MIT
+├── pyproject.toml          Versión, dependencias, extras dev y empaquetar, comando qagent
+└── test.py                 python test.py
+```
+
+Dentro de cada proyecto que QAgent analiza se crea `.qagent/` con sus corridas, specs y pruebas aprobadas (EN-07).

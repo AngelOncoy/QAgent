@@ -1,162 +1,72 @@
 # QAgent
 
-Sistema multiagente que genera y valida automáticamente pruebas pytest para código Python 3.10+ (pruebas unitarias de funciones y pruebas
-de endpoints FastAPI), usando LLMs y la metodología GAIA.
+**Genera y valida automáticamente pruebas unitarias (pytest) para tu código Python, con un equipo de tres agentes de IA.**
 
-> En desarrollo - Demo no disponible
+Abres tu proyecto, eliges qué probar y QAgent escribe las pruebas, las ejecuta en un entorno aislado y te entrega un informe con lo que pasó, lo que falló y por qué. No acepta pruebas «arregladas a la fuerza»: si una prueba solo pasa porque se le quitó o relajó una aserción, la rechaza.
+
+![Pantalla de inicio de QAgent](https://raw.githubusercontent.com/AngelOncoy/QAgent/develop/docs/imagenes/qagent-inicio.png)
 
 ## Cómo funciona
 
-1. **Planner**: analiza el código (AST, firmas, docstrings) y decide qué casos probar.
-2. **Generator**: escribe el test pytest de cada función.
-3. **Reviewer/Executor**: ejecuta el test en un sandbox Docker sin red, verifica
-   que las aserciones sean legítimas (sin *Assertion Laundering*) y decide si
-   reintentar (máx. 3 intentos).
-
-Métricas por test: Pass Rate, cobertura de líneas/ramas, iteraciones,
-tokens por agente y Mutation Score (solo en funciones críticas).
-
-## Requisitos
-
-- Windows 10/11 · Python 3.10+ · Docker Desktop · Git
-
-## Desarrollo
-
-```bash
-python -m venv .venv
-.venv\Scripts\activate       # en Linux: source .venv/bin/activate
-pip install -e .[dev]       # instalación editable (en Linux para GUI: pip install "pywebview[qt]")
-python test.py
-```
-
-El archivo `.env` (las claves de IA, que no se sube al repositorio) se crea solo la primera vez que abres la aplicación, con las claves vacías: complétalas con las que te dé el equipo.
-
-`pip install -e .[dev]` es obligatorio una vez por máquina: el paquete `pyagent` se instala apuntando a este repositorio, porque `config.toml` y `contracts/` se buscan junto a él.
-
-### Pruebas
-
-`python test.py` ejecuta **todas** las pruebas del sistema siempre con la IA simulada (no gasta tokens ni llama a ninguna API):
-
-```bash
-python test.py                 # lint (ruff) + formato + todas las pruebas
-python test.py --rapido        # sin lint y sin las pruebas de Docker ni de internet
-python test.py --sin-lint      # solo pytest
-python test.py -k clonador     # cualquier otro argumento se pasa a pytest
-```
-
-Las pruebas que necesitan Docker (`-m docker`) se omiten solas si Docker Desktop no está iniciado. Las de la interfaz (`tests/frontend/`) comprueban que el frontend esté bien armado: archivos enlazados, componentes registrados y logo presente.
-
-Para ver la aplicación con la IA simulada (sin claves ni gasto de tokens), agrega `PYAGENT_FAKE_LLM=1` a tu `.env` o define `set PYAGENT_FAKE_LLM=1` (en Linux: `export PYAGENT_FAKE_LLM=1`) antes de abrirla; con eso no se piden las claves de IA ni hace falta Docker (Git sigue haciendo falta). Lo mismo vale para ejecutar pytest directamente.
-
-## Sandbox Docker
-
-Las pruebas generadas se ejecutan solo dentro de un contenedor efímero: sin red, 1 CPU, 256 MB y 60 s como máximo (EN-03).
-Con Docker Desktop abierto, construye una vez la imagen base `pyagent-sandbox:base` (necesita internet):
-
-```bash
-python -c "from pyagent.sandbox import construir_imagen_base; construir_imagen_base()"
-```
-
-Para probar el sandbox:
-
-```bash
-python test.py --sin-lint tests/sandbox                 # todo; las pruebas con Docker se omiten si no está iniciado
-python test.py --sin-lint tests/sandbox -m "not docker" # solo pruebas unitarias, sin Docker
-```
-
-Las pruebas con Docker construyen la imagen base si falta (la primera vez tarda unos minutos).
-
-## Ejecución de la aplicación
-
-Para iniciar la aplicación de escritorio (tras `pip install -e .[dev]`):
-
-```bash
-qagent                  # o: python -m pyagent
-```
-
-### Ver los logs de la corrida
-
-La aplicación imprime cada paso de la corrida, con hora, en la terminal donde la abriste (`qagent`):
-
-```text
-17:57:20 INFO    Corrida iniciada en 'C:/proyectos/demo' con perfil 'deep' (IA simulada)
-17:57:21 INFO    [Generator Agent] services/pricing.py :: calculate_discount() — Generando suite pytest… (0/9)
-17:57:27 WARNING [Reviewer / Sandbox Guard] services/inventory.py :: reserve_stock_atomic() — Aserciones rechazadas… (1/9)
-17:57:27 INFO    [Corrida #8841-B] completada: 9 funciones procesadas
-```
-
-- `INFO` son los pasos normales; `WARNING` son las alertas (aserciones debilitadas, valor esperado no trazable, calidad baja, intentos agotados) y los avisos de que la corrida no pudo iniciar.
-- También se registran el inicio y el bloqueo de la corrida, la pausa, la reanudación y el fin.
-- Las claves de `.env` nunca aparecen: el registro pasa por el filtro de claves de EN-06.
-- Hoy los pasos son los de la simulación del Monitor; cuando se conecte el orquestador real saldrán por el mismo camino los pasos reales.
-
-Para ver solo la interfaz, sin Python, abre `frontend/index.html` en el navegador: funciona en modo demostración con datos simulados.
-
-## Personalizar la interfaz
-
-La interfaz (`frontend/`) es HTML, CSS y JavaScript sin compilación, con un componente por pantalla. Colores, tipografía y logo se cambian en un solo lugar, `frontend/css/tokens.css`, y el logo vive en `frontend/assets/logo/`. La guía completa (estructura, cómo agregar un componente, reglas de los tokens de color) está en [`frontend/README.md`](frontend/README.md).
-
-## Estructura del repositorio
-
-```text
-QAgent/
-├── .github/
-│   └── pull_request_template.md   Plantilla que GitHub carga en cada PR nuevo
-├── bench/                         Banco de pruebas propio con bugs sembrados (EN-12, EN-16)
-├── contracts/                     JSON Schema de los mensajes entre agentes (EN-01)
-├── docs/
-│   ├── arquitectura.md            Arquitectura del sistema, pipeline y modelo GAIA (EN-01)
-│   └── decisiones/                Decisiones técnicas (ADR)
-│       ├── ADR-001-modelos.md         Modelo por agente, precios y plan de gasto (SPK-01)
-│       ├── ADR-002-mapa-de-codigo.md  Análisis con ast frente a Graphify (SPK-02)
-│       └── ADR-003-frontend-modular.md  Frontend separado y modular por componentes
-├── frontend/                      Interfaz HTML/CSS/JS sin compilación (ver frontend/README.md)
-│   ├── assets/                    Logo vectorizado (logo/) y fuentes Inter y JetBrains Mono (fuentes/)
-│   ├── componentes/               Un componente por pantalla o modal: inicio, vista previa, monitor, informe…
-│   ├── css/                       tokens.css (colores, tipografía, logo), layout.css y componentes.css
-│   ├── js/                        Utilidades, estado, navegación y arranque
-│   └── index.html                 Esqueleto con los marcadores de componentes
-├── src/pyagent/                   Backend de QAgent (paquete interno `pyagent`)
-│   ├── agents/                    Planner, Generator y Reviewer (EN-04)
-│   ├── almacenamiento/            .pyagent/ del proyecto (corridas, specs, pruebas aprobadas) y ~/.pyagent/recientes.json (EN-07)
-│   ├── analysis/                  Analizador estático con ast: funciones, endpoints FastAPI, llama_a (EN-02, EN-14)
-│   ├── app/                       Puente pywebview entre la interfaz y Python (EN-08); sin lógica de negocio
-│   ├── config/                    Carga de config.toml y .env, auditoría de claves y verificación del entorno (EN-06)
-│   ├── llm/                       Cliente LLM real y simulado; registro de tokens y costo (EN-05, EN-11)
-│   ├── orchestrator/              Máquina de estados de la corrida (EN-04)
-│   ├── proyectos/                 Abrir, clonar y vista previa de proyectos (HU-01 a HU-04); sin pywebview
-│   ├── sandbox/                   Ejecución de pruebas en Docker, sin red (EN-03)
-│   └── storage/                   log.json y results.json de cada corrida (EN-05)
-├── tests/                         Pruebas del propio sistema, siempre con la IA simulada; reflejan src/
-│   ├── almacenamiento/ · analysis/ · app/ · config/ · llm/ · orchestrator/ · proyectos/ · storage/
-│   ├── sandbox/                   Unitarias con Docker simulado e integración (`-m docker`)
-│   ├── frontend/                  Estructura de la interfaz: archivos enlazados y componentes registrados
-│   └── test_contracts.py          Validación de los contratos JSON
-├── .gitignore                     Archivos que no se suben (.env, .venv, cachés, .pyagent/, .idea)
-├── AGENTS.md                      Reglas y contexto para asistentes de IA (Claude, Copilot, Cursor)
-├── CLAUDE.md                      Guía para Claude Code (importa AGENTS.md)
-├── config.toml                    Modelos, precios, topes de gasto y reintentos por agente (se versiona, sin claves)
-├── pyproject.toml                 Dependencias, extra `dev`, configuración de pytest/ruff y el comando `qagent`
-├── README.md                      Este archivo
-├── requirements.txt               Equivale a `pip install -e .[dev]`
-└── test.py                        Ejecuta todas las pruebas: `python test.py`
-```
-
-**Archivos que existen en tu carpeta pero no se suben al repositorio:**
-
-| Archivo o carpeta | Para qué sirve |
+| Agente | Qué hace |
 |---|---|
-| `.env` | Claves de las APIs de IA. Cada integrante tiene el suyo (ver "Desarrollo"). |
-| `.venv/` | Entorno virtual de Python de cada integrante. |
-| `.pyagent/` | Se crea dentro del proyecto que QAgent analiza: corridas, specs y pruebas aprobadas (EN-07). |
-| `~/.pyagent/recientes.json` | Lista de proyectos recientes de la Bienvenida (HU-01, HU-03). Vive en la carpeta del usuario. |
+| **Planner** | Lee tu código (funciones, firmas, docstrings) y decide qué casos hay que probar. |
+| **Generator** | Escribe la prueba pytest de cada caso. |
+| **Reviewer** | La ejecuta en un contenedor Docker sin internet ni acceso a tus archivos, revisa que las aserciones sean legítimas y pide hasta 3 intentos de corrección. |
 
-**Notas:**
+Por cada prueba registra si pasó, la cobertura de líneas y ramas, cuántos intentos necesitó, los tokens que gastó cada agente y, en las funciones críticas, el Mutation Score.
 
-- Los archivos `__init__.py` vacíos de `src/pyagent/` indican a Python que cada carpeta es un paquete importable.
-- Los archivos `.gitkeep` solo sirven para que Git guarde carpetas vacías. Se borran cuando la carpeta tenga su primer archivo real.
-- `bench/` está excluido de ruff: tiene bugs sembrados a propósito y no debe reformatearse ni "arreglarse".
+![Informe de una corrida](https://raw.githubusercontent.com/AngelOncoy/QAgent/develop/docs/imagenes/qagent-informe.png)
+
+## Instalación
+
+### Windows: instalador (recomendado)
+
+1. Descarga `QAgent-<versión>-instalador.exe` desde la [última versión publicada](https://github.com/AngelOncoy/QAgent/releases/latest).
+2. Ejecútalo. No necesita permisos de administrador ni tener Python instalado.
+3. Si Windows muestra «Windows protegió tu PC», elige **Más información → Ejecutar de todas formas** (el instalador aún no está firmado digitalmente).
+
+### Con pip (si ya usas Python 3.10 o superior)
+
+```bash
+pip install qagent-pytest
+qagent
+```
+
+En PyPI se llama `qagent-pytest` porque el nombre `qagent` ya lo usaba otro proyecto; el programa, el comando y la marca siguen siendo **QAgent**.
+
+## Antes de la primera corrida
+
+- **Docker Desktop**, abierto: las pruebas se ejecutan solo dentro de un contenedor aislado. La primera corrida prepara ese entorno sola (necesita internet y tarda unos minutos, una sola vez). [Descargar Docker Desktop](https://www.docker.com/products/docker-desktop/).
+- **Claves de API** de los modelos de IA: se agregan en la pantalla **Configuración** del programa, una por agente.
+- **Git**, si vas a abrir repositorios por su URL.
+
+¿Quieres probarlo sin claves ni costo? Agrega la línea `QAGENT_FAKE_LLM=1` al archivo `.env` de la carpeta `.qagent` de tu usuario (`C:\Users\<tú>\.qagent\.env`): QAgent usará una IA simulada con respuestas grabadas.
+
+Tus claves, tu configuración y la lista de proyectos recientes se guardan en esa carpeta `.qagent` de tu usuario, nunca junto al programa. Desinstalar QAgent no las borra.
+
+## Primeros pasos
+
+1. Abre **QAgent** desde el menú Inicio (o con el comando `qagent`).
+2. En **Configuración**, agrega la API de cada agente.
+3. En **Proyectos**, elige **Abrir proyecto** (una carpeta con código Python) o **Abrir repositorio** (una URL de Git).
+4. Revisa la **Vista previa**, elige el perfil en **Configuración de pruebas** e inicia la corrida.
+5. Sigue el avance en el **Monitor** y revisa el **Reporte final**; puedes exportarlo.
+
+## Alcance
+
+QAgent genera pruebas **unitarias** para código **Python 3.10+** y pruebas de endpoints FastAPI. Integración contra servicios reales, extremo a extremo, carga y estrés quedan fuera de esta versión.
+
+## Para el equipo de desarrollo
+
+Cómo preparar el entorno, ejecutar las pruebas, construir el instalador y publicar una versión: [`docs/desarrollo.md`](https://github.com/AngelOncoy/QAgent/blob/develop/docs/desarrollo.md). Las reglas del proyecto están en [`AGENTS.md`](https://github.com/AngelOncoy/QAgent/blob/develop/AGENTS.md) y las decisiones técnicas en [`docs/decisiones/`](https://github.com/AngelOncoy/QAgent/tree/develop/docs/decisiones).
 
 ## Equipo
 
+Proyecto del curso Taller Integrador I, Ingeniería de Sistemas e Inteligencia Artificial, Universidad Privada Antenor Orrego (UPAO).
+
 Castillo Pezo, Mateo · Oncoy Patricio, Angel · Rodríguez Malca, Rodrigo · Sanchez Vargas, Adrián
+
+## Licencia
+
+[MIT](https://github.com/AngelOncoy/QAgent/blob/develop/LICENSE).
