@@ -386,7 +386,8 @@ def test_si_la_prueba_falla_no_se_guarda_nada(rutas, error, motivo):
     [
         ("otro", "gemini", "gemini-2.5-flash"),
         ("planner", "inventado", "x"),
-        ("planner", "groq", "openai/gpt-oss-120b"),  # oculto en la interfaz
+        ("planner", "meta-llama", "llama-3.3-70b-versatile"),  # quitado (BU-01)
+        ("planner", "groq", "llama-3.3-70b-versatile"),  # ya no es gratuito
         ("planner", "gemini", "modelo-escrito-a-mano"),
     ],
 )
@@ -508,3 +509,13 @@ def test_leer_roles_trae_el_precio_del_catalogo(rutas):
 
     assert reviewer["precio_confirmado"] is True
     assert (reviewer["entrada_usd_m"], reviewer["salida_usd_m"]) == (0.0, 0.0)
+
+
+def test_groq_se_ofrece_y_se_guarda_con_su_variable(rutas):
+    """BU-01: Groq reemplaza a «Meta Llama (vía Groq)» en la interfaz."""
+    assert "groq" in [p["id"] for p in listar_proveedores()]
+
+    r = _guardar(rutas, "generator", "groq", "openai/gpt-oss-20b", CLAVE_OPENAI)
+
+    assert r["ok"]
+    assert leer_env(rutas[1])["GROQ_API_KEY_GENERATOR"] == CLAVE_OPENAI

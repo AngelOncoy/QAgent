@@ -7,8 +7,7 @@
 .prov-logo{flex:none;display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:7px;
   font-family:var(--mono);font-size:10.5px;font-weight:700;color:var(--bg);background:var(--prov-otro)}
 .prov-anthropic{background:var(--prov-anthropic)} .prov-xiaomi{background:var(--prov-xiaomi)}
-.prov-openai{background:var(--prov-openai)} .prov-canopylabs{background:var(--prov-canopylabs)}
-.prov-meta-llama{background:var(--prov-meta-llama)} .prov-whisper{background:var(--prov-whisper)}
+.prov-openai{background:var(--prov-openai)}
 .prov-openrouter{background:var(--prov-openrouter)} .prov-gemini{background:var(--prov-gemini)}
 .prov-groq{background:var(--prov-groq)} .prov-otro{background:var(--prov-otro)}
 

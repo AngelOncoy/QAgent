@@ -10,8 +10,8 @@ con dos operaciones:
 
 Todos los proveedores del catálogo exponen una API compatible con OpenAI (OpenRouter
 incluido), así que comparten `ClienteCompatibleOpenAI`; solo cambian la URL, la cabecera
-de la clave y el parámetro que limita la salida. Los modelos de voz (canopylabs) y de
-audio (whisper) no generan texto: se validan consultando el modelo y no completan.
+de la clave y el parámetro que limita la salida. Si el catálogo trae modelos de voz o
+de audio (`tipo`), no generan texto: se validan consultando el modelo y no completan.
 
 Este módulo nunca guarda ni registra claves: las recibe del llamador y las redacta de
 cualquier mensaje de error.
@@ -287,7 +287,7 @@ class ClienteOpenRouter(ClienteCompatibleOpenAI):
 
 
 class ClienteSinTexto(ClienteProveedor):
-    """Modelos de voz o de audio (canopylabs, whisper): no devuelven texto de chat.
+    """Modelos de voz o de audio (`tipo` "voz" o "audio"): no devuelven texto de chat.
 
     La validación consulta el modelo (`GET <modelos_url>/<id>`), lo que comprueba la
     clave y que el modelo exista sin generar audio. Si se asignan a un agente, cada

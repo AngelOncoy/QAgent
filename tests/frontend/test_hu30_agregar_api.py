@@ -35,7 +35,7 @@ def test_el_catalogo_no_esta_en_la_interfaz():
     assert "listar_proveedores" in texto
     assert [
         m
-        for m in ("claude-opus-5-5", "mimo-v2.6-pro", "whisper-large-v3")
+        for m in ("claude-opus-5-5", "mimo-v2.6-pro", "qwen/qwen3.8-27b")
         if m in texto
     ] == []
 

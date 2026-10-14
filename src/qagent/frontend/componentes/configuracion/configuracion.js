@@ -39,7 +39,7 @@ precio_salida_usd_m = 0
 `);
 
 const COLOR_AGENTE = {planner:'var(--blue-300)', generator:'var(--purple-300)', reviewer:'var(--green-300)'};
-const SIGLA_PROVEEDOR = {anthropic:'A', xiaomi:'Mi', openai:'OA', canopylabs:'CL', 'meta-llama':'ML', whisper:'W', openrouter:'OR', gemini:'G', groq:'GQ'};
+const SIGLA_PROVEEDOR = {anthropic:'A', xiaomi:'Mi', openai:'OA', openrouter:'OR', gemini:'G', groq:'GQ'};
 let rolesApi = [];          // estado de cada agente (DesktopAPI.obtener_roles)
 let eliminarPendiente = null;
 
