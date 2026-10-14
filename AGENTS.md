@@ -18,7 +18,7 @@ Aplicación de escritorio local (pywebview + backend Python + Docker). No hay se
 ## Alcance (no ampliar)
 
 - Solo dos tipos de prueba, ambos con pytest: **unitarias de funciones Python** y **de endpoints FastAPI** con `TestClient` dentro del sandbox, sin red y simulando `Depends` (EP-09).
-- Fuera de alcance (Fase 2): integración contra servicios reales, extremo a extremo, carga y estrés, pruebas del frontend del código del usuario y pruebas de propiedades. (No confundir con `frontend/`, la interfaz de QAgent.)
+- Fuera de alcance (Fase 2): integración contra servicios reales, extremo a extremo, carga y estrés, pruebas del frontend del código del usuario y pruebas de propiedades. (No confundir con `src/qagent/frontend/`, la interfaz de QAgent.)
 - El análisis estático usa solo el módulo `ast` de la biblioteca estándar; no se integra Graphify (ver `docs/decisiones/ADR-002-mapa-de-codigo.md`).
 - mutmut solo sobre funciones marcadas `critical: true`, nunca sobre el repositorio completo.
 
@@ -33,7 +33,7 @@ ruff check . && ruff format .   # lint y formato (bench/ está excluido a propó
 qagent                          # abre la aplicación de escritorio (o: python -m qagent)
 ```
 
-El paquete requiere instalación editable: `config.toml` y `contracts/` se buscan relativos a la raíz del repositorio.
+La interfaz, los contratos y `config.toml` viajan dentro del paquete (`src/qagent/`), así que el programa también funciona instalado sin `-e` (TA-06). Para desarrollar se usa la instalación editable.
 
 ## Estructura
 
@@ -45,12 +45,12 @@ El paquete requiere instalación editable: `config.toml` y `contracts/` se busca
 | `src/qagent/sandbox/` | Ejecución en Docker |
 | `src/qagent/llm/` | Cliente LLM real y simulado; registro de tokens |
 | `src/qagent/app/` | Puente pywebview (`desktop.py`): recibe acciones de la interfaz y le envía eventos, y bitácora de la corrida en la consola (`bitacora.py`). Sin lógica de negocio |
-| `src/qagent/config/` | Carga de `config.toml` y `.env`, auditoría de claves (nunca se muestran) y verificación del entorno: configuración, claves, Docker y Git (EN-06) |
+| `src/qagent/config/` | `config.toml` del equipo (modelos y precios), carga de `config.toml` y `.env`, auditoría de claves (nunca se muestran) y verificación del entorno: configuración, claves, Docker y Git (EN-06) |
 | `src/qagent/proyectos/` | Lógica de proyectos: abrir, clonar y vista previa. No depende de pywebview |
 | `src/qagent/almacenamiento/` | Almacenamiento del proyecto (EN-07): `AlmacenProyecto` guarda corridas (`run.json`), specs y pruebas aprobadas en `<proyecto>/.qagent/`; `recientes.py` maneja `~/.qagent/recientes.json`. Escritura atómica en UTF-8 |
 | `src/qagent/storage/` | `log.json` y `results.json` de cada corrida en `.qagent/runs/<run_id>/` (EN-05) |
-| `frontend/` | Interfaz HTML/CSS/JS sin build: un componente por pantalla en `componentes/`, tokens de diseño en `css/tokens.css`, logo en `assets/logo/`. Ver `frontend/README.md` |
-| `contracts/` | JSON Schema de los contratos entre agentes |
+| `src/qagent/frontend/` | Interfaz HTML/CSS/JS sin build: un componente por pantalla en `componentes/`, tokens de diseño en `css/tokens.css`, logo en `assets/logo/`. Ver `src/qagent/frontend/README.md` |
+| `src/qagent/contracts/` | JSON Schema de los contratos entre agentes y `validar()` |
 | `tests/` | Pruebas del sistema; reflejan `src/` (`almacenamiento`, `analysis`, `app`, `config`, `llm`, `orchestrator`, `proyectos`, `sandbox`, `storage`) y `tests/frontend/` para la estructura de la interfaz |
 | `test.py` | Ejecuta todas las pruebas con un comando (lint, formato y pytest) |
 | `pyproject.toml` | Dependencias, extra `dev`, configuración de pytest y ruff, script `qagent` |
@@ -63,15 +63,15 @@ El paquete requiere instalación editable: `config.toml` y `contracts/` se busca
 ## Reglas que no se rompen
 
 - **Nunca ejecutar código del usuario ni tests generados fuera del sandbox.** El análisis del código del usuario es solo estático (AST).
-- **Los agentes no se llaman entre sí:** todo pasa por el orquestador y los contratos de `contracts/`. Si cambia un contrato, se actualiza su schema y su test.
+- **Los agentes no se llaman entre sí:** todo pasa por el orquestador y los contratos de `src/qagent/contracts/`. Si cambia un contrato, se actualiza su schema y su test.
 - **El valor esperado de una aserción sale del contrato del Planner**: firma, tipos y docstring de una función, o la declaración de la ruta (`response_model`, `status_code`, modelos Pydantic) de un endpoint. Nunca de ejecutar el código.
 - **Nunca relajar ni borrar aserciones para que un test pase.**
 - **Claves solo en `.env`.** Nunca en código, logs, tests, commits ni dentro del contenedor.
-- **Modelos y precios solo desde `config.toml`** (se versiona, sin claves), nunca hardcodeados (ver `docs/decisiones/ADR-001-modelos.md`).
+- **Modelos y precios solo desde `src/qagent/config/config.toml`** (se versiona, sin claves), nunca hardcodeados (ver `docs/decisiones/ADR-001-modelos.md`).
 - **Tests del sistema con la IA simulada:** ningún test de `tests/` debe llamar a una API real.
 - **Los tests no dependen de Docker ni de internet**, salvo los marcados `docker` o `red` (se omiten si no hay). Docker se simula en las demás.
 - **La lógica no depende de la interfaz:** `app/` llama a `proyectos/`, `analysis/`, `sandbox/`…, nunca al revés (la lógica no importa `qagent.app` ni `webview`).
-- **Frontend:** toda la interfaz (HTML, CSS y JS) vive en `frontend/`; `src/` no guarda pantallas ni demos (lo verifica `tests/frontend/`). Un componente por pantalla o modal en `frontend/componentes/`; colores, tipografía y logo en `frontend/css/tokens.css` (sin colores literales: todo es `var(--token)`, lo verifica `tests/frontend/`); sin bundler, sin módulos ES ni `fetch` de HTML (ver ADR-003).
+- **Frontend:** toda la interfaz (HTML, CSS y JS) vive en `src/qagent/frontend/`; el resto de `src/` no guarda pantallas ni demos (lo verifica `tests/frontend/`). Un componente por pantalla o modal en `src/qagent/frontend/componentes/`; colores, tipografía y logo en `src/qagent/frontend/css/tokens.css` (sin colores literales: todo es `var(--token)`, lo verifica `tests/frontend/`); sin bundler, sin módulos ES ni `fetch` de HTML (ver ADR-003).
 - **Un solo nombre:** todo identificador nuevo usa `qagent` / QAgent. No introducir `pyagent` fuera del código de compatibilidad (ADR-004).
 
 ## Estilo de código

@@ -31,6 +31,7 @@ from typing import Any
 
 from qagent.llm.cliente import VARIABLE_SIMULADA, es_modo_simulado, valor_simulado
 from qagent.llm.precios import AGENTES, PrecioAgente, texto_opcional
+from qagent.llm.precios import RUTA_CONFIG as RUTA_CONFIG_EQUIPO
 from qagent.llm.proveedores import variable_por_proveedor
 
 if sys.version_info >= (3, 11):
@@ -39,7 +40,8 @@ else:  # Python 3.10
     import tomli as tomllib
 
 RAIZ = Path(__file__).resolve().parents[3]
-RUTA_CONFIG = RAIZ / "config.toml"
+# `config.toml` viaja dentro del paquete (qagent/config/); una sola definición en precios.
+RUTA_CONFIG = RUTA_CONFIG_EQUIPO
 #: Configuración personal (no se versiona): reemplaza secciones de `config.toml` en esta
 #: computadora, p. ej. los modelos de capa gratuita de cada agente. La usan la
 #: aplicación y `python -m qagent.llm.validar`; las pruebas la dejan fuera.

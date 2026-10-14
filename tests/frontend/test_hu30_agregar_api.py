@@ -5,7 +5,7 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-FRONTEND = Path(__file__).resolve().parents[2] / "frontend"
+FRONTEND = Path(__file__).resolve().parents[2] / "src" / "qagent" / "frontend"
 CONFIG_JS = FRONTEND / "componentes" / "configuracion" / "configuracion.js"
 MODAL_JS = FRONTEND / "componentes" / "configuracion" / "modal-api.js"
 

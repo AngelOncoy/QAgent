@@ -11,8 +11,8 @@ from qagent.app import bitacora
 from qagent.app.monitor_eventos import a_evento_bitacora, a_fila_monitor
 from qagent.proyectos import proyecto_local
 
-# Interfaz web (HTML/CSS/JS), separada del backend: <raíz del repo>/frontend/
-FRONTEND_DIR = Path(__file__).resolve().parents[3] / "frontend"
+# Interfaz web (HTML/CSS/JS), separada del backend e instalada con el paquete: qagent/frontend/
+FRONTEND_DIR = Path(__file__).resolve().parents[1] / "frontend"
 
 
 class DesktopAPI:
@@ -635,7 +635,9 @@ def _resolver_ruta_proyecto(ruta: str, run_id: str | None = None) -> Path:
     except OSError:
         pass
     if run_id == CORRIDA_DEMO_ID or not ruta:
-        return FRONTEND_DIR.parent
+        from qagent.config.carga import RAIZ
+
+        return RAIZ
     return candidata
 
 

@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-FRONTEND = Path(__file__).resolve().parents[2] / "frontend"
+FRONTEND = Path(__file__).resolve().parents[2] / "src" / "qagent" / "frontend"
 INDEX = (FRONTEND / "index.html").read_text(encoding="utf-8")
 
 ESTILOS = re.findall(r'<link rel="stylesheet" href="([^"]+)"', INDEX)
@@ -243,16 +243,16 @@ def test_un_analisis_fallido_en_la_app_real_no_muestra_modulos_de_ejemplo() -> N
     assert "vaciarVistaPrevia()" in rama_real
 
 
-# ---------- toda la interfaz vive en frontend/ ----------
+# ---------- toda la interfaz vive en qagent/frontend/ ----------
 
 
 def test_no_hay_archivos_de_interfaz_fuera_de_frontend() -> None:
-    """HTML, CSS y JS solo existen en frontend/: el backend (src/) no guarda pantallas ni demos."""
-    src = FRONTEND.parent / "src"
+    """HTML, CSS y JS solo existen en qagent/frontend/: el resto del backend no guarda pantallas."""
+    src = FRONTEND.parents[1]
     sueltos = sorted(
         p.relative_to(src.parent).as_posix()
         for p in src.rglob("*")
-        if p.suffix in {".html", ".htm", ".css", ".js"}
+        if p.suffix in {".html", ".htm", ".css", ".js"} and FRONTEND not in p.parents
     )
     assert sueltos == []
 

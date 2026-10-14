@@ -235,7 +235,8 @@ def test_el_banco_tiene_casos_grabados_para_todas_sus_funciones() -> None:
     from qagent.llm.fake import RUTA_GRABACIONES, cargar_grabaciones
 
     grabaciones = cargar_grabaciones(RUTA_GRABACIONES)
-    [modulo] = analizar_proyecto(RUTA_GRABACIONES.parent)["modulos"]
+    banco = Path(__file__).resolve().parents[2] / "bench"
+    [modulo] = analizar_proyecto(banco)["modulos"]
 
     for funcion in modulo["funciones"]:
         assert grabaciones.get(f"banco_mvp.py::{funcion['nombre']}"), funcion["nombre"]

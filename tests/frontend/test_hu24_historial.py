@@ -4,6 +4,8 @@ from pathlib import Path
 
 HISTORIAL = (
     Path(__file__).resolve().parents[2]
+    / "src"
+    / "qagent"
     / "frontend"
     / "componentes"
     / "historial"

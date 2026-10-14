@@ -344,6 +344,8 @@ def test_contrato_run_log_exige_motivo_coherente_con_la_decision() -> None:
     ejemplo = json.loads(
         (
             Path(__file__).parents[2]
+            / "src"
+            / "qagent"
             / "contracts"
             / "ejemplos"
             / "run_log.results.json"

@@ -2,7 +2,7 @@
 
 from pathlib import Path
 
-FRONTEND = Path(__file__).resolve().parents[2] / "frontend"
+FRONTEND = Path(__file__).resolve().parents[2] / "src" / "qagent" / "frontend"
 
 
 def leer(relativa: str) -> str:

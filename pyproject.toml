@@ -27,10 +27,16 @@ qagent = "qagent.app.desktop:main"
 # Producto, comando y paquete se llaman igual: QAgent / `qagent` (antes `pyagent`).
 [tool.setuptools.packages.find]
 where = ["src"]
+# Solo carpetas con __init__.py son paquetes: frontend/ y contracts/ejemplos/ son datos.
+namespaces = false
 
+# Recursos que la app necesita instalada (TA-06): sin ellos `pip install qagent` abre sin interfaz.
 [tool.setuptools.package-data]
+"qagent" = ["frontend/**/*"]
+"qagent.config" = ["config.toml", "config.local.ejemplo.toml"]
+"qagent.contracts" = ["*.schema.json", "ejemplos/*.json"]
 "qagent.sandbox" = ["Dockerfile"]
-"qagent.llm" = ["proveedores.toml"]
+"qagent.llm" = ["proveedores.toml", "ia_simulada.json"]
 
 [tool.pytest.ini_options]
 # src/ para importar `qagent`; la raíz para importar helpers de las pruebas (`tests.orchestrator.fakes`).

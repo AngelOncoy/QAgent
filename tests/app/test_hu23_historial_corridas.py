@@ -227,6 +227,8 @@ def test_frontend_historial_conecta_tabla_y_apertura_de_reportes() -> None:
     """Comprueba que la interfaz web de Historial renderiza las columnas y llama a cargarReporteReal."""
     contenido_historial = (
         Path(__file__).resolve().parents[2]
+        / "src"
+        / "qagent"
         / "frontend"
         / "componentes"
         / "historial"
@@ -234,6 +236,8 @@ def test_frontend_historial_conecta_tabla_y_apertura_de_reportes() -> None:
     ).read_text(encoding="utf-8")
     contenido_informe = (
         Path(__file__).resolve().parents[2]
+        / "src"
+        / "qagent"
         / "frontend"
         / "componentes"
         / "informe"

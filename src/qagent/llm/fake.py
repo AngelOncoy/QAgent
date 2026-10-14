@@ -3,7 +3,7 @@
 Responde según el rol y, cuando el prompt trae los datos marcados por los agentes,
 según lo que se le pide:
 
-- **Planner:** devuelve los casos grabados en `bench/ia_simulada.json` para las
+- **Planner:** devuelve los casos grabados en `qagent/llm/ia_simulada.json` para las
   funciones o endpoints del módulo. Una clave no grabada queda fuera del plan.
 - **Generator:** arma pytest para funciones o TestClient para endpoints directamente
   desde el contrato del Planner.
@@ -25,7 +25,8 @@ MARCA_MODULO = "MODULO:"
 MARCA_OBJETIVOS = "OBJETIVOS_JSON:"
 MARCA_CONTRATO = "CONTRATO_JSON:"
 
-RUTA_GRABACIONES = Path(__file__).resolve().parents[3] / "bench" / "ia_simulada.json"
+# Viaja dentro del paquete para que el modo de demostración funcione instalado.
+RUTA_GRABACIONES = Path(__file__).resolve().with_name("ia_simulada.json")
 
 
 class FakeLLMClient:
@@ -88,7 +89,7 @@ class FakeLLMClient:
             modelo: Nombre que se registrará como modelo utilizado.
             grabaciones: casos por `"<archivo>.py::<función>"` o
                 `"<archivo>.py::<MÉTODO> <ruta>"`; si es None se leen de
-                `bench/ia_simulada.json` (o quedan vacías si no existe).
+                `qagent/llm/ia_simulada.json` (o quedan vacías si no existe).
         """
         self.modelo = modelo
         self.grabaciones = (
