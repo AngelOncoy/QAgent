@@ -4,7 +4,7 @@ registrarComponente('sidebar/sidebar', `<!-- ======================= SIDEBAR ===
 <aside>
   <div class="brand">
     <div class="logo" role="img" aria-label="QAgent"></div>
-    <div><b>QAgent</b><span class="ver">v2.4</span><small>Autonomous Test Engine</small></div>
+    <div><b>QAgent</b><span class="ver">demo</span><small>Autonomous Test Engine</small></div>
   </div>
 
   <!-- Sidebar de inicio -->

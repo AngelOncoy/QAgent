@@ -193,6 +193,12 @@ class DesktopAPI:
 
         return listar_proveedores()
 
+    def obtener_version(self) -> str:
+        """Versión instalada de QAgent (la de `qagent --version`), para la interfaz."""
+        from qagent import __version__
+
+        return __version__
+
     def obtener_roles(self) -> list[dict]:
         """Proveedor, modelo y clave enmascarada de cada agente (HU-30)."""
         from qagent.config import carga as config_carga

@@ -22,6 +22,7 @@ from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 
+from qagent import __version__
 from qagent.config.auditoria import PATRONES, Hallazgo
 from qagent.config.carga import RUTA_ENV, Claves, leer_env
 from qagent.storage.registro import CARPETA_RUNS
@@ -1314,7 +1315,7 @@ def _renderizar_pdf(bloques: list[dict[str, Any]], run_id: str) -> bytes:
             # Barra superior ejecutiva con acento esmeralda
             "0.06 0.09 0.16 rg 36 804 523 22 re f",
             "0.06 0.73 0.51 rg 36 804 4 22 re f",
-            f"BT /F2 8.5 Tf 1 1 1 rg 48 812 Td (QAgent v2.4  |  Informe Interactivo de Auditoria  |  Corrida #{esc_id}) Tj ET",
+            f"BT /F2 8.5 Tf 1 1 1 rg 48 812 Td (QAgent v{__version__}  |  Informe Interactivo de Auditoria  |  Corrida #{esc_id}) Tj ET",
             "BT /F1 7.8 Tf 0.70 0.78 0.90 rg 425 812 Td (Verificacion RN-07 Activa) Tj ET",
         ]
         y = 774.0

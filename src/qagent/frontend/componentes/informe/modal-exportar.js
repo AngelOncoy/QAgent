@@ -120,7 +120,7 @@ async function cambiarCarpetaExportar(){
 function buildMarkdown(){
   const m = metrics(), inc = id => $(id).checked, ok = b => b ? '✅ Cumple' : '❌ No cumple';
   let md = `# Informe de auditoría de pruebas unitarias — Corrida #${RUN_ID}\n\n`;
-  md += `- **Proyecto:** ${document.querySelector('.repoLbl').textContent}\n- **Rama:** ${$('branchLbl').textContent}\n- **Fecha:** ${RUN_DATE}\n- **Perfil:** Profundo · **Funciones evaluadas:** ${m.n} (${m.crit} críticas)\n- **Generado por:** QAgent v2.4 (Planner → Generator → Reviewer)\n- **Modelos:** Planner: ${AGENTS_CFG.P.model} (US$ ${AGENTS_CFG.P.price}/M) · Generator: ${AGENTS_CFG.G.model} (US$ ${AGENTS_CFG.G.price}/M) · Reviewer: ${AGENTS_CFG.R.model} (US$ ${AGENTS_CFG.R.price}/M)\n- **Specs:** 4 reutilizados de corridas anteriores · 2 regenerados (cart.py, discounts.py cambiaron) · guardados en \`.qagent/specs/\`\n\n`;
+  md += `- **Proyecto:** ${document.querySelector('.repoLbl').textContent}\n- **Rama:** ${$('branchLbl').textContent}\n- **Fecha:** ${RUN_DATE}\n- **Perfil:** Profundo · **Funciones evaluadas:** ${m.n} (${m.crit} críticas)\n- **Generado por:** QAgent ${textoVersion()} (Planner → Generator → Reviewer)\n- **Modelos:** Planner: ${AGENTS_CFG.P.model} (US$ ${AGENTS_CFG.P.price}/M) · Generator: ${AGENTS_CFG.G.model} (US$ ${AGENTS_CFG.G.price}/M) · Reviewer: ${AGENTS_CFG.R.model} (US$ ${AGENTS_CFG.R.price}/M)\n- **Specs:** 4 reutilizados de corridas anteriores · 2 regenerados (cart.py, discounts.py cambiaron) · guardados en \`.qagent/specs/\`\n\n`;
   md += `## 1. Resumen de métricas\n\n| Métrica | Resultado | Meta (carta) | Estado |\n|---|---|---|---|\n`;
   md += `| Pass Rate | ${pct(m.pass,1)} (${m.ok}/${m.n}) | ${META.pass[0]}–${META.pass[1]}% | ${ok(m.pass>=META.pass[0])} |\n`;
   md += `| Cobertura de líneas / ramas | ${pct(m.lines,1)} / ${pct(m.branch,1)} | ≥ ${META.lines}% líneas | ${ok(m.lines>=META.lines)} |\n`;
@@ -355,7 +355,7 @@ function buildPdfBytes(){
     comandos = [
       '0.06 0.09 0.16 rg 36 804 523 22 re f',
       '0.06 0.73 0.51 rg 36 804 4 22 re f',
-      `BT /F2 8.5 Tf 1 1 1 rg 48 812 Td (QAgent v2.4  |  Informe Interactivo de Auditoria  |  Corrida #${escId}) Tj ET`,
+      `BT /F2 8.5 Tf 1 1 1 rg 48 812 Td (QAgent ${textoVersion()}  |  Informe Interactivo de Auditoria  |  Corrida #${escId}) Tj ET`,
       'BT /F1 7.8 Tf 0.70 0.78 0.90 rg 425 812 Td (Verificacion RN-07 Activa) Tj ET'
     ];
     y = 774;

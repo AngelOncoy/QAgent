@@ -58,7 +58,7 @@ function renderHistoryDemo(){
   const mods = [...new Set(RUN.map(f=>f.module))];
   $('specTable').innerHTML = mods.map(mod => {
     const fns = RUN.filter(f=>f.module===mod), st = SPEC_STATUS[mod], name = specName(mod);
-    const data = {modulo:mod, huella_codigo:SPEC_HASH[mod], generado_en:'#'+(st==='reuse'?'8730-A':RUN_ID), generado_por:'Planner v2.4', funciones:fns.map(f=>f.contract)};
+    const data = {modulo:mod, huella_codigo:SPEC_HASH[mod], generado_en:'#'+(st==='reuse'?'8730-A':RUN_ID), generado_por:'Planner ' + textoVersion(), funciones:fns.map(f=>f.contract)};
     return `<tr>
       <td class="fn">.qagent/specs/${name}<div class="sub">${mod}</div></td>
       <td>${fns.map(f=>`<div class="mono" style="font-size:11px">${f.name}</div>`).join('')}</td>
