@@ -116,10 +116,11 @@ def leer_roles(
     """Estado de cada agente para la pantalla Configuración.
 
     Args:
-        ruta_config: `config.toml`, donde se guardan proveedor y modelo.
+        ruta_config: `config.toml` del equipo (modelos por defecto).
         ruta_env: `.env`, de donde sale la clave (solo enmascarada).
-        ruta_local: `config.local.toml` opcional; si define un agente, ese agente usa lo
-            de ese archivo y `desde_local` es True.
+        ruta_local: `config.local.toml` del usuario, donde la pantalla guarda proveedor
+            y modelo; si define un agente, ese agente usa lo de ese archivo y
+            `desde_local` es True.
 
     Returns:
         Un dict por agente (en orden Planner, Generator, Reviewer) con `agente`,
@@ -266,7 +267,9 @@ def configurar_rol(
             sigue con el mismo proveedor.
         ruta_config: `config.toml`.
         ruta_env: `.env`.
-        ruta_local: `config.local.toml` opcional (para conocer las claves de los demás).
+        ruta_local: `config.local.toml` del usuario. Si se indica, ahí se guarda la
+            elección (TA-06): el `config.toml` del equipo viaja con el programa y no se
+            modifica. Sin él se escribe en `ruta_config` (pruebas y uso antiguo).
         transporte: transporte HTTP (las pruebas lo reemplazan por uno simulado).
 
     Returns:
@@ -314,12 +317,13 @@ def configurar_rol(
     previa = (
         variable_de_agente(agente, str(anterior["proveedor"])) if anterior else None
     )
+    destino = Path(ruta_local) if ruta_local else ruta_config
     try:
         _guardar(
             agente,
             datos_proveedor,
             modelo,
-            ruta_config,
+            destino,
             ruta_env,
             fijar={propia: clave_a_usar} if env.get(propia) != clave_a_usar else {},
             quitar=[previa] if previa and previa != propia else [],
@@ -337,11 +341,14 @@ def eliminar_rol(
     *,
     ruta_config: str | Path = RUTA_CONFIG,
     ruta_env: str | Path = RUTA_ENV,
+    ruta_local: str | Path | None = None,
 ) -> dict[str, Any]:
     """Deja al agente «Sin configurar»: quita su sección de `config.toml` y su clave.
 
-    Se borra solo la variable propia del agente (`<VARIABLE>_<AGENTE>`); la variable
-    compartida del proveedor, si existe, no se toca.
+    Con `ruta_local` (TA-06) no se toca el `config.toml` del equipo: en el
+    `config.local.toml` del usuario la sección del agente queda como
+    `configurado = false`, que tapa la del equipo. Se borra solo la variable propia
+    del agente (`<VARIABLE>_<AGENTE>`); la variable compartida del proveedor no se toca.
 
     Returns:
         `{"ok": bool, "mensaje": str}`.
@@ -350,12 +357,21 @@ def eliminar_rol(
         return {"ok": False, "mensaje": f"Agente desconocido: {agente}."}
     ruta_config, ruta_env = Path(ruta_config), Path(ruta_env)
     try:
-        texto = ruta_config.read_text(encoding="utf-8")
-        tabla = _leer_toml(ruta_config).get("agentes", {}).get(agente)
-        nuevo = reemplazar_seccion_agente(texto, agente, None)
-        if nuevo != texto:
+        if ruta_local:
+            local = Path(ruta_local)
+            tabla = _tablas_agentes(ruta_config, local)[0].get(agente)
+            texto = _texto_o_encabezado(local)
+            nuevo = reemplazar_seccion_agente(texto, agente, [MARCA_SIN_CONFIGURAR])
             _comprobar_toml(nuevo)
-            escribir_texto_atomico(ruta_config, nuevo)
+            local.parent.mkdir(parents=True, exist_ok=True)
+            escribir_texto_atomico(local, nuevo)
+        else:
+            texto = ruta_config.read_text(encoding="utf-8")
+            tabla = _leer_toml(ruta_config).get("agentes", {}).get(agente)
+            nuevo = reemplazar_seccion_agente(texto, agente, None)
+            if nuevo != texto:
+                _comprobar_toml(nuevo)
+                escribir_texto_atomico(ruta_config, nuevo)
         propia = (
             variable_de_agente(agente, str(tabla.get("proveedor")))
             if isinstance(tabla, dict)
@@ -395,12 +411,14 @@ def _guardar(
     fijar: Mapping[str, str],
     quitar: list[str],
 ) -> None:
-    """Escribe `.env` (si cambia) y luego `config.toml`; si este falla, deshace `.env`.
+    """Escribe `.env` (si cambia) y luego la configuración (`ruta_config`: el
+    `config.local.toml` del usuario, que se crea si falta); si esta falla, deshace `.env`.
 
     Raises:
         OSError, ValueError: si no se pudo escribir alguno de los dos archivos.
     """
-    texto_config = ruta_config.read_text(encoding="utf-8")
+    texto_config = _texto_o_encabezado(ruta_config)
+    ruta_config.parent.mkdir(parents=True, exist_ok=True)
     nuevo_config = reemplazar_seccion_agente(
         texto_config, agente, _tabla_agente(proveedor, modelo)
     )
@@ -442,6 +460,21 @@ def _tabla_agente(proveedor: Proveedor, modelo_id: str) -> list[str]:
 def _cadena_toml(valor: str) -> str:
     """Cadena básica de TOML (las secuencias de escape de JSON son válidas en TOML)."""
     return json.dumps(valor)
+
+
+#: Línea que deja a un agente «Sin configurar» en el `config.local.toml` del usuario,
+#: tapando la sección del equipo (la lee `carga._leer_agentes`).
+MARCA_SIN_CONFIGURAR = "configurado = false"
+ENCABEZADO_LOCAL = (
+    "# Configuración personal de QAgent en esta computadora (no se comparte).\n"
+    "# La escribe la pantalla Configuración: cada [agentes.*] de aquí reemplaza al del\n"
+    "# config.toml del equipo. Las claves de API van aparte, en el .env de esta carpeta.\n"
+)
+
+
+def _texto_o_encabezado(ruta: Path) -> str:
+    """Texto de `ruta`, o el encabezado de un `config.local.toml` nuevo si no existe."""
+    return ruta.read_text(encoding="utf-8") if ruta.exists() else ENCABEZADO_LOCAL
 
 
 def _comprobar_toml(texto: str) -> None:

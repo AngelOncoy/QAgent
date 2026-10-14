@@ -20,9 +20,10 @@ from pathlib import Path
 from typing import Any
 
 from qagent.almacenamiento.disco import escribir_json_atomico
+from qagent.usuario import NOMBRE_CARPETA
 
 MAXIMO_RECIENTES = 50
-CARPETA_HOME = ".qagent"
+CARPETA_HOME = NOMBRE_CARPETA
 #: Carpeta del home en versiones anteriores (cuando el producto se llamaba PyAgent).
 CARPETA_HOME_ANTERIOR = ".pyagent"
 MAXIMO_VISIBLES = 10

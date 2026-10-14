@@ -208,8 +208,8 @@ class DesktopAPI:
     ) -> dict:
         """Prueba la conexión y, si responde, guarda la API del agente (HU-30).
 
-        La clave va solo a `.env`, en la variable propia del agente; `config.toml`
-        recibe proveedor y modelo. El proveedor puede repetirse entre agentes, la clave
+        La clave va solo a `.env`, en la variable propia del agente; el
+        `config.local.toml` del usuario (`~/.qagent/`) recibe proveedor y modelo. El proveedor puede repetirse entre agentes, la clave
         no. Si la prueba falla no se guarda nada. La respuesta nunca incluye la clave.
 
         Returns:
@@ -244,7 +244,7 @@ class DesktopAPI:
         return {**resultado, "roles": self.obtener_roles()}
 
     def eliminar_api_rol(self, agente: str) -> dict:
-        """Deja al agente «Sin configurar»: quita su sección de config.toml y su clave (HU-30).
+        """Deja al agente «Sin configurar» en esta computadora y quita su clave (HU-30).
 
         Returns:
             dict: ``{"ok", "mensaje", "roles"}``.
@@ -253,7 +253,10 @@ class DesktopAPI:
         from qagent.config.roles import eliminar_rol
 
         resultado = eliminar_rol(
-            agente, ruta_config=config_carga.RUTA_CONFIG, ruta_env=config_carga.RUTA_ENV
+            agente,
+            ruta_config=config_carga.RUTA_CONFIG,
+            ruta_env=config_carga.RUTA_ENV,
+            ruta_local=config_carga.RUTA_CONFIG_LOCAL,
         )
         if resultado["ok"]:
             bitacora.registro.info("API del %s eliminada: sin configurar.", agente)
@@ -625,7 +628,7 @@ class DesktopAPI:
 
 
 def _resolver_ruta_proyecto(ruta: str, run_id: str | None = None) -> Path:
-    """Devuelve la carpeta real del proyecto; en modo demo usa la raíz del repositorio si la ruta no existe."""
+    """Devuelve la carpeta real del proyecto; en modo demo, `~/.qagent/demo/` si la ruta no existe."""
     from qagent.storage.corrida_demo import CORRIDA_DEMO_ID
 
     candidata = Path(ruta) if ruta else Path()
@@ -635,9 +638,10 @@ def _resolver_ruta_proyecto(ruta: str, run_id: str | None = None) -> Path:
     except OSError:
         pass
     if run_id == CORRIDA_DEMO_ID or not ruta:
-        from qagent.config.carga import RAIZ
+        from qagent.usuario import carpeta_usuario
 
-        return RAIZ
+        # Nunca la carpeta del programa: instalado puede ser de solo lectura (TA-06).
+        return carpeta_usuario() / "demo"
     return candidata
 
 
@@ -761,11 +765,19 @@ def _registrar_estado_configuracion() -> None:
 
 def main() -> None:
     """Punto de entrada de la aplicación de escritorio."""
-    _registrar_estado_configuracion()
+    from qagent.config.carga import migrar_desde_repositorio
+
+    # Orden importante: ~/.pyagent/ solo se renombra si ~/.qagent/ aún no existe, y
+    # mover el .env la crearía. La configuración se lee después de las dos migraciones.
     if recientes.migrar_carpeta_anterior():
         bitacora.registro.info(
             "Se migró ~/.pyagent/ a ~/.qagent/ (proyectos recientes)."
         )
+    for nombre in migrar_desde_repositorio():
+        bitacora.registro.info(
+            "Se movió %s de la carpeta del código a ~/.qagent/.", nombre
+        )
+    _registrar_estado_configuracion()
     # Se carga como file:// y no como ruta: con una ruta, pywebview sirve la carpeta con un servidor
     # HTTP interno cuya cola admite 5 conexiones, y al abrir la ventana (decenas de CSS, JS y fuentes
     # a la vez) rechaza algunas peticiones al azar y la interfaz queda sin estilos o sin scripts.

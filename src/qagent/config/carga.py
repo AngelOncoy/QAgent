@@ -6,6 +6,9 @@ Lee dos fuentes:
   umbrales de calidad.
 - `.env` (nunca se versiona): claves de API de cada proveedor.
 
+`config.toml` viaja dentro del paquete; `.env` y `config.local.toml` son del usuario y
+viven en `~/.qagent/` (TA-06), nunca en la carpeta del programa.
+
 Los proveedores válidos salen del catálogo `llm/proveedores.toml` (HU-30). Cada agente
 tiene su propia clave en `.env`, en `<VARIABLE_DEL_PROVEEDOR>_<AGENTE>` (ej.
 `GEMINI_API_KEY_PLANNER`): el proveedor se puede repetir entre agentes, la clave no. Si
@@ -23,6 +26,7 @@ from __future__ import annotations
 import logging
 import os
 import re
+import shutil
 import sys
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
@@ -33,20 +37,56 @@ from qagent.llm.cliente import VARIABLE_SIMULADA, es_modo_simulado, valor_simula
 from qagent.llm.precios import AGENTES, PrecioAgente, texto_opcional
 from qagent.llm.precios import RUTA_CONFIG as RUTA_CONFIG_EQUIPO
 from qagent.llm.proveedores import variable_por_proveedor
+from qagent.usuario import carpeta_usuario
 
 if sys.version_info >= (3, 11):
     import tomllib
 else:  # Python 3.10
     import tomli as tomllib
 
+#: Raíz del código fuente. Solo sirve al desarrollar desde el repositorio: de aquí se
+#: migran `.env` y `config.local.toml` de antes de TA-06 y aquí busca claves la auditoría.
 RAIZ = Path(__file__).resolve().parents[3]
 # `config.toml` viaja dentro del paquete (qagent/config/); una sola definición en precios.
 RUTA_CONFIG = RUTA_CONFIG_EQUIPO
 #: Configuración personal (no se versiona): reemplaza secciones de `config.toml` en esta
-#: computadora, p. ej. los modelos de capa gratuita de cada agente. La usan la
-#: aplicación y `python -m qagent.llm.validar`; las pruebas la dejan fuera.
-RUTA_CONFIG_LOCAL = RAIZ / "config.local.toml"
-RUTA_ENV = RAIZ / ".env"
+#: computadora, p. ej. los modelos que el usuario eligió en la pantalla Configuración.
+#: La usan la aplicación y `python -m qagent.llm.validar`; las pruebas la dejan fuera.
+RUTA_CONFIG_LOCAL = carpeta_usuario() / "config.local.toml"
+RUTA_ENV = carpeta_usuario() / ".env"
+#: Archivos del usuario que antes de TA-06 vivían en la raíz del repositorio.
+ARCHIVOS_DEL_USUARIO = (".env", "config.local.toml")
+
+
+def migrar_desde_repositorio(
+    raiz: str | Path = RAIZ, destino: str | Path | None = None
+) -> list[str]:
+    """Mueve `.env` y `config.local.toml` de la raíz del repositorio a `~/.qagent/`.
+
+    Antes de TA-06 vivían junto al código. Solo mueve un archivo si existe en el
+    repositorio y no en el destino: nunca sobrescribe. Con el programa instalado (sin
+    `pyproject.toml` en `raiz`) no hace nada. Nunca lanza excepciones.
+
+    Returns:
+        Los nombres de los archivos que se movieron.
+    """
+    raiz = Path(raiz)
+    destino = Path(destino) if destino is not None else carpeta_usuario()
+    if not (raiz / "pyproject.toml").is_file():
+        return []
+    movidos: list[str] = []
+    for nombre in ARCHIVOS_DEL_USUARIO:
+        origen, final = raiz / nombre, destino / nombre
+        if not origen.is_file() or final.exists():
+            continue
+        try:
+            destino.mkdir(parents=True, exist_ok=True)
+            shutil.move(str(origen), str(final))
+        except OSError:
+            continue
+        movidos.append(nombre)
+    return movidos
+
 
 #: Variable de `.env` que guarda la clave de cada proveedor (catálogo de HU-30).
 CLAVE_POR_PROVEEDOR = variable_por_proveedor()
@@ -532,7 +572,10 @@ def _leer_agentes(
     agentes: dict[str, PrecioAgente] = {}
     for agente in AGENTES:
         tabla = seccion.get(agente)
-        if tabla is None:
+        # `configurado = false` en config.local.toml tapa la sección del equipo (TA-06).
+        if tabla is None or (
+            isinstance(tabla, Mapping) and tabla.get("configurado") is False
+        ):
             sin_configurar.append(agente)
             continue
         precio = _leer_agente(agente, tabla, avisos)

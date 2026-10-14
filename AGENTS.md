@@ -28,7 +28,7 @@ Aplicación de escritorio local (pywebview + backend Python + Docker). No hay se
 pip install -e .[dev]           # instalación editable, una vez por máquina (pyproject.toml)
 python test.py                  # lint + formato + TODAS las pruebas (IA simulada, 0 tokens)
 python test.py --rapido         # sin lint y sin pruebas de Docker ni de red
-pytest                          # solo pytest (con IA simulada: QAGENT_FAKE_LLM=1 en el .env o set/export en el sistema)
+pytest                          # solo pytest (con IA simulada: QAGENT_FAKE_LLM=1 en ~/.qagent/.env o set/export en el sistema)
 ruff check . && ruff format .   # lint y formato (bench/ está excluido a propósito)
 qagent                          # abre la aplicación de escritorio (o: python -m qagent)
 ```
@@ -66,7 +66,8 @@ La interfaz, los contratos y `config.toml` viajan dentro del paquete (`src/qagen
 - **Los agentes no se llaman entre sí:** todo pasa por el orquestador y los contratos de `src/qagent/contracts/`. Si cambia un contrato, se actualiza su schema y su test.
 - **El valor esperado de una aserción sale del contrato del Planner**: firma, tipos y docstring de una función, o la declaración de la ruta (`response_model`, `status_code`, modelos Pydantic) de un endpoint. Nunca de ejecutar el código.
 - **Nunca relajar ni borrar aserciones para que un test pase.**
-- **Claves solo en `.env`.** Nunca en código, logs, tests, commits ni dentro del contenedor.
+- **Claves solo en `~/.qagent/.env`.** Nunca en código, logs, tests, commits ni dentro del contenedor.
+- **Datos del usuario solo en `~/.qagent/`** (`.env`, `config.local.toml`, recientes, demostración): el programa nunca escribe en su propia carpeta, que instalado puede ser de solo lectura (TA-06). La pantalla Configuración guarda en `config.local.toml`; el `config.toml` del equipo solo se cambia a mano y se versiona.
 - **Modelos y precios solo desde `src/qagent/config/config.toml`** (se versiona, sin claves), nunca hardcodeados (ver `docs/decisiones/ADR-001-modelos.md`).
 - **Tests del sistema con la IA simulada:** ningún test de `tests/` debe llamar a una API real.
 - **Los tests no dependen de Docker ni de internet**, salvo los marcados `docker` o `red` (se omiten si no hay). Docker se simula en las demás.
