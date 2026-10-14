@@ -87,7 +87,14 @@ def _specs_aprobadas(almacen: AlmacenProyecto) -> list[dict[str, Any]]:
             spec = json.loads(ruta.read_text(encoding="utf-8"))
             contrato = spec["contrato"]
             contracts.validar(contracts.PLANNER, contrato)
-        except (OSError, UnicodeDecodeError, json.JSONDecodeError, KeyError, TypeError, contracts.ContratoInvalido):
+        except (
+            OSError,
+            UnicodeDecodeError,
+            json.JSONDecodeError,
+            KeyError,
+            TypeError,
+            contracts.ContratoInvalido,
+        ):
             continue
         archivo = spec.get("archivo_prueba")
         if spec.get("estado") != "vigente" or not isinstance(archivo, str):
@@ -221,9 +228,7 @@ def ejecutar_regresion(
                 if estado == "fallo"
                 else "stalled"
             )
-            texto = "\n".join(
-                x for x in (salida.stdout, salida.stderr) if x
-            ).strip()
+            texto = "\n".join(x for x in (salida.stdout, salida.stderr) if x).strip()
             revision = {
                 "intento": 1,
                 "decision": decision,
@@ -272,9 +277,7 @@ def ejecutar_regresion(
         resumen.aceptadas = decisiones.count("accept")
         resumen.bugs_detectados = decisiones.count("bug_detectado")
         resumen.estancadas = decisiones.count("stalled")
-        resumen.requieren_corrida_nueva = decisiones.count(
-            "requiere_corrida_nueva"
-        )
+        resumen.requieren_corrida_nueva = decisiones.count("requiere_corrida_nueva")
         rutas = escribir_corrida(
             raiz,
             resultados,

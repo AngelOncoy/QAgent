@@ -138,9 +138,7 @@ def _funcion(
         "funcion": objetivo["funcion"],
         **identidad_de(objetivo),
         "firma": contrato.get("firma") if isinstance(contrato, dict) else None,
-        "manejador": contrato.get("manejador")
-        if isinstance(contrato, dict)
-        else None,
+        "manejador": contrato.get("manejador") if isinstance(contrato, dict) else None,
         "critical": objetivo["critical"],
         "decision": objetivo["decision"],
         "estado": estado_de(objetivo),
