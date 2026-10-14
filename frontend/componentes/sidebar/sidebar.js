@@ -38,8 +38,7 @@ registrarComponente('sidebar/sidebar', `<!-- ======================= SIDEBAR ===
 
   <div class="sidefoot">
     <div class="runner">
-      <div class="row" id="sbRow"><b>Sandbox Runner:</b><span id="sbEstado" class="ok"><span id="sbDot" class="dot"></span><span id="sbTxt">pyagent-sandbox:base</span></span></div>
-      <div class="row sbhelp" id="sbAyuda" style="display:none"><span id="sbAyudaTxt" class="no">Abre Docker Desktop</span><button type="button" onclick="actualizarSandbox()">Reintentar</button></div>
+      <div class="row" id="sbRow"><b>Sandbox Runner:</b></div>
       <div class="row"><span>Reintentos max:</span><span>3 por test</span></div>
     </div>
     <div class="sidebottom"><span>☾ Tema Oscuro</span><span class="mono">⑂ <span id="branchLbl">main</span></span></div>
@@ -67,13 +66,15 @@ async function actualizarSandbox() {
     // IA simulada y Docker sin responder (o sin imagen): se muestra como opcional, no como error.
     const clave = r && r.simulado && r.estado !== 'ok' ? 'opcional' : r && r.estado;
     const ui = SANDBOX_UI[clave] || SANDBOX_UI.no_iniciado;
-    $('sbDot').className = ui.dot;
-    $('sbEstado').className = ui.txt;
-    $('sbTxt').textContent = ui.label;
-    $('sbRow').title = ui === SANDBOX_UI.ok ? '' : (ui === SANDBOX_UI.opcional ? 'No se usa con la IA simulada. ' : '') + ((r && r.mensaje) || '');
-    $('sbAyudaTxt').textContent = ui.ayuda;
-    $('sbAyuda').title = (r && r.mensaje) || '';
-    $('sbAyuda').style.display = ui.ayuda ? '' : 'none';
+    if ($('sbDot')) $('sbDot').className = ui.dot;
+    if ($('sbEstado')) $('sbEstado').className = ui.txt;
+    if ($('sbTxt')) $('sbTxt').textContent = ui.label;
+    if ($('sbRow')) $('sbRow').title = ui === SANDBOX_UI.ok ? '' : (ui === SANDBOX_UI.opcional ? 'No se usa con la IA simulada. ' : '') + ((r && r.mensaje) || '');
+    if ($('sbAyudaTxt')) $('sbAyudaTxt').textContent = ui.ayuda;
+    if ($('sbAyuda')) {
+      $('sbAyuda').title = (r && r.mensaje) || '';
+      $('sbAyuda').style.display = ui.ayuda ? '' : 'none';
+    }
   } catch (err) {
     console.error("Error al consultar el estado del sandbox:", err);
   } finally {
