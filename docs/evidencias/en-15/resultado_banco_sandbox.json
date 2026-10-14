@@ -1,0 +1,60 @@
+{
+  "fecha_local": "2026-10-13",
+  "base_integracion": "origin/develop@3127132",
+  "flujo": "PlannerAgent (HU-27) -> GeneratorAgent (EN-15) -> ReviewerAgent/ejecutor Docker (EN-16)",
+  "prueba_integrada": "tests/agents/test_reviewer_endpoints.py::test_corrida_de_la_api_de_prueba_con_generator_real",
+  "comando": ".\\.venv\\Scripts\\python.exe -m pytest -q tests/orchestrator/test_en15_banco_api.py -m docker tests/sandbox/test_hu13_aislamiento.py::test_rn02_una_prueba_que_abre_una_conexion_de_red_falla -vv",
+  "resultado_pytest": "4 passed, 1 deselected in 21.24s",
+  "estado_orquestador": "fin",
+  "sandbox": {
+    "motor": "Docker 29.7.2",
+    "python": "3.11.17",
+    "network_mode": "none",
+    "contenedores_pyagent_restantes": 0
+  },
+  "ia_simulada": {
+    "tokens_reales": 0,
+    "costo_usd": 0.0
+  },
+  "endpoints": [
+    {"objetivo": "GET /salud", "decision": "accept", "intentos": 1, "cobertura_lineas": 100.0},
+    {"objetivo": "POST /items", "decision": "accept", "intentos": 1, "cobertura_lineas": 100.0},
+    {"objetivo": "GET /items", "decision": "accept", "intentos": 1, "cobertura_lineas": 100.0},
+    {
+      "objetivo": "GET /items/{item_id}",
+      "decision": "bug_detectado",
+      "intentos": 1,
+      "diferencia": "status real 500; esperado 404",
+      "cobertura_lineas": 100.0
+    },
+    {
+      "objetivo": "DELETE /items/{item_id}",
+      "decision": "bug_detectado",
+      "intentos": 1,
+      "diferencia": "status real 200; esperado 204",
+      "cobertura_lineas": 100.0,
+      "cobertura_ramas": 100.0
+    },
+    {
+      "objetivo": "GET /descuento",
+      "decision": "bug_detectado",
+      "intentos": 1,
+      "diferencia": "json real precio_final=20.0; esperado precio_final=80.0",
+      "cobertura_lineas": 100.0
+    }
+  ],
+  "resumen": {
+    "correctos_aprobados": 3,
+    "bugs_detectados": 3,
+    "errores_tecnicos": 0,
+    "timeouts": 0
+  },
+  "dependency_overrides": {
+    "prueba_exitosa": "limpios; 4 pruebas aprobadas en el módulo POST /items",
+    "prueba_fallida": "limpios; tras el fallo esperado, las 3 pruebas restantes del módulo aprobaron"
+  },
+  "advertencias": [
+    "La evidencia usa IA simulada: no hubo llamadas, tokens ni costo de un LLM real.",
+    "Las capturas CAP-01 a CAP-06 conservadas fueron tomadas antes del rebase; los valores vigentes son los de este JSON y pruebas_ejecutadas.md."
+  ]
+}

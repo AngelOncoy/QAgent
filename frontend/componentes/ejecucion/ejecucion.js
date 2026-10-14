@@ -6,7 +6,7 @@ registrarComponente('ejecucion/ejecucion', `<!-- ===== 5. EJECUCIÓN DE PRUEBAS 
     <div class="kpis" id="kpis"></div>
 
     <div class="toolbar">
-      <div class="tleft"><span class="flbl"><span class='ico' data-i='filter' data-c='var(--slate-300-c)'></span> Filtrar:</span><div id="fbtns"></div></div>
+      <div class="tleft"><span class="flbl"><span class='ico' data-i='filter' data-c='var(--slate-300-c)'></span> Tipo:</span><div id="tipoBtns"></div><span class="flbl">Estado:</span><div id="fbtns"></div></div>
       <div class="cmd2"><span class='ico' data-i='term' data-c='var(--blue-400)'></span> docker run --rm --network none pyagent-sandbox:base pytest -v --cov --cov-branch</div>
     </div>
     <div id="suites"></div>
@@ -33,6 +33,7 @@ function irAReporteFinal(){
 
 /* ---------------- Ejecución de pruebas ---------------- */
 let filterState = 'ALL';
+let filterType = 'todos';
 const expanded = {fn_1:true, fn_2:true};
 function renderExecKpis(){
   const m = metrics(), passOk = m.pass >= META.pass[0], msOk = m.ms >= META.ms, est = runEstimate;
@@ -56,7 +57,7 @@ function renderExecKpis(){
     <div class="ktri"><span style="color:var(--blue-400)">P: <b>${AGENT_SPLIT.P}%</b></span><span style="color:var(--purple-400)">G: <b>${AGENT_SPLIT.G}%</b></span><span style="color:var(--emerald-400)">R: <b>${AGENT_SPLIT.R}%</b></span></div></div>
     <div><div class="kb"><i style="width:${AGENT_SPLIT.P}%;background:var(--blue-500)"></i><i style="width:${AGENT_SPLIT.G}%;background:var(--purple-500)"></i><i style="width:${AGENT_SPLIT.R}%;background:var(--emerald-500)"></i></div>
     <div class="kscale"><span>$${m.usd.toFixed(2)} USD</span><span>S/ ${m.pen.toFixed(2)} PEN</span></div>
-    <div class="kscale" title="Estimación mostrada en la vista previa"><span>Estimado: ~${kfmt(est.tok)}</span><span>S/ ${est.pen.toFixed(2)}</span></div>
+    <div class="kscale" title="Estimación mostrada en la vista previa"><span>Estimado: ~${kfmt(est.tok)}</span></div>
     <div class="kscale"><span style="color:var(--blue-300)">P $${m.agentUsd.P.toFixed(3)}</span><span style="color:var(--purple-300)">G $${m.agentUsd.G.toFixed(3)}</span><span style="color:var(--green-300)">R $${m.agentUsd.R.toFixed(3)}</span></div>
     <div class="kscale" style="color:var(--green-300)"><span>♻ 4 specs reutilizados</span><span>Planner omitido</span></div></div></div>
   <div class="kpi"><div class="kh"><span>MUTATION SCORE</span>${I('dna','var(--rose-400)',15)}</div>
@@ -77,6 +78,7 @@ function renderExec(){
     return;
   }
   renderExecKpis();
+  $('tipoBtns').innerHTML = `<button class="fb2 on" style="background:var(--blue-600)">Funciones (${RUN.length})</button>`;
   const keys = ['ALL', ...Object.keys(ST)];
   $('fbtns').innerHTML = keys.map(k => {
     const n = k==='ALL' ? RUN.length : RUN.filter(f=>f.status===k).length;
@@ -130,6 +132,7 @@ let ejecucionReal = null;
 const ESTADO_REAL = {   // estado de la vista -> colores e íconos del catálogo ST
   aprobado:{st:'passed', txt:'APROBADO'},
   bug_detectado:{st:'rejected_oracle', txt:'BUG DETECTADO'},
+  requiere_corrida_nueva:{st:'stuck', txt:'REQUIERE CORRIDA NUEVA'},
   rechazado_laundering:{st:'rejected_laundering', txt:'RECHAZADO: LAUNDERING'},
   estancado:{st:'stuck', txt:'ESTANCADO'},
   sin_veredicto:{st:'stuck', txt:'SIN VEREDICTO'},
@@ -155,7 +158,7 @@ async function cargarEjecucionReal(runId){
     go('exec');
     return;
   }
-  ejecucionReal = r; filterState = 'ALL';
+  ejecucionReal = r; filterState = 'ALL'; filterType = 'todos';
   if (typeof desbloquearVista === 'function') {
     desbloquearVista('exec');
     desbloquearVista('report');
@@ -198,32 +201,34 @@ function actualizarBarraReal(v){   // barra superior: la corrida que se está mo
   const ok = v.estado_final === 'fin';
   $('ctxChip').className = 'chip ' + (ok ? 'done' : 'amber');
   $('ctxLbl').textContent = 'Corrida ' + v.run_id + ':'; $('curFile').textContent = ok ? 'completada' : 'detenida';
-  $('progNum').textContent = v.total_funciones + ' funciones revisadas'; $('progBar').style.width = '100%';
+  $('progNum').textContent = v.total_objetivos + ' objetivos revisados'; $('progBar').style.width = '100%';
   $('liveBtn').className = 'live done'; $('liveTxt').innerHTML = ok ? '✓ COMPLETADO' : 'DETENIDA';
 }
 function renderExecReal(v){
   actualizarBarraReal(v);
   renderExecRealKpis(v);
-  const total = v.modulos.reduce((n, m) => n + m.pruebas.length, 0);
-  const botones = [{clave:'ALL', etiqueta:'Todos', cantidad: total}, ...v.filtros];
+  $('tipoBtns').innerHTML = v.filtros_tipo.map(f => `<button class="fb2 ${filterType===f.clave?'on':''}" style="${filterType===f.clave?'background:var(--blue-600)':''}" onclick="filterType='${f.clave}';renderExec()">${escHtml(f.etiqueta)} (${Number(f.cantidad)})</button>`).join('');
+  const botones = [{clave:'ALL', etiqueta:'Todos', cantidad: v.total_objetivos}, ...v.filtros];
   $('fbtns').innerHTML = botones.map(f => {
     const color = f.clave==='ALL' ? 'var(--blue-600)' : ST[ESTADO_REAL[f.clave].st].c, activo = filterState===f.clave;
     return `<button class="fb2 ${activo?'on':''}" style="${activo?'background:'+color:''}" onclick="filterState='${f.clave}';renderExec()">${f.clave!=='ALL'?`<i class="fdot" style="background:${color}"></i>`:''}${escHtml(f.etiqueta)} (${Number(f.cantidad)})</button>`;
   }).join('');
-  const grupos = v.modulos.map(m => ({modulo: m.modulo, pruebas: m.pruebas.filter(p => filterState==='ALL' || p.estado===filterState)}))
+  const grupos = v.modulos.map(m => ({modulo: m.modulo, pruebas: m.pruebas.filter(p =>
+                            (filterState==='ALL' || p.estado===filterState)
+                            && (filterType==='todos' || p.tipo===filterType))}))
                           .filter(g => g.pruebas.length);
   $('suites').innerHTML = grupos.length ? grupos.map(g => `
     <div class="suite2">
-      <div class="sh2"><div class="l">${I('file','var(--blue-400)',15)}<b>${escHtml(g.modulo)}</b><span class="c">(${g.pruebas.length} ${g.pruebas.length===1?'función':'funciones'})</span></div>
+      <div class="sh2"><div class="l">${I('file','var(--blue-400)',15)}<b>${escHtml(g.modulo)}</b></div>
         <div class="r"><span>Corrida ${escHtml(v.run_id)}</span>${v.es_simulado?'<span>IA simulada</span>':''}</div></div>
       ${g.pruebas.map(p => { const e = ESTADO_REAL[p.estado], s = ST[e.st].exec;
         const etiqueta = p.estado==='estancado' ? `Estancado ${p.intento_final}/3` + (MOTIVO_ESTANCADO[p.motivo_estancado] ? ` · ${MOTIVO_ESTANCADO[p.motivo_estancado]}` : '') : e.txt;
         return `<div class="fnrow"><div class="fnhead" style="cursor:default">
-          <div class="l"><span class="nm">${I(s[0],s[1],16)} test_${escHtml(p.funcion)}()</span>${p.critical?'<span class="bdg b-orc">Crítica</span>':''}</div>
+          <div class="l"><span class="nm">${I(s[0],s[1],16)} ${p.tipo==='endpoint'?escHtml(p.identificador):`test_${escHtml(p.identificador)}()`}</span><span class="bdg ${p.tipo==='endpoint'?'b-blue':'b-grey'}">${p.tipo==='endpoint'?'Endpoint':'Función'}</span>${p.critical?'<span class="bdg b-orc">Crítica</span>':''}</div>
           <div class="r"><span>Intento final: <b style="color:${p.intento_final>1?'var(--amber-400)':'var(--slate-200)'}">${Number(p.intento_final)}/3</b></span>
             <span>${I('clock','var(--slate-300-c)',12)} ${tiempoReal(p.duracion_s)}</span>
             <span>Cov: <b style="color:var(--blue-400)">${numReal(p.cobertura_lineas)}</b> líneas · <b style="color:var(--blue-400)">${numReal(p.cobertura_ramas)}</b> ramas</span>
             <span class="sbdg ${s[2]}">${I(s[3],'currentColor',12)} ${escHtml(etiqueta)}</span></div>
         </div></div>`; }).join('')}
-    </div>`).join('') : '<div class="suite2" style="padding:18px;color:var(--mut)">No hay pruebas con ese estado en esta corrida.</div>';
+    </div>`).join('') : '<div class="suite2" style="padding:18px;color:var(--mut)">No hay resultados para los filtros seleccionados.</div>';
 }

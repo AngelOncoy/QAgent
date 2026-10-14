@@ -297,6 +297,7 @@ class AlmacenProyecto:
         archivo_prueba: str | None = None,
         estado: str = "vigente",
         ahora: datetime | None = None,
+        huella_objetivo: str | None = None,
     ) -> dict[str, Any]:
         """Guarda la spec de un objetivo: el contrato del Planner y de dónde salió.
 
@@ -327,6 +328,8 @@ class AlmacenProyecto:
             "archivo_prueba": archivo_prueba,
             "contrato": contrato,
         }
+        if huella_objetivo is not None:
+            spec["huella_objetivo"] = huella_objetivo
         _validar_spec(spec)
         self.inicializar()
         escribir_json_atomico(self._ruta_spec(spec["id"]), spec)
@@ -365,6 +368,15 @@ class AlmacenProyecto:
     def tiene_specs(self) -> bool:
         """Indica si hay al menos una spec válida (habilita el modo regresión)."""
         return bool(self.listar_specs())
+
+    def tiene_pruebas_aprobadas(self) -> bool:
+        """True si hay una spec vigente enlazada a una prueba aprobada real."""
+        return any(
+            spec["estado"] == "vigente"
+            and spec["archivo_prueba"] is not None
+            and (self.carpeta_tests / spec["archivo_prueba"]).is_file()
+            for spec in self.listar_specs()
+        )
 
     def _ruta_spec(self, spec_id: str) -> Path:
         if not isinstance(spec_id, str) or not PATRON_ID.match(spec_id):
@@ -590,6 +602,11 @@ def _validar_spec(spec: dict[str, Any]) -> None:
         raise ErrorAlmacen(f"archivo_prueba no válido: {archivo!r}")
     if not isinstance(spec["contrato"], dict):
         raise ErrorAlmacen("contrato debe ser un objeto.")
+    huella = spec.get("huella_objetivo")
+    if huella is not None and not (
+        isinstance(huella, str) and PATRON_HUELLA.fullmatch(huella)
+    ):
+        raise ErrorAlmacen("huella_objetivo debe ser SHA-256 hexadecimal o null.")
 
 
 def _validar_plan_modulo(plan: dict[str, Any]) -> None:

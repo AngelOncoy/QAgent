@@ -1,0 +1,14 @@
+{
+  "run_id": "20261013-101522-eb90",
+  "estado": "fin",
+  "motivo": null,
+  "total_funciones": 6,
+  "aceptadas": 3,
+  "bugs_detectados": 3,
+  "estancadas": 0,
+  "sin_veredicto": 0,
+  "tokens": 0,
+  "costo_usd": 0.0,
+  "carpeta": "bench_api/.pyagent/runs/20261013-101522-eb90 (copia temporal saneada)",
+  "duracion_s": 13.154
+}

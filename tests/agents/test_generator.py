@@ -29,6 +29,35 @@ CONTRATO = {
     ],
 }
 
+CONTRATO_ENDPOINT = {
+    "version": "2",
+    "modulo": "api_mvp.py",
+    "huella": "b" * 64,
+    "tipo": "endpoint",
+    "objetivo": "POST /items",
+    "manejador": "crear_item",
+    "aplicacion": "app",
+    "dependencias": [{"funcion": "obtener_repositorio", "reemplazo": "Repositorio"}],
+    "firma": "(datos: ItemEntrada, repo=Depends(obtener_repositorio)) -> Item",
+    "critical": False,
+    "llama_a": [],
+    "casos": [
+        {
+            "id": "crear_item",
+            "entrada": {
+                "metodo": "POST",
+                "ruta": "/items",
+                "json": {"nombre": "lapiz", "precio": 2.5},
+            },
+            "valor_esperado": {
+                "status_code": 201,
+                "json_contiene": {"nombre": "lapiz", "precio": 2.5},
+            },
+            "origen": "response_model",
+        }
+    ],
+}
+
 CODIGO = """\
 from calculadora import duplicar
 
@@ -124,6 +153,13 @@ def test_generator_rechaza_respuesta_vacia() -> None:
         generator.generar(CONTRATO, 1, None)
 
 
+def test_generator_rechaza_codigo_que_no_pasa_ast_parse() -> None:
+    generator = GeneratorAgent(ClienteGrabado("def test_invalido(\n"), TokenTracker())
+
+    with pytest.raises(ErrorRespuestaGenerator, match="Python inválido"):
+        generator.generar(CONTRATO, 1, None)
+
+
 def test_prompt_indica_como_importar_el_objetivo() -> None:
     cliente = ClienteGrabado(CODIGO)
     contrato = {**CONTRATO, "modulo": "bench/banco_mvp.py"}
@@ -142,3 +178,18 @@ def test_feedback_largo_se_recorta_al_final() -> None:
     prompt = cliente.llamadas[0][0]
     assert "ImportError: al final" in prompt
     assert len(prompt) < 5_000
+
+
+def test_prompt_endpoint_exige_testclient_y_overrides_seguros() -> None:
+    cliente = ClienteGrabado(CODIGO)
+
+    GeneratorAgent(cliente, TokenTracker()).generar(CONTRATO_ENDPOINT, 1, None)
+
+    prompt = cliente.llamadas[0][0]
+    assert "fastapi.testclient.TestClient" in prompt
+    assert "from api_mvp import app, obtener_repositorio, Repositorio" in prompt
+    assert "app.dependency_overrides[funcion] = reemplazo" in prompt
+    assert "limpia el diccionario" in prompt
+    assert "Nunca reemplaces el manejador" in prompt
+    assert "response.status_code" in prompt
+    assert "response.json()" in prompt

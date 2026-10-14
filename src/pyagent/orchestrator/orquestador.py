@@ -15,6 +15,7 @@ from dataclasses import asdict, dataclass, field
 from typing import Any, TypeVar
 
 from pyagent import contracts
+from pyagent.agents.generator import ErrorRespuestaGenerator
 from pyagent.contracts import ContratoInvalido
 from pyagent.llm.tracker import TokenTracker
 from pyagent.orchestrator.estados import Estado, validar_transicion
@@ -61,6 +62,8 @@ class ResultadoObjetivo:
     codigo: str | None = None
     #: Segundos desde el primer intento hasta el veredicto (generar + sandbox + revisar).
     duracion_s: float = 0.0
+    reutilizada: bool = False
+    motivo_regresion: str | None = None
 
 
 @dataclass
@@ -220,9 +223,30 @@ class Orquestador:
         plan = self._llamar("planner", self.planner.planificar, modulo)
         if not isinstance(plan, list):
             raise FalloControlado("El Planner no devolvió una lista de contratos")
+        plan_endpoints = self._planificar_endpoints(modulo)
+        plan = [*plan, *plan_endpoints]
         for contrato in plan:
             self._validar(contracts.PLANNER, contrato, "planner")
-        self._emitir("planner", None, f"Plan con {len(plan)} objetivo(s)")
+        self._emitir(
+            "planner",
+            None,
+            f"Plan con {len(plan)} objetivo(s)",
+            datos={"objetivos_planificados": len(plan)},
+        )
+        return plan
+
+    def _planificar_endpoints(self, modulo: dict[str, Any]) -> list[Contrato]:
+        """Pide al Planner los casos de los endpoints FastAPI del módulo (EN-16)."""
+        planificar = getattr(self.planner, "planificar_endpoints", None)
+        if not modulo.get("endpoints") or planificar is None:
+            return []
+        plan = self._llamar("planner", planificar, modulo, modulo.get("fuente"))
+        if not isinstance(plan, list):
+            raise FalloControlado("El Planner no devolvió una lista de contratos")
+        for aviso in getattr(self.planner, "avisos", None) or []:
+            self._emitir("planner", None, f"Aviso: {aviso}")
+        for descarte in getattr(self.planner, "descartados", None) or []:
+            self._emitir("planner", None, f"Caso descartado: {descarte}")
         return plan
 
     def _usar_plan_reutilizado(
@@ -245,6 +269,7 @@ class Orquestador:
             "planner",
             None,
             f"Spec reutilizado: Planner omitido (0 tokens, {len(copia)} objetivo(s))",
+            datos={"objetivos_planificados": len(copia)},
         )
         return copia
 
@@ -271,7 +296,22 @@ class Orquestador:
             self._transicionar(Estado.GENERAR, objetivo)
             # Copia del contrato original del Planner: lo que un agente haga con su
             # copia no llega a los intentos siguientes (HU-14, criterio 3).
-            test = self._generar(copy.deepcopy(contrato), intento, feedback)
+            try:
+                test = self._generar(copy.deepcopy(contrato), intento, feedback)
+            except FalloControlado as error:
+                causa = error.__cause__
+                if not isinstance(causa, ErrorRespuestaGenerator) or not causa.codigo:
+                    raise
+                # El Generator rechazó el candidato con ast.parse. Se entrega al
+                # Reviewer solo para producir feedback contractual; su validación de
+                # sintaxis impide que alcance el ejecutor del sandbox.
+                test = {
+                    "version": "1",
+                    "objetivo": objetivo,
+                    "intento": intento,
+                    "codigo": causa.codigo,
+                    "casos_cubiertos": [caso["id"] for caso in contrato["casos"]],
+                }
             resultado.codigo = test["codigo"]
             self._transicionar(Estado.EJECUTAR_REVISAR, objetivo)
             revision = self._revisar(copy.deepcopy(contrato), test, test_anterior, tope)

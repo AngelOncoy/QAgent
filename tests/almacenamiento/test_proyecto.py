@@ -171,6 +171,8 @@ def test_listar_specs_y_tiene_specs(almacen):
         "tipo": "endpoint",
         "objetivo": "GET /precios/{id}",
         "manejador": "leer_precio",
+        "aplicacion": "app",
+        "dependencias": [],
         "casos": [
             {
                 "id": "precio_existente",

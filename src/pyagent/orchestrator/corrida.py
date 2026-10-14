@@ -66,6 +66,7 @@ class ResumenCorrida:
     costo_usd: float = 0.0
     carpeta: str | None = None
     duracion_s: float = 0.0
+    requieren_corrida_nueva: int = 0
 
     def a_dict(self) -> dict[str, Any]:
         """Versión serializable a JSON (evento `corrida_fin` de la interfaz)."""
@@ -103,11 +104,34 @@ def ejecutar_corrida(
         timeout_paso_s: tiempo máximo por paso de un agente (por defecto el del
             orquestador).
     """
+    if perfil == "reg":
+        from pyagent.orchestrator.regresion import ejecutar_regresion
+
+        return ejecutar_regresion(
+            ruta_proyecto,
+            perfil,
+            configuracion,
+            al_evento=al_evento,
+            run_id=run_id,
+            preparar_imagen=preparar_imagen,
+            ejecutor=ejecutor,
+        )
+
     inicio = time.monotonic()
     ruta = Path(ruta_proyecto)
     progreso = {"hechos": 0, "total": 0}
+    estimados_por_modulo: dict[str, int] = {}
+    planificados_por_modulo: dict[str, int] = {}
 
     def emitir(evento: Evento) -> None:
+        datos = evento.datos or {}
+        planificados = datos.get("objetivos_planificados")
+        if evento.archivo and isinstance(planificados, int):
+            anterior = planificados_por_modulo.get(
+                evento.archivo, estimados_por_modulo.get(evento.archivo, 0)
+            )
+            progreso["total"] += planificados - anterior
+            planificados_por_modulo[evento.archivo] = planificados
         if evento.tipo == "veredicto":
             progreso["hechos"] += 1
         if al_evento is not None:
@@ -118,6 +142,7 @@ def ejecutar_corrida(
 
     almacen = AlmacenProyecto(ruta)
     resumen = ResumenCorrida(run_id=run_id, estado=FIN, motivo=None, total_funciones=0)
+    tipos: list[str] = ["funcion"]
     try:
         if not ruta.is_dir():
             raise ErrorCorrida(f"La carpeta del proyecto no existe: {ruta}")
@@ -125,16 +150,35 @@ def ejecutar_corrida(
             resumen.run_id = almacen.crear_run(tipos_prueba=["funcion"])["run_id"]
 
         analisis = analizar_proyecto(ruta)
-        modulos = [m for m in analisis["modulos"] if m["funciones"]]
-        progreso["total"] = resumen.total_funciones = sum(
-            len(m["funciones"]) for m in modulos
+        modulos = [
+            _con_fuente(ruta, m)
+            for m in analisis["modulos"]
+            if m["funciones"] or m.get("endpoints")
+        ]
+        n_funciones = sum(len(m["funciones"]) for m in modulos)
+        n_endpoints = sum(len(m.get("endpoints") or []) for m in modulos)
+        estimados_por_modulo.update(
+            {
+                m["ruta"]: len(m["funciones"]) + len(m.get("endpoints") or [])
+                for m in modulos
+            }
         )
-        avisar(
-            f"Análisis estático: {len(modulos)} módulo(s) con "
-            f"{resumen.total_funciones} función(es) pública(s)"
-        )
+        progreso["total"] = resumen.total_funciones = n_funciones + n_endpoints
+        if n_endpoints:
+            tipos = ["funcion", "endpoint"] if n_funciones else ["endpoint"]
+            avisar(
+                f"Análisis estático: {len(modulos)} módulo(s) con {n_funciones} "
+                f"función(es) pública(s) y {n_endpoints} endpoint(s)"
+            )
+        else:
+            avisar(
+                f"Análisis estático: {len(modulos)} módulo(s) con "
+                f"{n_funciones} función(es) pública(s)"
+            )
         if not modulos:
-            raise ErrorCorrida("El proyecto no tiene funciones públicas que revisar.")
+            raise ErrorCorrida(
+                "El proyecto no tiene funciones públicas ni endpoints que revisar."
+            )
 
         tracker = TokenTracker(configuracion.agentes)
         clientes = {
@@ -214,6 +258,7 @@ def ejecutar_corrida(
                 resumen.motivo = f"{resultado.modulo}: {resultado.motivo_fallo}"
 
         _contar(resumen, resultados, tracker)
+        progreso["total"] = resumen.total_funciones
         _registrar(
             ruta,
             almacen,
@@ -223,12 +268,13 @@ def ejecutar_corrida(
             configuracion,
             perfil,
             planes_specs,
+            tipos,
         )
     except Exception as error:  # noqa: BLE001 — la corrida nunca debe tumbar la app
         resumen.estado = FALLO
         resumen.motivo = resumen.motivo or _texto_error(error)
         avisar(f"Corrida detenida: {resumen.motivo}", "fallo")
-        _cerrar_run(almacen, resumen)
+        _cerrar_run(almacen, resumen, tipos)
 
     resumen.duracion_s = round(time.monotonic() - inicio, 3)
     avisar(
@@ -268,6 +314,7 @@ def _contar(
     tracker: TokenTracker,
 ) -> None:
     decisiones = [o.decision for r in resultados for o in r.objetivos]
+    resumen.total_funciones = len(decisiones)
     resumen.aceptadas = decisiones.count("accept")
     resumen.bugs_detectados = decisiones.count("bug_detectado")
     resumen.estancadas = decisiones.count("stalled")
@@ -285,6 +332,7 @@ def _registrar(
     configuracion: Any,
     perfil: str,
     planes_specs: list[dict[str, Any]],
+    tipos: list[str] | None = None,
 ) -> None:
     """log.json y results.json, specs y pruebas aprobadas, y cierre del run.json."""
     if resultados:
@@ -302,6 +350,9 @@ def _registrar(
         resumen.carpeta = str(rutas.carpeta)
 
     if resumen.run_id is not None and almacen.existe():
+        from pyagent.orchestrator.regresion import huellas_de_objetivos
+
+        huellas_objetivos = huellas_de_objetivos(ruta)
         for resultado in resultados:
             for objetivo in resultado.objetivos:
                 if objetivo.contrato is None:
@@ -311,7 +362,15 @@ def _registrar(
                     spec_id = id_de_spec(resultado.modulo, objetivo.objetivo)
                     archivo = nombre_prueba(spec_id)
                     almacen.guardar_prueba_aprobada(archivo, objetivo.codigo)
-                almacen.guardar_spec(objetivo.contrato, resumen.run_id, archivo)
+                huella = huellas_objetivos.get(
+                    (resultado.modulo, objetivo.objetivo)
+                )
+                almacen.guardar_spec(
+                    objetivo.contrato,
+                    resumen.run_id,
+                    archivo,
+                    huella_objetivo=huella,
+                )
         registros = []
         for plan in planes_specs:
             guardado = almacen.guardar_plan_modulo(
@@ -338,7 +397,7 @@ def _registrar(
                     resumen.run_id,
                     error,
                 )
-    _cerrar_run(almacen, resumen)
+    _cerrar_run(almacen, resumen, tipos)
 
 
 def _existe_plan_modulo(almacen: AlmacenProyecto, modulo: str) -> bool:
@@ -361,7 +420,22 @@ def metas_de(configuracion: Any) -> dict[str, float]:
     }
 
 
-def _cerrar_run(almacen: AlmacenProyecto, resumen: ResumenCorrida) -> None:
+def _con_fuente(ruta: Path, modulo: dict[str, Any]) -> dict[str, Any]:
+    """Agrega el código del módulo si tiene endpoints: el Planner recorta sus rutas."""
+    if not modulo.get("endpoints"):
+        return modulo
+    try:
+        fuente = (ruta / modulo["ruta"]).read_text(encoding="utf-8")
+    except (OSError, UnicodeDecodeError):
+        return modulo
+    return {**modulo, "fuente": fuente}
+
+
+def _cerrar_run(
+    almacen: AlmacenProyecto,
+    resumen: ResumenCorrida,
+    tipos: list[str] | None = None,
+) -> None:
     """Marca el `run.json` como terminado. Si no se puede, la corrida no se pierde."""
     if resumen.run_id is None or not almacen.existe():
         return
@@ -372,8 +446,9 @@ def _cerrar_run(almacen: AlmacenProyecto, resumen: ResumenCorrida) -> None:
             pasaron=resumen.aceptadas,
             fallaron=resumen.bugs_detectados
             + resumen.estancadas
-            + resumen.sin_veredicto,
-            tipos_prueba=["funcion"],
+            + resumen.sin_veredicto
+            + resumen.requieren_corrida_nueva,
+            tipos_prueba=tipos or ["funcion"],
         )
     except Exception as error:  # noqa: BLE001 — run.json dañado: no es motivo de fallo
         _registro.warning(

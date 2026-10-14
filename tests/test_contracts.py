@@ -134,6 +134,8 @@ def test_contrato_de_endpoint() -> None:
         tipo="endpoint",
         objetivo="GET /items/{item_id}",
         manejador="leer_item",
+        aplicacion="app",
+        dependencias=[],
         firma="(item_id: int)",
     )
     dato["casos"] = [
@@ -269,6 +271,19 @@ def endpoint() -> dict[str, Any]:
 def test_endpoint_exige_manejador() -> None:
     dato = endpoint()
     del dato["manejador"]
+    assert not es_valido(PLANNER, dato)
+
+
+@pytest.mark.parametrize("campo", ["aplicacion", "dependencias"])
+def test_endpoint_exige_datos_para_testclient(campo: str) -> None:
+    dato = endpoint()
+    del dato[campo]
+    assert not es_valido(PLANNER, dato)
+
+
+def test_dependencia_de_endpoint_exige_funcion_y_reemplazo() -> None:
+    dato = endpoint()
+    del dato["dependencias"][0]["reemplazo"]
     assert not es_valido(PLANNER, dato)
 
 

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import ast
 import json
+import re
 import tempfile
 from collections.abc import Callable
 from pathlib import Path
@@ -35,6 +36,19 @@ _PATRONES_ERROR_TEST = (
     "no tests ran",
     "collected 0 items",
 )
+
+
+# Fallos del entorno, no del test ni del código: reintentar no los arregla (EN-16).
+_PATRONES_ENTORNO = (
+    "connectionrefusederror",
+    "connection refused",
+    "operationalerror",
+    "could not connect to server",
+)
+# FastAPI valida la respuesta contra el response_model: si no la cumple, TestClient
+# lanza esta excepción en vez de devolver un 500. Es un bug de la API (EN-16).
+_PATRON_RESPUESTA_INVALIDA = "responsevalidationerror"
+_MODULO_FALTANTE = re.compile(r"No module named '([A-Za-z0-9_.]+)'")
 
 
 class ReviewerAgent:
@@ -138,6 +152,39 @@ class ReviewerAgent:
                 hash_actual=None,
                 decision="accept",
                 feedback="Test aprobado en el sandbox.",
+            )
+
+        entorno = self._error_de_entorno(salida)
+        if entorno is not None:
+            return self._resultado(
+                objetivo=contrato["objetivo"],
+                intento=intento,
+                estado_sandbox="fallo",  # no aborta el módulo
+                cobertura=cobertura,
+                laundering_detectado=False,
+                tipo_fallo=None,
+                hash_actual=hash_error(salida),
+                decision="stalled",
+                feedback=f"Error de entorno: {entorno}. Reintentar no lo corrige.",
+            )
+
+        if (
+            contrato.get("tipo") == "endpoint"
+            and _PATRON_RESPUESTA_INVALIDA in salida.lower()
+        ):
+            return self._resultado(
+                objetivo=contrato["objetivo"],
+                intento=intento,
+                estado_sandbox="fallo",
+                cobertura=cobertura,
+                laundering_detectado=False,
+                tipo_fallo="bug_codigo",
+                hash_actual=hash_error(salida),
+                decision="bug_detectado",
+                feedback=(
+                    "La respuesta del endpoint no cumple su response_model "
+                    f"(ResponseValidationError).\n{salida}"
+                ),
             )
 
         if self._es_error_del_test(salida):
@@ -249,6 +296,9 @@ class ReviewerAgent:
         if cantidad_aserciones == 0:
             return "Oráculo inválido: el test no contiene aserciones."
 
+        if contrato.get("tipo") == "endpoint":
+            return cls._validar_oraculo_endpoint(contrato, valores_disponibles)
+
         for caso in contrato["casos"]:
             if "valor_esperado" in caso:
                 esperado = caso["valor_esperado"]
@@ -271,6 +321,92 @@ class ReviewerAgent:
             excepciones_disponibles.pop(posicion)
 
         return None
+
+    @classmethod
+    def _validar_oraculo_endpoint(
+        cls, contrato: dict[str, Any], valores: list[Any]
+    ) -> str | None:
+        """Cada caso de endpoint debe comprobar su status_code y su cuerpo esperado.
+
+        El cuerpo completo (`json`) debe aparecer como literal; de `json_contiene`
+        basta un dict literal que incluya esos campos o cada valor por separado.
+        """
+        for caso in contrato["casos"]:
+            esperado = caso["valor_esperado"]
+            estado = esperado["status_code"]
+            posicion = cls._buscar_valor(valores, estado)
+            if posicion is None:
+                return (
+                    f"Oráculo inválido: el caso '{caso['id']}' no comprueba "
+                    f"el status_code {estado}."
+                )
+            valores.pop(posicion)
+            if "json" in esperado:
+                posicion = cls._buscar_valor(valores, esperado["json"])
+                if posicion is None:
+                    return (
+                        f"Oráculo inválido: el caso '{caso['id']}' no comprueba "
+                        f"el cuerpo esperado {esperado['json']!r}."
+                    )
+                valores.pop(posicion)
+            parcial = esperado.get("json_contiene")
+            if parcial:
+                problema = cls._consumir_json_contiene(valores, parcial)
+                if problema is not None:
+                    return f"Oráculo inválido: el caso '{caso['id']}' {problema}."
+        return None
+
+    @classmethod
+    def _consumir_json_contiene(
+        cls, valores: list[Any], parcial: dict[str, Any]
+    ) -> str | None:
+        for posicion, valor in enumerate(valores):
+            if isinstance(valor, dict) and all(
+                k in valor and valor[k] == v for k, v in parcial.items()
+            ):
+                valores.pop(posicion)
+                return None
+        for clave, esperado in parcial.items():
+            posicion = cls._buscar_valor(valores, esperado)
+            if posicion is None:
+                return f"no comprueba el campo {clave!r} == {esperado!r}"
+            valores.pop(posicion)
+        return None
+
+    def _error_de_entorno(self, salida: str) -> str | None:
+        """Describe un fallo del entorno (servicio caído, dependencia sin instalar).
+
+        Un módulo faltante solo cuenta como entorno si el proyecto lo declara como
+        dependencia; si no, es un import inventado por el test y se reintenta.
+        """
+        texto = salida.lower()
+        for patron in _PATRONES_ENTORNO:
+            if patron in texto:
+                return f"el servicio externo no respondió ({patron})"
+        for nombre in _MODULO_FALTANTE.findall(salida):
+            raiz = nombre.split(".")[0]
+            if raiz in self._dependencias_declaradas():
+                return f"la dependencia '{raiz}' no está instalada en el sandbox"
+        return None
+
+    def _dependencias_declaradas(self) -> set[str]:
+        """Nombres de paquete de requirements*.txt y pyproject.toml (en minúsculas)."""
+        nombres: set[str] = set()
+        archivos = [
+            *self.ruta_proyecto.glob("requirements*.txt"),
+            self.ruta_proyecto / "pyproject.toml",
+        ]
+        for archivo in archivos:
+            try:
+                texto = archivo.read_text(encoding="utf-8")
+            except (OSError, UnicodeDecodeError):
+                continue
+            for linea in texto.splitlines():
+                coincidencia = re.match(r"\s*[\"']?([A-Za-z0-9_.-]+)", linea)
+                if coincidencia and not linea.lstrip().startswith(("#", "[", "-")):
+                    nombre = coincidencia.group(1).lower().replace("-", "_")
+                    nombres.add(nombre)
+        return nombres
 
     @staticmethod
     def _valores_de_aserciones(arbol: ast.AST) -> list[Any]:
@@ -345,7 +481,7 @@ class ReviewerAgent:
     def _detectar_evasion(arbol: ast.AST) -> str | None:
         """Detecta construcciones que permiten evitar o silenciar el test."""
         for nodo in ast.walk(arbol):
-            if isinstance(nodo, ast.Try):
+            if isinstance(nodo, ast.Try) and nodo.handlers:
                 return "el test contiene try/except que puede ocultar un fallo"
 
             if isinstance(nodo, ast.Call):
@@ -459,7 +595,9 @@ SALIDA DE PYTEST:
             ),
             None,
         )
-        rango = self._rango_de_funcion(modulo, contrato["objetivo"])
+        # En un endpoint se mide la función que atiende la ruta (su manejador).
+        nombre = contrato.get("manejador") or contrato["objetivo"]
+        rango = self._rango_de_funcion(modulo, nombre)
         if not isinstance(datos, dict) or rango is None:
             return None
         inicio, fin = rango

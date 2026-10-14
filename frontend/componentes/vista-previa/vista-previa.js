@@ -26,6 +26,7 @@ registrarComponente('vista-previa/vista-previa', `<!-- ===== 2. VISTA PREVIA Y C
       <div class="bd" style="display:flex;gap:24px;flex-wrap:wrap;align-items:center" id="resumenContenido">
         <div><div class="hint" style="margin:0;text-transform:uppercase;font-size:10px;color:var(--dim)">Módulos encontrados</div><b class="mono" style="font-size:18px" id="resumenModulos">0</b></div>
         <div><div class="hint" style="margin:0;text-transform:uppercase;font-size:10px;color:var(--dim)">Funciones públicas</div><b class="mono" style="font-size:18px" id="resumenFunciones">0</b></div>
+        <div><div class="hint" style="margin:0;text-transform:uppercase;font-size:10px;color:var(--dim)">Endpoints FastAPI</div><b class="mono" style="font-size:18px" id="resumenEndpoints">0</b></div>
         <div><div class="hint" style="margin:0;text-transform:uppercase;font-size:10px;color:var(--dim)">Errores (no analizables)</div><b class="mono" style="font-size:18px" id="resumenErrores">0</b></div>
         <div style="margin-left:auto;display:flex;gap:10px;flex-wrap:wrap;align-items:center">
           <span class="pill p-amber" id="resumenSinDoc" title="el valor esperado no tendrá fuente (oráculo débil)"></span>
@@ -47,6 +48,11 @@ registrarComponente('vista-previa/vista-previa', `<!-- ===== 2. VISTA PREVIA Y C
         <div class="table-scroll"><table>
           <thead><tr><th>Función</th><th>Tipada</th><th>Docstring</th><th>Ramas</th><th title="Crítica: se le aplica mutation testing en el perfil Profundo">Crítica</th><th>Incluir</th></tr></thead>
           <tbody id="fnTable"></tbody>
+        </table></div>
+        <h4 class="endpoint-title">Endpoints detectados (AST) <span class="pill p-blue" id="endpointCount">0 endpoints</span></h4>
+        <div class="table-scroll"><table class="endpoint-table">
+          <thead><tr><th>Método y ruta</th><th>Manejador</th><th>Dependencias</th></tr></thead>
+          <tbody id="endpointTable"></tbody>
         </table></div>
         <div class="legend">
           <span>★ Crítica = ≥ 1 rama if/else o try/except (propuesta por AST, editable)</span>
@@ -104,6 +110,7 @@ function actualizarResumenUI(resumen, errores = []) {
   if (!resumen) return;
   if ($('resumenModulos')) $('resumenModulos').textContent = resumen.total_modulos ?? 0;
   if ($('resumenFunciones')) $('resumenFunciones').textContent = resumen.total_funciones_publicas ?? 0;
+  if ($('resumenEndpoints')) $('resumenEndpoints').textContent = resumen.total_endpoints ?? 0;
   if ($('resumenErrores')) $('resumenErrores').textContent = resumen.total_errores ?? (errores ? errores.length : 0);
   
   const sd = resumen.inconsistencias?.sin_docstring || { cantidad: 0, porcentaje: 0 };
@@ -122,7 +129,7 @@ function actualizarResumenUI(resumen, errores = []) {
     $('resumenConAlguna').textContent = `${ca.cantidad} con inconsistencias (${ca.porcentaje}%)`;
   }
   if ($('projFnsResumen')) {
-    $('projFnsResumen').textContent = `${resumen.total_modulos} módulos .py · ${resumen.total_funciones_publicas} funciones públicas`;
+    $('projFnsResumen').textContent = `${resumen.total_modulos} módulos .py · ${resumen.total_funciones_publicas} funciones · ${resumen.total_endpoints ?? 0} endpoints`;
   }
 }
 
@@ -142,10 +149,18 @@ function cargarDatosVistaPrevia(res) {
       inc: true,
       linea: f.linea
     }));
+    const endpoints = (m.endpoints || []).map(e => ({
+      objetivo: e.objetivo || '',
+      metodo: e.metodo || null,
+      ruta: e.ruta || null,
+      manejador: e.manejador || '',
+      dependencias: (e.dependencias || []).map(d => d.funcion).filter(Boolean)
+    }));
     return {
       path: m.ruta,
       sel: true,
       fns: fns,
+      endpoints: endpoints,
       conRamas: m.funciones_con_ramas ?? fns.filter(f => f.br > 0).length,
       huella: m.huella
     };
@@ -210,14 +225,11 @@ function vaciarVistaPrevia() {
   actualizarResumenUI({ total_modulos: 0, total_funciones_publicas: 0, total_errores: 0 });
 }
 
-// El perfil Regresión solo tiene sentido si el proyecto ya tuvo una corrida: es un dato real
-// (~/.pyagent/recientes.json). En la demostración se simula que sí la hubo.
+// Regresión requiere al menos una prueba aprobada persistida, no solo una corrida.
 async function hayCorridaPrevia(ruta) {
-  if (!(window.pywebview && window.pywebview.api && window.pywebview.api.listar_recientes)) return true;
+  if (!(window.pywebview && window.pywebview.api && window.pywebview.api.tiene_pruebas_aprobadas)) return true;
   try {
-    const lista = await window.pywebview.api.listar_recientes();
-    const r = lista.find(x => x.ruta === ruta);
-    return !!(r && r.ultima_corrida);
+    return !!(await window.pywebview.api.tiene_pruebas_aprobadas(ruta));
   } catch (err) {
     console.error("Error al consultar las corridas previas:", err);
     return false;
@@ -284,7 +296,7 @@ function renderTree(){
       h += `<div class="row ind" style="color:var(--red-t)"><span class="mono">📄 ${escHtml(nombreArchivo)}</span><span class="pill p-red" style="margin-left:auto">no se pudo analizar</span></div>`;
     } else {
       const fnConRamas = (m.fns || []).filter(f => f.br > 0).length;
-      h += `<div class="row ind"><input type="checkbox" ${m.sel ? 'checked' : ''} onchange="MODULES[${i}].sel=this.checked;renderFns()"> <span class="mono">${escHtml(nombreArchivo)}</span><span class="n" title="${fnConRamas} funciones con ramas">${m.fns.length} fn</span></div>`;
+      h += `<div class="row ind"><input type="checkbox" ${m.sel ? 'checked' : ''} onchange="MODULES[${i}].sel=this.checked;renderFns()"> <span class="mono">${escHtml(nombreArchivo)}</span><span class="n" title="${fnConRamas} funciones con ramas">${m.fns.length} fn · ${(m.endpoints || []).length} ep</span></div>`;
     }
   });
   h += '<div class="row dir ign">📁 tests/ <span class="n">ignorado</span></div>';
@@ -338,6 +350,13 @@ function renderFns(){
   });
   
   $('fnTable').innerHTML = h || '<tr><td colspan="6" class="hint">Selecciona al menos un módulo.</td></tr>';
+  const endpoints = sel.flatMap(m => (m.endpoints || []).map(e => ({...e, modulo:m.path})));
+  $('endpointCount').textContent = `${endpoints.length} ${endpoints.length===1?'endpoint':'endpoints'}`;
+  $('endpointTable').innerHTML = endpoints.length ? endpoints.map(e => `<tr>
+    <td class="fn"><span class="endpoint-method">${e.metodo?escHtml(e.metodo):'SIN MÉTODO'}</span> <span class="endpoint-route">${e.ruta?escHtml(e.ruta):'Ruta no disponible'}</span><div class="sub">${escHtml(e.modulo)}</div></td>
+    <td class="mono">${e.manejador?escHtml(e.manejador):'—'}</td>
+    <td>${e.dependencias.length?e.dependencias.map(d=>`<span class="pill p-grey">${escHtml(d)}</span>`).join(' '):'<span class="hint">Sin Depends</span>'}</td>
+  </tr>`).join('') : '<tr><td colspan="3" class="hint">No se detectaron endpoints en los módulos seleccionados.</td></tr>';
   calc();
 }
 function toggle(mi,fi,k){ MODULES[mi].fns[fi][k] = !MODULES[mi].fns[fi][k]; renderFns(); }

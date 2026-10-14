@@ -6,6 +6,12 @@ Lee dos fuentes:
   umbrales de calidad.
 - `.env` (nunca se versiona): claves de API de cada proveedor.
 
+Los proveedores válidos salen del catálogo `llm/proveedores.toml` (HU-30). Cada agente
+tiene su propia clave en `.env`, en `<VARIABLE_DEL_PROVEEDOR>_<AGENTE>` (ej.
+`GEMINI_API_KEY_PLANNER`): el proveedor se puede repetir entre agentes, la clave no. Si
+esa variable no existe se usa la del proveedor (`GEMINI_API_KEY`), como antes de HU-30. Un agente sin sección `[agentes.<agente>]` queda «Sin
+configurar»: no invalida el resto, pero impide iniciar corridas con la IA real.
+
 La carga **no lanza excepciones por datos faltantes**: reúne todos los problemas en
 `ResultadoCarga.avisos` para que la interfaz los muestre juntos y deshabilite
 "Iniciar corrida". Los valores de las claves viven solo en `Claves`, que nunca se
@@ -18,13 +24,14 @@ import logging
 import os
 import re
 import sys
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
 from pyagent.llm.cliente import es_modo_simulado
 from pyagent.llm.precios import AGENTES, PrecioAgente, texto_opcional
+from pyagent.llm.proveedores import variable_por_proveedor
 
 if sys.version_info >= (3, 11):
     import tomllib
@@ -42,15 +49,18 @@ RUTA_ENV = RAIZ / ".env"
 # Variable que activa la IA simulada (EN-11): se puede definir en el sistema o en el .env.
 VARIABLE_SIMULADA = "PYAGENT_FAKE_LLM"
 
-#: Variable de `.env` que guarda la clave de cada proveedor de `config.toml`.
-CLAVE_POR_PROVEEDOR = {
-    "anthropic": "ANTHROPIC_API_KEY",
-    "openai": "OPENAI_API_KEY",
-    "xiaomi": "XIAOMI_API_KEY",
-    "openrouter": "OPENROUTER_API_KEY",
-    "gemini": "GEMINI_API_KEY",
-    "groq": "GROQ_API_KEY",
-}
+#: Variable de `.env` que guarda la clave de cada proveedor (catálogo de HU-30).
+CLAVE_POR_PROVEEDOR = variable_por_proveedor()
+
+#: Lee una variable de `.env` (`Claves.obtener` o `dict.get`).
+LectorClaves = Callable[[str], "str | None"]
+
+#: Nombre visible de cada agente.
+NOMBRE_AGENTE = {"planner": "Planner", "generator": "Generator", "reviewer": "Reviewer"}
+
+#: Proveedor y modelo que ocupan el lugar de un agente sin configurar con la IA simulada.
+PROVEEDOR_SIMULADO = "simulado"
+MODELO_SIMULADO = "ia-simulada"
 
 #: Umbrales de calidad que debe definir `[umbrales]` (metas de la carta, ADR-001).
 UMBRALES = ("pass_rate_min", "cobertura_lineas_min", "iteraciones_promedio_max")
@@ -166,6 +176,8 @@ class ResultadoCarga:
         avisos_claves: problemas de `.env` (archivo o claves que faltan), en español.
             Ningún aviso contiene valores secretos.
         simulado: True si se usa la IA simulada de EN-11 (0 tokens, sin claves).
+        sin_configurar: agentes sin sección `[agentes.*]` (HU-30). Con la IA real
+            bloquean las corridas; con la simulada se reemplazan por la IA simulada.
     """
 
     config: Configuracion | None
@@ -173,6 +185,7 @@ class ResultadoCarga:
     avisos_config: list[str] = field(default_factory=list)
     avisos_claves: list[str] = field(default_factory=list)
     simulado: bool = False
+    sin_configurar: list[str] = field(default_factory=list)
 
     @property
     def avisos(self) -> list[str]:
@@ -272,14 +285,62 @@ def cargar_configuracion(
     simulado = modo_simulado(ruta_env) if simulado is None else simulado
     avisos_config: list[str] = []
     avisos_claves: list[str] = []
+    sin_configurar: list[str] = []
     config = _leer_config(
-        Path(ruta_config), avisos_config, Path(ruta_local) if ruta_local else None
+        Path(ruta_config),
+        avisos_config,
+        Path(ruta_local) if ruta_local else None,
+        sin_configurar,
     )
+    if config is not None:
+        for agente in sin_configurar:
+            if simulado:
+                config.agentes[agente] = PrecioAgente(
+                    agente, PROVEEDOR_SIMULADO, MODELO_SIMULADO, 0.0, 0.0
+                )
+            else:
+                avisos_config.append(mensaje_sin_configurar(agente))
 
     claves = Claves()
     if not simulado:
         claves = _leer_claves(Path(ruta_env), config, avisos_claves)
-    return ResultadoCarga(config, claves, avisos_config, avisos_claves, simulado)
+    return ResultadoCarga(
+        config, claves, avisos_config, avisos_claves, simulado, sin_configurar
+    )
+
+
+def mensaje_sin_configurar(agente: str) -> str:
+    """Aviso de un agente sin proveedor ni modelo (HU-30, criterio 10)."""
+    return (
+        f"Falta configurar el {NOMBRE_AGENTE.get(agente, agente)} "
+        f"([agentes.{agente}] en config.toml): ve a Configuración → «Modelo de cada "
+        "agente» y pulsa «Agregar API»."
+    )
+
+
+def variable_de_agente(agente: str, proveedor: str) -> str | None:
+    """Variable propia del agente: `<VARIABLE_DEL_PROVEEDOR>_<AGENTE>` (HU-30).
+
+    >>> variable_de_agente("generator", "gemini")
+    'GEMINI_API_KEY_GENERATOR'
+    """
+    base = CLAVE_POR_PROVEEDOR.get(proveedor)
+    return f"{base}_{agente.upper()}" if base else None
+
+
+def variable_en_uso(agente: str, proveedor: str, obtener: LectorClaves) -> str | None:
+    """Variable de `.env` de donde sale la clave del agente, o None si no hay ninguna.
+
+    Primero la propia del agente; si no existe, la compartida del proveedor
+    (configuraciones anteriores a HU-30 o editadas a mano).
+    """
+    for variable in (
+        variable_de_agente(agente, proveedor),
+        CLAVE_POR_PROVEEDOR.get(proveedor),
+    ):
+        if variable and obtener(variable):
+            return variable
+    return None
 
 
 def _leer_claves(
@@ -304,23 +365,26 @@ def _leer_claves(
 
     claves = Claves(valores)
     if config is not None:
-        for proveedor, agentes in config.proveedores().items():
-            variable = CLAVE_POR_PROVEEDOR.get(proveedor)
-            if variable and not claves.tiene(variable):
+        for agente, precio in config.agentes.items():
+            propia = variable_de_agente(agente, precio.proveedor)
+            if (
+                propia
+                and variable_en_uso(agente, precio.proveedor, claves.obtener) is None
+            ):
                 avisos.append(
-                    f"Falta la clave {variable} en .env (la usa: {', '.join(agentes)}). "
-                    "Pídela al equipo, agrégala y pulsa Reintentar."
+                    f"Falta la clave {propia} en .env (la usa: {agente}). Agrégala en "
+                    "Configuración → «Agregar API» y pulsa Reintentar."
                 )
     return claves
 
 
 def variables_requeridas(config: Configuracion | None) -> list[str]:
-    """Variables de `.env` que pide `config.toml`; sin config válida, todas las conocidas."""
+    """Variables de `.env` que pide `config.toml` (una por agente); sin config válida,
+    la de cada proveedor conocido."""
     if config is None:
         return list(dict.fromkeys(CLAVE_POR_PROVEEDOR.values()))
-    return [
-        CLAVE_POR_PROVEEDOR[p] for p in config.proveedores() if p in CLAVE_POR_PROVEEDOR
-    ]
+    variables = (variable_de_agente(a, p.proveedor) for a, p in config.agentes.items())
+    return [v for v in variables if v]
 
 
 def crear_env(ruta: Path, config: Configuracion | None) -> bool:
@@ -346,7 +410,10 @@ def crear_env(ruta: Path, config: Configuracion | None) -> bool:
 
 
 def _leer_config(
-    ruta: Path, avisos: list[str], ruta_local: Path | None = None
+    ruta: Path,
+    avisos: list[str],
+    ruta_local: Path | None = None,
+    sin_configurar: list[str] | None = None,
 ) -> Configuracion | None:
     try:
         with open(ruta, "rb") as archivo:
@@ -369,7 +436,11 @@ def _leer_config(
     presupuesto = _leer_presupuesto(datos.get("presupuesto", {}), avisos)
     max_intentos = _leer_reintentos(datos.get("reintentos", {}), avisos)
     umbrales = _leer_umbrales(datos.get("umbrales", {}), avisos)
-    agentes = _leer_agentes(datos.get("agentes", {}), avisos)
+    agentes = _leer_agentes(
+        datos.get("agentes", {}),
+        avisos,
+        sin_configurar if sin_configurar is not None else [],
+    )
     if len(avisos) > antes:
         return None
     return Configuracion(presupuesto, max_intentos, umbrales, agentes)  # type: ignore[arg-type]
@@ -457,13 +528,13 @@ def _leer_umbrales(tabla: Mapping[str, Any], avisos: list[str]) -> Umbrales | No
 
 
 def _leer_agentes(
-    seccion: Mapping[str, Any], avisos: list[str]
+    seccion: Mapping[str, Any], avisos: list[str], sin_configurar: list[str]
 ) -> dict[str, PrecioAgente]:
     agentes: dict[str, PrecioAgente] = {}
     for agente in AGENTES:
         tabla = seccion.get(agente)
         if tabla is None:
-            avisos.append(f"Falta la sección [agentes.{agente}] en config.toml.")
+            sin_configurar.append(agente)
             continue
         precio = _leer_agente(agente, tabla, avisos)
         if precio is not None:

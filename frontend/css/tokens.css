@@ -21,6 +21,22 @@
   --logo-completo:url('../assets/logo/qagent-logo.svg');
 }
 
+/* Proveedores de IA (HU-30): color de la insignia de cada uno en Configuración.
+   Las insignias son iniciales con color; no se incluyen logos de marca. */
+:root{
+  --prov-anthropic:var(--orange-400-c); --prov-xiaomi:var(--orange-500); --prov-openai:var(--emerald-400);
+  --prov-canopylabs:var(--teal-400); --prov-meta-llama:var(--blue-400); --prov-whisper:var(--slate-400);
+  --prov-openrouter:var(--indigo-400); --prov-gemini:var(--blue-300); --prov-groq:var(--rose-400);
+  --prov-otro:var(--slate-500);
+}
+
+/* Tipo de caja de cada perfil (HU-31): insignias de Configuración de pruebas.
+   Caja negra = oscura (no se ve el código); caja blanca = clara (se ve por dentro). */
+:root{
+  --caja-negra-s:var(--slate-950); --caja-negra-t:var(--slate-200); --caja-negra-b:var(--slate-500);
+  --caja-blanca-s:var(--slate-200); --caja-blanca-t:var(--slate-900); --caja-blanca-b:var(--slate-300);
+}
+
 /* Tipografía */
 :root{
   --fuente-ui:'Inter',system-ui,sans-serif;

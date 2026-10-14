@@ -12,6 +12,7 @@ función del mismo archivo, o se informan como no disponibles.
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 from typing import Any
 
@@ -28,10 +29,16 @@ ESTADOS = {
     "rechazado_laundering": "Rechazado laundering",
     "estancado": "Estancados 3/3",
     "bug_detectado": "Bug detectado",
+    "requiere_corrida_nueva": "Requiere corrida nueva",
     "sin_veredicto": "Sin veredicto",
 }
 #: Filtros que se muestran siempre, aunque su conteo sea 0 (criterio 3).
 FILTROS_FIJOS = ("aprobado", "rechazado_laundering", "estancado")
+TIPOS = {
+    "funcion": "Funciones",
+    "endpoint": "Endpoints",
+}
+_ENDPOINT = re.compile(r"^(GET|POST|PUT|PATCH|DELETE)\s+(/\S.*)$")
 
 
 class ResultadosNoDisponibles(Exception):
@@ -89,6 +96,8 @@ def estado_de(objetivo: dict[str, Any]) -> str:
         if objetivo.get("laundering_detectado"):
             return "rechazado_laundering"
         return "estancado"
+    if decision == "requiere_corrida_nueva":
+        return "requiere_corrida_nueva"
     return "sin_veredicto"
 
 
@@ -98,6 +107,7 @@ def vista_ejecucion(results: dict[str, Any]) -> dict[str, Any]:
     resumen = results["resumen"]
     metas = resumen.get("metas")
     estados = [estado_de(o) for o in objetivos]
+    tipos = [tipo_de(o) for o in objetivos]
 
     return {
         "run_id": results["run_id"],
@@ -107,6 +117,7 @@ def vista_ejecucion(results: dict[str, Any]) -> dict[str, Any]:
         "estado_final": results["estado_final"],
         "motivo_fallo": results["motivo_fallo"],
         "total_funciones": resumen["total_funciones"],
+        "total_objetivos": len(objetivos),
         "metas_registradas": metas is not None,
         "indicadores": {
             "pass_rate": _pass_rate(objetivos, resumen, metas),
@@ -124,7 +135,53 @@ def vista_ejecucion(results: dict[str, Any]) -> dict[str, Any]:
             for clave in ESTADOS
             if clave in FILTROS_FIJOS or clave in estados
         ],
+        "filtros_tipo": [
+            {"clave": "todos", "etiqueta": "Todos", "cantidad": len(objetivos)},
+            *[
+                {
+                    "clave": clave,
+                    "etiqueta": etiqueta,
+                    "cantidad": tipos.count(clave),
+                }
+                for clave, etiqueta in TIPOS.items()
+            ],
+        ],
         "modulos": _por_modulo(objetivos, estados),
+    }
+
+
+def tipo_de(objetivo: dict[str, Any]) -> str:
+    """Discriminador persistido; las corridas antiguas siguen siendo funciones."""
+    return "endpoint" if objetivo.get("tipo") == "endpoint" else "funcion"
+
+
+def identidad_de(objetivo: dict[str, Any]) -> dict[str, Any]:
+    """Identidad visible sin convertir un nombre incompleto en una ruta falsa."""
+    nombre = str(objetivo.get("funcion") or "")
+    tipo = tipo_de(objetivo)
+    if tipo == "funcion":
+        return {
+            "tipo": tipo,
+            "identificador": nombre or "Función sin nombre",
+            "metodo": None,
+            "ruta": None,
+            "identidad_completa": bool(nombre),
+        }
+    coincidencia = _ENDPOINT.fullmatch(nombre)
+    if coincidencia:
+        return {
+            "tipo": tipo,
+            "identificador": nombre,
+            "metodo": coincidencia.group(1),
+            "ruta": coincidencia.group(2),
+            "identidad_completa": True,
+        }
+    return {
+        "tipo": tipo,
+        "identificador": "Endpoint sin método/ruta",
+        "metodo": None,
+        "ruta": None,
+        "identidad_completa": False,
     }
 
 
@@ -227,6 +284,7 @@ def _por_modulo(objetivos, estados) -> list[dict[str, Any]]:
         modulos.setdefault(objetivo["modulo"], []).append(
             {
                 "funcion": objetivo["funcion"],
+                **identidad_de(objetivo),
                 "estado": estado,
                 "intento_final": metricas["iteraciones"],
                 "duracion_s": objetivo.get("duracion_s"),

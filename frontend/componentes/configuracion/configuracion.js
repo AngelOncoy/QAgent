@@ -1,54 +1,123 @@
-// configuracion.js — pantalla «Configuración del sistema» (solo lectura): agentes, límites y entorno
+// configuracion.js — pantalla «Configuración del sistema»: API de cada agente (HU-30), límites y entorno
 // HTML del componente (se monta en el marcador data-componente="configuracion/configuracion" de index.html)
-registrarComponente('configuracion/configuracion', `<!-- ===== CONFIGURACIÓN DEL SISTEMA (solo lectura) ===== -->
+registrarComponente('configuracion/configuracion', `<!-- ===== CONFIGURACIÓN DEL SISTEMA ===== -->
 <section id="s-config" class="hide scroll">
   <div class="page">
     <div class="card"><div class="projhead">
       <span class="t">Configuración del sistema</span>
-      <span class="pill p-grey">Solo lectura · definida por el equipo en <span class="mono">config.toml</span></span>
+      <span class="pill p-grey">Proveedor y modelo en <span class="mono">config.toml</span> · claves solo en <span class="mono">.env</span></span>
     </div></div>
     <div class="card">
-      <h4>Modelo de cada agente <span class="pill p-amber">precios de ejemplo</span></h4>
-      <div class="table-scroll"><table><thead><tr><th>Agente</th><th>Modelo</th><th>Precio (US$ por millón de tokens)</th><th>Por qué este modelo</th></tr></thead><tbody id="cfgAgents"></tbody></table></div>
-      <div class="hint" style="padding:10px 16px 14px">Los modelos son fijos para que todas las corridas sean comparables. Cada corrida guarda en su registro qué modelos usó.</div>
+      <h4>Modelo de cada agente</h4>
+      <div class="table-scroll"><table class="cfg-roles"><thead><tr><th>Agente</th><th>Proveedor y modelo</th><th>API key</th><th>Precio</th><th></th></tr></thead><tbody id="cfgAgents"></tbody></table></div>
+      <div class="hint" style="padding:10px 16px 14px">Cada agente puede usar un proveedor distinto, o el mismo que otro agente, pero siempre con su propia API key. Al guardar se hace una llamada de prueba con la key y el modelo elegidos; si falla, no se guarda nada. Cada corrida guarda en su registro qué modelos usó.</div>
     </div>
     <div class="grid2 cfg-grid">
       <div class="card"><h4>Límites de cada corrida</h4><div class="bd checks" id="cfgLimits"></div></div>
       <div class="card"><h4>Entorno y datos</h4><div class="bd checks">
         <div class="c"><span class="i ok">✓</span><div>Sandbox: contenedor <span class="mono">pyagent-sandbox:base</span>, <b>sin red</b> y sin acceso a los archivos del equipo</div></div>
-        <div class="c"><span class="i ok">✓</span><div>Claves de IA: cargadas desde <span class="mono">.env</span> · nunca se muestran, nunca se suben al repositorio y nunca entran al sandbox</div></div>
+        <div class="c"><span class="i ok">✓</span><div>Claves de IA: solo en <span class="mono">.env</span> · aquí se ven enmascaradas, nunca se suben al repositorio y nunca entran al sandbox</div></div>
         <div class="c"><span class="i ok">✓</span><div>Resultados, specs y pruebas guardadas: <span class="mono">&lt;proyecto&gt;/.pyagent/</span></div></div>
         <div class="c"><span class="i ok">✓</span><div>Tipo de cambio para costos: S/ 3.37 por US$ (carta del proyecto)</div></div>
       </div></div>
     </div>
     <div class="card">
-      <h4>Cómo cambia esto el equipo</h4>
-      <div class="bd"><p class="hint" style="margin:0 0 10px">Se edita <span class="mono">config.toml</span> y se reinicia la aplicación. El usuario no necesita tocar nada.</p>
+      <h4>Cómo se guarda</h4>
+      <div class="bd"><p class="hint" style="margin:0 0 10px">«Agregar API» escribe la key en <span class="mono">.env</span> (una variable por agente, ej. <span class="mono">GEMINI_API_KEY_PLANNER</span>) y en <span class="mono">config.toml</span> solo el proveedor y el modelo del agente. La lista de proveedores y modelos se edita en <span class="mono">src/pyagent/llm/proveedores.toml</span>.</p>
 <pre class="rcode">[agentes.planner]
-modelo = "modelo-contexto-amplio"   # ejemplo
-precio_usd_por_millon = 5.00
+proveedor = "gemini"
+modelo = "gemini-2.5-flash"
+precio_entrada_usd_m = 0
+precio_salida_usd_m = 0
 
-[agentes.generator]
-modelo = "modelo-economico"         # ejemplo
-precio_usd_por_millon = 0.60
-
-[agentes.reviewer]
-modelo = "modelo-economico"         # ejemplo
-precio_usd_por_millon = 0.60
-
-[limites]
-tope_soles_por_corrida = 5.00
-reintentos_max = 3                  # regla del proyecto, no se cambia
-
-# Las claves van en .env (incluido en .gitignore):
-# PROVEEDOR_API_KEY=...</pre></div>
+# .env (no se sube al repositorio)
+# GEMINI_API_KEY_PLANNER=...</pre></div>
     </div>
   </div>
 </section>
 `);
 
+const COLOR_AGENTE = {planner:'var(--blue-300)', generator:'var(--purple-300)', reviewer:'var(--green-300)'};
+const SIGLA_PROVEEDOR = {anthropic:'A', xiaomi:'Mi', openai:'OA', canopylabs:'CL', 'meta-llama':'ML', whisper:'W', openrouter:'OR', gemini:'G', groq:'GQ'};
+let rolesApi = [];          // estado de cada agente (DesktopAPI.obtener_roles)
+let eliminarPendiente = null;
+
+const hayApiDeRoles = () => !!(window.pywebview && window.pywebview.api && window.pywebview.api.obtener_roles);
+
+// Insignia del proveedor: iniciales sobre su color (tokens --prov-* de tokens.css).
+function insigniaProveedor(id){
+  const clase = SIGLA_PROVEEDOR[id] ? id : 'otro';
+  return `<span class="prov-logo prov-${clase}" aria-hidden="true">${escHtml(SIGLA_PROVEEDOR[id] || '?')}</span>`;
+}
+
+function filaRol(r){
+  const boton = `<button class="btn btn-api" onclick="abrirModalApi('${r.agente}')">${r.configurado ? 'Editar' : 'Agregar API'}</button>`;
+  const agente = `<div class="cfg-agente"><b style="color:${COLOR_AGENTE[r.agente]}">${escHtml(r.nombre)}</b>${boton}</div>`;
+  if(!r.configurado){
+    return `<tr><td>${agente}</td><td colspan="4"><span class="pill p-amber">Sin configurar</span> <span class="hint" style="margin:0 0 0 6px">No se pueden iniciar corridas hasta configurarlo.</span></td></tr>`;
+  }
+  const avisos = [];
+  if(!r.genera_texto) avisos.push(`<div class="hint warn" style="margin:2px 0 0">Modelo de tipo «${escHtml(r.tipo_nombre)}»: no genera texto; las llamadas del ${escHtml(r.nombre)} fallarán.</div>`);
+  if(!r.en_catalogo) avisos.push('<div class="hint warn" style="margin:2px 0 0">Modelo fuera del catálogo (editado a mano).</div>');
+  if((r.clave_repetida_con || []).length) avisos.push(`<div class="hint warn" style="margin:2px 0 0">Usa la misma API key que el ${(r.clave_repetida_con).map(escHtml).join(' y el ')}: cada agente necesita la suya. Pulsa «Editar» y pon otra.</div>`);
+  if(r.desde_local) avisos.push('<div class="hint warn" style="margin:2px 0 0">Definido en config.local.toml, que tiene prioridad sobre config.toml.</div>');
+  const clave = r.tiene_clave
+    ? `<span class="mono">${escHtml(r.clave_enmascarada)}</span><div class="sub">${escHtml(r.variable)}</div>`
+    : `<span class="pill p-red">Falta la key</span><div class="sub">${escHtml(r.variable || '')}</div>`;
+  const precio = r.precio_confirmado ? '' : '<span class="pill p-grey">precio sin confirmar</span>';
+  const eliminar = eliminarPendiente === r.agente ? 'Confirmar' : 'Eliminar';
+  return `<tr><td>${agente}</td>
+    <td><div class="cfg-modelo">${insigniaProveedor(r.proveedor)}<div><div class="mono">${escHtml(r.modelo)}</div><div class="sub">${escHtml(r.proveedor_nombre)}</div>${avisos.join('')}</div></div></td>
+    <td>${clave}</td><td>${precio}</td>
+    <td style="text-align:right"><button class="btn" onclick="eliminarApi('${r.agente}')">${eliminar}</button></td></tr>`;
+}
+
+function pintarRoles(){
+  $('cfgAgents').innerHTML = rolesApi.map(filaRol).join('');
+}
+
+async function cargarRoles(){
+  if(!hayApiDeRoles()){
+    // Demostración en el navegador: el catálogo y las keys solo existen en la app de escritorio.
+    rolesApi = ['planner','generator','reviewer'].map(a => ({agente:a, nombre:a[0].toUpperCase() + a.slice(1), configurado:false}));
+    pintarRoles();
+    return;
+  }
+  try {
+    rolesApi = await window.pywebview.api.obtener_roles();
+  } catch (err) {
+    console.error('Error al leer la configuración de los agentes:', err);
+    toastError('No se pudo leer la configuración de los agentes.');
+    return;
+  }
+  pintarRoles();
+}
+
+// Tras guardar o eliminar: la tabla y el bloqueo de «Iniciar corrida» se ponen al día.
+function rolesActualizados(roles){
+  if(roles) rolesApi = roles;
+  pintarRoles();
+  if(typeof verificarEntorno === 'function' && window.pywebview) verificarEntorno();
+}
+
+async function eliminarApi(agente){
+  if(!hayApiDeRoles()){ toast('Disponible en la aplicación de escritorio.'); return; }
+  if(eliminarPendiente !== agente){
+    // Primer clic: pide confirmación en el mismo botón durante unos segundos.
+    eliminarPendiente = agente; pintarRoles();
+    setTimeout(() => { if(eliminarPendiente === agente){ eliminarPendiente = null; pintarRoles(); } }, 4000);
+    return;
+  }
+  eliminarPendiente = null;
+  let r;
+  try { r = await window.pywebview.api.eliminar_api_rol(agente); }
+  catch (err) { console.error('Error al eliminar la API:', err); r = {ok:false, mensaje:'No se pudo eliminar.'}; }
+  if(r.ok) toast(escHtml(r.mensaje)); else toastError(escHtml(r.mensaje));
+  rolesActualizados(r.roles);
+}
+
 function renderConfig(){
-  $('cfgAgents').innerHTML = ['P','G','R'].map(k => `<tr><td><b style="color:${{P:'var(--blue-300)',G:'var(--purple-300)',R:'var(--green-300)'}[k]}">${AGENTS_CFG[k].name}</b></td><td>${AGENTS_CFG[k].model}</td><td class="mono">US$ ${AGENTS_CFG[k].price.toFixed(2)}</td><td style="font-size:12px;color:var(--mut)">${AGENTS_CFG[k].why}</td></tr>`).join('');
+  cargarRoles();
   $('cfgLimits').innerHTML = `
     <div class="c"><span class="i ok">✓</span><div><b>Tope de gasto: S/ ${TOPE_PEN.toFixed(2)} por corrida</b><div class="hint" style="margin:0">La corrida no inicia si el costo estimado lo supera, y se detiene si el gasto real lo alcanza.</div></div></div>
     <div class="c"><span class="i ok">✓</span><div><b>Reintentos: ${MAX_RETRIES} por prueba</b><div class="hint" style="margin:0">Corte anticipado si el mismo error se repite dos veces seguidas.</div></div></div>

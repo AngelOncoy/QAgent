@@ -157,11 +157,12 @@ function iniciarMonitorReal(){
 function monitorEventoReal(d){
   if(!modoReal || runDone || !d) return;
   const [tag, cls] = TAG[d.a] || TAG.sistema, icono = ICON[d.a] || ICON.sistema;
-  const lugar = [d.f, d.fn].filter(Boolean).join(' :: ');
+  const identidad = d.identificador || d.fn;
+  const lugar = [d.f, identidad].filter(Boolean).join(' :: ');
   if(lugar) $('curFile').textContent = lugar;
   if(d.total){
-    const pct = Math.min(100, Math.round(d.hechos / d.total * 100));
-    $('progNum').innerHTML = `${Number(d.hechos)} de ${Number(d.total)} funciones <span>(${pct}%)</span>`;
+    const pct = Number(d.porcentaje);
+    $('progNum').innerHTML = `${Number(d.hechos)} de ${Number(d.total)} objetivos <span>(${pct}%)</span>`;
     $('progBar').style.width = pct + '%';
   }
   const e = {born: Date.now()}; shown.push(e);
@@ -170,7 +171,7 @@ function monitorEventoReal(d){
   div.className = 'ev' + ({guard:' alert', watch:' alert watch', oracle:' alert oracle', stuck:' alert watch'}[d.a] || '');
   div.innerHTML = `<div class="node">${icono}</div><div class="box">
     <div class="hd"><span class="pill ${cls}" style="font-size:10.5px;padding:3px 8px">${escHtml(tag)}</span>
-    ${lugar ? `<span class="file">${ICONO_ARCHIVO}${escHtml(lugar)}</span>` : ''}
+    ${lugar ? `<span class="file">${ICONO_ARCHIVO}${escHtml(lugar)}</span><span class="bdg ${d.tipo_objetivo==='endpoint'?'b-blue':'b-grey'}">${d.tipo_objetivo==='endpoint'?'Endpoint':'Función'}</span>` : ''}
     <span class="ago">◷ <span class="agoTxt">hace 0s</span></span></div>
     <div class="tx">${escHtml(d.t || '')}</div>
     ${d.guard ? `<div class="guard ${escHtml(d.a)}"><span>⛉ ${escHtml(d.guard[0])}</span><b>${escHtml(d.guard[1])}</b></div>` : ''}

@@ -269,6 +269,7 @@ EJEMPLO DE RESPUESTA:
         if not endpoints:
             return []
 
+        aplicacion = _aplicacion_principal(endpoints.values())
         prompt = self._crear_prompt_endpoints(modulo, endpoints, fuente)
         respuesta = self.cliente.generar(prompt, rol="planner")
         self.tracker.registrar(
@@ -296,7 +297,11 @@ EJEMPLO DE RESPUESTA:
                 self.descartados.append(f"endpoint repetido: {objetivo}")
                 continue
             contrato = self._contrato_endpoint(
-                modulo, endpoints[objetivo], elemento.get("casos"), modelos
+                modulo,
+                endpoints[objetivo],
+                elemento.get("casos"),
+                modelos,
+                aplicacion,
             )
             if contrato is not None:
                 plan.append(contrato)
@@ -315,6 +320,7 @@ EJEMPLO DE RESPUESTA:
         endpoint: dict[str, Any],
         casos: Any,
         modelos: dict[str, dict[str, Any]],
+        aplicacion: str,
     ) -> dict[str, Any] | None:
         objetivo = endpoint["objetivo"]
         base = {
@@ -324,6 +330,8 @@ EJEMPLO DE RESPUESTA:
             "tipo": "endpoint",
             "objetivo": objetivo,
             "manejador": endpoint["manejador"],
+            "aplicacion": aplicacion,
+            "dependencias": _dependencias_con_reemplazo(modulo, endpoint),
             "firma": endpoint.get("firma") or "()",
             "critical": bool(endpoint.get("critical", False)),
             "llama_a": list(dict.fromkeys(endpoint.get("llama_a") or [])),
@@ -424,6 +432,45 @@ MODELOS: {json.dumps(modelos, ensure_ascii=False)}
 {MARCA_MODULO} {modulo["ruta"]}
 {MARCA_OBJETIVOS} {json.dumps(objetivos, ensure_ascii=False)}
 """.strip()
+
+
+def _aplicacion_principal(endpoints: Any) -> str:
+    """Elige el símbolo FastAPI raíz conocido por el análisis estático.
+
+    EN-14 conserva el objeto decorado (``app`` o ``router``). Cuando un módulo
+    combina ambos, se prefiere el símbolo convencional ``app`` que incluye al
+    router y, por tanto, expone las rutas completas a ``TestClient``.
+    """
+    aplicaciones = [
+        str(endpoint.get("app", "")).split("::")[-1]
+        for endpoint in endpoints
+        if endpoint.get("app")
+    ]
+    if "app" in aplicaciones:
+        return "app"
+    return aplicaciones[0] if aplicaciones else "app"
+
+
+def _dependencias_con_reemplazo(
+    modulo: dict[str, Any], endpoint: dict[str, Any]
+) -> list[dict[str, str]]:
+    """Convierte cada Depends analizado en un doble instanciable.
+
+    El tipo de retorno de la función de dependencia ya forma parte de la salida
+    estática de EN-14. Para ``obtener_repositorio() -> Repositorio``, por ejemplo,
+    el Generator recibe ambos símbolos sin inspeccionar ni ejecutar el proyecto.
+    """
+    funciones = {funcion["nombre"]: funcion for funcion in modulo.get("funciones", [])}
+    resultado = []
+    for dependencia in endpoint.get("dependencias", []):
+        nombre = dependencia.get("funcion")
+        retorno = (funciones.get(nombre) or {}).get("retorno")
+        if not isinstance(nombre, str) or not isinstance(retorno, str):
+            continue
+        reemplazo = retorno.split("[")[0].split("|")[0].strip()
+        if re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", reemplazo):
+            resultado.append({"funcion": nombre, "reemplazo": reemplazo})
+    return resultado
 
 
 def _quitar_cerca_json(contenido: str) -> str:

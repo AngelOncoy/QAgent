@@ -44,8 +44,9 @@ def objetivo(
     paso=True,
     lineas=80.0,
     ramas=50.0,
+    tipo=None,
 ):
-    return {
+    dato = {
         "modulo": modulo,
         "funcion": funcion,
         "critical": False,
@@ -62,6 +63,9 @@ def objetivo(
             "mutation_score": None,
         },
     }
+    if tipo is not None:
+        dato["tipo"] = tipo
+    return dato
 
 
 @pytest.fixture
@@ -159,6 +163,41 @@ def test_los_filtros_pedidos_se_muestran_aunque_esten_en_cero(results) -> None:
     assert claves == ["aprobado", "rechazado_laundering", "estancado"]
 
 
+def test_filtros_de_tipo_e_identidad_http_salen_de_results(results) -> None:
+    results["objetivos"][1]["tipo"] = "endpoint"
+    results["objetivos"][1]["funcion"] = "POST /items"
+
+    vista = vista_ejecucion(results)
+
+    assert vista["filtros_tipo"] == [
+        {"clave": "todos", "etiqueta": "Todos", "cantidad": 4},
+        {"clave": "funcion", "etiqueta": "Funciones", "cantidad": 3},
+        {"clave": "endpoint", "etiqueta": "Endpoints", "cantidad": 1},
+    ]
+    endpoint = vista["modulos"][0]["pruebas"][1]
+    assert endpoint["identificador"] == "POST /items"
+    assert (endpoint["metodo"], endpoint["ruta"]) == ("POST", "/items")
+    assert endpoint["identidad_completa"] is True
+
+
+def test_endpoint_incompleto_no_recibe_una_ruta_inventada(results) -> None:
+    results["objetivos"][0]["tipo"] = "endpoint"
+    results["objetivos"][0]["funcion"] = "crear_item"
+
+    endpoint = vista_ejecucion(results)["modulos"][0]["pruebas"][0]
+
+    assert endpoint["identificador"] == "Endpoint sin método/ruta"
+    assert endpoint["metodo"] is None and endpoint["ruta"] is None
+    assert endpoint["identidad_completa"] is False
+
+
+def test_corrida_antigua_sin_tipo_se_conserva_como_funcion(results) -> None:
+    prueba = vista_ejecucion(results)["modulos"][0]["pruebas"][0]
+
+    assert prueba["tipo"] == "funcion"
+    assert prueba["identificador"] == "aprobada"
+
+
 def test_pruebas_agrupadas_por_modulo(results) -> None:
     modulos = vista_ejecucion(results)["modulos"]
 
@@ -166,6 +205,11 @@ def test_pruebas_agrupadas_por_modulo(results) -> None:
     estancada = modulos[1]["pruebas"][0]
     assert estancada == {
         "funcion": "estancada",
+        "tipo": "funcion",
+        "identificador": "estancada",
+        "metodo": None,
+        "ruta": None,
+        "identidad_completa": True,
         "estado": "estancado",
         "intento_final": 2,
         "duracion_s": 1.5,

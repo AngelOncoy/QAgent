@@ -254,9 +254,12 @@ def _objetivo(
     return {
         "modulo": modulo,
         "funcion": objetivo.objetivo,
+        "tipo": (objetivo.contrato or {}).get("tipo", "funcion"),  # EN-16
         "critical": objetivo.critical,
         "decision": objetivo.decision,
         "motivo_estancado": objetivo.motivo_estancado,  # HU-14
+        "reutilizada": objetivo.reutilizada,
+        "motivo_regresion": objetivo.motivo_regresion,
         "laundering_detectado": objetivo.laundering_detectado,  # HU-16
         "duracion_s": objetivo.duracion_s,
         "controles": controles(objetivo, metas),  # HU-21
@@ -287,6 +290,9 @@ def _resumen(
         "bugs_detectados": _contar(objetivos, "bug_detectado"),
         "stalled": _contar(objetivos, "stalled"),
         "sin_veredicto": _contar(objetivos, None),
+        "requieren_corrida_nueva": _contar(
+            objetivos, "requiere_corrida_nueva"
+        ),
         "pass_rate": round(pasaron / total * 100, 1) if total else 0.0,
         "cobertura_lineas_promedio": _promedio(objetivos, "cobertura_lineas"),
         "cobertura_ramas_promedio": _promedio(objetivos, "cobertura_ramas"),
