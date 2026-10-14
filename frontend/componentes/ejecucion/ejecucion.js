@@ -7,7 +7,7 @@ registrarComponente('ejecucion/ejecucion', `<!-- ===== 5. EJECUCIÓN DE PRUEBAS 
 
     <div class="toolbar">
       <div class="tleft"><span class="flbl"><span class='ico' data-i='filter' data-c='var(--slate-300-c)'></span> Tipo:</span><div id="tipoBtns"></div><span class="flbl">Estado:</span><div id="fbtns"></div></div>
-      <div class="cmd2"><span class='ico' data-i='term' data-c='var(--blue-400)'></span> docker run --rm --network none pyagent-sandbox:base pytest -v --cov --cov-branch</div>
+      <div class="cmd2"><span class='ico' data-i='term' data-c='var(--blue-400)'></span> docker run --rm --network none qagent-sandbox:base pytest -v --cov --cov-branch</div>
     </div>
     <div id="suites"></div>
     <div class="nextbox" id="execNextBox">

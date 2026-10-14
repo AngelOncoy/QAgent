@@ -53,7 +53,7 @@ def proyecto(tmp_path: Path) -> Path:
 def _sesion_con_corrida(proyecto: Path) -> dict:
     """Primera sesión: corrida con una spec y su prueba aprobada."""
     almacen = AlmacenProyecto(proyecto)
-    run = almacen.crear_run(["funcion"], "pyagent-sandbox:base")
+    run = almacen.crear_run(["funcion"], "qagent-sandbox:base")
     spec = almacen.guardar_spec(CONTRATO, run["run_id"])
     archivo = nombre_prueba(spec["id"])
     almacen.guardar_prueba_aprobada(archivo, CODIGO)

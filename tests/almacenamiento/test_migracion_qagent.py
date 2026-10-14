@@ -74,3 +74,10 @@ def test_recientes_no_pisa_un_home_ya_migrado(tmp_path: Path):
 def test_el_sandbox_no_copia_ninguna_de_las_dos_carpetas():
     assert ".qagent" in EXCLUIDOS_DE_LA_COPIA
     assert ".pyagent" in EXCLUIDOS_DE_LA_COPIA
+
+
+def test_la_imagen_del_sandbox_se_llama_qagent():
+    from pyagent.sandbox.modelos import IMAGEN_BASE, REPOSITORIO
+
+    assert REPOSITORIO == "qagent-sandbox"
+    assert IMAGEN_BASE == "qagent-sandbox:base"

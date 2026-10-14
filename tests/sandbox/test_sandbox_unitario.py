@@ -330,8 +330,8 @@ def _solo_existen(*etiquetas: str):
 def test_etiqueta_por_hash_del_requirements():
     etiqueta = etiqueta_para_requirements(b"fastapi==0.115.0\n")
 
-    assert etiqueta.startswith("pyagent-sandbox:req-")
-    assert len(etiqueta.removeprefix("pyagent-sandbox:req-")) == 12
+    assert etiqueta.startswith("qagent-sandbox:req-")
+    assert len(etiqueta.removeprefix("qagent-sandbox:req-")) == 12
     assert etiqueta == etiqueta_para_requirements(b"fastapi==0.115.0\n")
     assert etiqueta != etiqueta_para_requirements(b"fastapi==0.116.0\n")
 

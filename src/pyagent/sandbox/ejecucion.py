@@ -120,7 +120,7 @@ def ejecutar_en_sandbox(
     if not tests.is_dir():
         raise ErrorSandbox(f"La carpeta de tests no existe: {tests}")
 
-    temporal = Path(tempfile.mkdtemp(prefix="pyagent-sandbox-")).resolve()
+    temporal = Path(tempfile.mkdtemp(prefix="qagent-sandbox-")).resolve()
     contenedor = None
     try:
         copia = copiar_proyecto(ruta_proyecto, temporal / "proyecto")
@@ -251,7 +251,7 @@ def _crear_contenedor(
             security_opt=["no-new-privileges"],
             read_only=True,
             tmpfs={"/tmp": f"rw,size={TMP_TAMANO}"},
-            labels={"pyagent": "sandbox"},
+            labels={"qagent": "sandbox"},
         )
     except ImageNotFound as exc:
         raise ImagenNoEncontrada(

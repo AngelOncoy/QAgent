@@ -64,7 +64,7 @@ def etiqueta_para_requirements(contenido: bytes) -> str:
         contenido: bytes del archivo requirements.txt.
 
     Returns:
-        Etiqueta con la forma `pyagent-sandbox:req-<sha256[:12]>`.
+        Etiqueta con la forma `qagent-sandbox:req-<sha256[:12]>`.
     """
     return f"{REPOSITORIO}:req-{hashlib.sha256(contenido).hexdigest()[:12]}"
 

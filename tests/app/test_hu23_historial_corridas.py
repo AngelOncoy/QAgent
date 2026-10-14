@@ -60,7 +60,7 @@ def _crear_corrida_con_datos(
         "inicio": momento,
         "fin": None,
         "tipos_prueba": ["funcion"],
-        "imagen_docker": "pyagent-sandbox:base",
+        "imagen_docker": "qagent-sandbox:base",
         "estado": "en_curso",
         "resumen": None,
     }

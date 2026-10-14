@@ -6,7 +6,7 @@ import shutil
 from dataclasses import dataclass
 from typing import Any
 
-REPOSITORIO = "pyagent-sandbox"
+REPOSITORIO = "qagent-sandbox"
 IMAGEN_BASE = f"{REPOSITORIO}:base"
 
 MENSAJE_NO_INSTALADO = "Docker no está instalado. Instala Docker Desktop para ejecutar las pruebas en el sandbox."

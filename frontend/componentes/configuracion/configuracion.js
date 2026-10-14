@@ -15,7 +15,7 @@ registrarComponente('configuracion/configuracion', `<!-- ===== CONFIGURACIÓN DE
     <div class="grid2 cfg-grid">
       <div class="card"><h4>Límites de cada corrida</h4><div class="bd checks" id="cfgLimits"></div></div>
       <div class="card"><h4>Entorno y datos</h4><div class="bd checks">
-        <div class="c"><span class="i ok">✓</span><div>Sandbox: contenedor <span class="mono">pyagent-sandbox:base</span>, <b>sin red</b> y sin acceso a los archivos del equipo</div></div>
+        <div class="c"><span class="i ok">✓</span><div>Sandbox: contenedor <span class="mono">qagent-sandbox:base</span>, <b>sin red</b> y sin acceso a los archivos del equipo</div></div>
         <div class="c"><span class="i ok">✓</span><div>Claves de IA: solo en <span class="mono">.env</span> · aquí se ven enmascaradas, nunca se suben al repositorio y nunca entran al sandbox</div></div>
         <div class="c"><span class="i ok">✓</span><div>Resultados, specs y pruebas guardadas: <span class="mono">&lt;proyecto&gt;/.qagent/</span></div></div>
         <div class="c"><span class="i ok">✓</span><div>Tipo de cambio para costos: S/ 3.37 por US$ (carta del proyecto)</div></div>

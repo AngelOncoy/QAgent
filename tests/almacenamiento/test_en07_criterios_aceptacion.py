@@ -196,7 +196,7 @@ def test_criterio_4_evidencia_persistencia_tras_reinicio_sesion(
         "inicio": "2026-10-20T10:00:00+00:00",
         "fin": "2026-10-20T10:01:00+00:00",
         "tipos_prueba": ["funcion"],
-        "imagen_docker": "pyagent-sandbox:base",
+        "imagen_docker": "qagent-sandbox:base",
         "estado": "fin",
         "resumen": {"pasaron": 1, "fallaron": 0},
     }

@@ -38,7 +38,7 @@ def almacen(tmp_path: Path) -> AlmacenProyecto:
 
 
 def test_crear_run_escribe_run_json_en_su_carpeta(almacen):
-    run = almacen.crear_run(["funcion"], "pyagent-sandbox:base", ahora=MOMENTO)
+    run = almacen.crear_run(["funcion"], "qagent-sandbox:base", ahora=MOMENTO)
 
     assert run["run_id"].startswith("20261009-143005-")
     ruta = almacen.carpeta_runs / run["run_id"] / "run.json"
@@ -47,7 +47,7 @@ def test_crear_run_escribe_run_json_en_su_carpeta(almacen):
         "inicio": "2026-10-09T14:30:05+00:00",
         "fin": None,
         "tipos_prueba": ["funcion"],
-        "imagen_docker": "pyagent-sandbox:base",
+        "imagen_docker": "qagent-sandbox:base",
         "estado": "en_curso",
         "resumen": None,
     }
