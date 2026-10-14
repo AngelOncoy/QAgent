@@ -30,7 +30,8 @@ python test.py                  # lint + formato + TODAS las pruebas (IA simulad
 python test.py --rapido         # sin lint y sin pruebas de Docker ni de red
 pytest                          # solo pytest (con IA simulada: QAGENT_FAKE_LLM=1 en ~/.qagent/.env o set/export en el sistema)
 ruff check . && ruff format .   # lint y formato (bench/ está excluido a propósito)
-qagent                          # abre la aplicación de escritorio (o: python -m qagent)
+qagent                          # abre la aplicación de escritorio (o: python -m qagent; qagent --version)
+python scripts/verificar_paquete.py  # construye el paquete, lo instala limpio fuera del repo y lo prueba (TA-06)
 ```
 
 La interfaz, los contratos y `config.toml` viajan dentro del paquete (`src/qagent/`), así que el programa también funciona instalado sin `-e` (TA-06). Para desarrollar se usa la instalación editable.

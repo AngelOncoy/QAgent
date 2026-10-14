@@ -763,8 +763,22 @@ def _registrar_estado_configuracion() -> None:
             bitacora.registro.warning("  - %s", aviso)
 
 
+def ejecutar(argv: list[str] | None = None) -> None:
+    """Comando `qagent` (y `python -m qagent`): atiende `--version` y abre la app."""
+    import argparse
+
+    from qagent import __version__
+
+    parser = argparse.ArgumentParser(
+        prog="qagent", description="Abre la aplicación de escritorio de QAgent."
+    )
+    parser.add_argument("--version", action="version", version=f"QAgent {__version__}")
+    parser.parse_args(argv)
+    main()
+
+
 def main() -> None:
-    """Punto de entrada de la aplicación de escritorio."""
+    """Abre la aplicación de escritorio."""
     from qagent.config.carga import migrar_desde_repositorio
 
     # Orden importante: ~/.pyagent/ solo se renombra si ~/.qagent/ aún no existe, y

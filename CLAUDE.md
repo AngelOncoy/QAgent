@@ -11,7 +11,8 @@ pip install -e .[dev]          # instalación editable, una vez por máquina (py
 python test.py                 # lint + formato + TODAS las pruebas, con la IA simulada
 python test.py --rapido        # sin lint, sin pruebas de Docker ni de red
 python test.py -k clonador     # los demás argumentos van a pytest
-qagent                         # abre la app (también: python -m qagent)
+qagent                         # abre la app (también: python -m qagent; qagent --version)
+python scripts/verificar_paquete.py  # paquete instalado limpio, fuera del repo (antes de una release)
 ruff check . && ruff format .  # lint y formato (bench/ está excluido a propósito)
 ```
 

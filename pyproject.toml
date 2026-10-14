@@ -11,6 +11,7 @@ requires-python = ">=3.10"
 dependencies = [
     "pywebview>=5.0.0",
     "docker>=7.1.0",
+    "requests>=2.31",  # se usa directamente en sandbox/ejecucion.py
     "jsonschema>=4.18",
     "tomli>=2.0; python_version < '3.11'",
 ]
@@ -19,20 +20,21 @@ dependencies = [
 dev = [
     "pytest>=8.0.0",
     "ruff>=0.4.0",
+    "build>=1.2",  # scripts/verificar_paquete.py construye el wheel y el sdist
 ]
 
 [project.scripts]
-qagent = "qagent.app.desktop:main"
+qagent = "qagent.app.desktop:ejecutar"
 
 # Producto, comando y paquete se llaman igual: QAgent / `qagent` (antes `pyagent`).
 [tool.setuptools.packages.find]
 where = ["src"]
-# Solo carpetas con __init__.py son paquetes: frontend/ y contracts/ejemplos/ son datos.
-namespaces = false
+# Se descubren también las carpetas sin __init__.py (frontend/, contracts/ejemplos/):
+# así setuptools no avisa de paquetes «ambiguos» y sus archivos se instalan.
 
 # Recursos que la app necesita instalada (TA-06): sin ellos `pip install qagent` abre sin interfaz.
 [tool.setuptools.package-data]
-"qagent" = ["frontend/**/*"]
+"qagent.frontend" = ["**/*"]
 "qagent.config" = ["config.toml", "config.local.ejemplo.toml"]
 "qagent.contracts" = ["*.schema.json", "ejemplos/*.json"]
 "qagent.sandbox" = ["Dockerfile"]

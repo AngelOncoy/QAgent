@@ -23,6 +23,7 @@ RAIZ = Path(__file__).resolve().parent
 RUTAS_LINT = [
     "src",
     "tests",
+    "scripts",
     "test.py",
 ]  # bench/ queda fuera: tiene bugs sembrados a propósito
 
