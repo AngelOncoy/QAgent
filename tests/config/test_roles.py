@@ -60,7 +60,7 @@ def rutas(tmp_path: Path) -> tuple[Path, Path]:
     config = tmp_path / "config.toml"
     config.write_text(CONFIG_EQUIPO, encoding="utf-8")
     env = tmp_path / ".env"
-    env.write_text("# claves\nPYAGENT_FAKE_LLM=0\n", encoding="utf-8")
+    env.write_text("# claves\nQAGENT_FAKE_LLM=0\n", encoding="utf-8")
     return config, env
 
 
@@ -195,7 +195,7 @@ def test_la_env_conserva_las_demas_lineas(rutas):
     _guardar(rutas, "planner", "gemini", "gemini-2.5-flash", CLAVE_GEMINI + "2")
 
     texto = env.read_text(encoding="utf-8")
-    assert "# claves" in texto and "PYAGENT_FAKE_LLM=0" in texto
+    assert "# claves" in texto and "QAGENT_FAKE_LLM=0" in texto
     assert texto.count("GEMINI_API_KEY_PLANNER=") == 1
     assert leer_env(env)["GEMINI_API_KEY_PLANNER"] == CLAVE_GEMINI + "2"
 

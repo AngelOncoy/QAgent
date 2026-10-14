@@ -61,7 +61,7 @@ def test_eliminar_deja_sin_configurar_y_bloquea_la_corrida(api, monkeypatch):
     assert r["ok"]
     assert not next(x for x in r["roles"] if x["agente"] == "reviewer")["configurado"]
 
-    monkeypatch.setenv("PYAGENT_FAKE_LLM", "0")  # con la IA real, el rol hace falta
+    monkeypatch.setenv("QAGENT_FAKE_LLM", "0")  # con la IA real, el rol hace falta
     monkeypatch.setattr(
         "pyagent.sandbox.estado.estado_docker",
         lambda: {"estado": "ok", "mensaje": "ok"},

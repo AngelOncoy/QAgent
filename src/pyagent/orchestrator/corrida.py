@@ -94,7 +94,7 @@ def ejecutar_corrida(
         configuracion: `Configuracion` de `cargar_configuracion()` (agentes, tope de
             gasto y reintentos).
         claves: claves de `.env`; no se usan con la IA simulada.
-        simulado: True con `PYAGENT_FAKE_LLM=1` (0 tokens).
+        simulado: True con `QAGENT_FAKE_LLM=1` (0 tokens).
         al_evento: recibe cada evento como dict (`Evento.a_dict()` + `progreso`).
         run_id: corrida creada al pulsar «Iniciar» (`run.json`); si es None se crea una
             si el proyecto tiene `.qagent/`.

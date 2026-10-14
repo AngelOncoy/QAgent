@@ -34,7 +34,7 @@ def _docker(estado: str):
 
 
 def test_con_ia_real_lanza_el_pipeline(api, monkeypatch, corridas_lanzadas) -> None:
-    monkeypatch.setenv("PYAGENT_FAKE_LLM", "0")
+    monkeypatch.setenv("QAGENT_FAKE_LLM", "0")
     with _docker("ok"):
         resultado = api.start_run("C:/proyecto", "deep")
 
@@ -46,7 +46,7 @@ def test_con_ia_real_lanza_el_pipeline(api, monkeypatch, corridas_lanzadas) -> N
 def test_con_ia_simulada_y_docker_listo_tambien_es_real(
     api, monkeypatch, corridas_lanzadas
 ) -> None:
-    monkeypatch.setenv("PYAGENT_FAKE_LLM", "1")
+    monkeypatch.setenv("QAGENT_FAKE_LLM", "1")
     monkeypatch.setattr(DesktopAPI, "_sandbox_listo", lambda self: True)
 
     resultado = api.start_run("C:/proyecto", "deep")
@@ -58,7 +58,7 @@ def test_con_ia_simulada_y_docker_listo_tambien_es_real(
 def test_con_ia_simulada_sin_docker_queda_en_demostracion(
     api, monkeypatch, corridas_lanzadas
 ) -> None:
-    monkeypatch.setenv("PYAGENT_FAKE_LLM", "1")
+    monkeypatch.setenv("QAGENT_FAKE_LLM", "1")
 
     resultado = api.start_run("C:/proyecto", "deep")
 
@@ -68,7 +68,7 @@ def test_con_ia_simulada_sin_docker_queda_en_demostracion(
 
 
 def test_no_lanza_dos_corridas_a_la_vez(api, monkeypatch, corridas_lanzadas) -> None:
-    monkeypatch.setenv("PYAGENT_FAKE_LLM", "1")
+    monkeypatch.setenv("QAGENT_FAKE_LLM", "1")
     sigue = threading.Event()
     api._corrida = threading.Thread(target=sigue.wait, daemon=True)
     api._corrida.start()

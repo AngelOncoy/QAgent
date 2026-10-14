@@ -51,7 +51,7 @@ def crear_cliente(
         precio: entrada de `[agentes.<agente>]` (proveedor, modelo, endpoint, esfuerzo).
         claves: claves de `.env` (`cargar_configuracion().claves`); no se usan si
             `simulado` es True.
-        simulado: True con `PYAGENT_FAKE_LLM=1`: devuelve la IA simulada (0 tokens).
+        simulado: True con `QAGENT_FAKE_LLM=1`: devuelve la IA simulada (0 tokens).
         transporte: transporte HTTP reemplazable en las pruebas.
         timeout_s: tiempo máximo por llamada.
 

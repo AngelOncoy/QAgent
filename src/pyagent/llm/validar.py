@@ -5,7 +5,7 @@ Uso (desde la carpeta del repositorio):
     python -m pyagent.llm.validar            # una llamada corta a cada agente
     python -m pyagent.llm.validar --gratis   # además lista los modelos :free de OpenRouter
 
-Lee `config.toml`, `config.local.toml` (si existe) y `.env` igual que la aplicación, ignora `PYAGENT_FAKE_LLM` (siempre
+Lee `config.toml`, `config.local.toml` (si existe) y `.env` igual que la aplicación, ignora `QAGENT_FAKE_LLM` (siempre
 usa la IA real) y nunca muestra las claves: solo dice qué agente respondió, con qué
 modelo, en cuánto tiempo y cuántos tokens usó. Cada llamada cuesta unos pocos tokens
 (US$ 0 con los modelos de capa gratuita).

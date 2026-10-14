@@ -22,7 +22,7 @@ from pyagent.config.carga import (
 
 MENSAJE_LISTO = "Entorno listo"
 MENSAJE_IA_SIMULADA = (
-    "IA simulada activa (PYAGENT_FAKE_LLM=1): respuestas grabadas, 0 tokens y US$ 0. "
+    "IA simulada activa (QAGENT_FAKE_LLM=1): respuestas grabadas, 0 tokens y US$ 0. "
     "No se usan las claves de .env."
 )
 MENSAJE_DOCKER_OPCIONAL = (
@@ -88,7 +88,7 @@ def verificar_entorno(
         ruta_config: ruta de `config.toml`.
         ruta_env: ruta de `.env`.
         simulado: True si la IA es simulada y no hacen falta claves (None = según
-            `PYAGENT_FAKE_LLM`).
+            `QAGENT_FAKE_LLM`).
         docker: función que devuelve `{"estado", "mensaje"}` de Docker (inyectable).
         git: función que devuelve `{"estado", "mensaje"}` de Git (inyectable).
         carga: resultado ya cargado; si es None se lee de disco.

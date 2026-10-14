@@ -6,7 +6,7 @@
     python test.py -k clonador     cualquier otro argumento se pasa a pytest
     python test.py tests/proyectos -x
 
-Siempre usa la IA simulada (PYAGENT_FAKE_LLM=1): ninguna prueba llama a una API real.
+Siempre usa la IA simulada (QAGENT_FAKE_LLM=1): ninguna prueba llama a una API real.
 Las pruebas que necesitan Docker se omiten solas si Docker Desktop no está iniciado.
 """
 
@@ -56,7 +56,8 @@ def main(argv: list[str] | None = None) -> int:
     )
     args, extra_pytest = parser.parse_known_args(argv)
 
-    entorno = {**os.environ, "PYAGENT_FAKE_LLM": "1"}
+    entorno = {**os.environ, "QAGENT_FAKE_LLM": "1"}
+    entorno.pop("PYAGENT_FAKE_LLM", None)  # nombre anterior: que no interfiera
     python = sys.executable
     pasos: list[tuple[str, list[str]]] = []
 

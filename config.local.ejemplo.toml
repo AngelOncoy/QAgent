@@ -5,7 +5,7 @@
 # (presupuesto, umbrales, reintentos) se toma de config.toml salvo que lo repitas aquí.
 #
 # Claves en .env: GEMINI_API_KEY, GROQ_API_KEY y OPENROUTER_API_KEY (cuentas sin tarjeta)
-# y PYAGENT_FAKE_LLM=0 para usar la IA real.
+# y QAGENT_FAKE_LLM=0 para usar la IA real.
 # Probar las claves y los modelos:  python -m pyagent.llm.validar --gratis
 #
 # Reparto: Planner en Gemini (más contexto, pocas llamadas), Generator en Groq (más

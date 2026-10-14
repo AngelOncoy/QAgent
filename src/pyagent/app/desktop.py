@@ -417,7 +417,7 @@ class DesktopAPI:
 
         Primero verifica que Docker responde (HU-13) y luego que el entorno completo
         esté listo: config.toml, claves de .env, Docker y Git (EN-06). Con la IA
-        simulada (PYAGENT_FAKE_LLM=1, en el sistema o en el .env) Docker es opcional.
+        simulada (QAGENT_FAKE_LLM=1, en el sistema o en el .env) Docker es opcional.
 
         Si todo está listo, la corrida real (análisis → Planner → Generator → Reviewer
         en Docker → log.json/results.json) corre en un hilo y envía a la interfaz los
@@ -579,7 +579,7 @@ class DesktopAPI:
         Returns:
             dict: `{"estado": "ok" | "sin_imagen" | "no_iniciado" | "no_instalado",
             "mensaje": str, "simulado": bool}`. `simulado` indica que la IA es simulada
-            (PYAGENT_FAKE_LLM=1): ahí no se ejecuta nada en el sandbox y Docker es
+            (QAGENT_FAKE_LLM=1): ahí no se ejecuta nada en el sandbox y Docker es
             opcional, así que la interfaz no debe presentar su ausencia como un fallo.
         """
         from pyagent.config import modo_simulado
@@ -736,7 +736,7 @@ def _registrar_estado_configuracion() -> None:
         instalar_filtro_logs,
     )
 
-    # PYAGENT_FAKE_LLM=1 en el .env también activa la IA simulada para todo el programa.
+    # QAGENT_FAKE_LLM=1 en el .env también activa la IA simulada para todo el programa.
     aplicar_simulacion_desde_env()
     from pyagent.config import carga as config_carga
 
@@ -745,7 +745,7 @@ def _registrar_estado_configuracion() -> None:
     bitacora.configurar_registro(carga.claves)  # bitácora de la corrida en la consola
     if carga.simulado:
         bitacora.registro.info(
-            "IA simulada activa (PYAGENT_FAKE_LLM=1): 0 tokens, no se usan claves."
+            "IA simulada activa (QAGENT_FAKE_LLM=1): 0 tokens, no se usan claves."
         )
     if carga.ok:
         bitacora.registro.info("Configuración cargada: config.toml y claves en orden.")

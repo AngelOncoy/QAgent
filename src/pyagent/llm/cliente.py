@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 import os
 import time
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from typing import Any, Protocol
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
@@ -323,9 +323,26 @@ class ClienteLLMReal:
         return max(numero, 0)
 
 
+#: Variable que activa la IA simulada (EN-11), en el sistema o en el `.env`.
+VARIABLE_SIMULADA = "QAGENT_FAKE_LLM"
+#: Nombre anterior (PyAgent): se sigue aceptando para no romper `.env` ni scripts.
+VARIABLE_SIMULADA_ANTERIOR = "PYAGENT_FAKE_LLM"
+
+
+def valor_simulado(entorno: Mapping[str, str]) -> str | None:
+    """Valor de la bandera de IA simulada en `entorno`, o None si no está definida.
+
+    Si están las dos, manda `QAGENT_FAKE_LLM`; la anterior solo se usa como respaldo.
+    """
+    for nombre in (VARIABLE_SIMULADA, VARIABLE_SIMULADA_ANTERIOR):
+        if nombre in entorno:
+            return entorno[nombre]
+    return None
+
+
 def es_modo_simulado() -> bool:
-    """Verifica si la simulación está activa mediante PYAGENT_FAKE_LLM=1."""
-    return os.getenv("PYAGENT_FAKE_LLM", "0").strip() == "1"
+    """Verifica si la simulación está activa mediante QAGENT_FAKE_LLM=1."""
+    return (valor_simulado(os.environ) or "0").strip() == "1"
 
 
 def obtener_cliente_llm(

@@ -1,5 +1,5 @@
 {
-  "descripcion": "Casos que la IA simulada (PYAGENT_FAKE_LLM=1) devuelve como Planner para bench/banco_mvp.py. Cada valor esperado sale del docstring de la función, nunca de ejecutarla. Clave: '<archivo>.py::<función>'. Los endpoints de bench_api/api_mvp.py usan la clave '<archivo>.py::<MÉTODO> <ruta>' (HU-27); su valor esperado sale del status_code, el response_model, los modelos Pydantic o el docstring.",
+  "descripcion": "Casos que la IA simulada (QAGENT_FAKE_LLM=1) devuelve como Planner para bench/banco_mvp.py. Cada valor esperado sale del docstring de la función, nunca de ejecutarla. Clave: '<archivo>.py::<función>'. Los endpoints de bench_api/api_mvp.py usan la clave '<archivo>.py::<MÉTODO> <ruta>' (HU-27); su valor esperado sale del status_code, el response_model, los modelos Pydantic o el docstring.",
   "casos": {
     "banco_mvp.py::calcular_descuento": [
       {"id": "descuento_normal", "descripcion": "100 con 20% de descuento queda en 80", "entrada": {"precio": 100.0, "porcentaje": 20.0}, "valor_esperado": 80.0, "origen": "docstring"},

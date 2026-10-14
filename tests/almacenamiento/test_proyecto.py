@@ -347,7 +347,7 @@ def test_un_fallo_al_escribir_no_deja_el_json_a_medias(
 @pytest.fixture
 def api(monkeypatch: pytest.MonkeyPatch) -> desktop.DesktopAPI:
     """Puente con el entorno dado por listo y la IA simulada (Docker opcional)."""
-    monkeypatch.setenv("PYAGENT_FAKE_LLM", "1")
+    monkeypatch.setenv("QAGENT_FAKE_LLM", "1")
     puente = desktop.DesktopAPI()
     puente.verificar_entorno = lambda: {  # type: ignore[method-assign]
         "listo": True,

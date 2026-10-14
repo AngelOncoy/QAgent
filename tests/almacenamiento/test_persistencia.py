@@ -163,7 +163,7 @@ def test_otro_proceso_lee_lo_guardado(home: Path, proyecto: Path):
     rutas = [src, os.environ.get("PYTHONPATH", "")]
     entorno = {
         **os.environ,
-        "PYAGENT_FAKE_LLM": "1",
+        "QAGENT_FAKE_LLM": "1",
         "PYTHONPATH": os.pathsep.join(r for r in rutas if r),
     }
 

@@ -134,7 +134,7 @@ def test_el_puente_registra_el_evento_que_envia_la_pantalla(salida):
 
 
 def test_iniciar_y_bloquear_la_corrida_quedan_en_la_bitacora(salida, monkeypatch):
-    monkeypatch.setenv("PYAGENT_FAKE_LLM", "1")
+    monkeypatch.setenv("QAGENT_FAKE_LLM", "1")
     bitacora.configurar_registro(flujo=salida)
     api = DesktopAPI()
     api.verificar_entorno = lambda: {"listo": True, "mensaje": "", "problemas": []}  # type: ignore[method-assign]
