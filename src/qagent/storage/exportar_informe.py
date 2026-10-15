@@ -338,6 +338,322 @@ def construir_cinco_metricas(results: dict[str, Any]) -> list[dict[str, Any]]:
     ]
 
 
+# Casos de pytest y datos de la ejecución (EN-17): lo que comparten las cuatro salidas.
+
+_ETIQUETA_CASO = {
+    "paso": "PASÓ",
+    "fallo": "FALLÓ",
+    "error": "ERROR",
+    "omitido": "OMITIDO",
+}
+_ETIQUETA_DECISION = {
+    "accept": "Aceptado",
+    "retry": "Reintento",
+    "bug_detectado": "Bug detectado",
+    "stalled": "Estancado",
+}
+_MOTIVO_FALLO = {
+    "bug_codigo": "el código no cumple el contrato",
+    "error_test": "el test estaba mal escrito",
+}
+
+
+def _filas_entorno(datos: dict[str, Any]) -> list[tuple[str, str]]:
+    """Pares (etiqueta, valor) con los datos de la ejecución; vacío si no los hay."""
+    entorno = datos.get("entorno")
+    if not entorno:
+        return []
+    limites = entorno.get("limites") or {}
+    totales = datos.get("totales_casos") or {}
+
+    def valor(dato: Any) -> str:
+        return "—" if dato in (None, "") else str(dato)
+
+    texto_limites = (
+        f"{valor(limites.get('cpus'))} CPU · {valor(limites.get('memoria'))} · "
+        f"{valor(limites.get('timeout_s'))} s"
+    )
+    filas = [
+        ("Imagen del sandbox", valor(entorno.get("imagen"))),
+        ("Python", valor(entorno.get("python"))),
+        ("pytest", valor(entorno.get("pytest"))),
+        ("Plataforma", valor(entorno.get("plataforma"))),
+        ("Límites", texto_limites),
+        ("Red", "desactivada (--network none)"),
+        ("Comando", valor(entorno.get("comando"))),
+    ]
+    if totales:
+        resumen = (
+            f"{totales.get('total', 0)} ({totales.get('pasaron', 0)} pasaron · "
+            f"{totales.get('fallaron', 0)} fallaron · {totales.get('errores', 0)} "
+            f"errores · {totales.get('omitidos', 0)} omitidos)"
+        )
+        filas.append(("Casos ejecutados", resumen))
+    return filas
+
+
+def _funciones_con_casos(datos: dict[str, Any]) -> list[dict[str, Any]]:
+    return [f for f in datos["funciones"] if f.get("ejecucion")]
+
+
+def _historial_intentos(f: dict[str, Any]) -> list[str]:
+    """Una línea por intento: decisión del Reviewer y causa."""
+    lineas = []
+    for i in f.get("intentos") or []:
+        decision = _ETIQUETA_DECISION.get(
+            str(i.get("decision")), str(i.get("decision"))
+        )
+        extra = []
+        causa = _MOTIVO_FALLO.get(str(i.get("tipo_fallo")), "")
+        if causa:
+            extra.append(causa)
+        if i.get("laundering_detectado"):
+            extra.append("aserciones relajadas")
+        if not i.get("ejecucion"):
+            extra.append("no llegó al sandbox")
+        sufijo = f" ({'; '.join(extra)})" if extra else ""
+        lineas.append(f"Intento {i.get('intento')}: {decision}{sufijo}")
+    return lineas
+
+
+def _lineas_caso(caso: dict[str, Any], con_traza: bool = True) -> list[str]:
+    """Texto plano de un caso: resultado y, si falló, dónde, qué y esperado/obtenido."""
+    etiqueta = _ETIQUETA_CASO.get(caso["resultado"], str(caso["resultado"]).upper())
+    duracion = float(caso.get("duracion_s") or 0)
+    lineas = [f"[{etiqueta}] {caso['nombre']} ({duracion:.2f} s)"]
+    if caso["resultado"] in ("fallo", "error"):
+        if caso.get("archivo"):
+            lineas.append(f"  Dónde: {caso['archivo']}:{caso.get('linea')}")
+        if caso.get("codigo"):
+            lineas.append(f"  Línea: {caso['codigo']}")
+        mensaje = str(caso.get("mensaje") or "").splitlines()
+        partes = (caso.get("tipo_error"), mensaje[0] if mensaje else "")
+        error = " — ".join(p for p in partes if p)
+        if error:
+            lineas.append(f"  Qué falló: {error}")
+        if caso.get("esperado") is not None or caso.get("obtenido") is not None:
+            lineas.append(f"  Esperado: {caso.get('esperado')}")
+            lineas.append(f"  Obtenido: {caso.get('obtenido')}")
+        if con_traza and caso.get("pila"):
+            lineas.append("  Pila de llamadas:")
+            for marco in caso["pila"]:
+                detalle = " ".join(
+                    p for p in (marco.get("detalle"), marco.get("codigo")) if p
+                )
+                lineas.append(
+                    f"    {marco['archivo']}:{marco['linea']} {detalle}".rstrip()
+                )
+    elif caso["resultado"] == "omitido" and caso.get("mensaje"):
+        lineas.append(f"  Motivo: {caso['mensaje']}")
+    return lineas
+
+
+def _sin_cubrir_texto(ejecucion: dict[str, Any]) -> str | None:
+    sin_cubrir = ejecucion.get("lineas_sin_cubrir")
+    if sin_cubrir is None:
+        return None
+    return "Líneas de la función sin cubrir: " + (
+        ", ".join(str(n) for n in sin_cubrir) if sin_cubrir else "ninguna"
+    )
+
+
+def _markdown_ejecucion(datos: dict[str, Any], con_traza: bool) -> list[str]:
+    """Secciones 2.1 y 2.2 del Markdown: datos de la ejecución y casos por función."""
+    lineas = ["## 2.1 Datos de la ejecución", ""]
+    filas = _filas_entorno(datos)
+    if not filas:
+        lineas.append(
+            "_Esta corrida no guardó datos de ejecución (IA simulada sin sandbox o "
+            "corrida anterior al informe detallado)._"
+        )
+        lineas.append("")
+        return lineas
+    lineas.extend(["| Dato | Valor |", "|---|---|"])
+    lineas.extend(f"| {k} | `{v}` |" for k, v in filas)
+    lineas.extend(["", "## 2.2 Casos de prueba por función", ""])
+    for f in _funciones_con_casos(datos):
+        estado_lbl = ETIQUETAS_ESTADO.get(f["estado"], f["estado"])
+        lineas.extend([f"### {f['funcion']} ({f['modulo']}) — {estado_lbl}", ""])
+        historial = _historial_intentos(f)
+        if historial:
+            lineas.extend(f"- {h}" for h in historial)
+            lineas.append("")
+        ejecucion = f["ejecucion"]
+        lineas.extend(["| Resultado | Caso | Duración | Dónde |", "|---|---|---|---|"])
+        for c in ejecucion["casos"]:
+            donde = f"{c['archivo']}:{c['linea']}" if c.get("archivo") else "—"
+            icono = {"paso": "✅", "omitido": "⏭️"}.get(c["resultado"], "❌")
+            etiqueta = _ETIQUETA_CASO.get(c["resultado"], c["resultado"])
+            duracion = float(c.get("duracion_s") or 0)
+            lineas.append(
+                f"| {icono} {etiqueta} | {c['nombre']} | {duracion:.2f} s | {donde} |"
+            )
+        lineas.append("")
+        fallos = [c for c in ejecucion["casos"] if c["resultado"] in ("fallo", "error")]
+        if fallos:
+            lineas.append("```text")
+            for c in fallos:
+                lineas.extend(_lineas_caso(c, con_traza))
+                lineas.append("")
+            lineas.extend(["```", ""])
+        cubierta = _sin_cubrir_texto(ejecucion)
+        if cubierta:
+            lineas.extend([cubierta, ""])
+        if con_traza and ejecucion.get("salida"):
+            lineas.extend(
+                ["<details><summary>Salida completa de pytest</summary>", "", "```text"]
+            )
+            lineas.append(str(ejecucion["salida"]))
+            lineas.extend(["```", "", "</details>", ""])
+    return lineas
+
+
+def _json_ejecucion(datos: dict[str, Any], con_traza: bool) -> dict[str, Any]:
+    """Bloque `ejecucion` del JSON exportado: entorno, totales y casos por función."""
+    funciones = []
+    for f in _funciones_con_casos(datos):
+        intentos = []
+        for i in f["intentos"]:
+            item = {k: v for k, v in i.items() if k != "ejecucion"}
+            ejecucion = copy.deepcopy(i.get("ejecucion"))
+            if ejecucion is not None and not con_traza:
+                ejecucion.pop("salida", None)
+                for caso in ejecucion.get("casos", []):
+                    caso.pop("traza", None)
+                    caso["pila"] = []
+            item["ejecucion"] = ejecucion
+            intentos.append(item)
+        funciones.append(
+            {
+                "modulo": f["modulo"],
+                "funcion": f["funcion"],
+                "estado": f["estado"],
+                "intentos": intentos,
+            }
+        )
+    return {
+        "entorno": copy.deepcopy(datos.get("entorno")),
+        "totales_casos": copy.deepcopy(datos.get("totales_casos")),
+        "funciones": funciones,
+    }
+
+
+def _html_ejecucion(datos: dict[str, Any], con_traza: bool, esc: Any) -> str:
+    """Contenido de la pestaña «Casos y ejecución» del HTML."""
+    filas = _filas_entorno(datos)
+    if not filas:
+        return (
+            "<p>Esta corrida no guardó datos de ejecución (IA simulada sin sandbox o "
+            "corrida anterior al informe detallado).</p>"
+        )
+    entorno = "".join(
+        f"<tr><th>{esc(k)}</th><td><code>{esc(v)}</code></td></tr>" for k, v in filas
+    )
+    partes = [f"<table><tbody>{entorno}</tbody></table>"]
+    for f in _funciones_con_casos(datos):
+        estado_lbl = ETIQUETAS_ESTADO.get(f["estado"], f["estado"])
+        ejecucion = f["ejecucion"]
+        historial = "".join(f"<li>{esc(h)}</li>" for h in _historial_intentos(f))
+        casos = []
+        for c in ejecucion["casos"]:
+            falla = c["resultado"] in ("fallo", "error")
+            clase = {"paso": "paso", "omitido": "omitido"}.get(c["resultado"], "fallo")
+            detalle = ""
+            if falla:
+                texto = "\n".join(_lineas_caso(c, con_traza)[1:])
+                traza = ""
+                if con_traza and c.get("traza"):
+                    traza = (
+                        "<details><summary>Traza completa</summary>"
+                        f"<pre>{esc(c['traza'])}</pre></details>"
+                    )
+                detalle = f"<pre class='fallo'>{esc(texto)}</pre>{traza}"
+            etiqueta = _ETIQUETA_CASO.get(c["resultado"], c["resultado"])
+            duracion = float(c.get("duracion_s") or 0)
+            casos.append(
+                f"<div class='caso {clase}'><b>{esc(etiqueta)}</b> {esc(c['nombre'])} "
+                f"<small>{duracion:.2f} s</small>{detalle}</div>"
+            )
+        cubierta = _sin_cubrir_texto(ejecucion)
+        cubierta_html = f"<p><small>{esc(cubierta)}</small></p>" if cubierta else ""
+        salida = (
+            "<details><summary>Salida completa de pytest</summary>"
+            f"<pre>{esc(ejecucion['salida'])}</pre></details>"
+            if con_traza and ejecucion.get("salida")
+            else ""
+        )
+        partes.append(
+            f"<div class='fn-card'><b>{esc(f['funcion'])}</b> "
+            f"<span>({esc(f['modulo'])})</span> — <span class='badge'>{esc(estado_lbl)}</span>"
+            f"<ul>{historial}</ul>{''.join(casos)}{cubierta_html}{salida}</div>"
+        )
+    return "".join(partes)
+
+
+def _bloques_ejecucion(
+    datos: dict[str, Any], con_traza: bool, limpiar: Any
+) -> list[dict[str, Any]]:
+    """Bloques del PDF (sección «Detalle»): datos de la ejecución y casos por función."""
+    filas = _filas_entorno(datos)
+    bloques: list[dict[str, Any]] = [
+        {"tipo": "h2", "seccion": 3, "texto": "2.1 Datos de la ejecución"}
+    ]
+    if not filas:
+        bloques.append(
+            {
+                "tipo": "texto",
+                "seccion": 3,
+                "texto": "Esta corrida no guardó datos de ejecución (IA simulada o anterior).",
+            }
+        )
+        return bloques
+    meta: list[tuple[str, str]] = []
+    for etiqueta, valor in filas:
+        for idx, linea in enumerate(_envolver_linea(limpiar(valor), 82)):
+            meta.append((etiqueta + ":" if idx == 0 else "", linea))
+    bloques.append({"tipo": "ficha_meta", "seccion": 3, "filas": meta})
+    bloques.append(
+        {"tipo": "h2", "seccion": 3, "texto": "2.2 Casos de prueba por función"}
+    )
+    for f in _funciones_con_casos(datos):
+        ejecucion = f["ejecucion"]
+        hay_fallo = any(
+            c["resultado"] in ("fallo", "error") for c in ejecucion["casos"]
+        )
+        acento = "incidente" if hay_fallo else "codigo"
+        bloques.append(
+            {
+                "tipo": "encabezado_bloque",
+                "seccion": 3,
+                "titulo": limpiar(f"{f['funcion']} ({f['modulo']})"),
+                "etiqueta": "CASOS DE PYTEST",
+                "acento": acento,
+            }
+        )
+        lineas: list[str] = list(_historial_intentos(f))
+        for caso in ejecucion["casos"]:
+            lineas.extend(_lineas_caso(caso, con_traza))
+        cubierta = _sin_cubrir_texto(ejecucion)
+        if cubierta:
+            lineas.append(cubierta)
+        envueltas: list[str] = []
+        for linea in lineas:
+            envueltas.extend(_envolver_linea(limpiar(linea), 84) or [""])
+        for idx, linea in enumerate(envueltas):
+            bloques.append(
+                {
+                    "tipo": "linea_codigo",
+                    "seccion": 3,
+                    "texto": linea,
+                    "acento": acento,
+                    "primera": idx == 0,
+                    "ultima": idx == len(envueltas) - 1,
+                }
+            )
+        bloques.append({"tipo": "espacio", "seccion": 3, "alto": 6})
+    return bloques
+
+
 def datos_informe(
     raiz_proyecto: str | Path,
     run_id: str | None = None,
@@ -390,6 +706,8 @@ def datos_informe(
         "specs": specs,
         "metricas": metricas,
         "indicadores": vista["indicadores"],
+        "entorno": vista["entorno"],
+        "totales_casos": vista["totales_casos"],
         "funciones": funciones_enriquecidas,
         "results": copy.deepcopy(results),
     }
@@ -473,6 +791,7 @@ def construir_markdown_informe(
                 f"{ms_lbl} | {f['tokens']} |"
             )
         lineas.append("")
+        lineas.extend(_markdown_ejecucion(datos, opts["trazas"]))
 
     if opts["trazas"]:
         lineas.extend(["## 3. Trazas del Reviewer de los incidentes", ""])
@@ -537,6 +856,8 @@ def construir_json_informe(
     base["metricas"] = copy.deepcopy(datos["metricas"])
     base["opciones_incluidas"] = opts
 
+    if opts["detalle"]:
+        base["ejecucion"] = _json_ejecucion(datos, opts["trazas"])
     if not opts["detalle"]:
         base["objetivos"] = []
     elif opts["trazas"] or opts["codigo"] or opts["contratos"]:
@@ -576,7 +897,7 @@ def construir_html_informe(
 
     run_id = esc(datos["run_id"])
     proyecto = esc(datos["proyecto"])
-    rama = esc(datos.get("rama") or "main")
+    rama = esc(datos.get("rama") or "sin repositorio Git")
     fecha = esc(datos["fecha"])
     perfil = esc(datos["perfil"])
     total_fn = int(datos["total_funciones"])
@@ -647,6 +968,11 @@ table{{width:100%;border-collapse:collapse;margin-top:12px}}
 th,td{{padding:10px 12px;border-bottom:1px solid #334155;text-align:left}}
 .pill.pass{{color:#34d399;font-weight:700}}.pill.fail{{color:#fb7185;font-weight:700}}
 .fn-card{{padding:12px;border:1px solid #334155;border-radius:10px;margin-bottom:10px;background:#0f172a}}
+.caso{{padding:8px 10px;border-left:3px solid #334155;margin:6px 0;background:#111c33;border-radius:6px}}
+.caso.paso{{border-color:#34d399}}.caso.fallo{{border-color:#fb7185}}.caso.omitido{{border-color:#94a3b8}}
+.caso pre,details pre{{white-space:pre-wrap;overflow-wrap:anywhere;background:#020617;border:1px solid #334155;border-radius:6px;padding:8px;font-size:12px}}
+.caso pre.fallo{{color:#fecdd3}}
+code{{font-family:ui-monospace,monospace}}
 </style>
 </head>
 <body>
@@ -659,6 +985,7 @@ th,td{{padding:10px 12px;border-bottom:1px solid #334155;text-align:left}}
   <div class="tabs">
     <button class="tab active" onclick="verTab('t1',this)">1. Resumen y KPIs</button>
     <button class="tab" onclick="verTab('t2',this)">2. Detalle por Función</button>
+    <button class="tab" onclick="verTab('t3',this)">3. Casos y ejecución</button>
   </div>
   <div id="t1" class="panel active">
     <h2>1. Resumen de las 5 métricas</h2>
@@ -668,6 +995,10 @@ th,td{{padding:10px 12px;border-bottom:1px solid #334155;text-align:left}}
   <div id="t2" class="panel">
     <h2>2. Resultado por función</h2>
     {"".join(tarjetas_fn) if opts["detalle"] else "<p>Sección opcional desactivada.</p>"}
+  </div>
+  <div id="t3" class="panel">
+    <h2>3. Casos de prueba y datos de la ejecución</h2>
+    {_html_ejecucion(datos, opts["trazas"], esc) if opts["detalle"] else "<p>Sección opcional desactivada.</p>"}
   </div>
 </div>
 <script>
@@ -1153,6 +1484,7 @@ def _bloques_pdf(
                     "controles": lineas_ctrl,
                 }
             )
+        bloques.extend(_bloques_ejecucion(datos, opts["trazas"], limpiar))
 
     if opts["trazas"]:
         bloques.append(

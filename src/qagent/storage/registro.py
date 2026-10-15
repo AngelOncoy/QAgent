@@ -99,6 +99,7 @@ def escribir_corrida(
     contracts.validar(contracts.RUN_LOG, log)
     contracts.validar(contracts.RUN_LOG, results)
     detalle = construir_detalle(run_id, resultados)
+    contracts.validar(contracts.DETALLE, detalle)
 
     carpeta = Path(raiz_proyecto) / CARPETA_RUNS / run_id
     carpeta.mkdir(parents=True, exist_ok=True)
@@ -146,17 +147,60 @@ def construir_detalle(
                             "estado_sandbox": r["estado_sandbox"],
                             "tipo_fallo": r["tipo_fallo"],
                             "laundering_detectado": r["laundering_detectado"],
+                            # EN-17: qué dijo el Reviewer y qué pasó en el sandbox.
+                            "feedback": _recortar(r.get("feedback") or ""),
+                            "hash_error": r.get("hash_error"),
+                            "cobertura": r.get("cobertura"),
+                            "ejecucion": r.get("ejecucion"),
                         }
                         for r in objetivo.revisiones
                     ],
                 }
             )
-    return {
+    detalle = {
         "version": VERSION,
         "tipo": "detalle",
         "run_id": run_id,
+        "entorno": _entorno_de(funciones),
+        "totales_casos": _totales_casos(funciones),
         "funciones": funciones,
     }
+    return _sanear(detalle)
+
+
+def _ultima_ejecucion(funcion: dict[str, Any]) -> dict[str, Any] | None:
+    """`ejecucion` del último intento de la función que llegó al sandbox."""
+    for intento in reversed(funcion["intentos"]):
+        if intento.get("ejecucion"):
+            return intento["ejecucion"]
+    return None
+
+
+def _entorno_de(funciones: list[dict[str, Any]]) -> dict[str, Any] | None:
+    """Entorno de ejecución de la corrida (imagen, versiones, límites y comando)."""
+    for funcion in funciones:
+        ejecucion = _ultima_ejecucion(funcion)
+        if ejecucion is not None:
+            return ejecucion["entorno"]
+    return None
+
+
+def _totales_casos(funciones: list[dict[str, Any]]) -> dict[str, int]:
+    """Casos de pytest del último intento de cada función, sumados."""
+    totales = {"total": 0, "pasaron": 0, "fallaron": 0, "errores": 0, "omitidos": 0}
+    for funcion in funciones:
+        ejecucion = _ultima_ejecucion(funcion)
+        for clave in totales:
+            totales[clave] += (ejecucion or {}).get("totales", {}).get(clave, 0)
+    return totales
+
+
+def _sanear(dato: Any) -> Any:
+    """Quita claves de IA y patrones de secreto antes de guardar (RN-07)."""
+    # Importación local: exportar_informe importa este módulo.
+    from qagent.storage.exportar_informe import _sanitizar_estructura
+
+    return _sanitizar_estructura(dato)
 
 
 def construir_log(

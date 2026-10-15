@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="1" skipped="0" tests="2" time="0.012" timestamp="2026-10-15T10:00:00.000000" hostname="sandbox"><testcase classname="tests.test_generado" name="test_doble_de_cuatro" time="0.012"><failure message="assert 12 == 8&#10; +  where 12 = doble(4)">def test_doble_de_cuatro():
+&gt;       assert doble(4) == 8
+E       assert 12 == 8
+E        +  where 12 = doble(4)
+
+../tests/test_generado.py:4: AssertionError</failure></testcase><testcase classname="tests.test_generado" name="test_doble_de_cero" time="0.012" /></testsuite></testsuites>

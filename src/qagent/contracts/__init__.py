@@ -19,7 +19,8 @@ PLANNER = "planner_contract.v2"
 GENERATED_TEST = "generated_test"
 REVIEW_RESULT = "review_result"
 RUN_LOG = "run_log"
-CONTRATOS = (PLANNER, GENERATED_TEST, REVIEW_RESULT, RUN_LOG)
+DETALLE = "detalle"
+CONTRATOS = (PLANNER, GENERATED_TEST, REVIEW_RESULT, RUN_LOG, DETALLE)
 
 
 class ContratoInvalido(ValueError):

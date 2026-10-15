@@ -13,7 +13,14 @@ from typing import Any
 from qagent import contracts
 from qagent.analysis import comparar_aserciones
 from qagent.llm import ClienteLLM, TokenTracker
-from qagent.sandbox import ResultadoSandbox, clasificar_resultado, ejecutar_pruebas
+from qagent.sandbox import (
+    LIMITES_POR_DEFECTO,
+    ResultadoSandbox,
+    clasificar_resultado,
+    comando_pytest,
+    ejecutar_pruebas,
+    resumir_ejecucion,
+)
 from qagent.sandbox.normalizacion import hash_error
 
 Ejecutor = Callable[[str, Path, Path, str], ResultadoSandbox]
@@ -77,6 +84,8 @@ class ReviewerAgent:
         # busca laundering. Si se comparara solo con el intento anterior, un intento
         # rechazado por laundering pasaría a ser la referencia del siguiente.
         self._referencias: dict[tuple[str, str], str] = {}
+        # `ejecucion` del último intento que llegó al sandbox (EN-17).
+        self._ejecucion: dict[str, Any] | None = None
 
     def revisar(
         self,
@@ -84,7 +93,24 @@ class ReviewerAgent:
         test: dict[str, Any],
         test_anterior: dict[str, Any] | None,
     ) -> dict[str, Any]:
-        """Revisa un intento y decide si aceptar, reintentar o reportar un bug."""
+        """Revisa un intento y decide si aceptar, reintentar o reportar un bug.
+
+        Si el test llegó a ejecutarse en el sandbox, el veredicto incluye `ejecucion`
+        (casos, salida y entorno) para el informe detallado (EN-17).
+        """
+        self._ejecucion = None
+        revision = self._revisar(contrato, test, test_anterior)
+        if self._ejecucion is not None:
+            revision["ejecucion"] = self._ejecucion
+            contracts.validar(contracts.REVIEW_RESULT, revision)
+        return revision
+
+    def _revisar(
+        self,
+        contrato: dict[str, Any],
+        test: dict[str, Any],
+        test_anterior: dict[str, Any] | None,
+    ) -> dict[str, Any]:
         codigo = test["codigo"]
         intento = test["intento"]
 
@@ -133,6 +159,15 @@ class ReviewerAgent:
             )
 
         estado = clasificar_resultado(resultado)
+        modulo_cov = self.modulo_cov or self._modulo_cobertura(contrato["modulo"])
+        self._ejecucion = resumir_ejecucion(
+            resultado,
+            imagen=self.imagen,
+            comando=comando_pytest(modulo_cov),
+            limites=LIMITES_POR_DEFECTO,
+            lineas_sin_cubrir=self._lineas_sin_cubrir(resultado.coverage, contrato),
+            codigo_test=codigo,
+        )
         salida = "\n".join(
             parte for parte in (resultado.stdout, resultado.stderr) if parte
         ).strip()
@@ -619,6 +654,34 @@ SALIDA DE PYTEST:
                 round(len(ramas_ok) * 100 / total_ramas, 2) if total_ramas else None
             ),
         }
+
+    def _lineas_sin_cubrir(
+        self, coverage: dict[str, Any] | None, contrato: dict[str, Any]
+    ) -> list[int] | None:
+        """Líneas de la función probada que ningún caso ejecutó (EN-17)."""
+        if not coverage or not isinstance(coverage.get("files"), dict):
+            return None
+        modulo = contrato["modulo"].replace("\\", "/")
+        datos = next(
+            (
+                v
+                for k, v in coverage["files"].items()
+                if k.replace("\\", "/").endswith(modulo)
+            ),
+            None,
+        )
+        rango = self._rango_de_funcion(
+            modulo, contrato.get("manejador") or contrato["objetivo"]
+        )
+        if not isinstance(datos, dict) or rango is None:
+            return None
+        inicio, fin = rango
+        faltantes = {
+            _linea(n)
+            for n in datos.get("missing_lines") or []
+            if inicio <= _linea(n) <= fin
+        }
+        return sorted(faltantes)
 
     def _rango_de_funcion(self, modulo: str, nombre: str) -> tuple[int, int] | None:
         """Primera y última línea del cuerpo de una función de nivel superior."""

@@ -1,0 +1,20 @@
+============================= test session starts =============================
+platform linux -- Python 3.11.9, pytest-9.1.1, pluggy-1.6.0
+rootdir: /work
+collected 2 items
+
+../tests/test_generado.py F.                                             [100%]
+
+================================== FAILURES ===================================
+____________________________ test_doble_de_cuatro _____________________________
+
+    def test_doble_de_cuatro():
+>       assert doble(4) == 8
+E       assert 12 == 8
+E        +  where 12 = doble(4)
+
+../tests/test_generado.py:4: AssertionError
+- generated xml file: /work/out/junit.xml -
+=========================== short test summary info ===========================
+FAILED ../tests/test_generado.py::test_doble_de_cuatro - assert 12 == 8
+========================= 1 failed, 1 passed in 0.22s =========================

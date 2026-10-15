@@ -51,7 +51,100 @@
       "description": "Hash del error normalizado; si se repite, la decisión es stalled."
     },
     "decision": { "enum": ["accept", "retry", "bug_detectado", "stalled"] },
-    "feedback": { "type": "string" }
+    "feedback": { "type": "string" },
+    "ejecucion": {
+      "description": "EN-17. Lo que pasó en el sandbox en este intento: casos, salida y entorno. Ausente si el test no llegó a ejecutarse (sintaxis, laundering o valor esperado ausente).",
+      "$ref": "#/$defs/ejecucion"
+    }
+  },
+  "$defs": {
+    "ejecucion": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["exit_code", "duracion_s", "salida", "totales", "casos", "entorno"],
+      "properties": {
+        "exit_code": { "type": ["integer", "null"] },
+        "duracion_s": { "type": "number", "minimum": 0 },
+        "timeout": { "type": "boolean" },
+        "oom": { "type": "boolean" },
+        "salida": { "type": "string", "description": "stdout y stderr de pytest, recortados." },
+        "codigo_test": { "type": ["string", "null"], "description": "El test que se ejecutó en este intento." },
+        "totales": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["total", "pasaron", "fallaron", "errores", "omitidos"],
+          "properties": {
+            "total": { "type": "integer", "minimum": 0 },
+            "pasaron": { "type": "integer", "minimum": 0 },
+            "fallaron": { "type": "integer", "minimum": 0 },
+            "errores": { "type": "integer", "minimum": 0 },
+            "omitidos": { "type": "integer", "minimum": 0 }
+          }
+        },
+        "casos": { "type": "array", "items": { "$ref": "#/$defs/caso" } },
+        "lineas_sin_cubrir": {
+          "type": ["array", "null"],
+          "items": { "type": "integer", "minimum": 1 },
+          "description": "Líneas de la función probada que ningún caso ejecutó; null si no se pudo ubicar."
+        },
+        "entorno": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["imagen", "comando", "limites"],
+          "properties": {
+            "imagen": { "type": "string" },
+            "comando": { "type": "string" },
+            "plataforma": { "type": ["string", "null"] },
+            "python": { "type": ["string", "null"] },
+            "pytest": { "type": ["string", "null"] },
+            "limites": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["cpus", "memoria", "timeout_s"],
+              "properties": {
+                "cpus": { "type": "number" },
+                "memoria": { "type": "string" },
+                "timeout_s": { "type": "integer" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "caso": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["nombre", "resultado", "duracion_s"],
+      "properties": {
+        "nombre": { "type": "string" },
+        "ruta": { "type": "string" },
+        "resultado": { "enum": ["paso", "fallo", "error", "omitido"] },
+        "duracion_s": { "type": "number", "minimum": 0 },
+        "mensaje": { "type": ["string", "null"] },
+        "tipo_error": { "type": ["string", "null"] },
+        "archivo": { "type": ["string", "null"] },
+        "linea": { "type": ["integer", "null"] },
+        "codigo": { "type": ["string", "null"] },
+        "operador": { "type": ["string", "null"] },
+        "esperado": { "type": ["string", "null"] },
+        "obtenido": { "type": ["string", "null"] },
+        "traza": { "type": ["string", "null"] },
+        "pila": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["archivo", "linea"],
+            "properties": {
+              "archivo": { "type": "string" },
+              "linea": { "type": "integer" },
+              "detalle": { "type": "string" },
+              "codigo": { "type": ["string", "null"] }
+            }
+          }
+        }
+      }
+    }
   },
   "allOf": [
     {

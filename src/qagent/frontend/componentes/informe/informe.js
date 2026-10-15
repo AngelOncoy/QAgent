@@ -16,6 +16,8 @@ registrarComponente('informe/informe', `<!-- ===== 6. REPORTE FINAL (según tu d
       <div class="pillars" id="pillars"></div>
     </div>
 
+    <div id="rentorno"></div>
+
     <div class="toolbar">
       <div class="tleft"><span class="flbl" style="font-weight:600">Tipo:</span><div id="rtypebtns" style="display:flex;gap:6px;flex-wrap:wrap"></div><span class="flbl">Resultado:</span><div id="rfbtns" style="display:flex;gap:6px;flex-wrap:wrap"></div></div>
       <div class="legend2" id="legend2"></div>
@@ -46,6 +48,7 @@ function renderReport(){
   }
   modoReporte(!!reporteReal);
   if (reporteReal) { renderReportReal(reporteReal); return; }   // corrida real (HU-21)
+  $('rentorno').innerHTML = '';   // la demostración no tiene datos de ejecución reales
   const m = metrics();
   $('rtypebtns').innerHTML = `<button class="fb2 on" style="background:var(--blue-600)">Funciones (${m.n})</button>`;
   $('rmeta').innerHTML = `Corrida <b>#${RUN_ID}</b> · ${RUN_DATE} · perfil <b>Profundo</b> · ${m.n} funciones · rama <b>${$('branchLbl').textContent}</b><br><span style="font-size:11px">Modelos: Planner · ${AGENTS_CFG.P.model} &nbsp;|&nbsp; Generator · ${AGENTS_CFG.G.model} &nbsp;|&nbsp; Reviewer · ${AGENTS_CFG.R.model}</span>`;
@@ -154,8 +157,86 @@ function contratoRealHtml(f){
   }
   return html;
 }
+/* ---------------- Casos de pytest y datos de la ejecución (EN-17) ---------------- */
+const RES_CASO = {   // resultado del caso -> clase, ícono y texto
+  paso:['ok','checkc','PASÓ'], fallo:['bad','xc','FALLÓ'], error:['bad','alertc','ERROR'], omitido:['na','alertc','OMITIDO'],
+};
+const DECISION_INTENTO = {   // decisión del Reviewer en un intento -> clase de la etiqueta y texto
+  accept:['rs-ok','ACEPTADO'], retry:['rs-stk','REINTENTO'], bug_detectado:['rs-rej','BUG DETECTADO'], stalled:['rs-stk','ESTANCADO'],
+};
+const rRealCaso = {}, rRealIntento = {};
+const segRep = s => (s===null || s===undefined) ? '—' : Number(s).toFixed(2) + ' s';
+
+function filaFalloHtml(c){
+  const pila = (c.pila || []).map(m => `<div class="rfr"><span class="rloc">${escHtml(m.archivo)}:${Number(m.linea)}</span>${m.detalle?`<span class="rdet">${escHtml(m.detalle)}</span>`:''}${m.codigo?`<code>${escHtml(m.codigo)}</code>`:''}</div>`).join('');
+  const valores = (c.esperado!==null && c.esperado!==undefined) || (c.obtenido!==null && c.obtenido!==undefined)
+    ? `<div class="rvals"><div class="rexp"><h5>Esperado</h5><pre>${escHtml(c.esperado ?? '—')}</pre></div><div class="robt"><h5>Obtenido${c.operador && c.operador!=='==' ? ' (condición: '+escHtml(c.operador)+')' : ''}</h5><pre>${escHtml(c.obtenido ?? '—')}</pre></div></div>` : '';
+  return `<div class="rfail">
+    <div class="rftitle">${I('warn','var(--rose-400)',15)}<b>${escHtml(c.tipo_error || 'Fallo')}</b>${c.mensaje?`<span>${escHtml(String(c.mensaje).split('\n')[0])}</span>`:''}</div>
+    ${c.archivo ? `<div class="rfwhere"><span class="rloc">${escHtml(c.archivo)}:${Number(c.linea)}</span>${c.codigo?`<pre class="rline"><span class="rmark">&gt;</span> ${escHtml(c.codigo)}</pre>`:''}</div>` : ''}
+    ${valores}
+    ${pila ? `<div class="rpila"><h5>Pila de llamadas</h5>${pila}</div>` : ''}
+    ${c.traza ? `<details class="rtraza"><summary>Traza completa de pytest</summary><pre>${escHtml(c.traza)}</pre></details>` : ''}
+  </div>`;
+}
+
+function casoRealHtml(c, clave){
+  const [cls, ic, txt] = RES_CASO[c.resultado] || RES_CASO.error;
+  const falla = c.resultado==='fallo' || c.resultado==='error';
+  const abierto = falla ? rRealCaso[clave] !== false : false;   // los fallos se muestran abiertos
+  const claveJs = escHtml(JSON.stringify(clave));
+  const resumen = falla && c.archivo ? `<span class="rloc">${escHtml(c.archivo)}:${Number(c.linea)}</span>` : (c.resultado==='omitido' && c.mensaje ? `<span class="rdet">${escHtml(c.mensaje)}</span>` : '');
+  return `<div class="rcaso ${cls}">
+    <div class="rcrow" ${falla ? `onclick="rRealCaso[${claveJs}]=${!abierto};renderReport()" style="cursor:pointer"` : ''}>
+      <span class="rcst">${I(ic,'currentColor',14)} ${txt}</span>
+      <span class="rcname">${escHtml(c.nombre)}</span>${resumen}
+      <span class="rcdur">${segRep(c.duracion_s)}</span>${falla ? I(abierto?'chevU':'chevD','var(--slate-300-c)',16) : ''}
+    </div>${abierto ? filaFalloHtml(c) : ''}</div>`;
+}
+
+function ejecucionRealHtml(f, id){
+  const conEjecucion = (f.intentos || []).filter(i => i.ejecucion);
+  if(!conEjecucion.length) return `<div class="rhd"><span style="color:var(--mut)">Esta corrida no guardó los casos de ejecución: ${f.intentos && f.intentos.length ? 'el test no llegó a ejecutarse en el sandbox o la corrida es anterior al informe detallado.' : 'es anterior al informe detallado.'}</span></div>`;
+  const elegido = rRealIntento[id];
+  const it = conEjecucion.find(i => i.intento===elegido) || conEjecucion[conEjecucion.length-1];
+  const ej = it.ejecucion, t = ej.totales;
+  const idJs = escHtml(JSON.stringify(id));
+  const historial = f.intentos.map(i => {
+    const [dcls, dtxt] = DECISION_INTENTO[i.decision] || ['rs-stk', String(i.decision || '').toUpperCase()];
+    const clic = i.ejecucion ? `onclick="rRealIntento[${idJs}]=${Number(i.intento)};renderReport()"` : '';
+    return `<div class="rint ${i.intento===it.intento?'on':''} ${i.ejecucion?'click':''}" ${clic}><b>Intento ${Number(i.intento)}</b><span class="rsb ${dcls}">${escHtml(dtxt)}</span>${i.tipo_fallo?`<span class="rdet">${i.tipo_fallo==='bug_codigo'?'el código no cumple el contrato':'el test estaba mal escrito'}</span>`:''}${i.laundering_detectado?'<span class="rdet" style="color:var(--rose-300)">aserciones relajadas</span>':''}${i.ejecucion?'':'<span class="rdet">no llegó al sandbox</span>'}</div>`;
+  }).join('');
+  const chips = `<div class="rchips"><span class="rchip ok">${Number(t.pasaron)} pasaron</span><span class="rchip ${t.fallaron?'bad':''}">${Number(t.fallaron)} fallaron</span><span class="rchip ${t.errores?'bad':''}">${Number(t.errores)} errores</span><span class="rchip">${Number(t.omitidos)} omitidos</span><span class="rchip">${segRep(ej.duracion_s)}</span><span class="rchip">exit code ${ej.exit_code===null?'—':Number(ej.exit_code)}</span>${ej.timeout?'<span class="rchip bad">TIEMPO AGOTADO</span>':''}${ej.oom?'<span class="rchip bad">SIN MEMORIA</span>':''}</div>`;
+  const casos = ej.casos.length
+    ? ej.casos.map(c => casoRealHtml(c, id + '::' + it.intento + '::' + c.nombre)).join('')
+    : '<div class="rhd"><span style="color:var(--mut)">pytest no devolvió casos individuales (no se generó junit.xml); la salida completa está más abajo.</span></div>';
+  const sinCubrir = Array.isArray(ej.lineas_sin_cubrir)
+    ? `<div class="rhd" style="margin-top:12px"><span>Líneas de la función sin cubrir:</span><span class="rtag" style="color:${ej.lineas_sin_cubrir.length?'var(--amber-300)':'var(--emerald-300)'};border-color:var(--line2)">${ej.lineas_sin_cubrir.length ? ej.lineas_sin_cubrir.map(Number).join(', ') : 'ninguna'}</span></div>` : '';
+  return `<div class="rhd"><span>${I('term','var(--purple-400)',14)} Resultado de cada caso de pytest en el sandbox:</span></div>
+    <div class="rhist">${historial}</div>
+    ${chips}
+    <div class="rcasos">${casos}</div>
+    ${sinCubrir}
+    ${it.feedback ? `<div class="rhd" style="margin-top:12px"><span>Veredicto del Reviewer (intento ${Number(it.intento)}):</span></div><pre class="rcode rfeed">${escHtml(it.feedback)}</pre>` : ''}
+    <details class="rtraza" style="margin-top:12px"><summary>Salida completa de pytest (stdout y stderr)</summary><pre>${escHtml(ej.salida || '(sin salida)')}</pre></details>`;
+}
+
+function entornoRealHtml(v){
+  const e = v.entorno, t = v.totales_casos;
+  if(!e) return `<div class="rcard rent"><div class="rentbody" style="color:var(--mut)">${v.es_simulado ? 'Corrida con IA simulada: no se ejecutó nada en el sandbox, así que no hay datos de ejecución.' : 'Esta corrida no guardó los datos de ejecución (es anterior al informe detallado).'}</div></div>`;
+  const celda = (k, val) => `<div><span>${k}</span><b>${escHtml(val === null || val === undefined || val === '' ? '—' : String(val))}</b></div>`;
+  const l = e.limites || {};
+  return `<details class="rcard rent" open><summary>${I('term','var(--blue-400)',14)} Datos de la ejecución</summary>
+    <div class="rentbody"><div class="rentgrid">
+      ${celda('Imagen del sandbox', e.imagen)}${celda('Python', e.python)}${celda('pytest', e.pytest)}${celda('Plataforma', e.plataforma)}
+      ${celda('Límites', `${l.cpus ?? '—'} CPU · ${l.memoria ?? '—'} · ${l.timeout_s ?? '—'} s`)}${celda('Red', 'desactivada')}
+      ${t ? celda('Casos ejecutados', `${t.total} (${t.pasaron} pasaron · ${t.fallaron} fallaron · ${t.errores} errores · ${t.omitidos} omitidos)`) : ''}
+    </div><div class="rcmd"><span>Comando</span><code>${escHtml(e.comando || '—')}</code></div></div></details>`;
+}
+
 function renderReportReal(v){
   if (typeof actualizarBarraReal === 'function') actualizarBarraReal(v);
+  $('rentorno').innerHTML = entornoRealHtml(v);
   const k = v.indicadores, fecha = new Date(v.fecha);
   const modelos = AGENTES_REP.filter(([a]) => v.modelos[a]).map(([a, n]) => `${n} · ${escHtml(v.modelos[a].modelo)} <span style="color:var(--dim)">(${escHtml(v.modelos[a].proveedor)})</span>`).join(' &nbsp;|&nbsp; ');
   $('rmeta').innerHTML = `Corrida <b>${escHtml(v.run_id)}</b> · ${escHtml(isNaN(fecha) ? v.fecha : fecha.toLocaleString('es-PE'))} · perfil <b>${escHtml(v.perfil)}</b> · ${Number(v.total_objetivos)} objetivos · rama <b>${escHtml(v.rama || 'sin repositorio Git')}</b><br><span style="font-size:11px">Modelos: ${modelos}</span>`
@@ -177,9 +258,10 @@ function renderReportReal(v){
     const idJs = escHtml(JSON.stringify(id));
     let cuerpo = '';
     if(abierto){
-      const tabs = [['contract','file','1. Contrato JSON (Planner)','var(--blue-400)'],['test','code','2. Test generado (pytest)','var(--purple-400)'],['checklist','check','3. Checklist de verificación','var(--emerald-400)']];
+      const tabs = [['contract','file','1. Contrato JSON (Planner)','var(--blue-400)'],['test','code','2. Test generado (pytest)','var(--purple-400)'],['checklist','check','3. Checklist de verificación','var(--emerald-400)'],['run','term','4. Ejecución y casos','var(--amber-300)']];
       cuerpo = `<div class="rbody"><div class="rtabs">${tabs.map(([t,ic,n,c]) => `<button class="${tab===t?'on':''}" style="${tab===t?`color:${c};border-color:${c}`:''}" onclick="event.stopPropagation();rRealTab[${idJs}]='${t}';renderReport()">${I(ic,'currentColor',14)} ${n}</button>`).join('')}</div>`;
       if(tab==='contract') cuerpo += contratoRealHtml(f);
+      if(tab==='run') cuerpo += ejecucionRealHtml(f, id);
       if(tab==='test') cuerpo += (f.codigo
         ? `<div class="rhd"><span>${I('term','var(--purple-400)',14)} Último test generado por el Generator (intento ${f.iteraciones}/3):</span></div><pre class="rcode">${hl(f.codigo)}</pre>`
         : `<div class="rhd"><span style="color:var(--mut)">Esta corrida no guardó el test generado.</span></div>`)

@@ -11,6 +11,7 @@ from jsonschema import Draft202012Validator
 
 from qagent.contracts import (
     CONTRATOS,
+    DETALLE,
     DIR_CONTRATOS,
     GENERATED_TEST,
     PLANNER,
@@ -46,6 +47,7 @@ EJEMPLOS = [
     (REVIEW_RESULT, REVIEW_RESULT),
     (RUN_LOG, "run_log.log"),
     (RUN_LOG, "run_log.results"),
+    (DETALLE, DETALLE),
 ]
 
 

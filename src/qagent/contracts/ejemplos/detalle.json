@@ -1,0 +1,84 @@
+{
+  "version": "1",
+  "tipo": "detalle",
+  "run_id": "20261015-100000-ab12",
+  "entorno": {
+    "imagen": "qagent-sandbox:base",
+    "comando": "pytest /work/tests --cov=modulo --cov-branch --cov-report=json:/out/coverage.json --junitxml=/out/junit.xml -p no:cacheprovider",
+    "plataforma": "linux",
+    "python": "3.11.9",
+    "pytest": "9.1.1",
+    "limites": { "cpus": 1.0, "memoria": "256m", "timeout_s": 60 }
+  },
+  "totales_casos": { "total": 2, "pasaron": 1, "fallaron": 1, "errores": 0, "omitidos": 0 },
+  "funciones": [
+    {
+      "modulo": "modulo.py",
+      "funcion": "doble",
+      "contrato": null,
+      "codigo": "from modulo import doble\n\ndef test_doble_de_cuatro():\n    assert doble(4) == 8\n",
+      "traza": "assert 12 == 8",
+      "intentos": [
+        {
+          "intento": 1,
+          "decision": "bug_detectado",
+          "estado_sandbox": "fallo",
+          "tipo_fallo": "bug_codigo",
+          "laundering_detectado": false,
+          "feedback": "assert 12 == 8\n +  where 12 = doble(4)",
+          "hash_error": "1a2b3c4d5e6f7081",
+          "cobertura": { "lineas": 100.0, "ramas": null },
+          "ejecucion": {
+            "exit_code": 1,
+            "duracion_s": 0.42,
+            "timeout": false,
+            "oom": false,
+            "salida": "1 failed, 1 passed in 0.02s",
+            "codigo_test": "from modulo import doble\n\ndef test_doble_de_cuatro():\n    assert doble(4) == 8\n",
+            "totales": { "total": 2, "pasaron": 1, "fallaron": 1, "errores": 0, "omitidos": 0 },
+            "casos": [
+              {
+                "nombre": "test_doble_de_cuatro",
+                "ruta": "tests.test_generado",
+                "resultado": "fallo",
+                "duracion_s": 0.012,
+                "mensaje": "assert 12 == 8",
+                "tipo_error": "AssertionError",
+                "archivo": "tests/test_generado.py",
+                "linea": 4,
+                "codigo": "assert doble(4) == 8",
+                "operador": "==",
+                "esperado": "8",
+                "obtenido": "12",
+                "traza": "def test_doble_de_cuatro():\n>       assert doble(4) == 8\nE       assert 12 == 8",
+                "pila": [
+                  {
+                    "archivo": "tests/test_generado.py",
+                    "linea": 4,
+                    "detalle": "AssertionError",
+                    "codigo": "assert doble(4) == 8"
+                  }
+                ]
+              },
+              {
+                "nombre": "test_doble_de_cero",
+                "ruta": "tests.test_generado",
+                "resultado": "paso",
+                "duracion_s": 0.012
+              }
+            ],
+            "lineas_sin_cubrir": [],
+            "entorno": {
+              "imagen": "qagent-sandbox:base",
+              "comando": "pytest /work/tests --cov=modulo --cov-branch --cov-report=json:/out/coverage.json --junitxml=/out/junit.xml -p no:cacheprovider",
+              "plataforma": "linux",
+              "python": "3.11.9",
+              "pytest": "9.1.1",
+              "limites": { "cpus": 1.0, "memoria": "256m", "timeout_s": 60 }
+            }
+          }
+        }
+      ]
+    }
+  ]
+}
