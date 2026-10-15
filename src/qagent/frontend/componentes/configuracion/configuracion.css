@@ -4,12 +4,20 @@
 .cfg-agente{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
 .cfg-agente .btn-api{padding:5px 9px;font-size:10px}
 .cfg-modelo{display:flex;align-items:flex-start;gap:10px}
-.prov-logo{flex:none;display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:7px;
-  font-family:var(--mono);font-size:10.5px;font-weight:700;color:var(--bg);background:var(--prov-otro)}
-.prov-anthropic{background:var(--prov-anthropic)} .prov-xiaomi{background:var(--prov-xiaomi)}
-.prov-openai{background:var(--prov-openai)}
-.prov-openrouter{background:var(--prov-openrouter)} .prov-gemini{background:var(--prov-gemini)}
-.prov-groq{background:var(--prov-groq)} .prov-otro{background:var(--prov-otro)}
+.cfg-ico{display:inline-flex;flex:none}
+.cfg-vacio{color:var(--dim);font-size:12px}
+.prov-logo{flex:none;display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;border-radius:8px;
+  background:var(--panel2);border:1px solid var(--line2);color:var(--prov-otro)}
+.prov-logo img{display:block;border-radius:4px}
+.prov-anthropic{color:var(--prov-anthropic)} .prov-openrouter{color:var(--prov-openrouter)}
+.prov-gemini{color:var(--prov-gemini)} .prov-groq{color:var(--prov-groq)} .prov-otro{color:var(--prov-otro)}
+
+/* Detalles técnicos: cerrados por defecto (divulgación progresiva) */
+.cfg-avanzado summary{cursor:pointer;padding:14px 16px;font-size:12.5px;font-weight:600;color:var(--blue-t)}
+.cfg-avanzado[open] summary{border-bottom:1px solid var(--line)}
+.cfg-avanzado .rcode{margin:0 16px 16px}
+.cfg-avanzado .checks{padding-top:6px}
+.cfg-avanzado .checks+.checks{border-top:1px solid var(--line);margin-top:6px}
 
 /* Modal «Agregar API» */
 #m-api select.inp{cursor:pointer}

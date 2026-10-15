@@ -13,7 +13,16 @@ MODAL_JS = FRONTEND / "componentes" / "configuracion" / "modal-api.js"
 def test_cada_agente_tiene_boton_agregar_o_editar():
     texto = CONFIG_JS.read_text(encoding="utf-8")
     assert "'Editar' : 'Agregar API'" in texto
-    assert "Sin configurar" in texto
+    assert "No seleccionado" in texto
+
+
+def test_la_ultima_seleccion_se_recuerda_aunque_se_cancele():
+    """Elegir proveedor o modelo en el modal la deja como última selección del agente."""
+    config = CONFIG_JS.read_text(encoding="utf-8")
+    modal = MODAL_JS.read_text(encoding="utf-8")
+    assert "recordarSeleccion" in config
+    assert 'onchange="apiEligioProveedor()"' in modal
+    assert 'onchange="apiEligioModelo()"' in modal
 
 
 def test_el_modelo_es_una_lista_y_no_se_escribe_a_mano():
