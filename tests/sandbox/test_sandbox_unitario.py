@@ -155,6 +155,7 @@ def test_ejecutar_pruebas_arma_comando_pytest_con_cobertura(proyecto, carpeta_te
     assert "--cov=paquete" in comando
     assert "--cov-branch" in comando
     assert "--cov-report=json:/out/coverage.json" in comando
+    assert "--junitxml=/out/junit.xml" in comando
     assert comando[-2:] == ["-p", "no:cacheprovider"]
     assert _argumentos_run(cliente)["environment"]["COVERAGE_FILE"] == "/out/.coverage"
 
@@ -185,6 +186,32 @@ def test_devuelve_codigo_salida_logs_y_coverage(proyecto, carpeta_tests):
     assert resultado.coverage == {"totals": {}}
     assert resultado.timed_out is False
     assert resultado.oom_killed is False
+
+
+def test_devuelve_el_junit_xml_si_pytest_lo_generó(proyecto, carpeta_tests):
+    cliente = _cliente_simulado({"StatusCode": 1})
+    contenedor = cliente.containers.run.return_value
+
+    def escribir_junit(timeout):
+        salida = _montaje(_argumentos_run(cliente), "/out")["Source"]
+        Path(salida, "junit.xml").write_text("<testsuites/>", encoding="utf-8")
+        return {"StatusCode": 1}
+
+    contenedor.wait.side_effect = escribir_junit
+
+    resultado = ejecutar_pruebas(
+        "img", proyecto, carpeta_tests, "paquete", cliente=cliente
+    )
+
+    assert resultado.junit_xml == "<testsuites/>"
+
+
+def test_sin_junit_xml_devuelve_none(proyecto, carpeta_tests):
+    resultado = ejecutar_en_sandbox(
+        "img", ["true"], proyecto, carpeta_tests, cliente=_cliente_simulado()
+    )
+
+    assert resultado.junit_xml is None
 
 
 def test_sin_coverage_json_devuelve_none(proyecto, carpeta_tests):

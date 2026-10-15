@@ -58,6 +58,8 @@ class ResultadoSandbox:
         timed_out: True si se excedió el timeout y se mató el contenedor.
         oom_killed: True si el contenedor terminó por falta de memoria.
         duracion_s: duración de la ejecución en segundos.
+        junit_xml: contenido de junit.xml (un registro por caso), o None si no se generó.
+        comando: el comando que de verdad se ejecutó, para el informe (EN-17).
     """
 
     exit_code: int
@@ -67,6 +69,8 @@ class ResultadoSandbox:
     timed_out: bool = False
     oom_killed: bool = False
     duracion_s: float = 0.0
+    junit_xml: str | None = None
+    comando: list[str] | None = None
 
 
 class ErrorSandbox(Exception):

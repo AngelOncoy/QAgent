@@ -1,0 +1,27 @@
+============================= test session starts =============================
+platform linux -- Python 3.11.9, pytest-9.1.1, pluggy-1.6.0
+rootdir: /work
+collected 2 items
+
+../tests/test_generado.py .F                                             [100%]
+
+================================== FAILURES ===================================
+_____________________ test_dividir_por_cero_devuelve_none _____________________
+
+    def test_dividir_por_cero_devuelve_none():
+>       assert dividir(1, 0) is None
+
+../tests/test_generado.py:6: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+a = 1, b = 0
+
+    def dividir(a, b):
+>       return a / b
+E       ZeroDivisionError: division by zero
+
+modulo.py:6: ZeroDivisionError
+- generated xml file: /work/out/junit.xml -
+=========================== short test summary info ===========================
+FAILED ../tests/test_generado.py::test_dividir_por_cero_devuelve_none - ZeroD...
+========================= 1 failed, 1 passed in 0.23s =========================

@@ -74,6 +74,10 @@ def vista_reporte(
             for agente, m in results["modelos"].items()
         },
         "detalle_disponible": detalle is not None,
+        # EN-17: entorno de ejecución y casos de pytest; None en corridas anteriores.
+        "entorno": (detalle or {}).get("entorno"),
+        "totales_casos": (detalle or {}).get("totales_casos"),
+        "ejecucion_disponible": any(f["ejecucion"] is not None for f in funciones),
         "indicadores": {
             "pass_rate": {
                 "valor": resumen["pass_rate"],
@@ -130,6 +134,7 @@ def _funcion(
     metricas = objetivo["metricas"]
     contrato = (texto or {}).get("contrato")
     controles = _controles(objetivo, metas)
+    intentos = _intentos((texto or {}).get("intentos"))
     verde = objetivo["decision"] == "accept" and all(
         c["estado"] in (OK, NO_APLICA, PENDIENTE) for c in controles
     )
@@ -152,7 +157,36 @@ def _funcion(
         "codigo": (texto or {}).get("codigo"),
         "traza": (texto or {}).get("traza"),
         "controles": controles,
+        "intentos": intentos,
+        "ejecucion": next(
+            (i["ejecucion"] for i in reversed(intentos) if i["ejecucion"]), None
+        ),
     }
+
+
+def _intentos(crudos: Any) -> list[dict[str, Any]]:
+    """Intentos de la función con lo que pasó en cada uno (EN-17).
+
+    Las corridas anteriores no traen `feedback` ni `ejecucion`: salen como None.
+    """
+    intentos = []
+    for crudo in crudos if isinstance(crudos, list) else []:
+        if not isinstance(crudo, dict):
+            continue
+        ejecucion = crudo.get("ejecucion")
+        intentos.append(
+            {
+                "intento": crudo.get("intento"),
+                "decision": crudo.get("decision"),
+                "estado_sandbox": crudo.get("estado_sandbox"),
+                "tipo_fallo": crudo.get("tipo_fallo"),
+                "laundering_detectado": bool(crudo.get("laundering_detectado")),
+                "feedback": crudo.get("feedback"),
+                "cobertura": crudo.get("cobertura"),
+                "ejecucion": ejecucion if isinstance(ejecucion, dict) else None,
+            }
+        )
+    return intentos
 
 
 def _contrato_http(contrato: Any) -> dict[str, Any] | None:

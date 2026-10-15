@@ -47,6 +47,9 @@ EXCLUIDOS_DE_LA_COPIA = (
 DIR_PROYECTO = "/work/proyecto"
 DIR_TESTS = "/work/tests"
 DIR_SALIDA = "/out"
+ARCHIVO_JUNIT = "junit.xml"
+#: Tamaño máximo del junit.xml que se lee del contenedor.
+LIMITE_JUNIT_BYTES = 2_000_000
 PIDS_MAXIMOS = 128
 TMP_TAMANO = "64m"
 CODIGO_SIGKILL = 137
@@ -144,6 +147,8 @@ def ejecutar_en_sandbox(
             stdout=_leer_logs(contenedor, stdout=True),
             stderr=_leer_logs(contenedor, stdout=False),
             coverage=_leer_coverage(salida / "coverage.json"),
+            junit_xml=_leer_texto(salida / ARCHIVO_JUNIT, LIMITE_JUNIT_BYTES),
+            comando=list(comando),
             timed_out=timed_out,
             oom_killed=oom or (exit_code == CODIGO_SIGKILL and not timed_out),
             duracion_s=round(duracion, 3),
@@ -155,6 +160,20 @@ def ejecutar_en_sandbox(
         if contenedor is not None:
             _eliminar(contenedor)
         shutil.rmtree(temporal, ignore_errors=True)
+
+
+def comando_pytest(modulo_cov: str) -> list[str]:
+    """Comando de pytest con cobertura de líneas y ramas y `junit.xml` (EN-17)."""
+    return [
+        "pytest",
+        DIR_TESTS,
+        f"--cov={modulo_cov}",
+        "--cov-branch",
+        f"--cov-report=json:{DIR_SALIDA}/coverage.json",
+        f"--junitxml={DIR_SALIDA}/{ARCHIVO_JUNIT}",
+        "-p",
+        "no:cacheprovider",
+    ]
 
 
 def ejecutar_pruebas(
@@ -178,15 +197,7 @@ def ejecutar_pruebas(
     Returns:
         Resultado con exit code, stdout, stderr y el contenido de coverage.json.
     """
-    comando = [
-        "pytest",
-        DIR_TESTS,
-        f"--cov={modulo_cov}",
-        "--cov-branch",
-        f"--cov-report=json:{DIR_SALIDA}/coverage.json",
-        "-p",
-        "no:cacheprovider",
-    ]
+    comando = comando_pytest(modulo_cov)
     return ejecutar_en_sandbox(
         imagen,
         comando,
@@ -295,6 +306,16 @@ def _leer_coverage(archivo: Path) -> dict[str, Any] | None:
     try:
         return json.loads(archivo.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError):
+        return None
+
+
+def _leer_texto(archivo: Path, limite_bytes: int) -> str | None:
+    """Texto de un archivo de salida, o None si no existe, es muy grande o no se lee."""
+    try:
+        if not archivo.is_file() or archivo.stat().st_size > limite_bytes:
+            return None
+        return archivo.read_text(encoding="utf-8", errors="replace")
+    except OSError:
         return None
 
 

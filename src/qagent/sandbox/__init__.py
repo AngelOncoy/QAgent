@@ -7,12 +7,21 @@ Paso 2 (sin red): `ejecutar_pruebas` corre pytest + coverage sobre una copia del
 from qagent.sandbox.cliente import obtener_cliente
 from qagent.sandbox.ejecucion import (
     clasificar_resultado,
+    comando_pytest,
     copiar_proyecto,
     ejecutar_en_sandbox,
     ejecutar_pruebas,
 )
 from qagent.sandbox.estado import estado_docker, verificar_docker
 from qagent.sandbox.imagen import IMAGEN_BASE, construir_imagen_base, preparar_imagen
+from qagent.sandbox.informe_pytest import (
+    CasoPrueba,
+    InformePytest,
+    JUnitInvalido,
+    parsear_junit,
+    recortar_salida,
+    resumir_ejecucion,
+)
 from qagent.sandbox.modelos import (
     LIMITES_POR_DEFECTO,
     MENSAJE_DOCKER_CERRADO,
@@ -28,19 +37,26 @@ __all__ = [
     "IMAGEN_BASE",
     "LIMITES_POR_DEFECTO",
     "MENSAJE_DOCKER_CERRADO",
+    "CasoPrueba",
     "DockerNoDisponible",
     "ErrorConstruccionImagen",
     "ErrorSandbox",
     "ImagenNoEncontrada",
+    "InformePytest",
+    "JUnitInvalido",
     "LimitesSandbox",
     "ResultadoSandbox",
     "clasificar_resultado",
+    "comando_pytest",
     "construir_imagen_base",
     "copiar_proyecto",
     "ejecutar_en_sandbox",
     "ejecutar_pruebas",
     "estado_docker",
     "obtener_cliente",
+    "parsear_junit",
     "preparar_imagen",
+    "recortar_salida",
+    "resumir_ejecucion",
     "verificar_docker",
 ]

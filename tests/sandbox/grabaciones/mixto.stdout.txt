@@ -1,0 +1,20 @@
+============================= test session starts =============================
+platform linux -- Python 3.11.9, pytest-9.1.1, pluggy-1.6.0
+rootdir: /work
+collected 3 items
+
+../tests/test_generado.py .sF                                            [100%]
+
+================================== FAILURES ===================================
+_________________________________ test_falla __________________________________
+
+    def test_falla():
+>       assert doble(5) == 10
+E       assert 15 == 10
+E        +  where 15 = doble(5)
+
+../tests/test_generado.py:10: AssertionError
+- generated xml file: /work/out/junit.xml -
+=========================== short test summary info ===========================
+FAILED ../tests/test_generado.py::test_falla - assert 15 == 10
+=================== 1 failed, 1 passed, 1 skipped in 0.19s ====================
