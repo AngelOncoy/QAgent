@@ -41,7 +41,7 @@ registrarComponente('sidebar/sidebar', `<!-- ======================= SIDEBAR ===
       <div class="row" id="sbRow"><b>Sandbox Runner:</b></div>
       <div class="row"><span>Reintentos max:</span><span>3 por test</span></div>
     </div>
-    <div class="sidebottom"><span>☾ Tema Oscuro</span><span class="mono">⑂ <span id="branchLbl">main</span></span></div>
+    <div class="sidebottom hide" id="sideBranch"><span class="mono">⑂ <span id="branchLbl">main</span></span></div>
   </div>
 </aside>
 `);
@@ -91,6 +91,7 @@ function actualizarSidebar(v){
   const home = v==='welcome' || v==='config';
   $('sideHome').classList.toggle('hide', !home);
   $('sideProj').classList.toggle('hide', home);
+  $('sideBranch').classList.toggle('hide', home);   // la rama solo tiene sentido con un proyecto abierto
   document.querySelectorAll('#sideHome nav a').forEach(a => a.classList.toggle('on', a.dataset.h===v));
   document.querySelectorAll('#views a').forEach(a => {
     a.classList.toggle('on', a.dataset.v===v);

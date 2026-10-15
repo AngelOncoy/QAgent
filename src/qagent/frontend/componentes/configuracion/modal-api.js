@@ -4,8 +4,8 @@ registrarComponente('configuracion/modal-api', `<!-- Agregar o editar la API de 
 <div class="overlay" id="m-api"><div class="modal">
   <div class="mhead"><span id="apiTitulo">Agregar API</span><button class="x" onclick="cerrarModalApi()">×</button></div>
   <div class="mcontent">
-    <div class="frow"><label for="apiProveedor">Proveedor</label><select class="inp" id="apiProveedor" onchange="apiCambioProveedor()"></select></div>
-    <div class="frow"><label for="apiModelo">Modelo</label><select class="inp" id="apiModelo" onchange="apiCambioModelo()"></select></div>
+    <div class="frow"><label for="apiProveedor">Proveedor</label><select class="inp" id="apiProveedor" onchange="apiEligioProveedor()"></select></div>
+    <div class="frow"><label for="apiModelo">Modelo</label><select class="inp" id="apiModelo" onchange="apiEligioModelo()"></select></div>
     <div class="hint warn hide" id="apiTipo" style="margin:0"></div>
     <label class="chk hide" id="apiReusarFila"><input type="checkbox" id="apiReusar" onchange="apiCambioReusar()"> <span id="apiReusarTexto">Mantener la key actual de este agente</span> <span class="mono" id="apiReusarMascara"></span></label>
     <div class="frow" id="apiClaveFila"><label for="apiClave">API key</label><input class="inp" id="apiClave" type="password" autocomplete="off" spellcheck="false" placeholder="Pega aquí tu API key"></div>
@@ -35,8 +35,10 @@ async function abrirModalApi(agente){
   const rol = rolesApi.find(r => r.agente === agente) || {nombre: agente};
   $('apiTitulo').textContent = `${rol.configurado ? 'Editar' : 'Agregar'} API · ${rol.nombre}`;
   $('apiProveedor').innerHTML = proveedoresApi.map(p => `<option value="${escHtml(p.id)}">${escHtml(p.nombre)}${p.genera_texto ? '' : ' — ' + escHtml(p.tipo_nombre)}</option>`).join('');
-  if(rol.configurado && proveedoresApi.some(p => p.id === rol.proveedor)) $('apiProveedor').value = rol.proveedor;
-  apiCambioProveedor(rol.configurado ? rol.modelo : null);
+  // Se parte de la API guardada; si no hay, de la última selección; si no, de la primera de la lista.
+  const base = rol.configurado && rol.tiene_clave ? rol : (seleccionApi[agente] || (rol.configurado ? rol : null));
+  if(base && proveedoresApi.some(p => p.id === (base.proveedor))) $('apiProveedor').value = base.proveedor;
+  apiCambioProveedor(base ? base.modelo : null);
   mostrarEstadoApi('', '');
   openModal('m-api');
 }
@@ -66,6 +68,15 @@ function apiCambioProveedor(modeloInicial = null){
   apiCambioModelo();
   mostrarEstadoApi('', '');
 }
+
+// El usuario cambió proveedor o modelo: queda como última selección aunque cancele.
+function guardarSeleccionApi(){
+  const p = proveedorElegido();
+  if(!p || !agenteApi || !$('apiModelo').value) return;
+  recordarSeleccion(agenteApi, {proveedor: p.id, proveedor_nombre: p.nombre, modelo: $('apiModelo').value});
+}
+function apiEligioProveedor(){ apiCambioProveedor(); guardarSeleccionApi(); }
+function apiEligioModelo(){ apiCambioModelo(); guardarSeleccionApi(); }
 
 function apiCambioModelo(){
   const p = proveedorElegido();
@@ -118,6 +129,7 @@ async function guardarApi(){
     $('apiClave').value = '';
     const aviso = r.aviso ? `<div class="hint warn" style="margin:4px 0 0">${escHtml(r.aviso)}</div>` : '';
     mostrarEstadoApi('ok', escHtml(r.mensaje) + aviso);
+    recordarSeleccion(agenteApi, null);   // ya está guardada: manda la API real
     rolesActualizados(r.roles);
     // Con aviso se deja más tiempo para leerlo.
     setTimeout(() => { if(!probandoApi && $('apiEstado').classList.contains('ok')) closeModal(); }, r.aviso ? 4000 : 1200);
