@@ -13,8 +13,9 @@
 | FIX A | Los archivos sin funciones ni endpoints analizables quedan desmarcados, deshabilitados y atenuados |
 | FIX B | El modal de clonación permite elegir gráficamente la carpeta padre y construye el destino final |
 
-Este trabajo no tiene un número de issue propio asignado. La issue #61 se menciona
-únicamente como dependencia futura de integración; no se la cierra ni se modifica su
+Este trabajo corresponde a la **issue #63 — FIX: Mejorar selección de objetivos y
+directorio de clonación en QAgent**. La issue #61 y su PR #62 se mencionan únicamente
+como referencias informativas de integración; no se los cierra ni se modifica su
 rama desde este trabajo.
 
 ## 1. Introducción
