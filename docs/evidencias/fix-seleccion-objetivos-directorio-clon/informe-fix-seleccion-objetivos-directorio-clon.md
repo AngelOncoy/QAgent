@@ -619,15 +619,17 @@ son comprobaciones funcionales y automatizadas registradas en
   los documentos requerirán staging explícito con `git add -f` cuando el usuario lo
   autorice.
 
-### Riesgo de integración con la issue #61
+### Integración con la issue #61
 
-La rama remota `origin/fix/issue-61-clon-recientes` corrige el registro automático de
-clones en **Proyectos recientes**. Esa rama y esta modifican los mismos archivos
+El PR #62 de la issue #61 fue fusionado en `develop` mediante el commit
+`d8c9bdf44a3cf989f85011caf387fcc9df7ab0b9`. Esta rama incorporó ese `develop` con el
+merge `a582c64`. Las dos líneas de trabajo modificaban
 `src/qagent/app/desktop.py` y
-`src/qagent/frontend/componentes/inicio/modal-clonar.js`; por ello existe riesgo de
-conflicto textual o de perder comportamiento durante la integración.
+`src/qagent/frontend/componentes/inicio/modal-clonar.js`, pero Git las integró sin
+conflictos textuales. La revisión semántica y las pruebas conjuntas confirmaron que no se
+perdió comportamiento.
 
-La resolución futura debe preservar de la issue #61:
+La integración conserva de la issue #61:
 
 - registro automático del clon exitoso en Proyectos recientes;
 - persistencia y deduplicación existentes;
@@ -635,7 +637,7 @@ La resolución futura debe preservar de la issue #61:
 - escape seguro de destino y advertencias;
 - manejo de fallos de persistencia como advertencia cuando Git sí terminó.
 
-Y debe preservar de esta rama:
+También conserva de esta rama:
 
 - botón **Examinar…** y selector nativo;
 - composición de carpeta padre y destino final;
@@ -643,9 +645,9 @@ Y debe preservar de esta rama:
 - selección y validación de funciones/endpoints;
 - alcance respetado en corrida normal y Regresión.
 
-No se realizó merge, rebase ni modificación de la rama de #61. Antes del Pull Request
-se debe integrar o rebasar según la política del equipo, resolver ambos archivos de
-forma semántica y volver a ejecutar las pruebas relevantes.
+No se modificó la rama de #61 ni su Pull Request. Se realizó un merge normal de
+`origin/develop` sobre esta rama, sin rebase ni force push. Los resultados posteriores
+se detallan en el anexo de integración al final del documento.
 
 ## 15. Resultados y conclusiones
 
@@ -664,9 +666,10 @@ flujo completo.
 
 Las suites automatizadas, Ruff, validación de sintaxis JavaScript, comprobación del diff,
 diez capturas y sus hashes respaldan los resultados. Permanecen como limitaciones la
-validación visual exclusiva en Windows, la deprecación pendiente de `FOLDER_DIALOG`, el
-problema ambiental `WinError 50` del test de red y la integración deliberadamente no
-realizada con la issue #61.
+validación visual exclusiva en Windows, la deprecación pendiente de `FOLDER_DIALOG` y
+los problemas ambientales de handles de entrada observados con subprocess bajo Python
+3.14 en Windows. La compatibilidad con la corrección de la issue #61 quedó validada
+después de incorporarla desde `develop`.
 
 ## 16. Referencias de Git
 
@@ -677,10 +680,10 @@ realizada con la issue #61.
 | Rama de trabajo | `fix/seleccion-objetivos-directorio-clon` |
 | Rama de destino | `develop` |
 | Commit base completo | `7dc800d73da6af5cc0a4de336bbc455809b8898d` |
-| Estado de `develop` al documentar | `develop` y `origin/develop` en el mismo commit base |
-| Dependencia técnica | issue #61, rama remota `origin/fix/issue-61-clon-recientes`, por cambios compartidos en `desktop.py` y `modal-clonar.js` |
+| Estado de `develop` tras integrar | `origin/develop` en `d8c9bdf44a3cf989f85011caf387fcc9df7ab0b9`, incorporado mediante `a582c64` |
+| Dependencia técnica | issue #61 integrada por el PR #62; compatibilidad comprobada en `desktop.py` y `modal-clonar.js` |
 | Pull Request de estas correcciones | Pendiente; no creado |
-| Commit y push | Pendientes; no realizados |
+| Commit original y publicación | `cad996ce1c5e151d4733fec5d5a8faa7d1e5496d`, publicado en la rama de trabajo |
 
 Los archivos relevantes son los catorce enumerados en la sección 8, además de este
 informe, `pruebas_ejecutadas.md`, `evidencias_sha256.json` y las diez imágenes de
@@ -703,3 +706,53 @@ deberán incorporarse mediante staging forzado cuando exista autorización:
 - `docs/evidencias/fix-seleccion-objetivos-directorio-clon/img/CAP-08-clonacion-controlada-correcta.png`;
 - `docs/evidencias/fix-seleccion-objetivos-directorio-clon/img/CAP-09-pruebas-automatizadas.png`;
 - `docs/evidencias/fix-seleccion-objetivos-directorio-clon/img/CAP-10-ruff-verificaciones-finales.png`.
+
+## Anexo — Integración posterior del PR #62
+
+Fecha de integración y validación: 16 de octubre de 2026.
+
+### Base incorporada y resolución
+
+- Commit original de esta rama: `cad996ce1c5e151d4733fec5d5a8faa7d1e5496d`.
+- Commit de `develop` incorporado: `d8c9bdf44a3cf989f85011caf387fcc9df7ab0b9`.
+- Commit de la corrección #61 contenido en `develop`:
+  `7b7ac4c945312e4f21d8a6bb49b109eebb9a1c42`.
+- Merge creado en esta rama: `a582c64`.
+- Estrategia: merge normal con `ort`; no se utilizó rebase ni force push.
+- Conflictos: ninguno. `desktop.py` y `modal-clonar.js` se combinaron automáticamente y
+  luego se revisaron de forma semántica.
+
+El flujo combinado conserva el selector **Examinar…**, la composición de carpeta padre
+y destino final, edición manual, cancelación, rama y `--depth 1`. Tras un clon exitoso,
+el backend registra nombre, origen Git, ruta y URL antes de `clonado_fin`; el frontend
+espera `cargarRecientes()`, actualiza lista y contador, escapa destino y advertencias, y
+navega a Vista previa. Allí permanecen la deshabilitación de archivos sin objetivos, la
+selección de funciones/endpoints, la validación AST y el filtrado de corrida y Regresión.
+
+### Pruebas conjuntas posteriores al merge
+
+Estas ejecuciones son posteriores y no sustituyen ni se suman a las cifras históricas
+de la sección 9:
+
+| Verificación | Resultado real |
+|---|---|
+| Pruebas conjuntas de #61, selección, selector, clonador offline, Recientes y Regresión | `142 passed, 2 deselected` |
+| Suite rápida oficial: `python test.py --rapido` | `1047 passed, 19 deselected` |
+| Frontend completo | `85 passed` |
+| Ruff check | `All checks passed!` |
+| Ruff format | `170 files already formatted` |
+| `node --check` sobre los cuatro JavaScript modificados | Correcto |
+| `git diff --check` y diff del futuro PR | Correcto |
+
+El primer intento del conjunto dirigido terminó con `141 passed, 2 deselected` y un
+fallo ambiental: `WinError 6` al duplicar el handle de entrada antes de ejecutar
+`git init` en una prueba offline de #61. El mismo caso pasó aislado y el conjunto
+completo pasó al repetirlo con entrada estándar desconectada. No se modificaron el test
+ni el producto para ocultar el fallo.
+
+Se usó `QAGENT_FAKE_LLM=1`, sin proveedores reales, Docker ni pruebas marcadas `red`.
+No se realizó una nueva captura visual durante la integración porque Browser/Playwright
+no estaban disponibles. Las diez capturas originales y su manifiesto SHA-256 se
+conservaron sin cambios; la validación automática cubrió la conexión funcional entre
+ambas correcciones. Continúan pendientes la comprobación visual en Linux/macOS y la
+migración futura desde `FOLDER_DIALOG`, actualmente deprecado.
