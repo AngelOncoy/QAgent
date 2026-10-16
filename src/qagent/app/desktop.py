@@ -83,7 +83,23 @@ class DesktopAPI:
             resultado = clonador.clonar(
                 url, rama, destino, superficial, al_avanzar=avanzar
             )
-            self.emit_event("clonado_fin", asdict(resultado))
+            datos = asdict(resultado)
+            if resultado.ok:
+                nombre = Path(resultado.destino).name or clonador.nombre_repositorio(
+                    url
+                )
+                try:
+                    recientes.registrar(nombre, "git", resultado.destino, url=url)
+                except OSError as exc:
+                    bitacora.registro.warning(
+                        "El repositorio se clonó, pero no se pudo registrar en recientes: %s",
+                        exc,
+                    )
+                    datos["advertencia"] = (
+                        "El repositorio se clonó correctamente, pero no se pudo guardar "
+                        "en Proyectos recientes."
+                    )
+            self.emit_event("clonado_fin", datos)
 
         threading.Thread(target=trabajo, name="clonado-git", daemon=True).start()
         return {"iniciado": True}
