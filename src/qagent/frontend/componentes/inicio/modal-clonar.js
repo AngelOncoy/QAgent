@@ -7,7 +7,7 @@ registrarComponente('inicio/modal-clonar', `<!-- Abrir repositorio: URL (sin Git
     <div class="frow"><label>Control de versiones</label><select class="inp" style="width:120px"><option>Git</option></select></div>
     <div class="frow"><label>URL</label><div><input class="inp" id="url" placeholder="https://github.com/usuario/repositorio.git" oninput="vUrl()"><div class="hint" id="urlHint">Repositorio público por HTTPS (GitHub, GitLab, Bitbucket).</div></div></div>
     <div class="frow"><label>Rama</label><div><input class="inp" id="branch" value="main" style="width:180px" oninput="vUrl()"><div class="hint err hide" id="branchHint">Nombre de rama no válido.</div></div></div>
-    <div class="frow"><label>Directorio</label><input class="inp" id="dir" value="" placeholder="Se completa al escribir la URL" oninput="dirEditado=true;vUrl()"></div>
+    <div class="frow"><label>Destino final</label><div><div class="field-action"><input class="inp" id="dir" value="" placeholder="Se completa al escribir la URL" oninput="dirEditado=true;vUrl()"><button type="button" class="btn" id="browseClone" onclick="examinarDestinoClonado()">Examinar…</button></div><div class="hint" id="dirHint">Examinar selecciona la carpeta padre; QAgent agrega el nombre del repositorio. El destino final se puede editar.</div></div></div>
     <label class="chk"><input type="checkbox" id="shallow" checked> Clonado superficial (<span class="mono">--depth 1</span>): solo el último commit</label>
   </div>
   <div class="mcontent hide" id="cloneProg">
@@ -28,12 +28,14 @@ let dirEditado = false, clonando = false, cloneTimer;
 const hayPy = () => !!(window.pywebview && window.pywebview.api && window.pywebview.api.clonar_repositorio);
 const ramaValida = b => RE_RAMA_GIT.test(b) && !/\.\.|\/\/|\/\.|[\/.]$|\.lock$/.test(b);
 const nombreRepo = u => u.split('/').pop().replace(/\.git$/,'');
+const destinoEnCarpeta = (carpeta, nombre) => carpeta.replace(/[\\/]+$/,'') + (carpeta.includes('\\') ? '\\' : '/') + nombre;
 async function vUrl(){
   const v = $('url').value, b = $('branch').value;
   const ok = RE_URL_GIT.test(v), okB = ramaValida(b);
   $('urlHint').textContent = v && !ok ? 'URL no válida. Formato esperado: ' + FORMATO_URL : 'Repositorio público por HTTPS (GitHub, GitLab, Bitbucket).';
   $('urlHint').className = 'hint' + (v && !ok ? ' err':'');
   $('branchHint').classList.toggle('hide', okB);
+  $('browseClone').disabled = clonando || !ok;
   if(ok && !dirEditado){
     if(hayPy()){
       try { const r = await window.pywebview.api.destino_clonado(v); if(r.ok && !dirEditado && $('url').value===v) $('dir').value = r.destino; }
@@ -41,6 +43,24 @@ async function vUrl(){
     } else $('dir').value = 'E:\\Proyectos\\' + nombreRepo(v);
   }
   $('cloneOk').disabled = clonando || !ok || !okB || !$('dir').value.trim();
+}
+async function examinarDestinoClonado(){
+  const url = $('url').value;
+  if(!RE_URL_GIT.test(url)) { toastError('Escribe primero una URL válida para conservar el nombre del repositorio.'); return; }
+  const api = window.pywebview && window.pywebview.api;
+  if(!(api && api.select_folder)) { toastError('El selector de carpetas solo está disponible en la aplicación de escritorio.'); return; }
+  const anterior = $('dir').value;
+  try {
+    const carpetaPadre = await api.select_folder();
+    if(!carpetaPadre) return;
+    $('dir').value = destinoEnCarpeta(String(carpetaPadre), nombreRepo(url));
+    dirEditado = true;
+    $('dirHint').textContent = `Carpeta padre: ${carpetaPadre}. Destino final editable: ${$('dir').value}`;
+    vUrl();
+  } catch(err) {
+    $('dir').value = anterior;
+    toastError('No se pudo abrir el selector de carpetas: ' + escHtml(String(err)));
+  }
 }
 function resetClone(){
   if(clonando) return;
