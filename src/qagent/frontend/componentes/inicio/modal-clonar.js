@@ -74,7 +74,7 @@ function avanceClonado(d){
   if(ult && d.linea.includes('%') && ult.textContent.split(':')[0] === d.linea.split(':')[0]) ult.textContent = d.linea;
   else logClone(d.linea);
 }
-function finClonado(r){
+async function finClonado(r){
   clonando = false; $('cloneCancel').disabled = false;
   if(!r.ok){
     // Se muestra el motivo junto al formulario para corregir y reintentar
@@ -84,6 +84,12 @@ function finClonado(r){
   }
   $('cloneTitle').textContent = 'Listo'; $('cloneBar').style.width = '100%';
   const url = $('url').value, br = $('branch').value;
-  setTimeout(() => { closeModal(); loadProject(nombreRepo(url), 'git', url, br, r.destino); toast(`Repositorio clonado en <span class="mono">${r.destino}</span>`); }, 600);
+  await cargarRecientes();
+  setTimeout(() => {
+    closeModal(); loadProject(nombreRepo(url), 'git', url, br, r.destino);
+    const mensaje = `Repositorio clonado en <span class="mono">${escHtml(r.destino)}</span>`;
+    if(r.advertencia) toast(`${mensaje}<br>Advertencia: ${escHtml(r.advertencia)}`, I('alertc','var(--amber-400)',16), 8000);
+    else toast(mensaje);
+  }, 600);
 }
 
