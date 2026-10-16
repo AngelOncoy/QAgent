@@ -1,3 +1,11 @@
+---
+name: "📌 Tarea / Feature (Estándar)"
+about: Plantilla para documentar issues de forma clara con contexto técnico para desarrolladores e IA
+title: "[FEATURE] "
+labels: "enhancement"
+assignees: ""
+---
+
 ### Descripción
 <!-- Explica brevemente la funcionalidad o el problema a resolver -->
 
