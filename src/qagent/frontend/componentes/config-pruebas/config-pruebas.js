@@ -43,7 +43,7 @@ registrarComponente('config-pruebas/config-pruebas', `<!-- ===== 3. CONFIGURACI�
         <h4>Estimación <span class="pill p-grey">referencial, se compara con la real al final</span></h4>
         <div class="bd">
           <div class="estimate">
-            <div><div class="k">Funciones</div><div class="v" id="eFn">0</div></div>
+            <div><div class="k">Objetivos</div><div class="v" id="eFn">0</div></div>
             <div><div class="k">Tokens aprox.</div><div class="v" id="eTok">0</div></div>
             <div><div class="k">Duración aprox.</div><div class="v" id="eTime">0 min</div></div>
           </div>
@@ -63,14 +63,19 @@ registrarComponente('config-pruebas/config-pruebas', `<!-- ===== 3. CONFIGURACI�
 
 function estFor(k){
   const p = PROFILES.find(x=>x.k===k);
-  const mods = MODULES.filter(m=>m.sel && !m.error);
+  const mods = MODULES.filter(m=>m.sel && !m.error && moduloTieneObjetivos(m));
   const fns = mods.flatMap(m=>m.fns).filter(f=>f.inc);
-  const selFns = mods.flatMap(m=>m.fns.filter(f=>f.inc).map(f=>({...f, reuse: SPEC_STATUS[m.path]==='reuse'})));
-  const reused = k==='reg' ? 0 : selFns.filter(f=>f.reuse).length;
-  const et = {P: (fns.length - reused) * p.tok * EST_SPLIT.P, G: fns.length * p.tok * EST_SPLIT.G, R: fns.length * p.tok * EST_SPLIT.R};
+  const endpoints = mods.flatMap(m=>m.endpoints || []);
+  const objetivos = mods.flatMap(m=>[
+    ...m.fns.filter(f=>f.inc),
+    ...(m.endpoints || [])
+  ].map(objetivo=>({...objetivo, reuse: SPEC_STATUS[m.path]==='reuse'})));
+  const reused = k==='reg' ? 0 : objetivos.filter(objetivo=>objetivo.reuse).length;
+  const total = objetivos.length;
+  const et = {P: (total - reused) * p.tok * EST_SPLIT.P, G: total * p.tok * EST_SPLIT.G, R: total * p.tok * EST_SPLIT.R};
   const tok = Math.round(et.P + et.G + et.R);
   const saved = Math.round(reused * p.tok * EST_SPLIT.P);
-  return {p, fns, reused, et, tok, saved, time: Math.max(1, Math.round(fns.length * p.t))};
+  return {p, fns, endpoints, total, reused, et, tok, saved, time: Math.max(1, Math.round(total * p.t))};
 }
 function pickProfile(k){
   profile = k;
@@ -103,15 +108,15 @@ function renderCompare(){
   }).join('');
 }
 function calc(){
-  const e = estFor(profile), {p, fns, reused, et, tok, saved} = e;
+  const e = estFor(profile), {p, fns, endpoints, total, reused, et, tok, saved} = e;
   runEstimate = {tok};
   $('eAgents').innerHTML = profile==='reg'
     ? '<span class="ea"><i style="background:var(--emerald-500)"></i>Regresión: solo se ejecutan pruebas guardadas · ningún agente llama a la IA</span>'
     : ['P','G','R'].map(k => `<span class="ea"><i style="background:${{P:'var(--blue-500)',G:'var(--purple-500)',R:'var(--emerald-500)'}[k]}"></i>${AGENTS_CFG[k].name}: ~${Math.round(et[k]).toLocaleString('es-PE')} tok</span>`).join('');
   const noDoc = fns.filter(f=>!f.doc).length, crit = fns.filter(f=>f.crit).length;
-  const nMods = MODULES.filter(m=>m.sel).length;
+  const nMods = obtenerSeleccionObjetivos().length;
   $('fnCount').textContent = fns.length + ' incluidas';
-  $('eFn').textContent = fns.length;
+  $('eFn').textContent = total;
   $('eTok').textContent = '~' + tok.toLocaleString('es-PE');
   $('eTime').textContent = `${p.duracion} · ${e.time} min`;
   $('eNote').innerHTML = [
@@ -120,17 +125,17 @@ function calc(){
   ].filter(Boolean).join('<br>');
   // Resumen del alcance (pantalla 3)
   $('scopeSum').innerHTML = `<span style="font-size:12px;color:var(--mut)">Alcance elegido en la vista previa:</span>
-    <span class="pill p-grey">${fns.length} funciones · ${nMods} ${nMods===1?'módulo':'módulos'}</span>
+    <span class="pill p-grey">${total} objetivos · ${fns.length} funciones · ${endpoints.length} endpoints · ${nMods} ${nMods===1?'módulo':'módulos'}</span>
     <span class="pill p-grey">★ ${crit} crítica(s)</span>
     ${noDoc?`<span class="pill p-amber">⚠ ${noDoc} sin docstring</span>`:''}
     <button class="btn" onclick="go('preview')">Editar selección</button>`;
-  renderPieVistaPrevia(fns, noDoc);
+  renderPieVistaPrevia(fns, noDoc, endpoints);
   // Pie de la pantalla 3 (perfil y alcance)
   let msg = '', block = false;
   if(!entornoListo){ msg = `<span class="err">${escHtml(entornoMotivo)}</span>`; block = true; }
-  else if(!fns.length){ msg = 'No hay funciones seleccionadas: vuelve a la vista previa.'; block = true; }
+  else if(!total){ msg = 'No hay objetivos seleccionados: vuelve a la vista previa.'; block = true; }
   else if(noDoc){ msg = `<span class="warn">⚠ ${noDoc} función(es) sin docstring: se generarán, pero con oráculo débil (se marcará en el informe).</span>`; }
-  else msg = profile==='reg' ? 'Regresión: re-ejecuta pruebas guardadas sin IA.' : `Listo: ${fns.length} funciones · perfil ${p.n}.`;
+  else msg = profile==='reg' ? 'Regresión: re-ejecuta pruebas guardadas sin IA.' : `Listo: ${total} objetivos · perfil ${p.n}.`;
   $('footMsg2').innerHTML = msg; $('toPlan').disabled = block;
   renderProfiles(); renderCompare();
 }

@@ -85,6 +85,7 @@ def ejecutar_corrida(
     preparar_imagen: PrepararImagen | None = None,
     ejecutor: Ejecutor = ejecutar_pruebas,
     timeout_paso_s: float | None = None,
+    seleccion: list[dict[str, Any]] | None = None,
 ) -> ResumenCorrida:
     """Ejecuta la corrida completa de un proyecto y devuelve su resumen.
 
@@ -103,6 +104,8 @@ def ejecutar_corrida(
         ejecutor: cómo ejecuta el Reviewer las pruebas (Docker; reemplazable en pruebas).
         timeout_paso_s: tiempo máximo por paso de un agente (por defecto el del
             orquestador).
+        seleccion: módulos, funciones y endpoints elegidos en la Vista previa. Si es
+            ``None``, se conservan todos los objetivos analizables.
     """
     if perfil == "reg":
         from qagent.orchestrator.regresion import ejecutar_regresion
@@ -115,6 +118,7 @@ def ejecutar_corrida(
             run_id=run_id,
             preparar_imagen=preparar_imagen,
             ejecutor=ejecutor,
+            seleccion=seleccion,
         )
 
     inicio = time.monotonic()
@@ -149,11 +153,12 @@ def ejecutar_corrida(
         if resumen.run_id is None and almacen.existe():
             resumen.run_id = almacen.crear_run(tipos_prueba=["funcion"])["run_id"]
 
+        from qagent.proyectos.seleccion import filtrar_modulos
+
         analisis = analizar_proyecto(ruta)
         modulos = [
             _con_fuente(ruta, m)
-            for m in analisis["modulos"]
-            if m["funciones"] or m.get("endpoints")
+            for m in filtrar_modulos(analisis["modulos"], seleccion)
         ]
         n_funciones = sum(len(m["funciones"]) for m in modulos)
         n_endpoints = sum(len(m.get("endpoints") or []) for m in modulos)

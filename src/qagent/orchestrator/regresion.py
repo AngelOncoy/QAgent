@@ -117,6 +117,7 @@ def ejecutar_regresion(
     run_id: str | None = None,
     preparar_imagen: Any = None,
     ejecutor: Any = ejecutar_pruebas,
+    seleccion: list[dict[str, Any]] | None = None,
 ) -> Any:
     """Reejecuta una vez cada prueba aprobada vigente; nunca crea clientes LLM."""
     from qagent.orchestrator.corrida import ResumenCorrida, _cerrar_run, metas_de
@@ -157,6 +158,21 @@ def ejecutar_regresion(
 
     try:
         specs = _specs_aprobadas(almacen)
+        if seleccion is not None:
+            elegidos = {
+                (entrada["ruta"], objetivo)
+                for entrada in seleccion
+                for objetivo in entrada["funciones"] + entrada["endpoints"]
+            }
+            specs = [
+                spec
+                for spec in specs
+                if (
+                    spec["contrato"]["modulo"],
+                    spec["contrato"]["objetivo"],
+                )
+                in elegidos
+            ]
         resumen.total_funciones = len(specs)
         if not specs:
             raise RuntimeError("No hay pruebas aprobadas vigentes para Regresion.")

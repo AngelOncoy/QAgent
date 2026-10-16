@@ -40,7 +40,7 @@ def test_con_ia_real_lanza_el_pipeline(api, monkeypatch, corridas_lanzadas) -> N
 
     assert resultado["status"] == "started"
     assert resultado["modo"] == "real"
-    assert corridas_lanzadas == [("C:/proyecto", "deep", None, False)]
+    assert corridas_lanzadas == [("C:/proyecto", "deep", None, False, None)]
 
 
 def test_con_ia_simulada_y_docker_listo_tambien_es_real(
@@ -52,7 +52,38 @@ def test_con_ia_simulada_y_docker_listo_tambien_es_real(
     resultado = api.start_run("C:/proyecto", "deep")
 
     assert resultado["modo"] == "real"
-    assert corridas_lanzadas == [("C:/proyecto", "deep", None, True)]
+    assert corridas_lanzadas == [("C:/proyecto", "deep", None, True, None)]
+
+
+def test_envia_al_pipeline_la_seleccion_validada(
+    api, monkeypatch, corridas_lanzadas, tmp_path
+) -> None:
+    (tmp_path / "servicio.py").write_text(
+        "def activa() -> bool:\n    return True\n", encoding="utf-8"
+    )
+    seleccion = [{"ruta": "servicio.py", "funciones": ["activa"], "endpoints": []}]
+    monkeypatch.setenv("QAGENT_FAKE_LLM", "1")
+    monkeypatch.setattr(DesktopAPI, "_sandbox_listo", lambda self: True)
+
+    resultado = api.start_run(str(tmp_path), "deep", seleccion)
+
+    assert resultado["status"] == "started"
+    assert corridas_lanzadas == [(str(tmp_path), "deep", None, True, seleccion)]
+
+
+def test_rechaza_objetivo_inexistente_antes_de_iniciar(
+    api, monkeypatch, corridas_lanzadas, tmp_path
+) -> None:
+    (tmp_path / "servicio.py").write_text(
+        "def activa() -> bool:\n    return True\n", encoding="utf-8"
+    )
+    seleccion = [{"ruta": "servicio.py", "funciones": ["inventada"], "endpoints": []}]
+
+    resultado = api.start_run(str(tmp_path), "deep", seleccion)
+
+    assert resultado["status"] == "seleccion_invalida"
+    assert "Objetivos inexistentes" in resultado["mensaje"]
+    assert corridas_lanzadas == []
 
 
 def test_con_ia_simulada_sin_docker_queda_en_demostracion(

@@ -4,6 +4,7 @@ import logging
 import sys
 import threading
 from pathlib import Path
+from typing import Any
 
 import webview
 
@@ -424,7 +425,12 @@ class DesktopAPI:
             "ruta": str(destino),
         }
 
-    def start_run(self, folder_path: str, profile: str = "deep") -> dict:
+    def start_run(
+        self,
+        folder_path: str,
+        profile: str = "deep",
+        seleccion: list[dict[str, Any]] | None = None,
+    ) -> dict:
         """Inicia la corrida del sistema sobre el proyecto seleccionado.
 
         Primero verifica que Docker responde (HU-13) y luego que el entorno completo
@@ -445,9 +451,19 @@ class DesktopAPI:
             ``{"status": "docker_no_disponible", "mensaje": str}``; si falta otra cosa
             del entorno, ``{"status": "blocked", "motivo": str, "problemas": list}``;
             si ya hay una corrida en curso, ``{"status": "en_curso", "mensaje": str}``.
+            Una selección que no coincida con el AST devuelve
+            ``{"status": "seleccion_invalida", "mensaje": str}``.
         """
+        from qagent.analysis import analizar_proyecto
         from qagent.config import modo_simulado
+        from qagent.proyectos.seleccion import filtrar_modulos
         from qagent.sandbox import DockerNoDisponible, verificar_docker
+
+        if seleccion is not None:
+            try:
+                filtrar_modulos(analizar_proyecto(folder_path)["modulos"], seleccion)
+            except (OSError, ValueError) as exc:
+                return {"status": "seleccion_invalida", "mensaje": str(exc)}
 
         simulado = modo_simulado()
         es_regresion = profile == "reg"
@@ -504,7 +520,7 @@ class DesktopAPI:
         # Emite un evento hacia la interfaz JS
         self.emit_event("log", {"message": f"Corrida iniciada en perfil '{profile}'"})
         if modo == "real":
-            self._lanzar_corrida(folder_path, profile, run_id, simulado)
+            self._lanzar_corrida(folder_path, profile, run_id, simulado, seleccion)
         return {
             "status": "started",
             "folder": folder_path,
@@ -522,19 +538,29 @@ class DesktopAPI:
         return estado_docker()["estado"] == "ok"
 
     def _lanzar_corrida(
-        self, ruta: str, perfil: str, run_id: str | None, simulado: bool
+        self,
+        ruta: str,
+        perfil: str,
+        run_id: str | None,
+        simulado: bool,
+        seleccion: list[dict[str, Any]] | None,
     ) -> None:
         """Ejecuta la corrida en un hilo para no congelar la ventana."""
         self._corrida = threading.Thread(
             target=self._correr,
-            args=(ruta, perfil, run_id, simulado),
+            args=(ruta, perfil, run_id, simulado, seleccion),
             name="qagent-corrida",
             daemon=True,
         )
         self._corrida.start()
 
     def _correr(
-        self, ruta: str, perfil: str, run_id: str | None, simulado: bool
+        self,
+        ruta: str,
+        perfil: str,
+        run_id: str | None,
+        simulado: bool,
+        seleccion: list[dict[str, Any]] | None = None,
     ) -> None:
         """Cuerpo del hilo: lee la configuración, corre el pipeline y avisa el final."""
         from qagent.config import carga as config_carga
@@ -552,14 +578,19 @@ class DesktopAPI:
                 total_funciones=0,
             )
         else:
+            opciones_corrida: dict[str, Any] = {
+                "simulado": simulado,
+                "al_evento": self._reenviar_evento,
+                "run_id": run_id,
+            }
+            if seleccion is not None:
+                opciones_corrida["seleccion"] = seleccion
             resumen = ejecutar_corrida(
                 ruta,
                 perfil,
                 carga.config,
                 carga.claves,
-                simulado=simulado,
-                al_evento=self._reenviar_evento,
-                run_id=run_id,
+                **opciones_corrida,
             )
         nivel = logging.INFO if resumen.estado == "fin" else logging.WARNING
         bitacora.registro.log(

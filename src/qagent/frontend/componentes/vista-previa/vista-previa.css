@@ -8,7 +8,11 @@
 .tree .row.dir{color:var(--mut)}
 .tree .row .n{margin-left:auto;color:var(--dim);font-size:11px}
 .tree .row.ign{opacity:.45}
+.tree .row.no-targets{opacity:.5}
+.tree .row.no-targets:hover{background:transparent}
+.tree .no-targets-note{font-family:var(--sans);font-size:10px;color:var(--mut)}
 .tree .ind{padding-left:22px}
+.select-all{margin-left:auto;display:flex;align-items:center;gap:6px;font-size:11px;color:var(--mut);font-weight:400}
 .star{cursor:pointer;font-size:15px;color:var(--dim);background:none;border:0}
 .star.on{color:var(--amber)}
 .legend{display:flex;gap:16px;flex-wrap:wrap;font-size:11px;color:var(--dim);padding:10px 16px}

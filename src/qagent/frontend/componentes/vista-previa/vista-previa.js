@@ -39,7 +39,7 @@ registrarComponente('vista-previa/vista-previa', `<!-- ===== 2. VISTA PREVIA Y C
     <!-- Árbol + funciones -->
     <div class="grid2">
       <div class="card">
-        <h4>Árbol del proyecto <span class="pill p-grey" id="modCount"></span></h4>
+        <h4>Árbol del proyecto <span class="pill p-grey" id="modCount"></span><label class="select-all"><input type="checkbox" id="selectAllModules" onchange="seleccionarTodosModulos(this.checked)"> Seleccionar todos</label></h4>
         <div class="bd tree" id="tree"></div>
         <div class="hint" style="padding:0 16px 14px">Solo se analizan los módulos marcados. Menos módulos = menos tokens del Planner.</div>
       </div>
@@ -156,9 +156,10 @@ function cargarDatosVistaPrevia(res) {
       manejador: e.manejador || '',
       dependencias: (e.dependencias || []).map(d => d.funcion).filter(Boolean)
     }));
+    const tieneObjetivos = fns.length > 0 || endpoints.length > 0;
     return {
       path: m.ruta,
-      sel: true,
+      sel: tieneObjetivos,
       fns: fns,
       endpoints: endpoints,
       conRamas: m.funciones_con_ramas ?? fns.filter(f => f.br > 0).length,
@@ -298,18 +299,23 @@ function renderTree(){
       h += `<div class="row ind" style="color:var(--red-t)"><span class="mono">📄 ${escHtml(nombreArchivo)}</span><span class="pill p-red" style="margin-left:auto">no se pudo analizar</span></div>`;
     } else {
       const fnConRamas = (m.fns || []).filter(f => f.br > 0).length;
-      h += `<div class="row ind"><input type="checkbox" ${m.sel ? 'checked' : ''} onchange="MODULES[${i}].sel=this.checked;renderFns()"> <span class="mono">${escHtml(nombreArchivo)}</span><span class="n" title="${fnConRamas} funciones con ramas">${m.fns.length} fn · ${(m.endpoints || []).length} ep</span></div>`;
+      const tieneObjetivos = moduloTieneObjetivos(m);
+      if (!tieneObjetivos) m.sel = false;
+      h += `<div class="row ind ${tieneObjetivos ? '' : 'no-targets'}"><input type="checkbox" ${m.sel ? 'checked' : ''} ${tieneObjetivos ? '' : 'disabled'} onchange="cambiarSeleccionModulo(${i},this.checked)"> <span class="mono">${escHtml(nombreArchivo)}</span><span class="n" title="${fnConRamas} funciones con ramas">${m.fns.length} fn · ${(m.endpoints || []).length} ep</span>${tieneObjetivos ? '' : '<span class="no-targets-note">sin objetivos analizables</span>'}</div>`;
     }
   });
   h += '<div class="row dir ign">📁 tests/ <span class="n">ignorado</span></div>';
   h += '<div class="row dir ign">📁 .qagent/ <span class="n">ignorado</span></div>';
   $('tree').innerHTML = h;
+  actualizarSeleccionTodos();
   renderFns();
 }
 function renderFns(){
-  const sel = MODULES.filter(m => m.sel && !m.error);
+  const sel = MODULES.filter(m => m.sel && !m.error && moduloTieneObjetivos(m));
   const totalFns = sel.flatMap(m => m.fns).length;
-  $('modCount').textContent = sel.length + (sel.length === 1 ? ' módulo' : ' módulos');
+  const totalEndpoints = sel.flatMap(m => m.endpoints || []).length;
+  const totalObjetivos = sel.flatMap(m => m.fns.filter(f => f.inc)).length + totalEndpoints;
+  $('modCount').textContent = `${sel.length} ${sel.length === 1 ? 'módulo' : 'módulos'} · ${totalObjetivos} objetivos`;
   $('fnCount').textContent = totalFns + ' incluidas';
   let h = '';
   
@@ -363,11 +369,42 @@ function renderFns(){
 }
 function toggle(mi,fi,k){ MODULES[mi].fns[fi][k] = !MODULES[mi].fns[fi][k]; renderFns(); }
 
+function moduloTieneObjetivos(m){
+  return !m.error && ((m.fns || []).length > 0 || (m.endpoints || []).length > 0);
+}
+function cambiarSeleccionModulo(indice, seleccionado){
+  const modulo = MODULES[indice];
+  modulo.sel = moduloTieneObjetivos(modulo) && seleccionado;
+  actualizarSeleccionTodos();
+  renderFns();
+}
+function seleccionarTodosModulos(seleccionado){
+  MODULES.forEach(m => { m.sel = moduloTieneObjetivos(m) && seleccionado; });
+  renderTree();
+}
+function actualizarSeleccionTodos(){
+  const control = $('selectAllModules');
+  if (!control) return;
+  const habilitados = MODULES.filter(moduloTieneObjetivos);
+  const seleccionados = habilitados.filter(m => m.sel).length;
+  control.disabled = habilitados.length === 0;
+  control.checked = habilitados.length > 0 && seleccionados === habilitados.length;
+  control.indeterminate = seleccionados > 0 && seleccionados < habilitados.length;
+}
+function obtenerSeleccionObjetivos(){
+  return MODULES.filter(m => m.sel && moduloTieneObjetivos(m)).map(m => ({
+    ruta: m.path,
+    funciones: (m.fns || []).filter(f => f.inc).map(f => f.n),
+    endpoints: (m.endpoints || []).map(e => e.objetivo)
+  })).filter(m => m.funciones.length || m.endpoints.length);
+}
+
 // Pie de la vista previa (alcance): lo invoca calc() porque depende de la selección actual.
-function renderPieVistaPrevia(fns, noDoc){
+function renderPieVistaPrevia(fns, noDoc, endpoints=[]){
   let m1 = '', b1 = false;
-  if(!fns.length){ m1 = 'Selecciona al menos una función.'; b1 = true; }
+  const total = fns.length + endpoints.length;
+  if(!total){ m1 = 'Selecciona al menos un objetivo analizable.'; b1 = true; }
   else if(noDoc){ m1 = `<span class="warn">⚠ ${noDoc} función(es) sin docstring: se generarán, pero con oráculo débil (se marcará en el informe).</span>`; }
-  else m1 = `${fns.length} funciones seleccionadas · siguiente paso: elegir el perfil de pruebas.`;
+  else m1 = `${total} objetivos seleccionados (${fns.length} funciones · ${endpoints.length} endpoints) · siguiente paso: elegir el perfil de pruebas.`;
   $('footMsg').innerHTML = m1; $('toTests').disabled = b1;
 }
