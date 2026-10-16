@@ -1,8 +1,8 @@
 ---
-name: "📌 Tarea / Feature (Estándar)"
+name: "Nueva Tarea"
 about: Plantilla para documentar issues de forma clara con contexto técnico para desarrolladores e IA
-title: "[FEATURE] "
-labels: "enhancement"
+title: "Feat:/Fix:/Refactor:/Docs:/Style:"
+labels: "TA"
 assignees: ""
 ---
 
