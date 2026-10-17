@@ -7,7 +7,9 @@ Une las piezas que ya existían por separado:
 3. Ejecuta el orquestador módulo por módulo; cada `Evento` llega a `al_evento` con el
    progreso (`hechos` / `total`), para el Monitor en vivo (HU-09).
 4. Corta antes del siguiente módulo si se alcanzó el tope de gasto de `config.toml`.
-5. Reutiliza la spec modular si su huella sigue vigente; si cambió, llama al Planner.
+5. Reutiliza la spec modular si su huella sigue vigente, solo para los objetivos
+   elegidos en la Vista previa; si cambió o le falta alguno, llama al Planner. La
+   spec guardada conserva los contratos de los objetivos que no se eligieron.
 6. Escribe `log.json` y `results.json` (EN-05) en la carpeta de la corrida, guarda las
    specs y las pruebas aprobadas en `.qagent/` y cierra el `run.json` (EN-07).
 
@@ -230,18 +232,32 @@ def ejecutar_corrida(
                 modulo["ruta"], modulo["huella"]
             )
             habia_spec = _existe_plan_modulo(almacen, modulo["ruta"])
+            # La spec vigente se usa solo para los objetivos elegidos en la Vista
+            # previa; si le falta alguno, se vuelve a planificar el módulo.
+            elegidos: list[dict[str, Any]] = []
+            faltan: set[str] = set()
             if plan_guardado is not None:
+                objetivos = _objetivos_de(modulo)
+                elegidos = [
+                    c for c in plan_guardado["contratos"] if c["objetivo"] in objetivos
+                ]
+                faltan = objetivos - {c["objetivo"] for c in elegidos}
+            if plan_guardado is not None and elegidos and not faltan:
                 accion = "reutilizado"
                 avisar(
                     "Spec vigente: se omite el Planner (0 tokens)",
                     archivo=modulo["ruta"],
                 )
-                resultado = orquestador.ejecutar(
-                    modulo, plan_reutilizado=plan_guardado["contratos"]
-                )
+                resultado = orquestador.ejecutar(modulo, plan_reutilizado=elegidos)
             else:
                 accion = "regenerado" if habia_spec else "generado"
-                if accion == "regenerado":
+                if plan_guardado is not None:
+                    avisar(
+                        f"La spec vigente no incluye {len(faltan)} objetivo(s) "
+                        "seleccionado(s): regenerando spec",
+                        archivo=modulo["ruta"],
+                    )
+                elif accion == "regenerado":
                     avisar(
                         "El código o docstring cambió: regenerando spec",
                         archivo=modulo["ruta"],
@@ -249,6 +265,8 @@ def ejecutar_corrida(
                 resultado = orquestador.ejecutar(modulo)
             resultados.append(resultado)
             contratos = resultado.plan_completo
+            if contratos and plan_guardado is not None:
+                contratos = _combinar_plan(plan_guardado["contratos"], contratos)
             if contratos:
                 planes_specs.append(
                     {
@@ -401,6 +419,34 @@ def _registrar(
                     error,
                 )
     _cerrar_run(almacen, resumen, tipos)
+
+
+def _objetivos_de(modulo: dict[str, Any]) -> set[str]:
+    """Funciones y endpoints planificables que la selección dejó en el módulo.
+
+    Un endpoint sin ruta resuelta no se planifica (el Planner lo omite), así que no
+    cuenta como faltante en la spec.
+    """
+    funciones = {f["nombre"] for f in modulo.get("funciones") or []}
+    endpoints = {
+        e["objetivo"]
+        for e in modulo.get("endpoints") or []
+        if e.get("objetivo") and e.get("resuelta", True)
+    }
+    return funciones | endpoints
+
+
+def _combinar_plan(
+    guardados: list[dict[str, Any]], nuevos: list[dict[str, Any]]
+) -> list[dict[str, Any]]:
+    """Plan a guardar cuando la huella no cambió.
+
+    Los contratos de esta corrida reemplazan a los guardados del mismo objetivo; los
+    de objetivos que no se eligieron se conservan para reutilizarlos más adelante.
+    """
+    por_objetivo = {c["objetivo"]: c for c in nuevos}
+    combinado = [por_objetivo.pop(c["objetivo"], c) for c in guardados]
+    return [*combinado, *por_objetivo.values()]
 
 
 def _existe_plan_modulo(almacen: AlmacenProyecto, modulo: str) -> bool:
