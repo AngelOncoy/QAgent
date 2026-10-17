@@ -63,6 +63,9 @@ let HAS_PRIOR_RUN = true;   // ¿el proyecto abierto ya tuvo una corrida? (dato 
 // Estado de los specs guardados en .qagent/specs/: 'reuse' = el código no cambió (huella igual), 'stale' = cambió → se regenera
 const SPEC_STATUS = {'services/pricing.py':'reuse','services/inventory.py':'reuse','services/payments.py':'reuse','services/shipping.py':'reuse','services/cart.py':'stale','services/discounts.py':'stale'};
 let profile = 'deep';
+// Elección de la configuración de pruebas (#69): qué hacer, tipo de prueba y si se profundiza.
+// `profile` se deriva de ella con perfilDeEleccion() (config-pruebas.js).
+let eleccionPruebas = {modo:'nuevas', tipo:'std', profundizar:true};
 let runEstimate = {tok:0}, projectPath = 'E:\\Proyectos\\ecommerce-core';
 
 

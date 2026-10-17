@@ -82,6 +82,16 @@ function pickProfile(k){
   calc();
   if (typeof desbloquearVista === 'function') desbloquearVista('monitor');
 }
+// #69: la elección de la pantalla se traduce al perfil que recibe start_run (humo, std, deep o reg).
+function perfilDeEleccion({modo, tipo, profundizar}){
+  if (modo === 'repetir') return 'reg';
+  if (tipo === 'humo') return 'humo';
+  return profundizar ? 'deep' : 'std';
+}
+function elegirPruebas(cambio){
+  eleccionPruebas = {...eleccionPruebas, ...cambio};
+  pickProfile(perfilDeEleccion(eleccionPruebas));
+}
 function renderProfiles(){
   $('profiles').innerHTML = PROFILES.map(p => {
     const locked = p.k==='reg' && !HAS_PRIOR_RUN;
