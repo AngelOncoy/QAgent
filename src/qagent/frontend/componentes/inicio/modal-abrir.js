@@ -41,9 +41,17 @@ function showOpenReal(info) {
   $('openPath').value = info.ruta || '';
   const n = info.cantidad_py || 0;
   $('openCount').textContent = `${n} ${n === 1 ? 'archivo' : 'archivos'} .py` + (info.rama ? ` · rama ${info.rama}` : '');
-  $('openHint').textContent = info.ok ? 'Solo se analizarán los .py fuera de tests/, entornos virtuales y carpetas ocultas.' : info.error;
+  const msgError = info.error || 'No es posible cargar/abrir el proyecto por incompatibilidad de lenguaje: QAgent solo admite proyectos en Python 3.10+.';
+  $('openHint').textContent = info.ok ? 'Solo se analizarán los .py fuera de tests/, entornos virtuales y carpetas ocultas.' : msgError;
   $('openHint').className = 'hint' + (info.ok ? '' : ' err');
   $('openOk').disabled = !info.ok;
+  if (!info.ok) {
+    if (typeof toastError === 'function') {
+      toastError(msgError);
+    } else if (typeof toast === 'function') {
+      toast(msgError);
+    }
+  }
   openModal('m-open');
 }
 
@@ -88,9 +96,17 @@ function iniciarModalAbrir(){
     document.querySelectorAll('#fsList div').forEach(x=>x.classList.remove('sel')); d.classList.add('sel');
     pickedFolder = d.dataset.p;
     const bad = pickedFolder==='landing-web';
-    $('openHint').textContent = bad ? 'Esta carpeta no contiene archivos .py: QAgent solo analiza código Python 3.10+.' : 'Carpeta: E:\\Proyectos\\'+pickedFolder;
+    const msgIncompatible = 'No es posible cargar/abrir el proyecto por incompatibilidad de lenguaje: QAgent solo admite proyectos en Python 3.10+.';
+    $('openHint').textContent = bad ? msgIncompatible : 'Carpeta: E:\\Proyectos\\'+pickedFolder;
     $('openHint').className = 'hint' + (bad?' err':'');
     $('openOk').disabled = bad;
+    if (bad) {
+      if (typeof toastError === 'function') {
+        toastError(msgIncompatible);
+      } else if (typeof toast === 'function') {
+        toast(msgIncompatible);
+      }
+    }
   });
 }
 

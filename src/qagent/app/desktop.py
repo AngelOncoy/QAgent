@@ -83,6 +83,24 @@ class DesktopAPI:
             resultado = clonador.clonar(
                 url, rama, destino, superficial, al_avanzar=avanzar
             )
+            if resultado.ok and any(Path(resultado.destino).iterdir()):
+                import shutil
+                inspeccion = proyecto_local.inspeccionar_carpeta(resultado.destino)
+                if not inspeccion["ok"]:
+                    shutil.rmtree(resultado.destino, ignore_errors=True)
+                    self.emit_event(
+                        "clonado_fin",
+                        {
+                            "ok": False,
+                            "destino": resultado.destino,
+                            "tipo_error": "incompatibilidad_lenguaje",
+                            "error": (
+                                "No es posible cargar/abrir el proyecto por incompatibilidad de lenguaje: "
+                                "QAgent solo admite proyectos en Python 3.10+."
+                            ),
+                        },
+                    )
+                    return
             datos = asdict(resultado)
             if resultado.ok:
                 nombre = Path(resultado.destino).name or clonador.nombre_repositorio(

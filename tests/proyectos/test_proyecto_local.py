@@ -46,7 +46,7 @@ def test_carpeta_vacia_no_es_valida(tmp_path: Path) -> None:
 
     assert resultado["ok"] is False
     assert resultado["cantidad_py"] == 0
-    assert resultado["error"] == "Esta carpeta no contiene archivos .py"
+    assert resultado["error"] == SIN_ARCHIVOS_PY
 
 
 def test_carpeta_sin_py_pero_con_otros_archivos(tmp_path: Path) -> None:

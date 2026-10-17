@@ -195,16 +195,21 @@ async function loadProject(name, src, where, br='main', ruta=''){
     try {
       const fn = window.pywebview.api.obtener_vista_previa || window.pywebview.api.analizar_proyecto;
       const res = await fn(projectPath);
-      if (res && res.ok) {
+      if (res && res.ok && res.resumen && res.resumen.total_modulos > 0) {
         cargarDatosVistaPrevia(res);
       } else {
         vaciarVistaPrevia();
-        toastError(escHtml((res && res.error) || 'No se pudo analizar el proyecto.'));
+        const msgIncompatible = 'No es posible cargar/abrir el proyecto por incompatibilidad de lenguaje: QAgent solo admite proyectos en Python 3.10+.';
+        toastError(escHtml((res && res.error) || msgIncompatible));
+        go('welcome');
+        return;
       }
     } catch (err) {
       console.error("Error al obtener la vista previa por AST:", err);
       vaciarVistaPrevia();
       toastError('No se pudo analizar el proyecto. Inténtalo de nuevo.');
+      go('welcome');
+      return;
     }
   } else {
     aplicarResumenDemo();   // modo demostración (navegador, sin Python)
