@@ -110,6 +110,33 @@ def _specs_aprobadas(almacen: AlmacenProyecto) -> list[dict[str, Any]]:
     return candidatas
 
 
+def objetivos_repetibles(ruta_proyecto: str | Path) -> list[dict[str, str]]:
+    """Objetivos cuya prueba aprobada guardada se puede repetir hoy (#70).
+
+    Son los de una spec vigente, con su archivo de prueba presente y la misma huella
+    AST que cuando se aprobó. La Configuración los usa para contar las funciones
+    prioritarias que se pueden profundizar al repetir pruebas guardadas.
+    """
+    raiz = Path(ruta_proyecto)
+    almacen = AlmacenProyecto(raiz)
+    huellas = huellas_de_objetivos(raiz)
+    repetibles = []
+    for spec in _specs_aprobadas(almacen):
+        contrato = spec["contrato"]
+        clave = (contrato["modulo"], contrato["objetivo"])
+        esperada = spec.get("huella_objetivo")
+        if (
+            spec.get("_motivo_regresion")
+            or not esperada
+            or huellas.get(clave) != esperada
+        ):
+            continue
+        if not (almacen.carpeta_tests / spec["archivo_prueba"]).is_file():
+            continue
+        repetibles.append({"modulo": clave[0], "objetivo": clave[1]})
+    return repetibles
+
+
 def ejecutar_regresion(
     ruta_proyecto: str | Path,
     perfil: str,

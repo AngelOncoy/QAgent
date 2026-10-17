@@ -75,7 +75,7 @@ function renderHistoryReal(datos){
   const corridas = datos.corridas || [], specs = datos.specs || [];
   $('histCount').textContent = corridas.length + ' registradas';
   $('histTable').innerHTML = corridas.length ? corridas.map((h, indice) => {
-    const fecha = new Date(h.fecha), modelos = h.perfil === 'reg' ? '— (sin IA)' : (Object.values(h.modelos || {}).filter(Boolean).join(' · ') || '—');
+    const fecha = new Date(h.fecha), modelos = (h.perfil === 'reg' || h.perfil === 'reg_deep') ? '— (sin IA)' : (Object.values(h.modelos || {}).filter(Boolean).join(' · ') || '—');
     const s = h.resumen_specs || {}, partes = [];
     if(s.generado) partes.push(s.generado + ' generados');
     if(s.reutilizado) partes.push(s.reutilizado + ' reutilizados');

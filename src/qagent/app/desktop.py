@@ -429,6 +429,16 @@ class DesktopAPI:
         """Habilita Regresion solo si hay pruebas aprobadas persistidas."""
         return AlmacenProyecto(ruta).tiene_pruebas_aprobadas()
 
+    def pruebas_repetibles(self, ruta: str) -> list[dict[str, str]]:
+        """Funciones y endpoints con prueba guardada que hoy se puede repetir (#70)."""
+        from qagent.orchestrator.regresion import objetivos_repetibles
+
+        try:
+            return objetivos_repetibles(ruta)
+        except OSError as error:
+            bitacora.registro.warning("No se leyeron las pruebas guardadas: %s", error)
+            return []
+
     def descargar_specs_zip(self, ruta: str, modulo: str | None = None) -> dict:
         """Crea un ZIP y abre el diálogo nativo para elegir dónde guardarlo."""
         from qagent.almacenamiento import ErrorAlmacen

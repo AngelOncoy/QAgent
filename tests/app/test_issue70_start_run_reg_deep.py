@@ -15,6 +15,12 @@ def test_reg_deep_es_regresion_y_aplica_mutacion() -> None:
     assert PERFILES_CON_MUTACION == {"deep", "reg_deep"}
 
 
+def test_pruebas_repetibles_sin_qagent_devuelve_lista_vacia(tmp_path) -> None:
+    from qagent.app.desktop import DesktopAPI
+
+    assert DesktopAPI().pruebas_repetibles(str(tmp_path)) == []
+
+
 def test_start_run_usa_los_perfiles_de_regresion() -> None:
     from pathlib import Path
 

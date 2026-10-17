@@ -268,6 +268,7 @@ async function loadProject(name, src, where, br='main', ruta=''){
     aplicarResumenDemo();   // modo demostración (navegador, sin Python)
   }
   HAS_PRIOR_RUN = await hayCorridaPrevia(ruta);
+  PRUEBAS_REPETIBLES = await pruebasRepetibles(ruta);
   ejecucionReal = null;
   reporteReal = null;
   if (typeof reiniciarVistasProyecto === 'function') reiniciarVistasProyecto();
@@ -287,6 +288,19 @@ function vaciarVistaPrevia() {
 }
 
 // Regresión requiere al menos una prueba aprobada persistida, no solo una corrida.
+// #70: funciones con prueba guardada que hoy se puede repetir, como "modulo::objetivo".
+// Sin pywebview (demostración) devuelve null y la configuración cuenta todas las marcadas.
+async function pruebasRepetibles(ruta) {
+  if (!(window.pywebview && window.pywebview.api && window.pywebview.api.pruebas_repetibles)) return null;
+  try {
+    const lista = await window.pywebview.api.pruebas_repetibles(ruta);
+    return new Set((lista || []).map(o => o.modulo + '::' + o.objetivo));
+  } catch (err) {
+    console.error("Error al consultar las pruebas guardadas:", err);
+    return new Set();
+  }
+}
+
 async function hayCorridaPrevia(ruta) {
   if (!(window.pywebview && window.pywebview.api && window.pywebview.api.tiene_pruebas_aprobadas)) return true;
   try {

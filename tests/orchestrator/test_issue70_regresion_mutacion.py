@@ -238,6 +238,28 @@ def test_un_resultado_sin_puntuacion_no_se_guarda(preparado, monkeypatch) -> Non
     assert "reutilizada" not in objetivos["es_palindromo"]["mutacion"]
 
 
+def test_objetivos_repetibles_solo_con_prueba_vigente(preparado) -> None:
+    from qagent.orchestrator.regresion import objetivos_repetibles
+
+    raiz, almacen, _ = preparado
+    aprobadas = {"es_palindromo", "invertir_palabras", "formatear_moneda"}
+    assert {o["objetivo"] for o in objetivos_repetibles(raiz)} == aprobadas
+
+    modulo = raiz / "banco_mvp.py"
+    modulo.write_text(
+        modulo.read_text(encoding="utf-8").replace(
+            "return limpio == limpio[::-1]",
+            "return limpio.lower() == limpio[::-1].lower()",
+        ),
+        encoding="utf-8",
+    )
+    next(almacen.carpeta_tests.glob("*formatear_moneda*.py")).unlink()
+
+    assert objetivos_repetibles(raiz) == [
+        {"modulo": "banco_mvp.py", "objetivo": "invertir_palabras"}
+    ]
+
+
 def test_profundo_deja_el_resultado_para_repetir_sin_mutar_de_nuevo(
     tmp_path: Path, monkeypatch
 ) -> None:
