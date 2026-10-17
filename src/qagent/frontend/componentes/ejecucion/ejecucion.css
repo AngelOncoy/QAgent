@@ -20,13 +20,23 @@
 .kscale{display:flex;justify-content:space-between;font-family:var(--mono);font-size:10px;color:var(--mut);margin-top:5px}
 .kscale .c{color:var(--slate-300)}
 .ktri{display:grid;grid-template-columns:repeat(3,1fr);font-family:var(--mono);font-size:10px;margin-top:6px;padding-top:5px;border-top:1px solid var(--line)}
+.exec-pinned{padding:18px 20px 10px;display:flex;flex-direction:column;gap:14px;background:var(--bg);border-bottom:1px solid var(--line);z-index:10;flex-shrink:0}
+.exec-body-scroll{flex:1;min-height:0}
 .toolbar{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:10px 12px;display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:10px}
 .tleft{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-family:var(--mono);font-size:12px}
 .tleft .flbl{display:flex;align-items:center;gap:5px;font-family:var(--mono);font-size:12px}
+.tsearch{display:flex;align-items:center;background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:3px 8px;gap:6px;position:relative}
+.tsearch:focus-within{border-color:var(--blue-400)}
+.search-ico{display:flex;align-items:center;color:var(--slate-400)}
+.search-exec-inp{background:transparent;border:0;outline:none;color:var(--txt);font-family:var(--mono);font-size:11.5px;width:190px}
+.search-exec-inp::placeholder{color:var(--slate-500)}
+.clear-search-btn{background:none;border:none;color:var(--slate-400);cursor:pointer;font-size:14px;line-height:1;padding:0 2px}
+.clear-search-btn:hover{color:var(--white)}
 .fb2{font-family:var(--mono);font-size:11.5px;padding:5px 10px;border-radius:6px;border:0;background:var(--slate-800);color:var(--slate-300);cursor:pointer;display:flex;gap:6px;align-items:center}
 .fb2:hover{background:var(--slate-700)}
 .fb2.on{color:var(--white);font-weight:700}
 .cmd2{display:flex;align-items:center;gap:8px;font-family:var(--mono);font-size:11.5px;color:var(--slate-300);background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:5px 10px;max-width:100%;overflow-x:auto;white-space:nowrap}
+.suite-empty{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:32px 16px;gap:8px;background:var(--panel);border:1px solid var(--line);border-radius:12px;color:var(--slate-400);font-family:var(--mono);font-size:12px;text-align:center}
 .suite2{background:var(--panel);border:1px solid var(--line);border-radius:12px;overflow:hidden;margin-bottom:18px;font-family:var(--mono)}
 .sh2{display:flex;justify-content:space-between;align-items:center;padding:11px 16px;background:var(--slate-950);border-bottom:1px solid var(--line);font-size:12px}
 .sh2 .l{display:flex;align-items:center;gap:9px}.sh2 b{font-weight:700}.sh2 .c{font-family:var(--sans);font-size:11px;color:var(--mut)}
@@ -57,9 +67,9 @@
 .diag p{font-size:11px;line-height:1.6;opacity:.95}
 .d-rose{background:var(--rose-950-a40);border-color:var(--rose-800-a80);color:var(--rose-300)}
 .d-amber{background:var(--amber-950-a35);border-color:var(--amber-800-a80);color:var(--amber-300)}
-.g2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:start}
 @media(max-width:960px){.g2{grid-template-columns:1fr}}
-.pn{background:var(--bg);border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.pn{background:var(--bg);border:1px solid var(--line);border-radius:8px;overflow:hidden;display:flex;flex-direction:column}
 .pnh{display:flex;justify-content:space-between;align-items:center;padding:7px 12px;background:var(--panel);border-bottom:1px solid var(--line);font-size:11px;color:var(--mut)}
 .pnh b{display:flex;gap:6px;align-items:center;color:var(--slate-300)}
 .pn pre{padding:14px;font-size:11.5px;line-height:1.65;overflow-x:auto;color:var(--slate-200);margin:0}
@@ -75,7 +85,7 @@
 .vsw button.on{background:var(--blue);color:var(--white);font-weight:700}
 .vsw button:disabled{opacity:.4;cursor:not-allowed}
 /* Ejecución de pruebas (v1): reglas que siguen en uso por los KPIs, el filtro y el aviso de siguiente función; el resto se eliminó por no tener ningún elemento que lo use */
-.execwrap{padding:18px 20px 40px;display:flex;flex-direction:column;gap:16px}
+.execwrap{padding:14px 20px 40px;display:flex;flex-direction:column;gap:16px}
 .kpis{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:12px}
 @media(max-width:1300px){.kpis{grid-template-columns:repeat(3,minmax(0,1fr))}}
 @media(max-width:960px){.kpis{grid-template-columns:repeat(2,minmax(0,1fr))}}

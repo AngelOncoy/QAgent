@@ -241,7 +241,7 @@ const stExec = fn => fn.status==='stuck' ? etiquetaEstancado(fn) : ST[fn.status]
 const stRep = fn => fn.status==='stuck' ? etiquetaEstancado(fn).toUpperCase() : ST[fn.status].rep;
 
 function hl(code){
-  return code.split('\n').map(line => {
+  return (code || '').trimEnd().split('\n').map(line => {
     let com = '', i = -1, q = null;
     for(let k=0;k<line.length;k++){ const ch=line[k]; if(q){ if(ch===q) q=null; } else if(ch==='"'||ch==="'") q=ch; else if(ch==='#'){ i=k; break; } }
     if(i>=0){ com = line.slice(i); line = line.slice(0,i); }

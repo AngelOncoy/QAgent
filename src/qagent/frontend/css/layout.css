@@ -1,5 +1,10 @@
 /* layout.css — base de la página y estructura general: reset, área principal, barra superior, botones y pasos */
-*{box-sizing:border-box;margin:0;padding:0}
+*{box-sizing:border-box;margin:0;padding:0;scrollbar-width:thin;scrollbar-color:var(--slate-600) var(--bg)}
+::-webkit-scrollbar{width:8px;height:8px}
+::-webkit-scrollbar-track{background:var(--bg)}
+::-webkit-scrollbar-thumb{background:var(--slate-700);border-radius:4px;border:2px solid var(--bg)}
+::-webkit-scrollbar-thumb:hover{background:var(--slate-500)}
+::-webkit-scrollbar-corner{background:var(--bg)}
 body{background:var(--bg);color:var(--txt);font-family:var(--sans);font-size:13px;height:100vh;overflow:hidden}
 .app{display:flex;height:100vh}
 .hide{display:none!important}
