@@ -457,6 +457,28 @@ def _sin_cubrir_texto(ejecucion: dict[str, Any]) -> str | None:
     )
 
 
+def _markdown_categorias(datos: dict[str, Any]) -> list[str]:
+    """Casos por categoría (normal / límite / error) de la corrida y de cada objetivo (#76).
+
+    El aviso de «sin casos límite» es informativo: no cuenta como fallo.
+    """
+    if not datos.get("texto_categorias"):
+        return []  # corrida anterior al conteo por categoría
+    lineas = [
+        "### Casos por categoría",
+        "",
+        f"**Corrida:** {datos['texto_categorias']}",
+        "",
+    ]
+    for f in datos["funciones"]:
+        if not f.get("texto_categorias"):
+            continue
+        aviso = f" — ⚠ {f['aviso_limites']}" if f.get("aviso_limites") else ""
+        lineas.append(f"- **{f['funcion']}**: {f['texto_categorias']}{aviso}")
+    lineas.append("")
+    return lineas
+
+
 def _markdown_ejecucion(datos: dict[str, Any], con_traza: bool) -> list[str]:
     """Secciones 2.1 y 2.2 del Markdown: datos de la ejecución y casos por función."""
     lineas = ["## 2.1 Datos de la ejecución", ""]
@@ -709,6 +731,7 @@ def datos_informe(
         "entorno": vista["entorno"],
         "totales_casos": vista["totales_casos"],
         "funciones": funciones_enriquecidas,
+        "texto_categorias": vista.get("texto_categorias"),  # #76
         "results": copy.deepcopy(results),
     }
     return _sanitizar_estructura(datos, claves)
@@ -791,6 +814,7 @@ def construir_markdown_informe(
                 f"{ms_lbl} | {f['tokens']} |"
             )
         lineas.append("")
+        lineas.extend(_markdown_categorias(datos))
         lineas.extend(_markdown_ejecucion(datos, opts["trazas"]))
 
     if opts["trazas"]:

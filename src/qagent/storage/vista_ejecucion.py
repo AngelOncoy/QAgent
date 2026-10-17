@@ -27,6 +27,12 @@ from qagent.storage.registro import (
 )
 
 ARCHIVO = "results.json"
+#: Nombre de cada categoría de caso en singular y plural (#76).
+NOMBRES_CATEGORIA = {
+    "normal": ("normal", "normales"),
+    "limite": ("límite", "límites"),
+    "error": ("error", "errores"),
+}
 AGENTES = ("planner", "generator", "reviewer")
 
 #: Estado de cada prueba en la vista y su etiqueta (filtros y tabla).
@@ -161,6 +167,23 @@ def vista_ejecucion(results: dict[str, Any]) -> dict[str, Any]:
         ],
         "modulos": _por_modulo(objetivos, estados),
     }
+
+
+def categorias_de(objetivo: dict[str, Any]) -> dict[str, int] | None:
+    """Casos por categoría de un objetivo (#76); None en corridas anteriores."""
+    conteo = objetivo.get("casos_por_categoria")
+    return dict(conteo) if isinstance(conteo, dict) else None
+
+
+def texto_categorias(conteo: dict[str, int] | None) -> str | None:
+    """«2 normales · 1 límite · 1 error» (#76); None si no hay conteo."""
+    if not conteo:
+        return None
+    partes = []
+    for categoria, (singular, plural) in NOMBRES_CATEGORIA.items():
+        cantidad = conteo.get(categoria, 0)
+        partes.append(f"{cantidad} {singular if cantidad == 1 else plural}")
+    return " · ".join(partes)
 
 
 def tipo_de(objetivo: dict[str, Any]) -> str:
@@ -339,6 +362,7 @@ def _por_modulo(objetivos, estados) -> list[dict[str, Any]]:
                 "cobertura_ramas": metricas["cobertura_ramas"],
                 "motivo_estancado": objetivo["motivo_estancado"],
                 "critical": objetivo["critical"],
+                "categorias": texto_categorias(categorias_de(objetivo)),  # #76
             }
         )
     return [{"modulo": m, "pruebas": pruebas} for m, pruebas in modulos.items()]

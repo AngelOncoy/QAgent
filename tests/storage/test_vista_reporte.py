@@ -284,6 +284,7 @@ def test_endpoint_muestra_identidad_contrato_http_y_cinco_controles(corrida) -> 
         "peticion": contrato["casos"][0]["entrada"],
         "respuesta_esperada": contrato["casos"][0]["valor_esperado"],
         "origen": "status_code",
+        "categoria": "normal",  # #76: inferida (el caso no la trae y espera un 2xx)
     }
     assert len(endpoint["controles"]) == 5
     assert vista["filtros_tipo"][2] == {

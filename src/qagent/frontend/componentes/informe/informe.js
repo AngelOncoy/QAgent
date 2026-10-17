@@ -151,7 +151,7 @@ function contratoRealHtml(f){
   if(!f.contrato) return `<div class="rhd"><span style="color:var(--mut)">Esta corrida no guardó el contrato (fue anterior al reporte de auditoría).</span></div>`;
   let html = `<div class="rhd"><span>${I('code','var(--blue-400)',14)} ${f.tipo==='endpoint'?'Petición y respuesta esperada definidas por el Planner:':'Casos y valores esperados definidos por el Planner:'}</span><span class="rtag" style="color:var(--blue-400);background:var(--blue-950-a60);border-color:var(--blue-800-a40)">planner_contract.v2</span></div>`;
   if(f.tipo==='endpoint' && f.contrato_http){
-    html += `<div class="httpcases">${f.contrato_http.casos.map(c => `<section class="httpcase"><div class="httpcase-title"><b>${escHtml(c.id || 'Caso sin id')}</b>${c.descripcion?`<span>${escHtml(c.descripcion)}</span>`:''}</div><div class="httpgrid"><div><h5>Petición preparada</h5><div class="rcode json">${jsonHL(c.peticion)}</div></div><div><h5>Respuesta esperada</h5><div class="rcode json">${jsonHL(c.respuesta_esperada)}</div></div></div><div class="httporigin">Origen del oráculo: ${escHtml(c.origen || 'sin dato')}</div></section>`).join('')}</div>`;
+    html += `<div class="httpcases">${f.contrato_http.casos.map(c => `<section class="httpcase"><div class="httpcase-title"><b>${escHtml(c.id || 'Caso sin id')}</b>${c.categoria?`<span class="rkind">${escHtml(NOMBRE_CATEGORIA[c.categoria] || c.categoria)}</span>`:''}${c.descripcion?`<span>${escHtml(c.descripcion)}</span>`:''}</div><div class="httpgrid"><div><h5>Petición preparada</h5><div class="rcode json">${jsonHL(c.peticion)}</div></div><div><h5>Respuesta esperada</h5><div class="rcode json">${jsonHL(c.respuesta_esperada)}</div></div></div><div class="httporigin">Origen del oráculo: ${escHtml(c.origen || 'sin dato')}</div></section>`).join('')}</div>`;
   } else {
     html += `<div class="rcode json">${jsonHL(f.contrato)}</div>`;
   }
@@ -180,7 +180,14 @@ function filaFalloHtml(c){
   </div>`;
 }
 
-function casoRealHtml(c, clave){
+// #76: nombre de cada categoría de caso y la categoría de un caso de pytest
+// (`test_<id>` o `test_<id>[parámetros]`) según el contrato del Planner.
+const NOMBRE_CATEGORIA = {normal:'Normal', limite:'Límite', error:'Error'};
+function categoriaDeCaso(f, nombre){
+  const id = String(nombre || '').split('[')[0].replace(/^test_/, '');
+  return (f && f.categoria_por_caso || {})[id] || null;
+}
+function casoRealHtml(c, clave, categoria){
   const [cls, ic, txt] = RES_CASO[c.resultado] || RES_CASO.error;
   const falla = c.resultado==='fallo' || c.resultado==='error';
   const abierto = falla ? rRealCaso[clave] !== false : false;   // los fallos se muestran abiertos
@@ -189,7 +196,7 @@ function casoRealHtml(c, clave){
   return `<div class="rcaso ${cls}">
     <div class="rcrow" ${falla ? `onclick="rRealCaso[${claveJs}]=${!abierto};renderReport()" style="cursor:pointer"` : ''}>
       <span class="rcst">${I(ic,'currentColor',14)} ${txt}</span>
-      <span class="rcname">${escHtml(c.nombre)}</span>${resumen}
+      <span class="rcname">${escHtml(c.nombre)}</span>${categoria ? `<span class="rkind">${escHtml(NOMBRE_CATEGORIA[categoria] || categoria)}</span>` : ''}${resumen}
       <span class="rcdur">${segRep(c.duracion_s)}</span>${falla ? I(abierto?'chevU':'chevD','var(--slate-300-c)',16) : ''}
     </div>${abierto ? filaFalloHtml(c) : ''}</div>`;
 }
@@ -208,7 +215,7 @@ function ejecucionRealHtml(f, id){
   }).join('');
   const chips = `<div class="rchips"><span class="rchip ok">${Number(t.pasaron)} pasaron</span><span class="rchip ${t.fallaron?'bad':''}">${Number(t.fallaron)} fallaron</span><span class="rchip ${t.errores?'bad':''}">${Number(t.errores)} errores</span><span class="rchip">${Number(t.omitidos)} omitidos</span><span class="rchip">${segRep(ej.duracion_s)}</span><span class="rchip">exit code ${ej.exit_code===null?'—':Number(ej.exit_code)}</span>${ej.timeout?'<span class="rchip bad">TIEMPO AGOTADO</span>':''}${ej.oom?'<span class="rchip bad">SIN MEMORIA</span>':''}</div>`;
   const casos = ej.casos.length
-    ? ej.casos.map(c => casoRealHtml(c, id + '::' + it.intento + '::' + c.nombre)).join('')
+    ? ej.casos.map(c => casoRealHtml(c, id + '::' + it.intento + '::' + c.nombre, categoriaDeCaso(f, c.nombre))).join('')
     : '<div class="rhd"><span style="color:var(--mut)">pytest no devolvió casos individuales (no se generó junit.xml); la salida completa está más abajo.</span></div>';
   const sinCubrir = Array.isArray(ej.lineas_sin_cubrir)
     ? `<div class="rhd" style="margin-top:12px"><span>Líneas de la función sin cubrir:</span><span class="rtag" style="color:${ej.lineas_sin_cubrir.length?'var(--amber-300)':'var(--emerald-300)'};border-color:var(--line2)">${ej.lineas_sin_cubrir.length ? ej.lineas_sin_cubrir.map(Number).join(', ') : 'ninguna'}</span></div>` : '';
@@ -255,6 +262,7 @@ function renderReportReal(v){
   const k = v.indicadores, fecha = new Date(v.fecha);
   const modelos = AGENTES_REP.filter(([a]) => v.modelos[a]).map(([a, n]) => `${n} · ${escHtml(v.modelos[a].modelo)} <span style="color:var(--dim)">(${escHtml(v.modelos[a].proveedor)})</span>`).join(' &nbsp;|&nbsp; ');
   $('rmeta').innerHTML = `Corrida <b>${escHtml(v.run_id)}</b> · ${escHtml(isNaN(fecha) ? v.fecha : fecha.toLocaleString('es-PE'))} · perfil <b>${escHtml(v.perfil_nombre || v.perfil)}</b> · ${Number(v.total_objetivos)} objetivos · rama <b>${escHtml(v.rama || 'sin repositorio Git')}</b><br><span style="font-size:11px">Modelos: ${modelos}</span>`
+    + (v.texto_categorias ? `<br><span style="font-size:11px">Casos de la corrida: ${escHtml(v.texto_categorias)}</span>` : '')
     + (v.es_humo ? '<br><span style="font-size:11px">Humo: un caso normal por objetivo. El Pass Rate es la métrica principal; la cobertura de ramas no se exige.</span>' : '')
     + (v.motivo_fallo ? `<br><span style="color:var(--amber-300);font-size:11px">Corrida detenida: ${escHtml(v.motivo_fallo)}</span>` : '');
   const pr = k.pass_rate, cv = k.cobertura, cs = k.costo, bal = k.balance;
@@ -291,7 +299,7 @@ function renderReportReal(v){
     return `<div class="rcard" style="border-left-color:${st.c};${f.verde?'':`box-shadow:0 0 0 1px ${st.halo}`}">
       <div class="rch" onclick="rRealAbierto[${idJs}]=!rRealAbierto[${idJs}];renderReport()">
         <div class="l"><span class="mtag" style="${st.mb}">${f.verde?'OK':'ALERTA'}</span>
-          <div style="min-width:0"><div class="rn">${f.tipo==='endpoint'?escHtml(f.identificador):escHtml(f.identificador)+'()'} <span class="rmod">${escHtml(f.modulo)}</span><span class="rkind">${f.tipo==='endpoint'?'Endpoint':'Función'}</span>${f.critical?'<span class="rcrit">★ crítica</span>':''}</div><div class="rsig">${f.tipo==='endpoint'&&f.manejador?`Manejador: ${escHtml(f.manejador)} · `:''}${escHtml(f.firma || '')}</div></div></div>
+          <div style="min-width:0"><div class="rn">${f.tipo==='endpoint'?escHtml(f.identificador):escHtml(f.identificador)+'()'} <span class="rmod">${escHtml(f.modulo)}</span><span class="rkind">${f.tipo==='endpoint'?'Endpoint':'Función'}</span>${f.critical?'<span class="rcrit">★ crítica</span>':''}</div><div class="rsig">${f.tipo==='endpoint'&&f.manejador?`Manejador: ${escHtml(f.manejador)} · `:''}${escHtml(f.firma || '')}</div>${f.texto_categorias ? `<div class="rsig" title="Casos del contrato por categoría">Casos: ${escHtml(f.texto_categorias)}</div>` : ''}${f.aviso_limites ? `<div class="rsig" style="color:var(--amber-300)">${I('warn','currentColor',12)} ${escHtml(f.aviso_limites)}</div>` : ''}</div></div>
         <div class="r"><span class="rpill"><span style="color:var(--mut)">Cob:</span> <b style="color:var(--blue-400)">${numRep(f.cobertura_lineas)}</b></span>
           <span class="rpill" title="${f.critical?(f.tipo==='endpoint'?'Mutation Score (mutmut) del manejador del endpoint prioritario':'Mutation Score (mutmut) de la función crítica'):'No aplica: mutmut solo corre sobre funciones críticas y endpoints prioritarios'}"><span style="color:var(--mut)">Mutantes:</span> <b style="color:${colorMutacion(f)}">${f.mutation_score===null?'N/A':numRep(f.mutation_score,0)}</b></span>
           <span class="rsb ${st.repCls}">${I(st.repIco,'currentColor',13)} ${escHtml(etiqueta)}</span>${I(abierto?'chevU':'chevD','var(--slate-300-c)',20)}</div>

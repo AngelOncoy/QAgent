@@ -347,6 +347,11 @@ def _objetivo(
     }
     if mutacion is not None:
         datos["mutacion"] = mutacion  # EN-09: detalle de mutmut y sobrevivientes
+    if objetivo.contrato is not None:
+        # #76: casos del contrato por categoría (las de specs anteriores se infieren).
+        datos["casos_por_categoria"] = contracts.contar_categorias(
+            objetivo.contrato.get("casos")
+        )
     return datos
 
 
@@ -370,6 +375,13 @@ def _resumen(
         "pass_rate": round(pasaron / total * 100, 1) if total else 0.0,
         "cobertura_lineas_promedio": _promedio(objetivos, "cobertura_lineas"),
         "cobertura_ramas_promedio": _promedio(objetivos, "cobertura_ramas"),
+        "casos_por_categoria": {  # #76
+            categoria: sum(
+                (o.get("casos_por_categoria") or {}).get(categoria, 0)
+                for o in objetivos
+            )
+            for categoria in contracts.CATEGORIAS
+        },
         "iteraciones_promedio": (
             round(sum(iteraciones) / len(iteraciones), 2) if iteraciones else None
         ),

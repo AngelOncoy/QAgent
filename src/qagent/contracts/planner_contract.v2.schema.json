@@ -159,6 +159,10 @@
         "origen": {
           "enum": ["firma", "tipo", "docstring", "response_model", "status_code", "modelo_pydantic"],
           "description": "De dónde sale el valor esperado. No existe la opción 'ejecucion' a propósito."
+        },
+        "categoria": {
+          "enum": ["normal", "limite", "error"],
+          "description": "#76. normal: entrada válida típica; limite: valor en el borde de lo permitido según la especificación; error: entrada inválida que lanza una excepción o devuelve 4xx/5xx. Opcional: si falta, se infiere (error con excepcion o un 4xx/5xx; normal en los demás casos)."
         }
       }
     }
