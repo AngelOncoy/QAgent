@@ -44,26 +44,46 @@ registrarComponente('vista-previa/vista-previa', `<!-- ===== 2. VISTA PREVIA Y C
         <div class="hint" style="padding:0 16px 14px">Solo se analizan los módulos marcados. Menos módulos = menos tokens del Planner.</div>
       </div>
       <div class="card">
-        <h4>Funciones detectadas (AST) <span class="pill p-grey" id="fnCount"></span></h4>
-        <div class="table-scroll fn-scroll"><table class="fn-table">
-          <thead><tr>
-            <th>Función <span class="info" tabindex="0" role="button" aria-label="Nombre de la función encontrada en el archivo Python." data-tip="Nombre de la función encontrada en el archivo Python.">ⓘ</span></th>
-            <th>Calidad <span class="info" tabindex="0" role="button" aria-label="Indica si QAgent tiene suficiente información para saber qué resultado debería producir la función." data-tip="Indica si QAgent tiene suficiente información para saber qué resultado debería producir la función.">ⓘ</span></th>
-            <th>Tipos declarados <span class="info" tabindex="0" role="button" aria-label="Indica si la función declara los tipos de datos que recibe y devuelve." data-tip="Indica si la función declara los tipos de datos que recibe y devuelve.">ⓘ</span></th>
-            <th>Docstring <span class="info" tabindex="0" role="button" aria-label="Es la descripción de la función y ayuda a determinar el resultado esperado." data-tip="Es la descripción de la función y ayuda a determinar el resultado esperado.">ⓘ</span></th>
-            <th>Condicionales <span class="info" tabindex="0" role="button" aria-label="Muestra cuántas estructuras condicionales se detectaron. Más condicionales pueden requerir más casos de prueba." data-tip="Muestra cuántas estructuras condicionales se detectaron. Más condicionales pueden requerir más casos de prueba.">ⓘ</span></th>
-            <th>Profundizar <span class="info" tabindex="0" role="button" aria-label="Solicita un análisis más exhaustivo de la función. Puede requerir más tiempo de ejecución." data-tip="Solicita un análisis más exhaustivo de la función. Puede requerir más tiempo de ejecución.">ⓘ</span></th>
-            <th>Incluir <span class="info" tabindex="0" role="button" aria-label="Permite seleccionar si esta función formará parte del análisis." data-tip="Permite seleccionar si esta función formará parte del análisis.">ⓘ</span></th>
-          </tr></thead>
-          <tbody id="fnTable"></tbody>
-        </table></div>
-        <h4 class="endpoint-title">Endpoints detectados (AST) <span class="pill p-blue" id="endpointCount">0 endpoints</span></h4>
-        <div class="table-scroll"><table class="endpoint-table">
-          <thead><tr><th>Método y ruta</th><th>Manejador</th><th>Dependencias</th></tr></thead>
-          <tbody id="endpointTable"></tbody>
-        </table></div>
+        <div class="objs-head">
+          <h4>Objetivos detectados <span class="pill p-blue">Análisis AST (EN-02)</span></h4>
+          <div class="obj-switch" role="tablist" aria-label="Tipo de objetivo">
+            <button type="button" id="tabFns" class="obj-tab on" role="tab" aria-selected="true" aria-controls="vistaFns" onclick="cambiarVistaObjetivos('funciones')">Funciones (<span id="tabFnsN">0</span>) <span class="warn hide" id="tabFnsWarn" title="Hay funciones Mejorables o Inciertas">⚠</span></button>
+            <button type="button" id="tabEps" class="obj-tab" role="tab" aria-selected="false" aria-controls="vistaEps" onclick="cambiarVistaObjetivos('endpoints')">Endpoints (<span id="tabEpsN">0</span>) <span class="warn hide" id="tabEpsWarn" title="Hay endpoints Mejorables o Inciertos">⚠</span></button>
+          </div>
+        </div>
+        <div id="vistaFns" class="obj-vista">
+          <div class="table-scroll fn-scroll"><table class="fn-table">
+            <thead><tr>
+              <th>Función <span class="info" tabindex="0" role="button" aria-label="Nombre de la función encontrada en el archivo Python." data-tip="Nombre de la función encontrada en el archivo Python.">ⓘ</span></th>
+              <th>Calidad <span class="info" tabindex="0" role="button" aria-label="Indica si QAgent tiene suficiente información para saber qué resultado debería producir la función." data-tip="Indica si QAgent tiene suficiente información para saber qué resultado debería producir la función.">ⓘ</span></th>
+              <th>Tipos declarados <span class="info" tabindex="0" role="button" aria-label="Indica si la función declara los tipos de datos que recibe y devuelve." data-tip="Indica si la función declara los tipos de datos que recibe y devuelve.">ⓘ</span></th>
+              <th>Docstring <span class="info" tabindex="0" role="button" aria-label="Es la descripción de la función y ayuda a determinar el resultado esperado." data-tip="Es la descripción de la función y ayuda a determinar el resultado esperado.">ⓘ</span></th>
+              <th>Condicionales <span class="info" tabindex="0" role="button" aria-label="Muestra cuántas estructuras condicionales se detectaron. Más condicionales pueden requerir más casos de prueba." data-tip="Muestra cuántas estructuras condicionales se detectaron. Más condicionales pueden requerir más casos de prueba.">ⓘ</span></th>
+              <th>Profundizar <span class="info" tabindex="0" role="button" aria-label="Solicita un análisis más exhaustivo de la función. Puede requerir más tiempo de ejecución." data-tip="Solicita un análisis más exhaustivo de la función. Puede requerir más tiempo de ejecución.">ⓘ</span></th>
+              <th>Incluir <span class="info" tabindex="0" role="button" aria-label="Permite seleccionar si esta función formará parte del análisis." data-tip="Permite seleccionar si esta función formará parte del análisis.">ⓘ</span></th>
+            </tr></thead>
+            <tbody id="fnTable"></tbody>
+          </table></div>
+          <div class="hint obj-hint">Funciones agrupadas por archivo. <span id="fnCount"></span></div>
+        </div>
+        <div id="vistaEps" class="obj-vista hide">
+          <div class="table-scroll ep-scroll"><table class="ep-table">
+            <thead><tr>
+              <th>Endpoint <span class="info" tabindex="0" role="button" aria-label="Método HTTP y ruta del endpoint detectado en el proyecto." data-tip="Método HTTP y ruta del endpoint detectado en el proyecto.">ⓘ</span></th>
+              <th>Calidad <span class="info" tabindex="0" role="button" aria-label="Indica si QAgent tiene suficiente información (modelo de respuesta y estado declarado) para probar el endpoint." data-tip="Indica si QAgent tiene suficiente información (modelo de respuesta y estado declarado) para probar el endpoint.">ⓘ</span></th>
+              <th>Estado <span class="info" tabindex="0" role="button" aria-label="Código HTTP que devolverá el endpoint. En gris si es el 200 por defecto, no declarado." data-tip="Código HTTP que devolverá el endpoint. En gris si es el 200 por defecto, no declarado.">ⓘ</span></th>
+              <th>Respuesta <span class="info" tabindex="0" role="button" aria-label="Modelo de datos que devuelve el endpoint, si está declarado." data-tip="Modelo de datos que devuelve el endpoint, si está declarado.">ⓘ</span></th>
+              <th>Errores <span class="info" tabindex="0" role="button" aria-label="Cantidad de errores HTTP (HTTPException) que el endpoint puede lanzar." data-tip="Cantidad de errores HTTP (HTTPException) que el endpoint puede lanzar.">ⓘ</span></th>
+              <th>Simula <span class="info" tabindex="0" role="button" aria-label="Dependencias de Depends() que QAgent simula al probar el endpoint." data-tip="Dependencias de Depends() que QAgent simula al probar el endpoint.">ⓘ</span></th>
+              <th>Incluir <span class="info" tabindex="0" role="button" aria-label="Permite seleccionar si este endpoint formará parte de la corrida." data-tip="Permite seleccionar si este endpoint formará parte de la corrida.">ⓘ</span></th>
+            </tr></thead>
+            <tbody id="endpointTable"></tbody>
+          </table></div>
+          <div class="hint obj-hint">Endpoints agrupados por archivo.</div>
+        </div>
         <div class="legend">
           <span><b>Calidad</b>: Lista (tipos y docstring) · Mejorable (sin tipos) · Incierto (sin docstring) — semáforo del oráculo, no de la ejecución.</span>
+          <span><b>Calidad (endpoints)</b>: Lista (modelo de respuesta y estado declarado) · Mejorable (solo uno) · Incierto (ninguno).</span>
           <span>★ Profundizar = ≥ 1 condicional (propuesta por AST, editable)</span>
           <span class="warn">⚠ Sin docstring: el valor esperado no tendrá fuente; la prueba puede copiar el comportamiento actual</span>
         </div>
@@ -97,20 +117,31 @@ let PROYECTO_ERRORES = [];
 // Estado de plegado por archivo elegido por el usuario (ruta -> true/false).
 // Sin entrada aquí, el archivo se despliega solo si tiene funciones "por revisar" (issue #65).
 let ARCHIVOS_ABIERTOS = {};
+// Plegado independiente de la tabla de endpoints (issue #66): cambiar de vista no debe
+// alterar el plegado ni la selección de la otra vista.
+let ARCHIVOS_ABIERTOS_EP = {};
+// Vista de objetivos activa: 'funciones' (por defecto) o 'endpoints' (issue #66).
+let VISTA_OBJETIVOS = 'funciones';
 
-function reiniciarPlegadoArchivos() { ARCHIVOS_ABIERTOS = {}; }
+function reiniciarPlegadoArchivos() {
+  ARCHIVOS_ABIERTOS = {};
+  ARCHIVOS_ABIERTOS_EP = {};
+  VISTA_OBJETIVOS = 'funciones';
+}
 
 function aplicarResumenDemo() {
   reiniciarPlegadoArchivos();
   const modValidos = MODULES.filter(m => !m.error);
   const fns = modValidos.flatMap(m => m.fns);
   const total = fns.length;
+  const totalEndpoints = modValidos.flatMap(m => m.endpoints || []).length;
   const sinDoc = fns.filter(f => !f.doc).length;
   const sinTipos = fns.filter(f => !f.typed).length;
   const conAlguna = fns.filter(f => !f.doc || !f.typed).length;
   PROYECTO_RESUMEN = {
     total_modulos: modValidos.length,
     total_funciones_publicas: total,
+    total_endpoints: totalEndpoints,
     total_errores: MODULES.filter(m => m.error).length,
     inconsistencias: {
       sin_docstring: { cantidad: sinDoc, porcentaje: total ? +(sinDoc / total * 100).toFixed(1) : 0 },
@@ -171,7 +202,12 @@ function cargarDatosVistaPrevia(res) {
       metodo: e.metodo || null,
       ruta: e.ruta || null,
       manejador: e.manejador || '',
-      dependencias: (e.dependencias || []).map(d => d.funcion).filter(Boolean)
+      response_model: e.response_model || null,
+      status_code: e.status_code ?? 200,
+      status_code_declarado: !!e.status_code_declarado,
+      excepciones_http: (e.excepciones_http || []).map(x => ({ ...x })),
+      dependencias: (e.dependencias || []).map(d => d.funcion).filter(Boolean),
+      inc: true
     }));
     const tieneObjetivos = fns.length > 0 || endpoints.length > 0;
     return {
@@ -374,6 +410,79 @@ function calidadFuncion(f){
 function funcionPorRevisar(f){ return calidadFuncion(f) !== 'lista'; }
 function contarPorRevisar(m){ return (m.fns || []).filter(funcionPorRevisar).length; }
 
+/* Calidad de endpoints (issue #66): semáforo calculado solo en el frontend a partir de los
+   campos que ya entrega el analizador. No se infiere nada: un 200 por defecto no es lo mismo
+   que un 200 declarado explícitamente, así que se usa status_code_declarado, no el número.
+     - Lista     : declara modelo de respuesta Y código de estado
+     - Mejorable : declara solo uno de los dos
+     - Incierto  : no declara ninguno */
+function calidadEndpoint(e){
+  const tieneRespuesta = !!(e.response_model && String(e.response_model).trim());
+  const tieneEstado = !!e.status_code_declarado;
+  if(tieneRespuesta && tieneEstado) return 'lista';
+  if(tieneRespuesta || tieneEstado) return 'mejorable';
+  return 'incierto';
+}
+function endpointPorRevisar(e){ return calidadEndpoint(e) !== 'lista'; }
+function contarEndpointsPorRevisar(m){ return (m.endpoints || []).filter(endpointPorRevisar).length; }
+
+// Un endpoint solo es analizable si su ruta se pudo resolver: sin objetivo ("GET /ruta")
+// no hay nada que probar. Nunca se inventa una ruta.
+function endpointElegible(e){ return !!e.objetivo; }
+function endpointsElegibles(m){ return (m.endpoints || []).filter(endpointElegible); }
+function endpointsIncluidos(m){ return endpointsElegibles(m).filter(e => e.inc); }
+
+// Totales detectados (no seleccionados): el selector muestra lo que se encontró, no lo elegido.
+function totalFuncionesDetectadas(){
+  return MODULES.filter(m => !m.error).flatMap(m => m.fns || []).length;
+}
+function totalEndpointsDetectados(){
+  return MODULES.filter(m => !m.error).flatMap(m => m.endpoints || []).length;
+}
+function totalFuncionesPorRevisar(){
+  return MODULES.filter(m => !m.error).flatMap(m => m.fns || []).filter(funcionPorRevisar).length;
+}
+function totalEndpointsPorRevisar(){
+  return MODULES.filter(m => !m.error).flatMap(m => m.endpoints || []).filter(endpointPorRevisar).length;
+}
+
+// Selector Funciones/Endpoints: cuenta los detectados, deshabilita la opción sin objetivos,
+// avisa si hay objetivos por revisar y conserva la vista elegida al cambiar de pestaña.
+function cambiarVistaObjetivos(cual){
+  if(cual === 'funciones' && totalFuncionesDetectadas() === 0) return;
+  if(cual === 'endpoints' && totalEndpointsDetectados() === 0) return;
+  VISTA_OBJETIVOS = cual;
+  aplicarVistaObjetivos();
+}
+function aplicarVistaObjetivos(){
+  const esFns = VISTA_OBJETIVOS === 'funciones';
+  if($('vistaFns')) $('vistaFns').classList.toggle('hide', !esFns);
+  if($('vistaEps')) $('vistaEps').classList.toggle('hide', esFns);
+  if($('tabFns')){ $('tabFns').classList.toggle('on', esFns); $('tabFns').setAttribute('aria-selected', String(esFns)); }
+  if($('tabEps')){ $('tabEps').classList.toggle('on', !esFns); $('tabEps').setAttribute('aria-selected', String(!esFns)); }
+}
+function actualizarSelectorObjetivos(){
+  const nFns = totalFuncionesDetectadas(), nEps = totalEndpointsDetectados();
+  // Si la vista activa se quedó sin objetivos, se muestra la otra (solo si tiene).
+  if(VISTA_OBJETIVOS === 'funciones' && nFns === 0 && nEps > 0) VISTA_OBJETIVOS = 'endpoints';
+  else if(VISTA_OBJETIVOS === 'endpoints' && nEps === 0 && nFns > 0) VISTA_OBJETIVOS = 'funciones';
+  if($('tabFnsN')) $('tabFnsN').textContent = nFns;
+  if($('tabEpsN')) $('tabEpsN').textContent = nEps;
+  if($('tabFnsWarn')) $('tabFnsWarn').classList.toggle('hide', !(nFns > 0 && totalFuncionesPorRevisar() > 0));
+  if($('tabEpsWarn')) $('tabEpsWarn').classList.toggle('hide', !(nEps > 0 && totalEndpointsPorRevisar() > 0));
+  if($('tabFns')){
+    $('tabFns').disabled = nFns === 0;
+    $('tabFns').title = nFns === 0 ? 'No se detectaron funciones en el proyecto' : '';
+    $('tabFns').setAttribute('aria-disabled', String(nFns === 0));
+  }
+  if($('tabEps')){
+    $('tabEps').disabled = nEps === 0;
+    $('tabEps').title = nEps === 0 ? 'No se detectaron endpoints en el proyecto' : '';
+    $('tabEps').setAttribute('aria-disabled', String(nEps === 0));
+  }
+  aplicarVistaObjetivos();
+}
+
 // Plegado por archivo: estado elegido por el usuario si existe; si no, desplegado solo
 // cuando el archivo tiene al menos una función por revisar (regla de la issue #65).
 function archivoAbierto(m){
@@ -387,11 +496,123 @@ function toggleArchivo(indice){
   renderFns();  // el plegado no toca la selección de módulos ni funciones
 }
 
+// Plegado de endpoints por archivo (issue #66): usa un mapa propio, así abrir o cerrar
+// un archivo en una vista no cambia la otra. Sin entrada, se abre si tiene endpoints por revisar.
+function endpointAbierto(m){
+  if(Object.prototype.hasOwnProperty.call(ARCHIVOS_ABIERTOS_EP, m.path)) return !!ARCHIVOS_ABIERTOS_EP[m.path];
+  return contarEndpointsPorRevisar(m) > 0;
+}
+function toggleArchivoEndpoints(indice){
+  const m = MODULES[indice];
+  if(!m || m.error) return;
+  ARCHIVOS_ABIERTOS_EP[m.path] = !endpointAbierto(m);
+  renderEndpoints();  // el plegado no toca la selección
+}
+
+// Casilla "Incluir" del archivo en la tabla de endpoints: marca/desmarca sus endpoints
+// analizables. Los no resueltos quedan fuera siempre. No cambia "Profundizar" ni las funciones.
+function seleccionarEndpointsArchivo(indice, seleccionado){
+  const m = MODULES[indice];
+  if(!m || m.error) return;
+  endpointsElegibles(m).forEach(e => { e.inc = !!seleccionado; });
+  m.sel = !!seleccionado || (m.fns || []).some(f => f.inc);
+  renderTree();
+}
+
+// Incluir un endpoint individual mantiene el módulo activo de forma coherente.
+function toggleEndpoint(indice, ei){
+  const m = MODULES[indice];
+  if(!m || m.error) return;
+  const e = (m.endpoints || [])[ei];
+  if(!e || !endpointElegible(e)) return;
+  e.inc = !e.inc;
+  m.sel = moduloConSeleccion(m);
+  renderTree();
+}
+
+// Un módulo está marcado si tiene alguna función o algún endpoint analizable incluido.
+function moduloConSeleccion(m){
+  return (m.fns || []).some(f => f.inc) || endpointsIncluidos(m).length > 0;
+}
+
+// La propiedad `indeterminate` no se puede fijar por atributo HTML: se aplica al DOM.
+function sincronizarCheckboxesArchivoEndpoints(){
+  document.querySelectorAll('#endpointTable .file-check').forEach(chk => {
+    const m = MODULES[Number(chk.dataset.mi)];
+    if(!m) return;
+    const elegibles = endpointsElegibles(m);
+    const inc = elegibles.filter(e => e.inc).length;
+    chk.checked = elegibles.length > 0 && inc === elegibles.length;
+    chk.indeterminate = inc > 0 && inc < elegibles.length;
+  });
+}
+
+/* Tabla de endpoints (issue #66): mismas 7 columnas en todas las filas, agrupadas por
+   archivo con encabezado plegable y "Incluir" por archivo y por endpoint. No inventa
+   datos: si el backend no entrega un campo, se muestra "—". */
+function renderEndpoints(){
+  let h = '';
+  MODULES.forEach((m, mi) => {
+    if(m.error){
+      h += `<tr><td colspan="7" style="background:var(--panel2);color:var(--red-t);font-family:var(--mono);font-size:11px;padding:9px 12px">
+        <b>📄 ${escHtml(m.path)}</b> <span class="pill p-red" style="margin-left:8px">no se pudo analizar</span>
+        <div class="sub" style="color:var(--red-t);margin-top:3px">
+          Error de sintaxis (${escHtml(m.error.tipo || 'SyntaxError')}${m.error.linea ? ' en línea ' + m.error.linea : ''}): ${escHtml(m.error.mensaje || 'Error al analizar archivo')}
+        </div>
+      </td></tr>`;
+      return;
+    }
+
+    const eps = m.endpoints || [];
+    if(!eps.length) return;  // la tabla de endpoints solo lista archivos con endpoints
+    const abierto = endpointAbierto(m);
+    const porRevisar = contarEndpointsPorRevisar(m);
+    const elegibles = endpointsElegibles(m);
+    const inc = elegibles.filter(e => e.inc).length;
+    const todosInc = !!m.sel && elegibles.length > 0 && inc === elegibles.length;
+
+    h += `<tr class="file-row"><td colspan="7"><div class="file-head">
+      <button type="button" class="file-toggle" aria-expanded="${abierto}" onclick="toggleArchivoEndpoints(${mi})" title="${abierto ? 'Ocultar endpoints' : 'Mostrar endpoints'}">${abierto ? '▾' : '▸'}</button>
+      <span class="file-icon" aria-hidden="true">📄</span>
+      <span class="file-path mono">${escHtml(m.path)}</span>
+      <span class="file-count">${eps.length} ${eps.length === 1 ? 'endpoint' : 'endpoints'} · ${porRevisar} por revisar</span>
+      <label class="file-incl"><input type="checkbox" class="file-check" data-mi="${mi}" ${todosInc ? 'checked' : ''} ${elegibles.length > 0 ? '' : 'disabled'} onchange="seleccionarEndpointsArchivo(${mi},this.checked)"> Incluir</label>
+    </div></td></tr>`;
+
+    if(!abierto) return;
+
+    eps.forEach((e, ei) => {
+      const cal = calidadEndpoint(e);
+      const elegible = endpointElegible(e);
+      const estado = (e.status_code === null || e.status_code === undefined) ? '—' : e.status_code;
+      const respuesta = e.response_model ? escHtml(e.response_model) : '—';
+      const errores = e.excepciones_http || [];
+      const codigos = errores.map(x => x.status_code).filter(c => c !== undefined && c !== null);
+      const tipErr = errores.length ? `Errores HTTP: ${codigos.join(', ') || errores.length}` : 'Sin errores HTTP identificados';
+      const simula = (e.dependencias && e.dependencias.length)
+        ? e.dependencias.map(d => `<span class="pill p-grey">${escHtml(d)}</span>`).join(' ')
+        : '<span class="hint">Sin Depends</span>';
+      const incluir = `<input type="checkbox" aria-label="Incluir endpoint: ${escHtml(e.objetivo || e.manejador || '')}" ${e.inc ? 'checked' : ''} ${elegible ? '' : 'disabled'} title="${elegible ? '' : 'Ruta no disponible: no se puede probar'}" onchange="toggleEndpoint(${mi},${ei})">`;
+      h += `<tr class="${elegible ? '' : 'ep-no-resuelta'}">
+        <td class="fn"><span class="endpoint-method">${e.metodo ? escHtml(e.metodo) : 'SIN MÉTODO'}</span> <span class="endpoint-route">${e.ruta ? escHtml(e.ruta) : 'Ruta no disponible'}</span><div class="sub">${e.manejador ? escHtml(e.manejador) : '—'}</div></td>
+        <td><span class="pill calidad-${cal}">${CALIDAD_TEXTO[cal]}</span></td>
+        <td class="${e.status_code_declarado ? '' : 'muted'}"><span class="mono">${estado}</span></td>
+        <td class="mono">${respuesta}</td>
+        <td class="mono" title="${escHtml(tipErr)}">${errores.length}</td>
+        <td>${simula}</td>
+        <td>${incluir}</td>
+      </tr>`;
+    });
+  });
+  $('endpointTable').innerHTML = h || '<tr><td colspan="7" class="hint">No se detectaron endpoints en el proyecto.</td></tr>';
+  sincronizarCheckboxesArchivoEndpoints();
+}
+
 function renderFns(){
   const sel = MODULES.filter(m => m.sel && !m.error && moduloTieneObjetivos(m));
   const totalFns = sel.flatMap(m => m.fns).length;
-  const totalEndpoints = sel.flatMap(m => m.endpoints || []).length;
-  const totalObjetivos = sel.flatMap(m => m.fns.filter(f => f.inc)).length + totalEndpoints;
+  const totalEndpointsIncluidos = sel.flatMap(m => endpointsIncluidos(m)).length;
+  const totalObjetivos = sel.flatMap(m => m.fns.filter(f => f.inc)).length + totalEndpointsIncluidos;
   $('modCount').textContent = `${sel.length} ${sel.length === 1 ? 'módulo' : 'módulos'} · ${totalObjetivos} objetivos`;
   $('fnCount').textContent = totalFns + ' incluidas';
   let h = '';
@@ -458,13 +679,8 @@ function renderFns(){
 
   $('fnTable').innerHTML = h || '<tr><td colspan="7" class="hint">No hay archivos analizables.</td></tr>';
   sincronizarCheckboxesArchivo();
-  const endpoints = sel.flatMap(m => (m.endpoints || []).map(e => ({...e, modulo:m.path})));
-  $('endpointCount').textContent = `${endpoints.length} ${endpoints.length===1?'endpoint':'endpoints'}`;
-  $('endpointTable').innerHTML = endpoints.length ? endpoints.map(e => `<tr>
-    <td class="fn"><span class="endpoint-method">${e.metodo?escHtml(e.metodo):'SIN MÉTODO'}</span> <span class="endpoint-route">${e.ruta?escHtml(e.ruta):'Ruta no disponible'}</span><div class="sub">${escHtml(e.modulo)}</div></td>
-    <td class="mono">${e.manejador?escHtml(e.manejador):'—'}</td>
-    <td>${e.dependencias.length?e.dependencias.map(d=>`<span class="pill p-grey">${escHtml(d)}</span>`).join(' '):'<span class="hint">Sin Depends</span>'}</td>
-  </tr>`).join('') : '<tr><td colspan="3" class="hint">No se detectaron endpoints en los módulos seleccionados.</td></tr>';
+  renderEndpoints();
+  actualizarSelectorObjetivos();
   calc();
 }
 
@@ -487,7 +703,7 @@ function seleccionarArchivo(indice, seleccionado){
   const m = MODULES[indice];
   if(!m || m.error || !moduloTieneObjetivos(m)) return;
   (m.fns || []).forEach(f => { f.inc = !!seleccionado; });
-  m.sel = !!seleccionado || (m.endpoints || []).length > 0;
+  m.sel = !!seleccionado || endpointsIncluidos(m).length > 0;
   renderTree();
 }
 
@@ -496,7 +712,7 @@ function toggle(mi,fi,k){
   m.fns[fi][k] = !m.fns[fi][k];
   // Incluir una función individual mantiene el módulo activo; Profundizar no altera Incluir.
   if(k === 'inc' && moduloTieneObjetivos(m)){
-    m.sel = m.fns.some(f => f.inc) || (m.endpoints || []).length > 0;
+    m.sel = moduloConSeleccion(m);
   }
   renderTree();
 }
@@ -528,7 +744,7 @@ function obtenerSeleccionObjetivos(){
   return MODULES.filter(m => m.sel && moduloTieneObjetivos(m)).map(m => ({
     ruta: m.path,
     funciones: (m.fns || []).filter(f => f.inc).map(f => f.n),
-    endpoints: (m.endpoints || []).map(e => e.objetivo),
+    endpoints: (m.endpoints || []).filter(e => endpointElegible(e) && e.inc).map(e => e.objetivo),
     criticas: (m.fns || []).filter(f => f.inc && f.crit).map(f => f.n)
   })).filter(m => m.funciones.length || m.endpoints.length);
 }

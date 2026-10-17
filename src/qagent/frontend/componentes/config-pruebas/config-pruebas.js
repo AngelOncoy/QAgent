@@ -46,10 +46,10 @@ function estFor(k){
   const p = PROFILES.find(x=>x.k===k);
   const mods = MODULES.filter(m=>m.sel && !m.error && moduloTieneObjetivos(m));
   const fns = mods.flatMap(m=>m.fns).filter(f=>f.inc);
-  const endpoints = mods.flatMap(m=>m.endpoints || []);
+  const endpoints = mods.flatMap(m=>(m.endpoints || []).filter(e=>endpointElegible(e) && e.inc));
   const objetivos = mods.flatMap(m=>[
     ...m.fns.filter(f=>f.inc),
-    ...(m.endpoints || [])
+    ...(m.endpoints || []).filter(e=>endpointElegible(e) && e.inc)
   ].map(objetivo=>({...objetivo, reuse: SPEC_STATUS[m.path]==='reuse'})));
   const reused = k==='reg' ? 0 : objetivos.filter(objetivo=>objetivo.reuse).length;
   const total = objetivos.length;
