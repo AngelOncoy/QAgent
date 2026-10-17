@@ -1,0 +1,43 @@
+============================= test session starts =============================
+platform win32 -- Python 3.14.7, pytest-9.1.1, pluggy-1.6.0 -- python
+cachedir: .pytest_cache
+rootdir: QAgent
+configfile: pyproject.toml
+plugins: anyio-4.15.1, asyncio-1.4.0
+asyncio: mode=Mode.STRICT, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+collecting ... collected 32 items
+
+tests/frontend/test_issue_65_vista_previa.py::test_orden_exacto_de_las_columnas PASSED [  3%]
+tests/frontend/test_issue_65_vista_previa.py::test_calidad_se_calcula_solo_en_el_frontend PASSED [  6%]
+tests/frontend/test_issue_65_vista_previa.py::test_calidad_lista_cuando_hay_tipos_y_docstring PASSED [  9%]
+tests/frontend/test_issue_65_vista_previa.py::test_calidad_mejorable_cuando_falta_tipos_pero_hay_docstring PASSED [ 12%]
+tests/frontend/test_issue_65_vista_previa.py::test_calidad_incierto_cuando_falta_docstring PASSED [ 15%]
+tests/frontend/test_issue_65_vista_previa.py::test_incierto_tiene_prioridad_sobre_los_tipos PASSED [ 18%]
+tests/frontend/test_issue_65_vista_previa.py::test_indicadores_tipos_y_docstring PASSED [ 21%]
+tests/frontend/test_issue_65_vista_previa.py::test_condicionales_usan_el_campo_br_existente PASSED [ 25%]
+tests/frontend/test_issue_65_vista_previa.py::test_la_columna_critica_se_renombra_a_profundizar PASSED [ 28%]
+tests/frontend/test_issue_65_vista_previa.py::test_se_conserva_la_variable_interna_crit PASSED [ 31%]
+tests/frontend/test_issue_65_vista_previa.py::test_valor_inicial_de_profundizar_viene_de_critica_propuesta PASSED [ 34%]
+tests/frontend/test_issue_65_vista_previa.py::test_profundizar_es_editable_manualmente PASSED [ 37%]
+tests/frontend/test_issue_65_vista_previa.py::test_tooltips_explicativos_en_las_cabeceras PASSED [ 40%]
+tests/frontend/test_issue_65_vista_previa.py::test_tooltips_accesibles_con_mouse_y_teclado PASSED [ 43%]
+tests/frontend/test_issue_65_vista_previa.py::test_agrupacion_por_archivo_con_encabezado_plegable PASSED [ 46%]
+tests/frontend/test_issue_65_vista_previa.py::test_conteo_de_funciones_por_archivo PASSED [ 50%]
+tests/frontend/test_issue_65_vista_previa.py::test_conteo_por_revisar_excluye_las_listas PASSED [ 53%]
+tests/frontend/test_issue_65_vista_previa.py::test_se_conservan_las_etiquetas_de_spec PASSED [ 56%]
+tests/frontend/test_issue_65_vista_previa.py::test_archivos_con_funciones_por_revisar_abren_por_defecto PASSED [ 59%]
+tests/frontend/test_issue_65_vista_previa.py::test_archivos_sin_funciones_por_revisar_quedan_plegados PASSED [ 62%]
+tests/frontend/test_issue_65_vista_previa.py::test_el_usuario_puede_abrir_y_cerrar_manual PASSED [ 65%]
+tests/frontend/test_issue_65_vista_previa.py::test_plegar_no_altera_la_seleccion PASSED [ 68%]
+tests/frontend/test_issue_65_vista_previa.py::test_checkbox_de_archivo_marca_desmarca_todas_las_funciones PASSED [ 71%]
+tests/frontend/test_issue_65_vista_previa.py::test_estado_indeterminado_del_checkbox_de_archivo PASSED [ 75%]
+tests/frontend/test_issue_65_vista_previa.py::test_encabezado_sincronizado_con_las_casillas_individuales PASSED [ 78%]
+tests/frontend/test_issue_65_vista_previa.py::test_los_errores_de_sintaxis_se_siguen_mostrando PASSED [ 81%]
+tests/frontend/test_issue_65_vista_previa.py::test_archivos_sin_funciones PASSED [ 84%]
+tests/frontend/test_issue_65_vista_previa.py::test_conserva_la_seleccion_ast PASSED [ 87%]
+tests/frontend/test_issue_65_vista_previa.py::test_conserva_la_tabla_de_endpoints PASSED [ 90%]
+tests/frontend/test_issue_65_vista_previa.py::test_compatibilidad_con_las_regresiones_de_63 PASSED [ 93%]
+tests/frontend/test_issue_65_vista_previa.py::test_los_tokens_de_calidad_existen_y_se_usan PASSED [ 96%]
+tests/frontend/test_issue_65_vista_previa.py::test_sin_errores_de_sintaxis_javascript PASSED [100%]
+
+============================= 32 passed in 0.36s ==============================

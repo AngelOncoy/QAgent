@@ -1,0 +1,4 @@
+a.py porRevisar= 1 abierto= true
+b.py porRevisar= 0 abierto= false
+a.py tras plegado manual abierto= false
+b.py tras expansion manual abierto= true

@@ -45,8 +45,16 @@ registrarComponente('vista-previa/vista-previa', `<!-- ===== 2. VISTA PREVIA Y C
       </div>
       <div class="card">
         <h4>Funciones detectadas (AST) <span class="pill p-grey" id="fnCount"></span></h4>
-        <div class="table-scroll"><table>
-          <thead><tr><th>Función</th><th>Tipada</th><th>Docstring</th><th>Ramas</th><th title="Crítica: se le aplica mutation testing en el perfil Profundo">Crítica</th><th>Incluir</th></tr></thead>
+        <div class="table-scroll fn-scroll"><table class="fn-table">
+          <thead><tr>
+            <th>Función <span class="info" tabindex="0" role="button" aria-label="Nombre de la función encontrada en el archivo Python." data-tip="Nombre de la función encontrada en el archivo Python.">ⓘ</span></th>
+            <th>Calidad <span class="info" tabindex="0" role="button" aria-label="Indica si QAgent tiene suficiente información para saber qué resultado debería producir la función." data-tip="Indica si QAgent tiene suficiente información para saber qué resultado debería producir la función.">ⓘ</span></th>
+            <th>Tipos declarados <span class="info" tabindex="0" role="button" aria-label="Indica si la función declara los tipos de datos que recibe y devuelve." data-tip="Indica si la función declara los tipos de datos que recibe y devuelve.">ⓘ</span></th>
+            <th>Docstring <span class="info" tabindex="0" role="button" aria-label="Es la descripción de la función y ayuda a determinar el resultado esperado." data-tip="Es la descripción de la función y ayuda a determinar el resultado esperado.">ⓘ</span></th>
+            <th>Condicionales <span class="info" tabindex="0" role="button" aria-label="Muestra cuántas estructuras condicionales se detectaron. Más condicionales pueden requerir más casos de prueba." data-tip="Muestra cuántas estructuras condicionales se detectaron. Más condicionales pueden requerir más casos de prueba.">ⓘ</span></th>
+            <th>Profundizar <span class="info" tabindex="0" role="button" aria-label="Solicita un análisis más exhaustivo de la función. Puede requerir más tiempo de ejecución." data-tip="Solicita un análisis más exhaustivo de la función. Puede requerir más tiempo de ejecución.">ⓘ</span></th>
+            <th>Incluir <span class="info" tabindex="0" role="button" aria-label="Permite seleccionar si esta función formará parte del análisis." data-tip="Permite seleccionar si esta función formará parte del análisis.">ⓘ</span></th>
+          </tr></thead>
           <tbody id="fnTable"></tbody>
         </table></div>
         <h4 class="endpoint-title">Endpoints detectados (AST) <span class="pill p-blue" id="endpointCount">0 endpoints</span></h4>
@@ -55,7 +63,8 @@ registrarComponente('vista-previa/vista-previa', `<!-- ===== 2. VISTA PREVIA Y C
           <tbody id="endpointTable"></tbody>
         </table></div>
         <div class="legend">
-          <span>★ Crítica = ≥ 1 rama if/else o try/except (propuesta por AST, editable)</span>
+          <span><b>Calidad</b>: Lista (tipos y docstring) · Mejorable (sin tipos) · Incierto (sin docstring) — semáforo del oráculo, no de la ejecución.</span>
+          <span>★ Profundizar = ≥ 1 condicional (propuesta por AST, editable)</span>
           <span class="warn">⚠ Sin docstring: el valor esperado no tendrá fuente; la prueba puede copiar el comportamiento actual</span>
         </div>
       </div>
@@ -74,6 +83,7 @@ registrarComponente('vista-previa/vista-previa', `<!-- ===== 2. VISTA PREVIA Y C
       </div>
 
   </div></div>
+  <div id="tipFlotante" class="tip-flotante" role="tooltip" hidden></div>
   <div class="footbar">
     <span class="msg" id="footMsg"></span>
     <button class="btn" style="margin-left:auto" onclick="go('welcome')">Cancelar</button>
@@ -84,8 +94,14 @@ registrarComponente('vista-previa/vista-previa', `<!-- ===== 2. VISTA PREVIA Y C
 
 let PROYECTO_RESUMEN = null;
 let PROYECTO_ERRORES = [];
+// Estado de plegado por archivo elegido por el usuario (ruta -> true/false).
+// Sin entrada aquí, el archivo se despliega solo si tiene funciones "por revisar" (issue #65).
+let ARCHIVOS_ABIERTOS = {};
+
+function reiniciarPlegadoArchivos() { ARCHIVOS_ABIERTOS = {}; }
 
 function aplicarResumenDemo() {
+  reiniciarPlegadoArchivos();
   const modValidos = MODULES.filter(m => !m.error);
   const fns = modValidos.flatMap(m => m.fns);
   const total = fns.length;
@@ -135,6 +151,7 @@ function actualizarResumenUI(resumen, errores = []) {
 
 function cargarDatosVistaPrevia(res) {
   if (!res || !res.ok) return;
+  reiniciarPlegadoArchivos();
   PROYECTO_RESUMEN = res.resumen;
   PROYECTO_ERRORES = res.errores || [];
 
@@ -228,6 +245,7 @@ async function loadProject(name, src, where, br='main', ruta=''){
 // Sin análisis (fallo en la app real): lista vacía y contadores en cero, sin datos de ejemplo.
 function vaciarVistaPrevia() {
   MODULES = [];
+  reiniciarPlegadoArchivos();
   PROYECTO_RESUMEN = null;
   PROYECTO_ERRORES = [];
   actualizarResumenUI({ total_modulos: 0, total_funciones_publicas: 0, total_errores: 0 });
@@ -282,8 +300,35 @@ async function verificarEntorno() {
   try { calc(); } catch (err) { $('toPlan').disabled = !entornoListo; }
 }
 
+// Tooltips accesibles de las cabeceras (issue #65): flotan sobre la tabla, sin recortarse ni
+// agrandarla. Se muestran con el mouse (mouseenter) y con el teclado (focus).
+function mostrarTooltip(el){
+  const tip = $('tipFlotante');
+  const texto = el && el.getAttribute('data-tip');
+  if(!tip || !texto) return;
+  tip.textContent = texto;
+  tip.hidden = false;
+  const r = el.getBoundingClientRect(), t = tip.getBoundingClientRect();
+  let left = r.left + r.width / 2 - t.width / 2;
+  left = Math.max(8, Math.min(left, window.innerWidth - t.width - 8));
+  let top = r.bottom + 8;
+  if(top + t.height > window.innerHeight - 8) top = r.top - t.height - 8;
+  tip.style.left = left + 'px';
+  tip.style.top = Math.max(8, top) + 'px';
+}
+function ocultarTooltip(){ const tip = $('tipFlotante'); if(tip) tip.hidden = true; }
+function iniciarTooltips(){
+  document.querySelectorAll('#s-preview .info').forEach(el => {
+    el.addEventListener('mouseenter', () => mostrarTooltip(el));
+    el.addEventListener('mouseleave', ocultarTooltip);
+    el.addEventListener('focus', () => mostrarTooltip(el));
+    el.addEventListener('blur', ocultarTooltip);
+  });
+}
+
 // Se llama desde main.js cuando el HTML del componente ya está montado.
 function iniciarVistaPrevia(){
+  iniciarTooltips();
   if (window.pywebview && window.pywebview.api) verificarEntorno();
   else window.addEventListener('pywebviewready', verificarEntorno, {once:true});
 }
@@ -315,6 +360,34 @@ function renderTree(){
   actualizarSeleccionTodos();
   renderFns();
 }
+/* Calidad (issue #65): semáforo del oráculo construido solo en el frontend a partir de
+   los campos existentes (typed/tipada y doc/docstring). No depende del backend ni de la
+   ejecución real de las pruebas.
+     - Incierto  : docstring === false (prioridad, aunque existan tipos declarados)
+     - Lista     : tipada === true && docstring === true
+     - Mejorable : tipada === false && docstring === true */
+const CALIDAD_TEXTO = {lista:'Lista', mejorable:'Mejorable', incierto:'Incierto'};
+function calidadFuncion(f){
+  if(!f.doc) return 'incierto';
+  if(f.typed) return 'lista';
+  return 'mejorable';
+}
+function funcionPorRevisar(f){ return calidadFuncion(f) !== 'lista'; }
+function contarPorRevisar(m){ return (m.fns || []).filter(funcionPorRevisar).length; }
+
+// Plegado por archivo: estado elegido por el usuario si existe; si no, desplegado solo
+// cuando el archivo tiene al menos una función por revisar (regla de la issue #65).
+function archivoAbierto(m){
+  if(Object.prototype.hasOwnProperty.call(ARCHIVOS_ABIERTOS, m.path)) return !!ARCHIVOS_ABIERTOS[m.path];
+  return contarPorRevisar(m) > 0;
+}
+function toggleArchivo(indice){
+  const m = MODULES[indice];
+  if(!m || m.error) return;
+  ARCHIVOS_ABIERTOS[m.path] = !archivoAbierto(m);
+  renderFns();  // el plegado no toca la selección de módulos ni funciones
+}
+
 function renderFns(){
   const sel = MODULES.filter(m => m.sel && !m.error && moduloTieneObjetivos(m));
   const totalFns = sel.flatMap(m => m.fns).length;
@@ -323,10 +396,10 @@ function renderFns(){
   $('modCount').textContent = `${sel.length} ${sel.length === 1 ? 'módulo' : 'módulos'} · ${totalObjetivos} objetivos`;
   $('fnCount').textContent = totalFns + ' incluidas';
   let h = '';
-  
+
   MODULES.forEach((m, mi) => {
     if (m.error) {
-      h += `<tr><td colspan="6" style="background:var(--panel2);color:var(--red-t);font-family:var(--mono);font-size:11px;padding:9px 12px">
+      h += `<tr><td colspan="7" style="background:var(--panel2);color:var(--red-t);font-family:var(--mono);font-size:11px;padding:9px 12px">
         <b>📄 ${escHtml(m.path)}</b> <span class="pill p-red" style="margin-left:8px">no se pudo analizar</span>
         <div class="sub" style="color:var(--red-t);margin-top:3px">
           Error de sintaxis (${escHtml(m.error.tipo || 'SyntaxError')}${m.error.linea ? ' en línea ' + m.error.linea : ''}): ${escHtml(m.error.mensaje || 'Error al analizar archivo')}
@@ -334,35 +407,58 @@ function renderFns(){
       </td></tr>`;
       return;
     }
-    if (!m.sel) return;
-    
+
+    const fns = m.fns || [];
+    const tieneObjetivos = moduloTieneObjetivos(m);
+    if (!tieneObjetivos) m.sel = false;
+    const abierto = archivoAbierto(m);
+    const porRevisar = contarPorRevisar(m);
+    const incFns = fns.filter(f => f.inc).length;
+    // El encabezado refleja la inclusión del archivo: marcado si todas sus funciones están
+    // incluidas, indeterminado si solo algunas y desmarcado si ninguna.
+    const todosInc = !!m.sel && (fns.length > 0 ? incFns === fns.length : true);
+
+    // Estado de spec existente (se conservan las etiquetas ya usadas)
     const sp = SPEC_STATUS[m.path];
-    const spTag = sp === 'reuse' 
-      ? '<span class="pill p-green" style="margin-left:8px">♻ spec vigente · Planner se omite</span>' 
-      : sp === 'stale' 
-        ? '<span class="pill p-amber" style="margin-left:8px">↻ código cambió · spec se regenera</span>' 
-        : '<span class="pill p-grey" style="margin-left:8px">sin spec previo</span>';
-    const conRamasCount = (m.fns || []).filter(f => f.br > 0).length;
-    const ramasTag = `<span class="pill p-grey" style="margin-left:6px" title="${conRamasCount} funciones con ramas">${conRamasCount} con ramas</span>`;
-    
-    h += `<tr><td colspan="6" style="background:var(--panel2);font-family:var(--mono);font-size:11px;color:var(--mut)"><b>${escHtml(m.path)}</b>${ramasTag}${spTag}</td></tr>`;
-    m.fns.forEach((f, fi) => {
-      const docHtml = f.doc 
-        ? '<span class="ok">✓</span>' 
-        : '<span class="warn" title="el valor esperado no tendrá fuente (oráculo débil)">⚠ falta</span>';
-      const tipadoHtml = f.typed ? '<span class="ok">✓</span>' : '<span class="no">✗</span>';
+    const spTag = sp === 'reuse'
+      ? '<span class="pill p-green">♻ Vigente · Planner se omite</span>'
+      : sp === 'stale'
+        ? '<span class="pill p-amber">↻ Cambió · spec se regenera</span>'
+        : '<span class="pill p-grey">Sin spec previo</span>';
+    const revisarTag = `<span class="pill ${porRevisar > 0 ? 'p-amber' : 'p-grey'}">${porRevisar} por revisar</span>`;
+
+    h += `<tr class="file-row"><td colspan="7"><div class="file-head ${tieneObjetivos ? '' : 'no-targets'}">
+      <button type="button" class="file-toggle" aria-expanded="${abierto}" onclick="toggleArchivo(${mi})" title="${abierto ? 'Ocultar funciones' : 'Mostrar funciones'}">${abierto ? '▾' : '▸'}</button>
+      <span class="file-icon" aria-hidden="true">📄</span>
+      <span class="file-path mono">${escHtml(m.path)}</span>
+      <span class="file-count">${fns.length} ${fns.length === 1 ? 'función' : 'funciones'}</span>
+      ${revisarTag}${tieneObjetivos ? spTag : ''}
+      <label class="file-incl"><input type="checkbox" class="file-check" data-mi="${mi}" ${todosInc ? 'checked' : ''} ${tieneObjetivos ? '' : 'disabled'} onchange="seleccionarArchivo(${mi},this.checked)"> Incluir</label>
+      ${tieneObjetivos ? '' : '<span class="no-targets-note">sin objetivos analizables</span>'}
+    </div></td></tr>`;
+
+    if (!abierto) return;
+
+    fns.forEach((f, fi) => {
+      const cal = calidadFuncion(f);
+      const docHtml = f.doc
+        ? '<span class="ok" title="Tiene descripción">✓</span>'
+        : '<span class="warn" title="el valor esperado no tendrá fuente (oráculo débil)">✗</span>';
+      const tipadoHtml = f.typed ? '<span class="ok" title="Declara los tipos que recibe y devuelve">✓</span>' : '<span class="no" title="No declara los tipos">✗</span>';
       h += `<tr>
         <td class="fn">${escHtml(f.n)}<div class="sub">${escHtml(f.sig)}</div></td>
+        <td><span class="pill calidad-${cal}">${CALIDAD_TEXTO[cal]}</span></td>
         <td class="${f.typed ? 'ok' : 'no'}">${tipadoHtml}</td>
-        <td class="${f.doc ? 'ok' : 'warn'}" ${f.doc ? '' : 'title="el valor esperado no tendrá fuente (oráculo débil)"'}>${docHtml}</td>
+        <td class="${f.doc ? 'ok' : 'warn'}">${docHtml}</td>
         <td class="mono">${f.br}</td>
-        <td><button class="star ${f.crit ? 'on' : ''}" onclick="toggle(${mi},${fi},'crit')">${f.crit ? '★' : '☆'}</button></td>
-        <td><input type="checkbox" ${f.inc ? 'checked' : ''} onchange="toggle(${mi},${fi},'inc')"></td>
+        <td><button type="button" class="star ${f.crit ? 'on' : ''}" aria-label="Profundizar: ${escHtml(f.n)}" aria-pressed="${f.crit ? 'true' : 'false'}" title="Profundizar: solicita un análisis más exhaustivo de la función" onclick="toggle(${mi},${fi},'crit')">${f.crit ? '★' : '☆'}</button></td>
+        <td><input type="checkbox" aria-label="Incluir función: ${escHtml(f.n)}" ${f.inc ? 'checked' : ''} onchange="toggle(${mi},${fi},'inc')"></td>
       </tr>`;
     });
   });
-  
-  $('fnTable').innerHTML = h || '<tr><td colspan="6" class="hint">Selecciona al menos un módulo.</td></tr>';
+
+  $('fnTable').innerHTML = h || '<tr><td colspan="7" class="hint">No hay archivos analizables.</td></tr>';
+  sincronizarCheckboxesArchivo();
   const endpoints = sel.flatMap(m => (m.endpoints || []).map(e => ({...e, modulo:m.path})));
   $('endpointCount').textContent = `${endpoints.length} ${endpoints.length===1?'endpoint':'endpoints'}`;
   $('endpointTable').innerHTML = endpoints.length ? endpoints.map(e => `<tr>
@@ -372,7 +468,39 @@ function renderFns(){
   </tr>`).join('') : '<tr><td colspan="3" class="hint">No se detectaron endpoints en los módulos seleccionados.</td></tr>';
   calc();
 }
-function toggle(mi,fi,k){ MODULES[mi].fns[fi][k] = !MODULES[mi].fns[fi][k]; renderFns(); }
+
+// La propiedad `indeterminate` no se puede fijar por atributo HTML: se aplica al DOM.
+function sincronizarCheckboxesArchivo(){
+  document.querySelectorAll('#fnTable .file-check').forEach(chk => {
+    const m = MODULES[Number(chk.dataset.mi)];
+    if(!m) return;
+    const fns = m.fns || [];
+    const activo = !!m.sel;
+    const incFns = fns.filter(f => f.inc).length;
+    chk.checked = activo && (fns.length > 0 ? incFns === fns.length : true);
+    chk.indeterminate = activo && fns.length > 0 && incFns > 0 && incFns < fns.length;
+  });
+}
+
+// Casilla "Incluir" del encabezado del archivo: marca/desmarca todas sus funciones.
+// No cambia "Profundizar". Mantiene el módulo seleccionado de forma coherente.
+function seleccionarArchivo(indice, seleccionado){
+  const m = MODULES[indice];
+  if(!m || m.error || !moduloTieneObjetivos(m)) return;
+  (m.fns || []).forEach(f => { f.inc = !!seleccionado; });
+  m.sel = !!seleccionado || (m.endpoints || []).length > 0;
+  renderTree();
+}
+
+function toggle(mi,fi,k){
+  const m = MODULES[mi];
+  m.fns[fi][k] = !m.fns[fi][k];
+  // Incluir una función individual mantiene el módulo activo; Profundizar no altera Incluir.
+  if(k === 'inc' && moduloTieneObjetivos(m)){
+    m.sel = m.fns.some(f => f.inc) || (m.endpoints || []).length > 0;
+  }
+  renderTree();
+}
 
 function moduloTieneObjetivos(m){
   return !m.error && ((m.fns || []).length > 0 || (m.endpoints || []).length > 0);
