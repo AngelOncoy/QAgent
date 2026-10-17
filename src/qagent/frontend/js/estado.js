@@ -49,16 +49,18 @@ function priorizarModulos(lista) {
 MODULES = priorizarModulos(MODULES);
 
 
-// Perfiles de análisis. `descripcion` y `tipo_caja` ('negra' | 'blanca') se muestran en cada cuadro (HU-31);
-// `duracion` es la duración aproximada del perfil (rápida, media o larga).
+// Perfiles de análisis (#69): la pantalla muestra Humo y Estándar como tipos de prueba,
+// Profundo como la casilla Profundizar dentro de Estándar y Regresión como «Repetir pruebas guardadas».
+// `descripcion` se muestra en cada opción; `duracion` (rápida, media o larga), en «Detalles de la corrida».
+// Solo Profundo lleva `tipo_caja`: es la única capa de caja blanca (HU-31, ajustada por #69).
 const PROFILES = [
-  {k:'humo', n:'Humo', tipo_caja:'negra', duracion:'rápida', descripcion:'Verificación rápida de que el proyecto arranca: los módulos se importan sin errores y las funciones principales responden. No revisa el código por dentro.', tok:4000, t:0.3, m:['Pass Rate'], pill:'p-grey'},
-  {k:'std', n:'Estándar', tipo_caja:'negra', duracion:'media', descripcion:'Prueba cada función con entradas válidas, inválidas y valores límite, y compara la salida obtenida con la esperada. Se basa en lo que la función debe hacer, no en cómo está escrita.', tok:12000, t:0.9, m:['Pass Rate','Cobertura','Iteraciones'], pill:'p-blue'},
-  {k:'deep', n:'Profundo', tipo_caja:'blanca', duracion:'larga', descripcion:'Analiza la estructura interna del código: recorre cada rama (if/else), bucle y manejo de excepciones, y mide la cobertura de sentencias y ramas.', tok:14000, t:1.2, m:['Todo lo anterior','Mutation Score'], pill:'p-purple'},
-  {k:'reg', n:'Regresión', tipo_caja:'negra', duracion:'media', descripcion:'Vuelve a ejecutar las pruebas ya aprobadas y guardadas en .qagent/ para confirmar que los cambios recientes no rompieron lo que ya funcionaba.', tok:0, t:0.2, m:['Pass Rate','Cobertura vs. anterior'], pill:'p-green'},
+  {k:'humo', n:'Humo', duracion:'rápida', descripcion:'Confirma que cada función o endpoint responde con un caso normal. Útil para una primera revisión rápida.', tok:4000, t:0.3},
+  {k:'std', n:'Estándar', duracion:'media', descripcion:'Prueba entradas válidas, inválidas y valores límite, y compara con lo que la función o el endpoint debe devolver.', tok:12000, t:0.9},
+  {k:'deep', n:'Profundizar', tipo_caja:'blanca', duracion:'larga', descripcion:'Recorre cada decisión y comprueba que las pruebas detectan errores (mutación). Tarda más.', tok:14000, t:1.2},
+  {k:'reg', n:'Repetir pruebas guardadas', duracion:'media', descripcion:'Vuelve a ejecutar las pruebas ya aprobadas y guardadas en .qagent/ para confirmar que los cambios recientes no rompieron lo que ya funcionaba.', tok:0, t:0.2},
 ];
-// Texto de la insignia de cada tipo de caja
-const TIPO_CAJA = {negra:'Caja negra', blanca:'Caja blanca'};
+// Texto de la insignia del tipo de caja
+const TIPO_CAJA = {blanca:'Caja blanca'};
 let HAS_PRIOR_RUN = true;   // ¿el proyecto abierto ya tuvo una corrida? (dato real en la app; simulado en la demostración)
 // Estado de los specs guardados en .qagent/specs/: 'reuse' = el código no cambió (huella igual), 'stale' = cambió → se regenera
 const SPEC_STATUS = {'services/pricing.py':'reuse','services/inventory.py':'reuse','services/payments.py':'reuse','services/shipping.py':'reuse','services/cart.py':'stale','services/discounts.py':'stale'};

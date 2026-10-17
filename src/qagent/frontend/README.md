@@ -38,7 +38,7 @@ src/qagent/frontend/
     ├── sidebar/          Barra lateral y estado del sandbox
     ├── inicio/           Bienvenida y recientes · modal-abrir · modal-clonar
     ├── vista-previa/     Árbol de módulos y tabla de funciones
-    ├── config-pruebas/   Perfiles (caja negra/blanca), comparación y estimación de tokens y duración
+    ├── config-pruebas/   Qué hacer, tipo de prueba, Profundizar (caja blanca) y detalles de la corrida
     ├── barra-corrida/    Barra superior de Monitor, Ejecución e Informe
     ├── monitor/          Línea de tiempo de la corrida
     ├── ejecucion/        KPIs, filtros y detalle por función
@@ -125,7 +125,7 @@ La interfaz tiene un **modo demostración**: sin pywebview (abriendo `index.html
 | Inicio | Proyectos recientes reales (`~/.qagent/recientes.json`) | Lista simulada de 11 proyectos |
 | Vista previa | Nombre, rama (solo si hay Git), módulos, funciones y consistencias del análisis AST. Si el análisis falla, aviso de error y lista vacía | Proyecto de ejemplo `ecommerce-core` |
 | Entorno | Verificación real de EN-06: `config.toml`, claves de `.env`, Docker y Git (con la IA simulada no se piden las claves y Docker es opcional). Si falla, bloquea «Continuar» en la configuración de pruebas y el arranque de la corrida | «Modo demostración» |
-| Configuración de pruebas | El perfil Regresión solo está disponible si el proyecto ya tuvo una corrida | Disponible |
+| Configuración de pruebas | «Repetir pruebas guardadas» (perfil Regresión) solo está disponible si el proyecto ya tuvo una corrida | Disponible |
 | Controles «reiniciar demo» y «completar corrida» | Ocultos | Visibles |
 | Monitor, Ejecución, Informe, Historial y Configuración del sistema | **Datos simulados** (ver abajo) | Datos simulados |
 

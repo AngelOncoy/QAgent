@@ -1,32 +1,30 @@
-.profiles{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
-@media(max-width:1100px){.profiles{grid-template-columns:repeat(2,1fr)}}
-@media(max-width:650px){.profiles{grid-template-columns:1fr}}
-.prof{border:1px solid var(--line2);border-radius:10px;padding:12px;cursor:pointer;background:var(--panel2);position:relative}
-.prof:hover{border-color:var(--blue)}
-.prof.on{border-color:var(--blue);box-shadow:inset 0 0 0 1px var(--blue);background:var(--blue-s)}
-.prof.dis{opacity:.4;cursor:not-allowed}
-.prof-cab{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:6px}
-.prof-cab b{font-size:13px;margin-right:auto}
-.prof p{font-size:11px;color:var(--mut);line-height:1.45;min-height:80px}
-/* HU-31: insignia del tipo de caja y su leyenda */
+/* #69: configuración de las pruebas como opciones */
+.cfg-pregunta{font-size:12.5px;font-weight:600;color:var(--txt);margin-bottom:8px}
+.cfg-modo{display:inline-flex;border:1px solid var(--line2);border-radius:8px;overflow:hidden;margin-bottom:18px}
+.cfg-modo button{font-size:12px;padding:8px 14px;border:0;background:transparent;color:var(--mut);cursor:pointer}
+.cfg-modo button+button{border-left:1px solid var(--line2)}
+.cfg-modo button.on{background:var(--blue-s);color:var(--blue-t);font-weight:600}
+.cfg-modo button:disabled{opacity:.4;cursor:not-allowed}
+.cfg-opcion,.cfg-profundizar,.cfg-repetir{display:flex;gap:10px;align-items:flex-start;padding:10px 12px;border:1px solid var(--line2);border-radius:8px;background:var(--panel2);margin-bottom:8px;font-size:12.5px}
+.cfg-opcion,.cfg-profundizar{cursor:pointer}
+.cfg-opcion:hover{border-color:var(--blue)}
+.cfg-opcion.on{border-color:var(--blue);box-shadow:inset 0 0 0 1px var(--blue)}
+.cfg-opcion input,.cfg-profundizar input{margin-top:2px}
+.cfg-profundizar{margin-left:26px;border-style:dashed}
+.cfg-profundizar.dis{opacity:.5;cursor:not-allowed}
+.cfg-profundizar a{color:var(--blue-t)}
+.cfg-repetir{flex-direction:column;gap:2px}
+.cfg-titulo{display:flex;align-items:center;gap:8px;font-weight:600}
+.cfg-desc{display:block;font-size:11.5px;color:var(--mut);line-height:1.5;margin-top:3px}
+.cfg-detalles{margin-top:14px;font-size:11.5px;color:var(--mut)}
+.cfg-detalles summary{cursor:pointer;color:var(--blue-t)}
+.cfg-detalles-cuerpo{margin-top:8px;line-height:1.8}
+/* HU-31: insignia del tipo de caja (solo en Profundizar, #69) */
 .caja{font-family:var(--mono);font-size:9.5px;font-weight:600;padding:2px 7px;border-radius:4px;border:1px solid;white-space:nowrap;line-height:1.3}
-.caja-negra{background:var(--caja-negra-s);color:var(--caja-negra-t);border-color:var(--caja-negra-b)}
 .caja-blanca{background:var(--caja-blanca-s);color:var(--caja-blanca-t);border-color:var(--caja-blanca-b)}
-.leyenda-caja{display:flex;flex-wrap:wrap;gap:6px 18px;margin-top:12px;font-size:11.5px;color:var(--mut);line-height:1.8}
-.prof .foot{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
-.prof .why{font-size:10.5px;color:var(--amber-t);margin-top:6px}
-.prof .pdur{margin-top:10px;padding-top:9px;border-top:1px dashed var(--line2);display:flex;align-items:baseline;gap:6px;font-size:11px;color:var(--dim);flex-wrap:wrap}
-.prof .pdur b{font-family:var(--mono);font-size:16px;color:var(--txt)}
-table.cmp tr.pick{cursor:pointer}
-table.cmp tr.pick:hover td{background:var(--panel2)}
-table.cmp tr.sel td{background:var(--blue-s)}
-table.cmp tr.dis td{opacity:.45}
 .opts{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-top:16px}
 .checks .c{display:flex;gap:10px;align-items:flex-start;padding:7px 0;font-size:12.5px}
 .checks .c .i{width:18px;flex-shrink:0;text-align:center}
-.estimate{display:flex;gap:26px;align-items:center;flex-wrap:wrap}
-.estimate .k{font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--dim)}
-.estimate .v{font-family:var(--mono);font-size:20px;font-weight:600;margin-top:3px}
 /* Plan */
 .fnblock{margin-bottom:14px}
 .fnblock .fh{display:flex;align-items:center;gap:10px;padding:10px 16px;border-bottom:1px solid var(--line);font-family:var(--mono);font-size:12.5px}
@@ -36,5 +34,3 @@ table.cmp tr.dis td{opacity:.45}
 
 .envok{display:flex;gap:12px;align-items:center}
 .envdet{margin-top:10px;font-size:12px}.envdet summary{cursor:pointer;color:var(--blue-t);font-size:11.5px}
-.eagents{display:flex;flex-wrap:wrap;gap:6px 14px;margin-top:12px;font-size:11.5px;color:var(--mut)}
-.eagents .ea{display:flex;align-items:center;gap:6px}.eagents .ea i{width:8px;height:8px;border-radius:2px;display:inline-block}
