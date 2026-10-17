@@ -21,6 +21,7 @@ from qagent.contracts import ContratoInvalido
 from qagent.storage.registro import (
     CARPETA_RUNS,
     MUTATION_SCORE_MIN,
+    PERFIL_HUMO,
     PERFILES_CON_MUTACION,
     nombre_perfil,
 )
@@ -119,6 +120,9 @@ def vista_ejecucion(results: dict[str, Any]) -> dict[str, Any]:
         "fecha": results["fecha"],
         "perfil": results["perfil"],
         "perfil_nombre": nombre_perfil(results["perfil"]),
+        # #75: Humo prueba un caso normal por objetivo; el Pass Rate es lo principal y
+        # la cobertura de ramas no se exige.
+        "es_humo": results["perfil"] == PERFIL_HUMO,
         "es_simulado": results["es_simulado"],
         "estado_final": results["estado_final"],
         "motivo_fallo": results["motivo_fallo"],
@@ -127,7 +131,10 @@ def vista_ejecucion(results: dict[str, Any]) -> dict[str, Any]:
         "metas_registradas": metas is not None,
         "indicadores": {
             "pass_rate": _pass_rate(objetivos, resumen, metas),
-            "cobertura": _cobertura(objetivos, resumen, metas),
+            "cobertura": {
+                **_cobertura(objetivos, resumen, metas),
+                "exige_ramas": results["perfil"] != PERFIL_HUMO,
+            },
             "iteraciones": _iteraciones(objetivos, resumen, metas),
             "costo": _costo(objetivos, resumen, metas),
             "mutation_score": _mutation_score(objetivos, results["perfil"]),

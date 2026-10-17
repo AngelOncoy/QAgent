@@ -36,6 +36,7 @@ MUTATION_SCORE_MIN = 60
 
 #: Perfiles de la corrida (`start_run`). `reg_deep` repite las pruebas guardadas y
 #: además aplica mutmut a las funciones críticas (#70).
+PERFIL_HUMO = "humo"  # un caso normal por objetivo (#75)
 PERFIL_PROFUNDO = "deep"
 PERFIL_REGRESION = "reg"
 PERFIL_REGRESION_PROFUNDA = "reg_deep"
@@ -43,7 +44,7 @@ PERFILES_REGRESION = frozenset({PERFIL_REGRESION, PERFIL_REGRESION_PROFUNDA})
 PERFILES_CON_MUTACION = frozenset({PERFIL_PROFUNDO, PERFIL_REGRESION_PROFUNDA})
 #: Nombre de cada perfil en el informe, la ejecución y el historial (los de #69).
 NOMBRES_PERFIL = {
-    "humo": "Humo",
+    PERFIL_HUMO: "Humo",
     "std": "Estándar",
     PERFIL_PROFUNDO: "Estándar + profundizar",
     PERFIL_REGRESION: "Repetir pruebas guardadas",
@@ -261,7 +262,7 @@ def construir_results(
 ) -> dict[str, Any]:
     """Contenido de results.json: las 5 métricas por función y un resumen."""
     objetivos = [
-        _objetivo(resultado.modulo, objetivo, tracker, metas)
+        _objetivo(resultado.modulo, objetivo, tracker, metas, perfil)
         for resultado in resultados
         for objetivo in resultado.objetivos
     ]
@@ -318,6 +319,7 @@ def _objetivo(
     objetivo: Any,
     tracker: TokenTracker,
     metas: dict[str, float] | None = None,
+    perfil: str | None = None,
 ) -> dict[str, Any]:
     ultima = objetivo.revisiones[-1] if objetivo.revisiones else None
     cobertura = objetivo.cobertura or {}
@@ -333,7 +335,7 @@ def _objetivo(
         "motivo_regresion": objetivo.motivo_regresion,
         "laundering_detectado": objetivo.laundering_detectado,  # HU-16
         "duracion_s": objetivo.duracion_s,
-        "controles": controles(objetivo, metas),  # HU-21
+        "controles": controles(objetivo, metas, perfil),  # HU-21
         "metricas": {
             "paso": ultima is not None and ultima["estado_sandbox"] == "ok",
             "cobertura_lineas": cobertura.get("lineas"),
@@ -387,7 +389,9 @@ def _promedio(objetivos: list[dict[str, Any]], metrica: str) -> float | None:
     return round(sum(valores) / len(valores), 1) if valores else None
 
 
-def controles(objetivo: Any, metas: dict[str, float] | None) -> dict[str, Any]:
+def controles(
+    objetivo: Any, metas: dict[str, float] | None, perfil: str | None = None
+) -> dict[str, Any]:
     """Los 5 controles del checklist de una función (HU-21).
 
     Cada uno es True (cumple), False (no cumple) o None (sin dato o no aplica):
@@ -398,6 +402,7 @@ def controles(objetivo: Any, metas: dict[str, float] | None) -> dict[str, Any]:
     - aserciones: el último test no debilitó aserciones (laundering) y cada valor
       esperado es trazable al contrato del Planner.
     - cobertura: líneas y ramas ≥ la meta (si la función no tiene ramas, solo líneas).
+      En Humo (#75) solo líneas: un caso normal no busca cubrir las ramas.
     - mutation: Mutation Score ≥ 60 % en funciones críticas (EN-09); None si la
       función no es crítica, no se ejecutó mutmut o no hubo puntuación (por ejemplo,
       tiempo agotado).
@@ -419,7 +424,8 @@ def controles(objetivo: Any, metas: dict[str, float] | None) -> dict[str, Any]:
         and not ultima["feedback"].startswith("Oráculo inválido"),
         "cobertura": None
         if lineas is None
-        else lineas >= minimo and (ramas is None or ramas >= minimo),
+        else lineas >= minimo
+        and (ramas is None or perfil == PERFIL_HUMO or ramas >= minimo),
         "mutation": None
         if not objetivo.critical or score is None
         else score >= MUTATION_SCORE_MIN,

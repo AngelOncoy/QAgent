@@ -16,6 +16,7 @@ from qagent.storage.registro import (
     ARCHIVO_DETALLE,
     CARPETA_RUNS,
     MUTATION_SCORE_MIN,
+    PERFIL_HUMO,
     PERFILES_CON_MUTACION,
     nombre_perfil,
 )
@@ -66,6 +67,8 @@ def vista_reporte(
         "fecha": results["fecha"],
         "perfil": results["perfil"],
         "perfil_nombre": nombre_perfil(results["perfil"]),
+        # #75: en Humo el Pass Rate es la métrica principal.
+        "es_humo": results["perfil"] == PERFIL_HUMO,
         "rama": results.get("rama"),
         "proyecto": results["proyecto"],
         "es_simulado": results["es_simulado"],
@@ -92,6 +95,7 @@ def vista_reporte(
             "cobertura": {
                 "lineas": resumen["cobertura_lineas_promedio"],
                 "ramas": resumen.get("cobertura_ramas_promedio"),
+                "exige_ramas": results["perfil"] != PERFIL_HUMO,  # #75
             },
             "costo": {
                 "usd": resumen["costo_total_usd"],
@@ -238,12 +242,18 @@ def _controles(
         estado = SIN_DATO if valor is None else (OK if valor else FALLA)
         return {"clave": clave, "etiqueta": etiqueta, "estado": estado}
 
+    humo = perfil == PERFIL_HUMO
     cobertura = control(
         "cobertura",
-        f"Cobertura de líneas ({texto_lineas}) y ramas ({texto_ramas}) ≥ {minimo:g} %",
+        # #75: Humo prueba un caso normal; las ramas se muestran pero no se exigen.
+        f"Cobertura de líneas ({texto_lineas}) ≥ {minimo:g} % · ramas "
+        f"({texto_ramas}) no se exigen en Humo"
+        if humo
+        else f"Cobertura de líneas ({texto_lineas}) y ramas ({texto_ramas}) "
+        f"≥ {minimo:g} %",
     )
     if cobertura["estado"] == SIN_DATO and lineas is not None:  # corridas anteriores
-        cumple = lineas >= minimo and (ramas is None or ramas >= minimo)
+        cumple = lineas >= minimo and (ramas is None or humo or ramas >= minimo)
         cobertura["estado"] = OK if cumple else FALLA
 
     mutation = _control_mutation(objetivo, perfil)

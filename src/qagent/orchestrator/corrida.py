@@ -11,6 +11,9 @@ Une las piezas que ya existían por separado:
 6. Reutiliza la spec modular si su huella sigue vigente, solo para los objetivos
    elegidos en la Vista previa; si cambió o le falta alguno, llama al Planner. La
    spec guardada conserva los contratos de los objetivos que no se eligieron.
+   Cada spec recuerda el perfil con que se creó (#75): una de Humo (un solo caso) no
+   se reutiliza en Estándar ni Profundo, y una Estándar en Humo usa su primer caso
+   normal.
 7. Escribe `log.json` y `results.json` (EN-05) en la carpeta de la corrida, guarda las
    specs y las pruebas aprobadas en `.qagent/` y cierra el `run.json` (EN-07).
 
@@ -29,6 +32,7 @@ from pathlib import Path
 from typing import Any
 
 from qagent.agents import GeneratorAgent, PlannerAgent, ReviewerAgent
+from qagent.agents.planner import contrato_humo
 from qagent.agents.reviewer import Ejecutor
 from qagent.almacenamiento import (
     AlmacenProyecto,
@@ -47,7 +51,7 @@ from qagent.orchestrator.regresion import huellas_de_objetivos
 from qagent.proyectos.proyecto_local import detectar_rama
 from qagent.sandbox import ejecutar_mutacion, ejecutar_pruebas
 from qagent.storage import escribir_corrida
-from qagent.storage.registro import PERFILES_REGRESION
+from qagent.storage.registro import PERFIL_HUMO, PERFILES_REGRESION
 
 AlEvento = Callable[[dict[str, Any]], None]
 PrepararImagen = Callable[[Path], str]
@@ -99,7 +103,8 @@ def ejecutar_corrida(
 
     Args:
         ruta_proyecto: carpeta del proyecto abierto.
-        perfil: perfil elegido en la interfaz (se registra en log.json).
+        perfil: perfil elegido en la interfaz (se registra en log.json). Con `humo`
+            el Planner pide un solo caso normal por objetivo (#75).
         configuracion: `Configuracion` de `cargar_configuracion()` (agentes, tope de
             gasto y reintentos).
         claves: claves de `.env`; no se usan con la IA simulada.
@@ -210,7 +215,9 @@ def ejecutar_corrida(
         if timeout_paso_s is not None:
             opciones["timeout_paso_s"] = timeout_paso_s
         orquestador = Orquestador(
-            PlannerAgent(clientes["planner"], tracker, es_simulado=simulado),
+            PlannerAgent(
+                clientes["planner"], tracker, es_simulado=simulado, perfil=perfil
+            ),
             GeneratorAgent(clientes["generator"], tracker, es_simulado=simulado),
             ReviewerAgent(
                 tracker,
@@ -244,15 +251,30 @@ def ejecutar_corrida(
                 modulo["ruta"], modulo["huella"]
             )
             habia_spec = _existe_plan_modulo(almacen, modulo["ruta"])
+            perfiles: dict[str, str] = dict((plan_guardado or {}).get("perfiles") or {})
             # La spec vigente se usa solo para los objetivos elegidos en la Vista
             # previa; si le falta alguno, se vuelve a planificar el módulo.
             elegidos: list[dict[str, Any]] = []
+            completos: dict[str, dict[str, Any]] = {}
             faltan: set[str] = set()
+            de_humo: set[str] = set()
             if plan_guardado is not None:
                 objetivos = _objetivos_de(modulo)
                 elegidos = [
                     c for c in plan_guardado["contratos"] if c["objetivo"] in objetivos
                 ]
+                if perfil == PERFIL_HUMO:
+                    # #75: de una spec completa, Humo toma el primer caso normal.
+                    completos = {c["objetivo"]: c for c in elegidos}
+                    elegidos = [h for h in map(contrato_humo, elegidos) if h]
+                else:
+                    # #75: una spec de Humo tiene un solo caso; no sirve aquí.
+                    de_humo = {
+                        c["objetivo"]
+                        for c in elegidos
+                        if perfiles.get(c["objetivo"]) == PERFIL_HUMO
+                    }
+                    elegidos = [c for c in elegidos if c["objetivo"] not in de_humo]
                 faltan = objetivos - {c["objetivo"] for c in elegidos}
             if plan_guardado is not None and elegidos and not faltan:
                 accion = "reutilizado"
@@ -263,7 +285,13 @@ def ejecutar_corrida(
                 resultado = orquestador.ejecutar(modulo, plan_reutilizado=elegidos)
             else:
                 accion = "regenerado" if habia_spec else "generado"
-                if plan_guardado is not None:
+                if de_humo:
+                    avisar(
+                        f"La spec vigente de {len(de_humo)} objetivo(s) se creó con "
+                        "Humo (un solo caso): regenerando spec",
+                        archivo=modulo["ruta"],
+                    )
+                elif plan_guardado is not None:
                     avisar(
                         f"La spec vigente no incluye {len(faltan)} objetivo(s) "
                         "seleccionado(s): regenerando spec",
@@ -294,6 +322,15 @@ def ejecutar_corrida(
                 )
             resultados.append(resultado)
             contratos = resultado.plan_completo
+            if accion == "reutilizado":
+                # En Humo se probó un solo caso, pero la spec guardada sigue completa;
+                # solo se actualiza la marca Profundizar de esta corrida.
+                contratos = [
+                    {**completos.get(c["objetivo"], c), "critical": c["critical"]}
+                    for c in contratos
+                ]
+            else:
+                perfiles.update({c["objetivo"]: perfil for c in contratos})
             if contratos and plan_guardado is not None:
                 contratos = _combinar_plan(plan_guardado["contratos"], contratos)
             if contratos:
@@ -303,6 +340,11 @@ def ejecutar_corrida(
                         "huella": modulo["huella"],
                         "contratos": contratos,
                         "accion": accion,
+                        "perfiles": {
+                            c["objetivo"]: perfiles[c["objetivo"]]
+                            for c in contratos
+                            if c["objetivo"] in perfiles
+                        },
                     }
                 )
             if resultado.estado_final.value == FALLO and resumen.motivo is None:
@@ -403,6 +445,16 @@ def _registrar(
 
     if resumen.run_id is not None and almacen.existe():
         huellas_objetivos = huellas_de_objetivos(ruta)
+        # La spec de cada objetivo es la del plan del módulo (completa aunque en Humo se
+        # haya probado un solo caso) con el perfil con que se creó (#75).
+        guardadas = {
+            (plan["modulo"], contrato["objetivo"]): (
+                contrato,
+                plan["perfiles"].get(contrato["objetivo"]),
+            )
+            for plan in planes_specs
+            for contrato in plan["contratos"]
+        }
         for resultado in resultados:
             for objetivo in resultado.objetivos:
                 if objetivo.contrato is None:
@@ -413,11 +465,15 @@ def _registrar(
                     archivo = nombre_prueba(spec_id)
                     almacen.guardar_prueba_aprobada(archivo, objetivo.codigo)
                 huella = huellas_objetivos.get((resultado.modulo, objetivo.objetivo))
+                contrato, perfil_spec = guardadas.get(
+                    (resultado.modulo, objetivo.objetivo), (objetivo.contrato, None)
+                )
                 almacen.guardar_spec(
-                    objetivo.contrato,
+                    contrato,
                     resumen.run_id,
                     archivo,
                     huella_objetivo=huella,
+                    perfil=perfil_spec,
                 )
         registros = []
         for plan in planes_specs:
@@ -427,6 +483,7 @@ def _registrar(
                 plan["contratos"],
                 resumen.run_id,
                 plan["accion"],
+                perfiles=plan["perfiles"],
             )
             registros.append(
                 {

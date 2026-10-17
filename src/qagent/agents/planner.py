@@ -5,12 +5,18 @@ Todo lo que ya se sabe por el análisis estático lo pone el código: versión d
 contrato, módulo, huella SHA-256, tipo, nombre, firma, `critical` y `llama_a`. Así el
 modelo no puede inventar esos campos, el prompt es más corto (menos tokens) y el
 contrato siempre coincide con el código analizado.
+
+Con el perfil Humo (#75) pide y acepta **un solo caso normal por objetivo**: en una
+función, una entrada válida con `valor_esperado` (sin `excepcion`); en un endpoint, una
+petición con la respuesta exitosa declarada. El prompt es más corto y, si el modelo
+devuelve más casos, se conserva el primero normal y queda un aviso.
 """
 
 from __future__ import annotations
 
 import json
 import re
+from collections.abc import Callable
 from typing import Any
 
 from qagent import contracts
@@ -21,6 +27,8 @@ from qagent.llm.fake import MARCA_MODULO, MARCA_OBJETIVOS
 #: Orígenes válidos de un valor esperado para una función (`planner_contract.v2`).
 #: No existe "ejecucion": el valor esperado nunca sale de ejecutar el código.
 ORIGENES = ("firma", "tipo", "docstring")
+#: Perfil de comprobación rápida (#75); igual que `qagent.storage.registro.PERFIL_HUMO`.
+PERFIL_HUMO = "humo"
 
 _EJEMPLO_RESPUESTA = [
     {
@@ -68,15 +76,28 @@ class PlannerAgent:
         tracker: TokenTracker,
         *,
         es_simulado: bool = False,
+        perfil: str | None = None,
     ) -> None:
-        """Inicializa el Planner con su cliente y registro de tokens."""
+        """Inicializa el Planner con su cliente y registro de tokens.
+
+        Args:
+            perfil: perfil de la corrida; con `humo` planifica un caso normal por
+                objetivo (#75).
+        """
         self.cliente = cliente
         self.tracker = tracker
         self.es_simulado = es_simulado
+        self.perfil = perfil
         #: Qué se descartó en la última llamada (objetivos o casos) y por qué.
         self.descartados: list[str] = []
-        #: Casos mínimos que faltan en el último plan de endpoints (no lo descartan).
+        #: Casos mínimos que faltan en el último plan de endpoints (no lo descartan) y,
+        #: en Humo, los casos de más que se dejaron fuera.
         self.avisos: list[str] = []
+
+    @property
+    def es_humo(self) -> bool:
+        """Si la corrida es Humo: un caso normal por objetivo (#75)."""
+        return self.perfil == PERFIL_HUMO
 
     def planificar(self, modulo: dict[str, Any]) -> list[dict[str, Any]]:
         """Devuelve un `planner_contract.v2` por cada función del módulo con casos.
@@ -90,11 +111,17 @@ class PlannerAgent:
                 objetivos pero ninguno produce un contrato válido.
         """
         self.descartados = []
+        self.avisos = []
         funciones = {f["nombre"]: f for f in modulo.get("funciones", [])}
         if not funciones:
             return []
 
-        respuesta = self.cliente.generar(self._crear_prompt(modulo), rol="planner")
+        prompt = (
+            self._crear_prompt_humo(modulo)
+            if self.es_humo
+            else self._crear_prompt(modulo)
+        )
+        respuesta = self.cliente.generar(prompt, rol="planner")
         self.tracker.registrar(
             agente="planner",
             modelo=respuesta.modelo,
@@ -151,8 +178,14 @@ class PlannerAgent:
 
         funcion = funciones[nombre]
         casos = self._casos_validos(nombre, elemento.get("casos"))
+        if self.es_humo:
+            casos = self._solo_un_caso_normal(nombre, casos, es_normal_funcion)
         if not casos:
-            self.descartados.append(f"{nombre}: sin casos válidos")
+            self.descartados.append(
+                f"{nombre}: sin un caso normal deducible de la especificación"
+                if self.es_humo
+                else f"{nombre}: sin casos válidos"
+            )
             return None
 
         contrato = {
@@ -197,6 +230,25 @@ class PlannerAgent:
             validos.append(caso)
         return validos
 
+    def _solo_un_caso_normal(
+        self,
+        objetivo: str,
+        casos: list[dict[str, Any]],
+        es_normal: Callable[[dict[str, Any]], bool],
+    ) -> list[dict[str, Any]]:
+        """Humo (#75): el primer caso normal válido; avisa si sobraron casos."""
+        normales = [caso for caso in casos if es_normal(caso)]
+        if not normales:
+            return []
+        if len(casos) > 1:
+            fuera = [str(c.get("id")) for c in casos if c is not normales[0]]
+            self.avisos.append(
+                f"{objetivo}: Humo usa un solo caso normal; se conserva "
+                f"{normales[0]['id']!r} y se dejan fuera {len(fuera)} "
+                f"({', '.join(fuera)})"
+            )
+        return normales[:1]
+
     # --- Prompt -------------------------------------------------------------------
 
     @staticmethod
@@ -228,6 +280,34 @@ REGLAS OBLIGATORIAS:
 
 EJEMPLO DE RESPUESTA:
 {ejemplo}
+
+{MARCA_MODULO} {modulo["ruta"]}
+{MARCA_OBJETIVOS} {json.dumps(objetivos, ensure_ascii=False)}
+""".strip()
+
+    @staticmethod
+    def _crear_prompt_humo(modulo: dict[str, Any]) -> str:
+        """Humo (#75): un caso normal por función, con instrucciones mínimas."""
+        objetivos = [
+            {
+                "nombre": funcion["nombre"],
+                "firma": funcion.get("firma"),
+                "docstring": funcion.get("docstring"),
+            }
+            for funcion in modulo.get("funciones", [])
+        ]
+        ejemplo = json.dumps(
+            [{**_EJEMPLO_RESPUESTA[0], "casos": _EJEMPLO_RESPUESTA[0]["casos"][:1]}],
+            ensure_ascii=False,
+        )
+        return f"""
+Prueba de humo pytest: UN caso normal por función (entrada válida y su resultado).
+- No ejecutes el código. El valor esperado sale SOLO de firma, tipos o docstring; si
+  no se deduce con certeza, omite la función.
+- Caso: "id", "entrada" (argumentos por nombre), "valor_esperado" y "origen" (uno de:
+  {", ".join(ORIGENES)}). Sin "excepcion" ni casos límite.
+- Devuelve SOLO una lista JSON: {{"objetivo": nombre, "casos": [caso]}}.
+Ejemplo: {ejemplo}
 
 {MARCA_MODULO} {modulo["ruta"]}
 {MARCA_OBJETIVOS} {json.dumps(objetivos, ensure_ascii=False)}
@@ -270,7 +350,11 @@ EJEMPLO DE RESPUESTA:
             return []
 
         aplicacion = _aplicacion_principal(endpoints.values())
-        prompt = self._crear_prompt_endpoints(modulo, endpoints, fuente)
+        prompt = (
+            self._crear_prompt_endpoints_humo(modulo, endpoints)
+            if self.es_humo
+            else self._crear_prompt_endpoints(modulo, endpoints, fuente)
+        )
         respuesta = self.cliente.generar(prompt, rol="planner")
         self.tracker.registrar(
             agente="planner",
@@ -305,7 +389,10 @@ EJEMPLO DE RESPUESTA:
             )
             if contrato is not None:
                 plan.append(contrato)
-                self.avisos.extend(faltantes(endpoints[objetivo], contrato["casos"]))
+                if not self.es_humo:  # Humo no busca los casos de error
+                    self.avisos.extend(
+                        faltantes(endpoints[objetivo], contrato["casos"])
+                    )
 
         if propuesta and not plan:
             detalle = "; ".join(self.descartados[:3])
@@ -354,8 +441,19 @@ EJEMPLO DE RESPUESTA:
                 self.descartados.append(f"{objetivo}: caso {caso['id']!r}: {motivo}")
                 continue
             validos.append(caso)
+        if self.es_humo:
+            exito = endpoint.get("status_code") or 200
+            validos = self._solo_un_caso_normal(
+                objetivo,
+                validos,
+                lambda caso: caso["valor_esperado"]["status_code"] == exito,
+            )
         if not validos:
-            self.descartados.append(f"{objetivo}: sin casos válidos")
+            self.descartados.append(
+                f"{objetivo}: sin un caso con la respuesta exitosa declarada"
+                if self.es_humo
+                else f"{objetivo}: sin casos válidos"
+            )
             return None
         contrato = {**base, "casos": validos}
         contracts.validar(contracts.PLANNER, contrato)
@@ -432,6 +530,80 @@ MODELOS: {json.dumps(modelos, ensure_ascii=False)}
 {MARCA_MODULO} {modulo["ruta"]}
 {MARCA_OBJETIVOS} {json.dumps(objetivos, ensure_ascii=False)}
 """.strip()
+
+    @staticmethod
+    def _crear_prompt_endpoints_humo(
+        modulo: dict[str, Any], endpoints: dict[str, dict[str, Any]]
+    ) -> str:
+        """Humo (#75): una petición válida por endpoint, sin código ni errores HTTP."""
+        objetivos = [
+            {
+                k: endpoint.get(k)
+                for k in (
+                    "objetivo",
+                    "docstring",
+                    "status_code",
+                    "response_model",
+                    "cuerpo",
+                    "parametros_ruta",
+                    "parametros_consulta",
+                    "cabeceras",
+                )
+            }
+            for endpoint in endpoints.values()
+        ]
+        modelos = [
+            {
+                "nombre": m["nombre"],
+                "campos": [
+                    {k: c[k] for k in ("nombre", "tipo", "requerido", "restricciones")}
+                    for c in m.get("campos", [])
+                ],
+            }
+            for m in modulo.get("modelos", [])
+        ]
+        ejemplo = json.dumps(
+            [{**_EJEMPLO_ENDPOINTS[0], "casos": _EJEMPLO_ENDPOINTS[0]["casos"][:1]}],
+            ensure_ascii=False,
+        )
+        return f"""
+Prueba de humo de una API FastAPI: UNA petición válida por endpoint y la respuesta
+exitosa que declara (su status_code, 200 si no lo declara).
+- No ejecutes el código. Lo esperado sale SOLO de lo declarado o del docstring; si no
+  se deduce con certeza, omite el endpoint.
+- Caso: "id", "entrada" {{"metodo", "ruta", opcionales "query", "json", "headers"}},
+  "valor_esperado" {{"status_code" y, si se conoce, "json_contiene"}} y "origen" (uno
+  de: {", ".join(ORIGENES_ENDPOINT)}). Sin casos de error (4xx/5xx).
+- Devuelve SOLO una lista JSON: {{"objetivo": "MÉTODO /ruta", "casos": [caso]}}.
+Ejemplo: {ejemplo}
+
+MODELOS: {json.dumps(modelos, ensure_ascii=False)}
+{MARCA_MODULO} {modulo["ruta"]}
+{MARCA_OBJETIVOS} {json.dumps(objetivos, ensure_ascii=False)}
+""".strip()
+
+
+def es_normal_funcion(caso: dict[str, Any]) -> bool:
+    """Caso normal de una función: espera un valor, no una excepción (#75)."""
+    return "valor_esperado" in caso and "excepcion" not in caso
+
+
+def es_normal_endpoint(caso: dict[str, Any]) -> bool:
+    """Caso normal guardado de un endpoint: espera una respuesta 2xx (#75)."""
+    estado = (caso.get("valor_esperado") or {}).get("status_code")
+    return isinstance(estado, int) and 200 <= estado < 300
+
+
+def contrato_humo(contrato: dict[str, Any]) -> dict[str, Any] | None:
+    """El contrato con solo su primer caso normal, para usar una spec en Humo (#75).
+
+    None si no tiene ninguno: entonces la spec no sirve para Humo y se replanifica.
+    """
+    es_normal = (
+        es_normal_endpoint if contrato.get("tipo") == "endpoint" else es_normal_funcion
+    )
+    normal = next((c for c in contrato.get("casos") or [] if es_normal(c)), None)
+    return None if normal is None else {**contrato, "casos": [normal]}
 
 
 def _aplicacion_principal(endpoints: Any) -> str:
