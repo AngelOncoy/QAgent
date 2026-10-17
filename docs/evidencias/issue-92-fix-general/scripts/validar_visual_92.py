@@ -21,7 +21,7 @@ from pathlib import Path
 
 from playwright.sync_api import sync_playwright
 
-RAIZ = Path(__file__).resolve().parents[3]  # <repo>/docs/evidencias/issue-92-fix-general/scripts -> <repo>
+RAIZ = Path(__file__).resolve().parents[4]  # <repo>/docs/evidencias/issue-92-fix-general/scripts -> <repo>
 FRONTEND = RAIZ / "src" / "qagent" / "frontend"
 EVIDENCIAS = RAIZ / "docs" / "evidencias" / "issue-92-fix-general"
 IMG_DESPUES = EVIDENCIAS / "img" / "despues"

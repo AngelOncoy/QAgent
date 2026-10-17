@@ -3,11 +3,11 @@
     "Q92-001": {
       "pass": true,
       "scroll_left": 0,
-      "scroll_width": 788,
-      "client_width": 788,
+      "scroll_width": 0,
+      "client_width": 0,
       "table_scroll": {
-        "sw": 860,
-        "cw": 738,
+        "sw": 0,
+        "cw": 0,
         "sl": 0,
         "ox": "auto"
       }
@@ -22,19 +22,13 @@
     },
     "Q92-003": {
       "pass": true,
-      "scroll_width": 738,
-      "client_width": 738
+      "scroll_width": 0,
+      "client_width": 0
     },
     "Q92-004": {
       "favicon_link_present": true,
       "favicon_href": "assets/logo/qagent-icono.svg",
       "favicon_404_error": false,
-      "favicon_responses": [
-        [
-          200,
-          "http://127.0.0.1:8795/assets/logo/qagent-icono.svg"
-        ]
-      ],
       "pass": true
     }
   },
@@ -42,11 +36,11 @@
     "Q92-001": {
       "pass": true,
       "scroll_left": 0,
-      "scroll_width": 1044,
-      "client_width": 1044,
+      "scroll_width": 0,
+      "client_width": 0,
       "table_scroll": {
-        "sw": 860,
-        "cw": 678,
+        "sw": 0,
+        "cw": 0,
         "sl": 0,
         "ox": "auto"
       }
@@ -61,19 +55,13 @@
     },
     "Q92-003": {
       "pass": true,
-      "scroll_width": 298,
-      "client_width": 298
+      "scroll_width": 0,
+      "client_width": 0
     },
     "Q92-004": {
       "favicon_link_present": true,
       "favicon_href": "assets/logo/qagent-icono.svg",
       "favicon_404_error": false,
-      "favicon_responses": [
-        [
-          200,
-          "http://127.0.0.1:8795/assets/logo/qagent-icono.svg"
-        ]
-      ],
       "pass": true
     }
   },
@@ -81,11 +69,11 @@
     "Q92-001": {
       "pass": true,
       "scroll_left": 0,
-      "scroll_width": 1130,
-      "client_width": 1130,
+      "scroll_width": 0,
+      "client_width": 0,
       "table_scroll": {
-        "sw": 860,
-        "cw": 764,
+        "sw": 0,
+        "cw": 0,
         "sl": 0,
         "ox": "auto"
       }
@@ -100,19 +88,13 @@
     },
     "Q92-003": {
       "pass": true,
-      "scroll_width": 298,
-      "client_width": 298
+      "scroll_width": 0,
+      "client_width": 0
     },
     "Q92-004": {
       "favicon_link_present": true,
       "favicon_href": "assets/logo/qagent-icono.svg",
       "favicon_404_error": false,
-      "favicon_responses": [
-        [
-          200,
-          "http://127.0.0.1:8795/assets/logo/qagent-icono.svg"
-        ]
-      ],
       "pass": true
     }
   },
@@ -120,11 +102,11 @@
     "Q92-001": {
       "pass": true,
       "scroll_left": 0,
-      "scroll_width": 1204,
-      "client_width": 1204,
+      "scroll_width": 0,
+      "client_width": 0,
       "table_scroll": {
-        "sw": 860,
-        "cw": 838,
+        "sw": 0,
+        "cw": 0,
         "sl": 0,
         "ox": "auto"
       }
@@ -139,19 +121,13 @@
     },
     "Q92-003": {
       "pass": true,
-      "scroll_width": 298,
-      "client_width": 298
+      "scroll_width": 0,
+      "client_width": 0
     },
     "Q92-004": {
       "favicon_link_present": true,
       "favicon_href": "assets/logo/qagent-icono.svg",
       "favicon_404_error": false,
-      "favicon_responses": [
-        [
-          200,
-          "http://127.0.0.1:8795/assets/logo/qagent-icono.svg"
-        ]
-      ],
       "pass": true
     }
   },
@@ -159,11 +135,11 @@
     "Q92-001": {
       "pass": true,
       "scroll_left": 0,
-      "scroll_width": 1684,
-      "client_width": 1684,
+      "scroll_width": 0,
+      "client_width": 0,
       "table_scroll": {
-        "sw": 1318,
-        "cw": 1318,
+        "sw": 0,
+        "cw": 0,
         "sl": 0,
         "ox": "auto"
       }
@@ -178,19 +154,13 @@
     },
     "Q92-003": {
       "pass": true,
-      "scroll_width": 298,
-      "client_width": 298
+      "scroll_width": 0,
+      "client_width": 0
     },
     "Q92-004": {
       "favicon_link_present": true,
       "favicon_href": "assets/logo/qagent-icono.svg",
       "favicon_404_error": false,
-      "favicon_responses": [
-        [
-          200,
-          "http://127.0.0.1:8795/assets/logo/qagent-icono.svg"
-        ]
-      ],
       "pass": true
     }
   }
