@@ -13,14 +13,24 @@
       "descripcion": "Aplica el porcentaje al precio",
       "entrada": { "precio": 100.0, "porcentaje": 20.0 },
       "valor_esperado": 80.0,
-      "origen": "docstring"
+      "origen": "docstring",
+      "categoria": "normal"
+    },
+    {
+      "id": "descuento_maximo",
+      "descripcion": "Un porcentaje de 100 deja el precio en 0 (borde que describe el docstring)",
+      "entrada": { "precio": 100.0, "porcentaje": 100.0 },
+      "valor_esperado": 0.0,
+      "origen": "docstring",
+      "categoria": "limite"
     },
     {
       "id": "porcentaje_invalido",
       "descripcion": "Un porcentaje mayor a 100 lanza ValueError",
       "entrada": { "precio": 100.0, "porcentaje": 150.0 },
       "excepcion": "ValueError",
-      "origen": "docstring"
+      "origen": "docstring",
+      "categoria": "error"
     }
   ]
 }

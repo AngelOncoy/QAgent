@@ -23,6 +23,40 @@ DETALLE = "detalle"
 CONTRATOS = (PLANNER, GENERATED_TEST, REVIEW_RESULT, RUN_LOG, DETALLE)
 
 
+#: Categorías de un caso de prueba (#76), del contrato del Planner.
+CATEGORIAS = ("normal", "limite", "error")
+
+
+def es_caso_de_error(caso: dict[str, Any]) -> bool:
+    """Si el caso espera un error: una excepción o, en un endpoint, un 4xx/5xx."""
+    if "excepcion" in caso:
+        return True
+    esperado = caso.get("valor_esperado")
+    estado = esperado.get("status_code") if isinstance(esperado, dict) else None
+    return isinstance(estado, int) and estado >= 400
+
+
+def categoria_de(caso: dict[str, Any]) -> str:
+    """Categoría de un caso (#76); si no la trae (specs anteriores), la infiere.
+
+    Se infiere `error` si el caso espera una excepción o un 4xx/5xx y `normal` en los
+    demás casos: un caso límite no se puede distinguir sin que lo declare el Planner.
+    """
+    categoria = caso.get("categoria")
+    if categoria in CATEGORIAS:
+        return categoria
+    return "error" if es_caso_de_error(caso) else "normal"
+
+
+def contar_categorias(casos: Any) -> dict[str, int]:
+    """Casos por categoría, con las tres claves aunque alguna sea 0."""
+    conteo = dict.fromkeys(CATEGORIAS, 0)
+    for caso in casos if isinstance(casos, list) else []:
+        if isinstance(caso, dict):
+            conteo[categoria_de(caso)] += 1
+    return conteo
+
+
 class ContratoInvalido(ValueError):
     """Un mensaje no cumple su contrato.
 

@@ -226,9 +226,12 @@ class Orquestador:
         plan = self._llamar("planner", self.planner.planificar, modulo)
         if not isinstance(plan, list):
             raise FalloControlado("El Planner no devolvió una lista de contratos")
-        # Humo (#75): los casos de más que el Planner dejó fuera en las funciones.
+        # Avisos de las funciones (casos de más en Humo #75, categorías corregidas #76)
+        # y casos descartados, por ejemplo un límite sin oráculo (#76).
         for aviso in getattr(self.planner, "avisos", None) or []:
             self._emitir("planner", None, f"Aviso: {aviso}")
+        for descarte in getattr(self.planner, "descartados", None) or []:
+            self._emitir("planner", None, f"Caso descartado: {descarte}")
         plan_endpoints = self._planificar_endpoints(modulo)
         plan = [*plan, *plan_endpoints]
         for contrato in plan:

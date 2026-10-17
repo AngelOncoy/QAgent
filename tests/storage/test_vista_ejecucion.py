@@ -258,6 +258,7 @@ def test_pruebas_agrupadas_por_modulo(results) -> None:
         "cobertura_ramas": None,
         "motivo_estancado": "error_repetido",
         "critical": False,
+        "categorias": None,  # #76: el ejemplo es anterior al conteo por categoría
     }
 
 

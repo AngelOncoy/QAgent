@@ -10,6 +10,11 @@ Con el perfil Humo (#75) pide y acepta **un solo caso normal por objetivo**: en 
 función, una entrada válida con `valor_esperado` (sin `excepcion`); en un endpoint, una
 petición con la respuesta exitosa declarada. El prompt es más corto y, si el modelo
 devuelve más casos, se conserva el primero normal y queda un aviso.
+
+Cada caso lleva su `categoria` (#76): `normal`, `limite` o `error`. Sin IA se comprueba
+que sea coherente con lo que espera (una excepción o un 4xx/5xx es `error`) y, si no,
+se corrige con un aviso. Un caso `limite` solo se acepta si la especificación describe
+ese límite (docstring, tipos con restricciones o modelo Pydantic); si no, se descarta.
 """
 
 from __future__ import annotations
@@ -20,7 +25,7 @@ from collections.abc import Callable
 from typing import Any
 
 from qagent import contracts
-from qagent.contracts import ContratoInvalido
+from qagent.contracts import ContratoInvalido, categoria_de, es_caso_de_error
 from qagent.llm import ClienteLLM, TokenTracker
 from qagent.llm.fake import MARCA_MODULO, MARCA_OBJETIVOS
 
@@ -40,12 +45,21 @@ _EJEMPLO_RESPUESTA = [
                 "entrada": {"precio": 100.0, "porcentaje": 20.0},
                 "valor_esperado": 80.0,
                 "origen": "docstring",
+                "categoria": "normal",
+            },
+            {
+                "id": "porcentaje_maximo",
+                "entrada": {"precio": 100.0, "porcentaje": 100.0},
+                "valor_esperado": 0.0,
+                "origen": "docstring",
+                "categoria": "limite",
             },
             {
                 "id": "porcentaje_invalido",
                 "entrada": {"precio": 100.0, "porcentaje": 150.0},
                 "excepcion": "ValueError",
                 "origen": "docstring",
+                "categoria": "error",
             },
         ],
     }
@@ -177,7 +191,7 @@ class PlannerAgent:
             return None
 
         funcion = funciones[nombre]
-        casos = self._casos_validos(nombre, elemento.get("casos"))
+        casos = self._casos_validos(nombre, elemento.get("casos"), funcion)
         if self.es_humo:
             casos = self._solo_un_caso_normal(nombre, casos, es_normal_funcion)
         if not casos:
@@ -208,8 +222,14 @@ class PlannerAgent:
             return None
         return contrato
 
-    def _casos_validos(self, nombre: str, casos: Any) -> list[dict[str, Any]]:
-        """Se queda con los casos que cumplen el schema; descarta el resto."""
+    def _casos_validos(
+        self, nombre: str, casos: Any, funcion: dict[str, Any] | None = None
+    ) -> list[dict[str, Any]]:
+        """Se queda con los casos que cumplen el schema; descarta el resto.
+
+        Cada caso sale con una `categoria` coherente (#76) y los casos límite sin una
+        especificación que los describa se descartan.
+        """
         if not isinstance(casos, list):
             return []
         validos: list[dict[str, Any]] = []
@@ -227,8 +247,34 @@ class PlannerAgent:
             except ContratoInvalido as error:
                 self.descartados.append(f"{nombre}: caso {caso.get('id')!r}: {error}")
                 continue
+            caso = self._con_categoria(nombre, caso)
+            motivo = motivo_limite_funcion(funcion or {}, caso)
+            if motivo:
+                self.descartados.append(f"{nombre}: caso {caso['id']!r}: {motivo}")
+                continue
             validos.append(caso)
         return validos
+
+    def _con_categoria(self, objetivo: str, caso: dict[str, Any]) -> dict[str, Any]:
+        """El caso con una categoría coherente con lo que espera (#76).
+
+        Si no la trae, queda sin ella y se infiere al leerla (`contracts.categoria_de`),
+        igual que en las specs anteriores. Si la trae y no encaja (un `error` sin
+        excepción ni 4xx/5xx, o un `normal`/`limite` que espera un error), se corrige
+        con un aviso: el caso sigue siendo válido, solo estaba mal clasificado.
+        """
+        declarada = caso.get("categoria")
+        if declarada is None:
+            return caso
+        inferida = categoria_de({k: v for k, v in caso.items() if k != "categoria"})
+        if (declarada == "error") == es_caso_de_error(caso):
+            return caso
+        self.avisos.append(
+            f"{objetivo}: caso {caso['id']!r} marcado como {declarada!r} pero espera "
+            f"{'un error' if inferida == 'error' else 'un resultado válido'}; "
+            f"se clasifica como {inferida!r}"
+        )
+        return {**caso, "categoria": inferida}
 
     def _solo_un_caso_normal(
         self,
@@ -271,8 +317,12 @@ REGLAS OBLIGATORIAS:
 - El valor esperado sale SOLO de la firma, los tipos o el docstring. Si el docstring
   no permite deducir un valor con certeza, no inventes ese caso.
 - Incluye casos normales, de límite y de error cuando el docstring los describa.
+- "categoria" de cada caso: "normal" (entrada válida típica), "limite" (valor en el
+  borde de lo permitido: 0, vacío, máximo o un umbral que describa el docstring) o
+  "error" (entrada inválida que lanza una excepción). Propón un caso "limite" SOLO
+  si el docstring o los tipos describen ese límite; si no, no lo inventes.
 - Cada caso tiene: "id" (minúsculas, números y _), "entrada" (objeto con los
-  argumentos por nombre), "origen" (uno de: {", ".join(ORIGENES)}) y
+  argumentos por nombre), "origen" (uno de: {", ".join(ORIGENES)}), "categoria" y
   "valor_esperado" o "excepcion" (nombre de la excepción, ej. "ValueError").
   "descripcion" es opcional.
 - Devuelve SOLO una lista JSON con un objeto por función:
@@ -304,8 +354,8 @@ EJEMPLO DE RESPUESTA:
 Prueba de humo pytest: UN caso normal por función (entrada válida y su resultado).
 - No ejecutes el código. El valor esperado sale SOLO de firma, tipos o docstring; si
   no se deduce con certeza, omite la función.
-- Caso: "id", "entrada" (argumentos por nombre), "valor_esperado" y "origen" (uno de:
-  {", ".join(ORIGENES)}). Sin "excepcion" ni casos límite.
+- Caso: "id", "entrada" (argumentos por nombre), "valor_esperado", "origen" (uno de:
+  {", ".join(ORIGENES)}) y "categoria": "normal". Sin "excepcion" ni casos límite.
 - Devuelve SOLO una lista JSON: {{"objetivo": nombre, "casos": [caso]}}.
 Ejemplo: {ejemplo}
 
@@ -440,13 +490,21 @@ Ejemplo: {ejemplo}
             if motivo:
                 self.descartados.append(f"{objetivo}: caso {caso['id']!r}: {motivo}")
                 continue
+            caso = self._con_categoria(objetivo, caso)
+            motivo = motivo_limite_endpoint(endpoint, caso, modelos)
+            if motivo:
+                self.descartados.append(f"{objetivo}: caso {caso['id']!r}: {motivo}")
+                continue
             validos.append(caso)
         if self.es_humo:
             exito = endpoint.get("status_code") or 200
             validos = self._solo_un_caso_normal(
                 objetivo,
                 validos,
-                lambda caso: caso["valor_esperado"]["status_code"] == exito,
+                lambda caso: (
+                    caso["valor_esperado"]["status_code"] == exito
+                    and categoria_de(caso) == "normal"
+                ),
             )
         if not validos:
             self.descartados.append(
@@ -513,11 +571,15 @@ REGLAS OBLIGATORIAS:
 - Por endpoint incluye como mínimo: un caso con el status_code declarado; un 422
   si recibe cuerpo o parámetros con tipo o restricciones; un caso por cada
   HTTPException; y los errores que describa el docstring (por ejemplo, un 404).
+- "categoria" de cada caso: "normal" (petición válida típica), "limite" (valor
+  válido en el borde de lo permitido: Field(ge=..., le=...), min_length, un umbral
+  del docstring) o "error" (petición inválida que devuelve 4xx/5xx). Propón un caso
+  "limite" SOLO si las restricciones o el docstring describen ese límite.
 - Cada caso tiene: "id" (minúsculas, números y _), "entrada" {{"metodo", "ruta"
   con los parámetros ya puestos, y opcionales "query", "json", "headers"}},
   "valor_esperado" {{"status_code" y, si se conoce, "json" (respuesta completa)
-  o "json_contiene" (solo algunos campos)}} y "origen" (uno de:
-  {", ".join(ORIGENES_ENDPOINT)}). "descripcion" es opcional: úsala para decir
+  o "json_contiene" (solo algunos campos)}}, "origen" (uno de:
+  {", ".join(ORIGENES_ENDPOINT)}) y "categoria". "descripcion" es opcional: úsala para decir
   qué datos deben existir antes de la petición (por ejemplo, "con el artículo 1
   guardado").
 - Devuelve SOLO una lista JSON con un objeto por endpoint:
@@ -572,8 +634,8 @@ exitosa que declara (su status_code, 200 si no lo declara).
 - No ejecutes el código. Lo esperado sale SOLO de lo declarado o del docstring; si no
   se deduce con certeza, omite el endpoint.
 - Caso: "id", "entrada" {{"metodo", "ruta", opcionales "query", "json", "headers"}},
-  "valor_esperado" {{"status_code" y, si se conoce, "json_contiene"}} y "origen" (uno
-  de: {", ".join(ORIGENES_ENDPOINT)}). Sin casos de error (4xx/5xx).
+  "valor_esperado" {{"status_code" y, si se conoce, "json_contiene"}}, "origen" (uno
+  de: {", ".join(ORIGENES_ENDPOINT)}) y "categoria": "normal". Sin casos de error.
 - Devuelve SOLO una lista JSON: {{"objetivo": "MÉTODO /ruta", "casos": [caso]}}.
 Ejemplo: {ejemplo}
 
@@ -584,14 +646,74 @@ MODELOS: {json.dumps(modelos, ensure_ascii=False)}
 
 
 def es_normal_funcion(caso: dict[str, Any]) -> bool:
-    """Caso normal de una función: espera un valor, no una excepción (#75)."""
-    return "valor_esperado" in caso and "excepcion" not in caso
+    """Caso normal de una función: espera un valor, no una excepción (#75, #76)."""
+    return (
+        "valor_esperado" in caso
+        and "excepcion" not in caso
+        and categoria_de(caso) == "normal"
+    )
 
 
 def es_normal_endpoint(caso: dict[str, Any]) -> bool:
-    """Caso normal guardado de un endpoint: espera una respuesta 2xx (#75)."""
+    """Caso normal guardado de un endpoint: espera una respuesta 2xx (#75, #76)."""
     estado = (caso.get("valor_esperado") or {}).get("status_code")
-    return isinstance(estado, int) and 200 <= estado < 300
+    return (
+        isinstance(estado, int)
+        and 200 <= estado < 300
+        and categoria_de(caso) == "normal"
+    )
+
+
+def motivo_limite_funcion(funcion: dict[str, Any], caso: dict[str, Any]) -> str | None:
+    """Por qué un caso `limite` de una función no tiene oráculo; None si lo tiene (#76).
+
+    El límite tiene que salir del docstring o de un tipo con restricciones
+    (`Annotated[...]`); la firma sola no describe ningún borde.
+    """
+    if caso.get("categoria") != "limite":
+        return None
+    origen = caso.get("origen")
+    if origen == "docstring" and funcion.get("docstring"):
+        return None
+    if origen == "tipo" and "Annotated[" in (funcion.get("firma") or ""):
+        return None
+    return "caso límite sin una especificación que describa ese límite"
+
+
+def motivo_limite_endpoint(
+    endpoint: dict[str, Any], caso: dict[str, Any], modelos: dict[str, dict[str, Any]]
+) -> str | None:
+    """Igual que `motivo_limite_funcion` para un endpoint (#76).
+
+    El límite sale del docstring o de restricciones declaradas: `Field`/`Query`/`Path`
+    con `ge`, `le`, `min_length`… en los parámetros o en los modelos Pydantic.
+    """
+    if caso.get("categoria") != "limite":
+        return None
+    origen = caso.get("origen")
+    if origen == "docstring" and endpoint.get("docstring"):
+        return None
+    if origen in ("modelo_pydantic", "tipo") and tiene_restricciones(endpoint, modelos):
+        return None
+    return "caso límite sin una especificación que describa ese límite"
+
+
+def tiene_restricciones(
+    endpoint: dict[str, Any], modelos: dict[str, dict[str, Any]]
+) -> bool:
+    """Si los parámetros o los modelos del endpoint declaran restricciones (#76)."""
+    parametros = [
+        *endpoint.get("parametros_ruta", []),
+        *endpoint.get("parametros_consulta", []),
+        *endpoint.get("cabeceras", []),
+    ]
+    if any(p.get("restricciones") for p in parametros):
+        return True
+    return any(
+        campo.get("restricciones")
+        for modelo in modelos.values()
+        for campo in modelo.get("campos", [])
+    )
 
 
 def contrato_humo(contrato: dict[str, Any]) -> dict[str, Any] | None:
@@ -687,6 +809,7 @@ _EJEMPLO_ENDPOINTS = [
                     "json_contiene": {"nombre": "lapiz", "precio": 2.5},
                 },
                 "origen": "status_code",
+                "categoria": "normal",
             },
             {
                 "id": "precio_cero",
@@ -697,6 +820,7 @@ _EJEMPLO_ENDPOINTS = [
                 },
                 "valor_esperado": {"status_code": 422},
                 "origen": "modelo_pydantic",
+                "categoria": "error",
             },
         ],
     }

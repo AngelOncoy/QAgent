@@ -12,6 +12,7 @@ import json
 from pathlib import Path
 from typing import Any
 
+from qagent.contracts import categoria_de, contar_categorias
 from qagent.storage.registro import (
     ARCHIVO_DETALLE,
     CARPETA_RUNS,
@@ -20,7 +21,21 @@ from qagent.storage.registro import (
     PERFILES_CON_MUTACION,
     nombre_perfil,
 )
-from qagent.storage.vista_ejecucion import estado_de, identidad_de, tipo_de
+from qagent.storage.vista_ejecucion import (
+    categorias_de,
+    estado_de,
+    identidad_de,
+    texto_categorias,
+    tipo_de,
+)
+
+#: Aviso cuando un objetivo no tiene casos límite (#76). No cuenta como fallo.
+AVISO_SIN_LIMITES = {
+    "funcion": "Sin casos límite: el docstring no describe límites; documentarlos "
+    "permite probarlos.",
+    "endpoint": "Sin casos límite: ni el docstring ni las restricciones declaradas "
+    "(Field, Query, Path) describen límites; documentarlos permite probarlos.",
+}
 
 #: Estado de cada control para la pantalla.
 OK, FALLA, NO_APLICA, PENDIENTE, SIN_DATO = (
@@ -57,6 +72,7 @@ def vista_reporte(
         _funcion(o, textos.get((o["modulo"], o["funcion"])), metas, results["perfil"])
         for o in results["objetivos"]
     ]
+    total_categorias = resumen.get("casos_por_categoria")
     verdes = sum(1 for f in funciones if f["verde"])
     tipos = [tipo_de(o) for o in results["objetivos"]]
     pasaron = sum(1 for o in results["objetivos"] if o["metricas"]["paso"])
@@ -76,6 +92,9 @@ def vista_reporte(
         "motivo_fallo": results["motivo_fallo"],
         "total_funciones": resumen["total_funciones"],
         "total_objetivos": len(funciones),
+        # #76: casos de la corrida por categoría; None en corridas anteriores.
+        "categorias": total_categorias,
+        "texto_categorias": texto_categorias(total_categorias),
         "modelos": {
             agente: {"proveedor": m["proveedor"], "modelo": m["modelo"]}
             for agente, m in results["modelos"].items()
@@ -149,6 +168,10 @@ def _funcion(
     verde = objetivo["decision"] == "accept" and all(
         c["estado"] in (OK, NO_APLICA, PENDIENTE) for c in controles
     )
+    casos = contrato.get("casos") if isinstance(contrato, dict) else None
+    categorias = categorias_de(objetivo) or (
+        contar_categorias(casos) if casos else None
+    )
     return {
         "modulo": objetivo["modulo"],
         "funcion": objetivo["funcion"],
@@ -156,6 +179,20 @@ def _funcion(
         "firma": contrato.get("firma") if isinstance(contrato, dict) else None,
         "manejador": contrato.get("manejador") if isinstance(contrato, dict) else None,
         "critical": objetivo["critical"],
+        # #76: casos por categoría, el aviso si no hay límites (no es un fallo) y la
+        # categoría de cada caso para mostrarla junto a su resultado de pytest.
+        "categorias": categorias,
+        "texto_categorias": texto_categorias(categorias),
+        "aviso_limites": (
+            AVISO_SIN_LIMITES[tipo_de(objetivo)]
+            if categorias and not categorias["limite"] and perfil != PERFIL_HUMO
+            else None
+        ),
+        "categoria_por_caso": {
+            c["id"]: categoria_de(c)
+            for c in casos or []
+            if isinstance(c, dict) and isinstance(c.get("id"), str)
+        },
         "decision": objetivo["decision"],
         "estado": estado_de(objetivo),
         "verde": verde,
@@ -220,6 +257,7 @@ def _contrato_http(contrato: Any) -> dict[str, Any] | None:
                 "peticion": entrada,
                 "respuesta_esperada": esperado,
                 "origen": caso.get("origen"),
+                "categoria": categoria_de(caso),  # #76
             }
         )
     return {"casos": casos}

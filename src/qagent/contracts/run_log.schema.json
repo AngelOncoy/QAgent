@@ -202,6 +202,10 @@
           }
         },
         "mutacion": { "$ref": "#/$defs/mutacion" },
+        "casos_por_categoria": {
+          "$ref": "#/$defs/casos_por_categoria",
+          "description": "#76. Casos del contrato del objetivo por categoría. Opcional: las corridas anteriores no lo tienen."
+        },
         "motivo_estancado": {
           "enum": ["limite_intentos", "error_repetido", null],
           "description": "Por qué se cortó una prueba stalled: limite_intentos (3 intentos) o error_repetido (mismo hash de error dos veces seguidas). El intento del corte es metricas.iteraciones."
@@ -237,6 +241,16 @@
         }
       }
     },
+    "casos_por_categoria": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["normal", "limite", "error"],
+      "properties": {
+        "normal": { "type": "integer", "minimum": 0 },
+        "limite": { "type": "integer", "minimum": 0 },
+        "error": { "type": "integer", "minimum": 0 }
+      }
+    },
     "resumen": {
       "type": "object",
       "additionalProperties": false,
@@ -260,6 +274,10 @@
         "pass_rate": { "type": "number", "minimum": 0, "maximum": 100, "description": "% de funciones cuyo último test pasó." },
         "cobertura_lineas_promedio": { "type": ["number", "null"], "minimum": 0, "maximum": 100 },
         "cobertura_ramas_promedio": { "type": ["number", "null"], "minimum": 0, "maximum": 100, "description": "HU-18. Opcional: las corridas anteriores no lo tienen." },
+        "casos_por_categoria": {
+          "$ref": "#/$defs/casos_por_categoria",
+          "description": "#76. Total de casos de la corrida por categoría. Opcional: las corridas anteriores no lo tienen."
+        },
         "iteraciones_promedio": { "type": ["number", "null"], "minimum": 0, "maximum": 3, "description": "HU-18. Intentos promedio de las funciones con veredicto." },
         "costo_total_usd": { "type": "number", "minimum": 0 },
         "por_agente": {
