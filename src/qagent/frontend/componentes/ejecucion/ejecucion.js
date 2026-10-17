@@ -282,9 +282,9 @@ function renderExecReal(v){
       <div class="sh2"><div class="l">${I('file','var(--blue-400)',15)}<b>${escHtml(g.modulo)}</b></div>
         <div class="r"><span>Corrida ${escHtml(v.run_id)}</span>${v.es_simulado?'<span>IA simulada</span>':''}</div></div>
       ${g.pruebas.map(p => { const e = ESTADO_REAL[p.estado], s = ST[e.st].exec;
-        const etiqueta = p.estado==='estancado' ? `Estancado ${p.intento_final}/3` + (MOTIVO_ESTANCADO[p.motivo_estancado] ? ` · ${MOTIVO_ESTANCADO[p.motivo_estancado]}` : '') : p.estado==='requiere_corrida_nueva' && p.texto_motivo_regresion ? `${e.txt} · ${p.texto_motivo_regresion}` : e.txt;
+        const etiqueta = p.estado==='estancado' ? `Estancado ${p.intento_final}/3` + (MOTIVO_ESTANCADO[p.motivo_estancado] ? ` · ${MOTIVO_ESTANCADO[p.motivo_estancado]}` : '') : e.txt;
         return `<div class="fnrow"><div class="fnhead" style="cursor:default">
-          <div class="l"><span class="nm">${I(s[0],s[1],16)} ${p.tipo==='endpoint'?escHtml(p.identificador):`test_${escHtml(p.identificador)}()`}</span><span class="bdg ${p.tipo==='endpoint'?'b-blue':'b-grey'}">${p.tipo==='endpoint'?'Endpoint':'Función'}</span>${p.reutilizada?'<span class="bdg b-grey" title="La prueba aprobada guardada se volvió a ejecutar en el sandbox, sin IA">♻ Prueba repetida</span>':''}${p.critical?'<span class="bdg b-orc">Crítica</span>':''}${p.categorias?`<span class="bdg b-grey" title="Casos del contrato por categoría">${escHtml(p.categorias)}</span>`:''}</div>
+          <div class="l"><span class="nm">${I(s[0],s[1],16)} ${p.tipo==='endpoint'?escHtml(p.identificador):`test_${escHtml(p.identificador)}()`}</span><span class="bdg ${p.tipo==='endpoint'?'b-blue':'b-grey'}">${p.tipo==='endpoint'?'Endpoint':'Función'}</span>${p.critical?'<span class="bdg b-orc">Crítica</span>':''}${p.categorias?`<span class="bdg b-grey" title="Casos del contrato por categoría">${escHtml(p.categorias)}</span>`:''}</div>
           <div class="r"><span>Intento final: <b style="color:${p.intento_final>1?'var(--amber-400)':'var(--slate-200)'}">${Number(p.intento_final)}/3</b></span>
             <span>${I('clock','var(--slate-300-c)',12)} ${tiempoReal(p.duracion_s)}</span>
             <span>Cov: <b style="color:var(--blue-400)">${numReal(p.cobertura_lineas)}</b> líneas · <b style="color:var(--blue-400)">${numReal(p.cobertura_ramas)}</b> ramas</span>

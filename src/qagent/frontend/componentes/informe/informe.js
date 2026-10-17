@@ -278,7 +278,7 @@ function renderReportReal(v){
   const lista = v.funciones.filter(f => (rTypeFilter==='todos' || f.tipo===rTypeFilter) && (rFilter==='todas' || (rFilter==='verde' ? f.verde : !f.verde)));
   $('rcards').innerHTML = lista.length ? lista.map((f, i) => {
     const id = f.modulo + '::' + f.funcion, e = ESTADO_REP[f.estado], st = ST[e.st], abierto = !!rRealAbierto[id], tab = rRealTab[id] || 'checklist';
-    const etiqueta = f.estado==='estancado' ? `ESTANCADO ${f.iteraciones}/3` : f.estado==='requiere_corrida_nueva' && f.texto_motivo_regresion ? `${e.txt} · ${f.texto_motivo_regresion}` : e.txt;
+    const etiqueta = f.estado==='estancado' ? `ESTANCADO ${f.iteraciones}/3` : e.txt;
     const idJs = escHtml(JSON.stringify(id));
     let cuerpo = '';
     if(abierto){
@@ -299,7 +299,7 @@ function renderReportReal(v){
     return `<div class="rcard" style="border-left-color:${st.c};${f.verde?'':`box-shadow:0 0 0 1px ${st.halo}`}">
       <div class="rch" onclick="rRealAbierto[${idJs}]=!rRealAbierto[${idJs}];renderReport()">
         <div class="l"><span class="mtag" style="${st.mb}">${f.verde?'OK':'ALERTA'}</span>
-          <div style="min-width:0"><div class="rn">${f.tipo==='endpoint'?escHtml(f.identificador):escHtml(f.identificador)+'()'} <span class="rmod">${escHtml(f.modulo)}</span><span class="rkind">${f.tipo==='endpoint'?'Endpoint':'Función'}</span>${f.reutilizada?'<span class="rkind" title="La prueba aprobada guardada se volvió a ejecutar en el sandbox, sin IA">♻ Prueba repetida</span>':''}${f.critical?'<span class="rcrit">★ crítica</span>':''}</div><div class="rsig">${f.tipo==='endpoint'&&f.manejador?`Manejador: ${escHtml(f.manejador)} · `:''}${escHtml(f.firma || '')}</div>${f.texto_categorias ? `<div class="rsig" title="Casos del contrato por categoría">Casos: ${escHtml(f.texto_categorias)}</div>` : ''}${f.aviso_limites ? `<div class="rsig" style="color:var(--amber-300)">${I('warn','currentColor',12)} ${escHtml(f.aviso_limites)}</div>` : ''}</div></div>
+          <div style="min-width:0"><div class="rn">${f.tipo==='endpoint'?escHtml(f.identificador):escHtml(f.identificador)+'()'} <span class="rmod">${escHtml(f.modulo)}</span><span class="rkind">${f.tipo==='endpoint'?'Endpoint':'Función'}</span>${f.critical?'<span class="rcrit">★ crítica</span>':''}</div><div class="rsig">${f.tipo==='endpoint'&&f.manejador?`Manejador: ${escHtml(f.manejador)} · `:''}${escHtml(f.firma || '')}</div>${f.texto_categorias ? `<div class="rsig" title="Casos del contrato por categoría">Casos: ${escHtml(f.texto_categorias)}</div>` : ''}${f.aviso_limites ? `<div class="rsig" style="color:var(--amber-300)">${I('warn','currentColor',12)} ${escHtml(f.aviso_limites)}</div>` : ''}</div></div>
         <div class="r"><span class="rpill"><span style="color:var(--mut)">Cob:</span> <b style="color:var(--blue-400)">${numRep(f.cobertura_lineas)}</b></span>
           <span class="rpill" title="${f.critical?(f.tipo==='endpoint'?'Mutation Score (mutmut) del manejador del endpoint prioritario':'Mutation Score (mutmut) de la función crítica'):'No aplica: mutmut solo corre sobre funciones críticas y endpoints prioritarios'}"><span style="color:var(--mut)">Mutantes:</span> <b style="color:${colorMutacion(f)}">${f.mutation_score===null?'N/A':numRep(f.mutation_score,0)}</b></span>
           <span class="rsb ${st.repCls}">${I(st.repIco,'currentColor',13)} ${escHtml(etiqueta)}</span>${I(abierto?'chevU':'chevD','var(--slate-300-c)',20)}</div>
