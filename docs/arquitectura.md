@@ -17,9 +17,10 @@ El documento sigue el **modelo C4** (Contexto → Contenedores → Componentes �
 7. [Vista de despliegue](#7-vista-de-despliegue)
 8. [Modelo GAIA](#8-modelo-gaia)
 9. [Contratos JSON](#9-contratos-json)
-10. [Stack tecnológico](#10-stack-tecnológico)
-11. [Decisiones de arquitectura](#11-decisiones-de-arquitectura)
-12. [Aprobación](#12-aprobación)
+10. [Enfoque de pruebas](#10-enfoque-de-pruebas)
+11. [Stack tecnológico](#11-stack-tecnológico)
+12. [Decisiones de arquitectura](#12-decisiones-de-arquitectura)
+13. [Aprobación](#13-aprobación)
 
 ---
 
@@ -672,7 +673,69 @@ Los schemas completos van en `src/qagent/contracts/` y los valida `tests/test_co
 
 ---
 
-## 10. Stack tecnológico
+## 10. Enfoque de pruebas
+
+Qué tipos de prueba hace QAgent, cómo se clasifican y qué elige el usuario en la pantalla **Configuración de pruebas** (#69).
+
+### 10.1 Nivel, técnica y estrategia
+
+Los nombres de prueba mezclan tres ideas distintas. QAgent las separa así:
+
+| Concepto | Responde a | En QAgent |
+|---|---|---|
+| **Nivel** | Qué se prueba | **Unitarias** (una función aislada; sus llamadas `llama_a` se simulan) y **de API** (un endpoint FastAPI vía HTTP con `TestClient`, simulando `Depends`) |
+| **Técnica** | Cómo se diseñan los casos | Casos normales, **valores límite y casos borde** y casos de error, desde la especificación; **mutación** (mutmut) para medir la calidad de las pruebas |
+| **Estrategia** | Cuándo y cuánto se prueba | **Humo** (comprobación mínima), **Estándar** (completa) y **Regresión** (repetir lo ya aprobado) |
+
+El tipo de caja (negra, gris o blanca) es una propiedad de la **técnica de diseño**, no del nivel ni de la estrategia: depende de qué información se usa para elegir los casos.
+
+### 10.2 Tipo de caja de cada parte
+
+| Parte | Qué recibe quien diseña los casos | Tipo de caja |
+|---|---|---|
+| **Funciones** | Solo nombre, firma y docstring; el Planner no recibe el código (`Planner._crear_prompt`) | **Caja negra** |
+| **Endpoints** | La declaración de la ruta (método, `status_code`, `response_model`, modelos, `Depends`, `HTTPException`) **y el código del manejador** (`Planner.planificar_endpoints`, parámetro `fuente`) | **Caja gris**: el código guía qué casos probar, pero el resultado esperado sale de la declaración |
+| **Profundizar** | El código de las funciones prioritarias, para mutarlo y ver si las pruebas detectan el cambio | **Caja blanca**, como capa **sobre** la prueba Estándar |
+
+Lo que no cambia en ninguna parte es el **oráculo**: el valor esperado sale siempre de la especificación (sección 9), nunca de ejecutar el código. Eso evita que una prueba confirme un bug como si fuera el comportamiento correcto; el Reviewer lo vigila como *Assertion Laundering*.
+
+El análisis con `ast` (EN-02) no convierte las pruebas de funciones en caja gris: solo **extrae** la especificación (firma, tipos, docstring) y cuenta las decisiones para proponer qué funciones profundizar (sección 10.4).
+
+### 10.3 Lo que elige el usuario
+
+La pantalla hace dos preguntas y traduce la respuesta al perfil que recibe `start_run` (`perfilDeEleccion` en `config-pruebas.js`):
+
+| ¿Qué quieres hacer? | Tipo de prueba | Profundizar | Perfil |
+|---|---|---|---|
+| Generar pruebas nuevas | Humo | — (no disponible) | `humo` |
+| Generar pruebas nuevas | Estándar | No, o sin funciones prioritarias | `std` |
+| Generar pruebas nuevas | Estándar | Sí | `deep` |
+| Repetir pruebas guardadas | — | — | `reg` |
+
+Profundizar no es un perfil aparte sino una casilla dentro de Estándar, porque añade la capa de caja blanca encima de las pruebas normales: la mutación mide qué tan buenas son las pruebas que ya existen, así que necesita una base completa. Con Humo (un solo caso por objetivo) casi todos los mutantes sobrevivirían y el resultado no aportaría información. «Repetir pruebas guardadas» tampoco es un nivel de profundidad: es otra acción, que vuelve a ejecutar sin IA las pruebas aprobadas cuyo código no cambió (HU-25).
+
+### 10.4 Por qué Profundizar solo en funciones prioritarias
+
+- **Regla del alcance:** mutmut solo se ejecuta sobre funciones `critical: true`, nunca sobre el repositorio completo (RN-04).
+- **Costo:** por cada función, mutmut crea decenas de versiones alteradas del código y ejecuta las pruebas contra cada una; aplicarlo a todo puede llevar horas.
+- **Pruebas basadas en riesgo:** el esfuerzo se concentra donde un fallo es más probable o más grave. Ninguna función se deja sin probar: todas reciben su prueba Estándar.
+
+QAgent propone como prioritaria toda función con al menos una decisión (`if`/`elif`, ternario, `for`, `while`, `except`, `case` o `if` de comprensión; `contar_ramas` en `analysis/analyzer.py`). Una función sin decisiones tiene un solo camino, así que profundizar aporta poco, pero el usuario puede marcarla igual si es importante (por ejemplo, un cálculo de dinero), porque la mutación también cambia operadores y constantes (HU-06).
+
+### 10.5 Estado actual
+
+| Pieza | Estado | Ítem |
+|---|---|---|
+| Pruebas unitarias y de API, regresión sin IA | Implementado | HU-27 · HU-25 |
+| Pantalla de configuración como opciones | Implementado | #69 |
+| Humo con un solo caso por objetivo | Pendiente: hoy el backend trata `humo` igual que `std` | Issue «Feat: perfil Humo con un caso normal por objetivo» |
+| Marcas de función prioritaria hasta la corrida | Pendiente: la selección no envía las marcas y todas llegan como `critical: false` | HU-06 |
+| Mutación (Profundizar) | Pendiente: el campo `mutation` de `results.json` queda en `null` | EN-09 |
+| Categoría de cada caso (normal / límite / error) | Pendiente | Issue «Feat: categoría de cada caso de prueba» |
+
+---
+
+## 11. Stack tecnológico
 
 | Capa | Tecnología | Uso | Ítem |
 |---|---|---|---|
@@ -692,7 +755,7 @@ Los schemas completos van en `src/qagent/contracts/` y los valida `tests/test_co
 
 ---
 
-## 11. Decisiones de arquitectura
+## 12. Decisiones de arquitectura
 
 | Decisión | Motivo | Registro |
 |---|---|---|
@@ -706,10 +769,11 @@ Los schemas completos van en `src/qagent/contracts/` y los valida `tests/test_co
 | Pruebas de endpoints FastAPI con `TestClient` | Reutiliza el sandbox, pytest y las 5 métricas; integración, extremo a extremo y carga quedan en Fase 2 | Backlog EP-09 |
 | Reintentos solo Generator → Reviewer; bug detectado no se reintenta; orden topológico por `llama_a` | Evita rehacer el plan (el agente más caro) y la cascada de fallos entre funciones | Sección 6.4 |
 | Datos en archivos JSON | Viajan con el proyecto; no requiere base de datos | EN-07 |
+| Profundizar (mutación) como capa sobre Estándar, solo en funciones prioritarias | La mutación mide pruebas que ya existen y es costosa; se concentra donde hay más riesgo | Sección 10 |
 
 ---
 
-## 12. Aprobación
+## 13. Aprobación
 
 Criterio 5 de EN-01: aprobado por los 4 integrantes (se marca al aprobar el PR).
 
