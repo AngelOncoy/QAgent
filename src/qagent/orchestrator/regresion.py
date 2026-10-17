@@ -24,42 +24,45 @@ from qagent.storage import escribir_corrida
 
 
 def huellas_de_objetivos(raiz: str | Path) -> dict[tuple[str, str], str]:
-    """Calcula huellas AST por funcion/endpoint sin importar codigo del usuario."""
+    """Calcula huellas AST por función/endpoint sin importar código del usuario.
+
+    La identidad de endpoints sale del analizador común, por lo que incluye los
+    prefijos resueltos de ``APIRouter`` e ``include_router``.
+    """
+    from qagent.analysis.analyzer import analizar_proyecto
+
     raiz = Path(raiz)
     resultado: dict[tuple[str, str], str] = {}
-    ignorados = {"tests", "venv", "node_modules", "__pycache__"}
-    for ruta in sorted(raiz.rglob("*.py")):
-        partes = ruta.relative_to(raiz).parts
-        if any(p.startswith(".") or p in ignorados for p in partes[:-1]):
-            continue
-        relativa = ruta.relative_to(raiz).as_posix()
+    for modulo in analizar_proyecto(raiz)["modulos"]:
+        relativa = modulo["ruta"]
+        ruta = raiz / relativa
         try:
             arbol = ast.parse(ruta.read_text(encoding="utf-8"), filename=relativa)
         except (OSError, UnicodeDecodeError, SyntaxError, ValueError):
             continue
-        for nodo in arbol.body:
-            if not isinstance(nodo, (ast.FunctionDef, ast.AsyncFunctionDef)):
-                continue
-            huella = hashlib.sha256(
-                ast.dump(nodo, annotate_fields=True, include_attributes=False).encode()
-            ).hexdigest()
-            if not nodo.name.startswith("_"):
-                resultado[(relativa, nodo.name)] = huella
-            for decorador in nodo.decorator_list:
-                llamada = decorador if isinstance(decorador, ast.Call) else None
-                atributo = llamada.func if llamada else None
-                if not isinstance(atributo, ast.Attribute) or not llamada.args:
-                    continue
-                metodo = atributo.attr.upper()
-                if metodo not in {"GET", "POST", "PUT", "PATCH", "DELETE"}:
-                    continue
-                try:
-                    camino = ast.literal_eval(llamada.args[0])
-                except (ValueError, TypeError):
-                    continue
-                if isinstance(camino, str):
-                    resultado[(relativa, f"{metodo} {camino}")] = huella
+        nodos = {
+            nodo.name: nodo
+            for nodo in arbol.body
+            if isinstance(nodo, (ast.FunctionDef, ast.AsyncFunctionDef))
+        }
+
+        for funcion in modulo.get("funciones", []):
+            valor = _huella_nodo(nodos.get(funcion["nombre"]))
+            if valor:
+                resultado[(relativa, funcion["nombre"])] = valor
+        for endpoint in modulo.get("endpoints", []):
+            valor = _huella_nodo(nodos.get(endpoint["manejador"]))
+            if valor and endpoint.get("objetivo") and endpoint.get("resuelta", True):
+                resultado[(relativa, endpoint["objetivo"])] = valor
     return resultado
+
+
+def _huella_nodo(nodo: ast.AST | None) -> str | None:
+    """Devuelve una huella estable de un objetivo AST analizable."""
+    if nodo is None:
+        return None
+    serializado = ast.dump(nodo, annotate_fields=True, include_attributes=False)
+    return hashlib.sha256(serializado.encode()).hexdigest()
 
 
 def _cobertura(datos: dict[str, Any] | None) -> dict[str, float | None] | None:
@@ -118,6 +121,7 @@ def ejecutar_regresion(
     preparar_imagen: Any = None,
     ejecutor: Any = ejecutar_pruebas,
     seleccion: list[dict[str, Any]] | None = None,
+    estrategia_prueba: str = "regresion",
 ) -> Any:
     """Reejecuta una vez cada prueba aprobada vigente; nunca crea clientes LLM."""
     from qagent.orchestrator.corrida import ResumenCorrida, _cerrar_run, metas_de
@@ -303,6 +307,7 @@ def ejecutar_regresion(
             run_id=resumen.run_id,
             metas=metas_de(configuracion),
             rama=detectar_rama(raiz),
+            estrategia_prueba=estrategia_prueba,
         )
         resumen.run_id, resumen.carpeta = rutas.run_id, str(rutas.carpeta)
     except Exception as error:  # noqa: BLE001
@@ -312,7 +317,12 @@ def ejecutar_regresion(
     resumen.tokens = 0
     resumen.costo_usd = 0.0
     resumen.duracion_s = round(time.monotonic() - inicio, 3)
-    _cerrar_run(almacen, resumen, ["funcion", "endpoint"])
+    _cerrar_run(
+        almacen,
+        resumen,
+        ["funcion", "endpoint"],
+        estrategia_prueba,
+    )
     emitir(
         f"Regresion terminada sin IA: {resumen.aceptadas} aprobadas, "
         f"{resumen.requieren_corrida_nueva} requieren corrida nueva",

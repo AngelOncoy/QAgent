@@ -239,7 +239,8 @@ function renderReportReal(v){
   $('rentorno').innerHTML = entornoRealHtml(v);
   const k = v.indicadores, fecha = new Date(v.fecha);
   const modelos = AGENTES_REP.filter(([a]) => v.modelos[a]).map(([a, n]) => `${n} · ${escHtml(v.modelos[a].modelo)} <span style="color:var(--dim)">(${escHtml(v.modelos[a].proveedor)})</span>`).join(' &nbsp;|&nbsp; ');
-  $('rmeta').innerHTML = `Corrida <b>${escHtml(v.run_id)}</b> · ${escHtml(isNaN(fecha) ? v.fecha : fecha.toLocaleString('es-PE'))} · perfil <b>${escHtml(v.perfil)}</b> · ${Number(v.total_objetivos)} objetivos · rama <b>${escHtml(v.rama || 'sin repositorio Git')}</b><br><span style="font-size:11px">Modelos: ${modelos}</span>`
+  const tipoPrueba = {unitaria:'Unitarias', limites:'Valores límite', humo:'Humo', regresion:'Regresión'}[v.estrategia_prueba] || 'Unitarias';
+  $('rmeta').innerHTML = `Corrida <b>${escHtml(v.run_id)}</b> · ${escHtml(isNaN(fecha) ? v.fecha : fecha.toLocaleString('es-PE'))} · tipo <b>${escHtml(tipoPrueba)}</b> · perfil <b>${escHtml(v.perfil)}</b> · ${Number(v.total_objetivos)} objetivos · rama <b>${escHtml(v.rama || 'sin repositorio Git')}</b><br><span style="font-size:11px">Modelos: ${modelos}</span>`
     + (v.motivo_fallo ? `<br><span style="color:var(--amber-300);font-size:11px">Corrida detenida: ${escHtml(v.motivo_fallo)}</span>` : '');
   const pr = k.pass_rate, cv = k.cobertura, cs = k.costo, bal = k.balance;
   $('pillars').innerHTML = `

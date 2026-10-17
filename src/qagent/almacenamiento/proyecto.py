@@ -35,6 +35,7 @@ from qagent.almacenamiento.disco import (
     escribir_texto_atomico,
     leer_json_objeto,
 )
+from qagent.pruebas.tipos import validar_estrategia
 from qagent.storage.registro import nuevo_run_id
 
 CARPETA = ".qagent"
@@ -205,6 +206,7 @@ class AlmacenProyecto:
         tipos_prueba: Iterable[str] = (),
         imagen_docker: str | None = None,
         ahora: datetime | None = None,
+        estrategia_prueba: str | None = None,
     ) -> dict[str, Any]:
         """Crea la carpeta y el `run.json` de una corrida nueva, en estado `en_curso`.
 
@@ -231,6 +233,8 @@ class AlmacenProyecto:
             "estado": "en_curso",
             "resumen": None,
         }
+        if estrategia_prueba is not None:
+            run["estrategia_prueba"] = validar_estrategia(estrategia_prueba)
         self.guardar_run(run)
         return run
 
@@ -245,6 +249,8 @@ class AlmacenProyecto:
         self.inicializar()
         ruta = self.carpeta_run(run["run_id"]) / ARCHIVO_RUN
         datos = {c: run[c] for c in CAMPOS_RUN}
+        if "estrategia_prueba" in run:
+            datos["estrategia_prueba"] = run["estrategia_prueba"]
         if "specs" in run:
             datos["specs"] = run["specs"]
         escribir_json_atomico(ruta, datos)
@@ -257,6 +263,7 @@ class AlmacenProyecto:
         pasaron: int,
         fallaron: int,
         tipos_prueba: Iterable[str] | None = None,
+        estrategia_prueba: str | None = None,
         ahora: datetime | None = None,
     ) -> dict[str, Any]:
         """Marca el fin de una corrida con su estado final y el resumen.
@@ -276,6 +283,8 @@ class AlmacenProyecto:
         )
         if tipos_prueba is not None:
             run["tipos_prueba"] = list(tipos_prueba)
+        if estrategia_prueba is not None:
+            run["estrategia_prueba"] = validar_estrategia(estrategia_prueba)
         self.guardar_run(run)
         return run
 
@@ -607,6 +616,11 @@ def _validar_run(run: dict[str, Any]) -> None:
         raise ErrorAlmacen("resumen debe ser {pasaron, fallaron} o null.")
     if "specs" in run:
         _validar_registros_specs(run["specs"])
+    if "estrategia_prueba" in run:
+        try:
+            validar_estrategia(run["estrategia_prueba"])
+        except ValueError as exc:
+            raise ErrorAlmacen(str(exc)) from exc
 
 
 def _validar_spec(spec: dict[str, Any]) -> None:

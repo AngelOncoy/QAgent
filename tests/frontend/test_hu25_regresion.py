@@ -30,6 +30,6 @@ def test_ejecucion_y_reporte_muestran_requiere_corrida_nueva():
 
 def test_historial_distingue_regresion_sin_ia():
     historial = leer("componentes/historial/historial.js")
-    assert "h.perfil === 'reg'" in historial
+    assert "h.estrategia_prueba === 'regresion'" in historial
     assert "— (sin IA)" in historial
     assert "requieren corrida nueva" in historial

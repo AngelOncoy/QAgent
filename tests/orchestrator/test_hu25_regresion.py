@@ -60,7 +60,14 @@ def preparado(tmp_path: Path):
     return raiz, almacen, config
 
 
-def _regresion(preparado, monkeypatch, llamadas):
+def _regresion(
+    preparado,
+    monkeypatch,
+    llamadas,
+    *,
+    perfil="reg",
+    estrategia_prueba=None,
+):
     raiz, almacen, config = preparado
 
     def ejecutor(imagen, proyecto, tests, modulo):
@@ -74,13 +81,14 @@ def _regresion(preparado, monkeypatch, llamadas):
     run_id = almacen.crear_run(tipos_prueba=["funcion"])["run_id"]
     resumen = ejecutar_corrida(
         raiz,
-        "reg",
+        perfil,
         config,
         None,
         simulado=False,
         run_id=run_id,
         preparar_imagen=lambda ruta: "imagen",
         ejecutor=ejecutor,
+        estrategia_prueba=estrategia_prueba,
     )
     results = json.loads(
         (almacen.carpeta_run(run_id) / "results.json").read_text(encoding="utf-8")
@@ -100,6 +108,26 @@ def test_escenario_a_reutiliza_aprobadas_y_costo_cero(preparado, monkeypatch):
     assert log["llamadas"] == []
     assert results["resumen"]["costo_total_usd"] == 0
     assert all(o["reutilizada"] for o in results["objetivos"])
+
+
+def test_regresion_se_activa_por_estrategia_independiente_del_perfil(
+    preparado, monkeypatch
+):
+    llamadas = []
+
+    resumen, results, log = _regresion(
+        preparado,
+        monkeypatch,
+        llamadas,
+        perfil="deep",
+        estrategia_prueba="regresion",
+    )
+
+    assert resumen.estado == "fin"
+    assert len(llamadas) == 3
+    assert log["llamadas"] == []
+    assert results["perfil"] == "deep"
+    assert results["estrategia_prueba"] == "regresion"
 
 
 def test_escenario_b_funcion_modificada_requiere_corrida_nueva(preparado, monkeypatch):
@@ -215,6 +243,32 @@ def test_identidad_incluye_modulo_si_hay_nombres_duplicados(tmp_path: Path):
     assert ("uno.py", "calcular") in huellas
     assert ("dos.py", "calcular") in huellas
     assert huellas[("uno.py", "calcular")] != huellas[("dos.py", "calcular")]
+
+
+def test_huella_endpoint_usa_prefijos_de_router_e_include_router(tmp_path: Path):
+    paquete = tmp_path / "app" / "rutas"
+    paquete.mkdir(parents=True)
+    (tmp_path / "app" / "__init__.py").write_text("", encoding="utf-8")
+    (paquete / "__init__.py").write_text("", encoding="utf-8")
+    (paquete / "items.py").write_text(
+        "from fastapi import APIRouter\n\n"
+        "router = APIRouter(prefix='/items')\n\n"
+        "@router.get('/{item_id}')\n"
+        "def leer(item_id: int):\n"
+        "    return {'id': item_id}\n",
+        encoding="utf-8",
+    )
+    (tmp_path / "app" / "main.py").write_text(
+        "from fastapi import FastAPI\n"
+        "from app.rutas import items\n\n"
+        "app = FastAPI()\n"
+        "app.include_router(items.router, prefix='/api/v1')\n",
+        encoding="utf-8",
+    )
+
+    huellas = huellas_de_objetivos(tmp_path)
+
+    assert ("app/rutas/items.py", "GET /api/v1/items/{item_id}") in huellas
 
 
 def test_proyecto_sin_pruebas_aprobadas_falla_controladamente(tmp_path, config):

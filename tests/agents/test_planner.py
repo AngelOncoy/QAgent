@@ -200,3 +200,98 @@ def test_prompt_explica_el_formato_del_caso_sin_enviar_datos_de_mas() -> None:
     assert "ejecucion" not in prompt
     assert '"linea"' not in prompt
     assert '"huella"' not in prompt
+
+
+def test_humo_conserva_como_maximo_un_caso_nominal_por_objetivo() -> None:
+    propuesta = [
+        {
+            "objetivo": "duplicar",
+            "casos": [
+                PLAN[0]["casos"][0],
+                {
+                    "id": "otro_nominal",
+                    "entrada": {"x": 3},
+                    "valor_esperado": 6,
+                    "origen": "docstring",
+                },
+                {
+                    "id": "error_documentado",
+                    "entrada": {"x": "a"},
+                    "excepcion": "TypeError",
+                    "origen": "docstring",
+                },
+            ],
+        }
+    ]
+    planner = PlannerAgent(
+        ClienteGrabado(json.dumps(propuesta)),
+        TokenTracker(),
+        estrategia_prueba="humo",
+    )
+
+    [contrato] = planner.planificar(MODULO)
+
+    assert [caso["id"] for caso in contrato["casos"]] == ["duplica_positivo"]
+
+
+def test_limites_envia_parametros_y_descarta_oraculo_no_documentado() -> None:
+    modulo = {
+        **MODULO,
+        "funciones": [
+            {
+                **MODULO["funciones"][0],
+                "parametros": [{"nombre": "x", "tipo": "int", "por_defecto": None}],
+            }
+        ],
+    }
+    propuesta = [
+        {
+            "objetivo": "duplicar",
+            "casos": [
+                {
+                    "id": "tipo_incorrecto_inventado",
+                    "entrada": {"x": "a"},
+                    "excepcion": "TypeError",
+                    "origen": "tipo",
+                },
+                {
+                    "id": "cero_documentado",
+                    "entrada": {"x": 0},
+                    "valor_esperado": 0,
+                    "origen": "docstring",
+                },
+            ],
+        }
+    ]
+    cliente = ClienteGrabado(json.dumps(propuesta))
+    planner = PlannerAgent(cliente, TokenTracker(), estrategia_prueba="limites")
+
+    [contrato] = planner.planificar(modulo)
+
+    assert [caso["id"] for caso in contrato["casos"]] == ["cero_documentado"]
+    assert '"parametros"' in cliente.llamadas[0][0]
+    assert "ESTRATEGIA SELECCIONADA: limites" in cliente.llamadas[0][0]
+
+
+def test_limites_no_inventa_oraculo_si_no_sale_del_docstring() -> None:
+    propuesta = [
+        {
+            "objetivo": "duplicar",
+            "casos": [
+                {
+                    "id": "cero_inventado",
+                    "entrada": {"x": 0},
+                    "valor_esperado": 0,
+                    "origen": "tipo",
+                }
+            ],
+        }
+    ]
+    planner = PlannerAgent(
+        ClienteGrabado(json.dumps(propuesta)),
+        TokenTracker(),
+        estrategia_prueba="limites",
+    )
+
+    with pytest.raises(ErrorRespuestaPlanner, match="ningún contrato"):
+        planner.planificar(MODULO)

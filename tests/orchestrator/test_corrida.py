@@ -86,6 +86,17 @@ def test_corrida_completa_del_banco(proyecto, config) -> None:
     assert eventos[-1]["tipo"] == "fin"
 
 
+def test_limites_ejecuta_pipeline_y_persiste_estrategia(proyecto, config) -> None:
+    resumen, _ = correr(proyecto, config, estrategia_prueba="limites")
+
+    assert resumen.estado == "fin"
+    carpeta = proyecto.carpeta_run(resumen.run_id)
+    results = json.loads((carpeta / "results.json").read_text(encoding="utf-8"))
+    assert results["estrategia_prueba"] == "limites"
+    assert proyecto.leer_run(resumen.run_id)["estrategia_prueba"] == "limites"
+    assert results["resumen"]["total_funciones"] == 6
+
+
 def test_deja_el_registro_completo_en_qagent(proyecto, config) -> None:
     resumen, _ = correr(proyecto, config)
 

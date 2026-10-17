@@ -39,6 +39,7 @@ from qagent.llm.fabrica import FuenteClaves
 from qagent.orchestrator.eventos import BusEventos, Evento
 from qagent.orchestrator.orquestador import Orquestador, ResultadoCorrida
 from qagent.proyectos.proyecto_local import detectar_rama
+from qagent.pruebas.tipos import REGRESION, UNITARIA, estrategia_historica
 from qagent.sandbox import ejecutar_pruebas
 from qagent.storage import escribir_corrida
 
@@ -86,6 +87,7 @@ def ejecutar_corrida(
     ejecutor: Ejecutor = ejecutar_pruebas,
     timeout_paso_s: float | None = None,
     seleccion: list[dict[str, Any]] | None = None,
+    estrategia_prueba: str | None = None,
 ) -> ResumenCorrida:
     """Ejecuta la corrida completa de un proyecto y devuelve su resumen.
 
@@ -107,7 +109,8 @@ def ejecutar_corrida(
         seleccion: módulos, funciones y endpoints elegidos en la Vista previa. Si es
             ``None``, se conservan todos los objetivos analizables.
     """
-    if perfil == "reg":
+    estrategia_prueba = estrategia_historica(estrategia_prueba, perfil=perfil)
+    if estrategia_prueba == REGRESION:
         from qagent.orchestrator.regresion import ejecutar_regresion
 
         return ejecutar_regresion(
@@ -119,6 +122,7 @@ def ejecutar_corrida(
             preparar_imagen=preparar_imagen,
             ejecutor=ejecutor,
             seleccion=seleccion,
+            estrategia_prueba=estrategia_prueba,
         )
 
     inicio = time.monotonic()
@@ -151,7 +155,10 @@ def ejecutar_corrida(
         if not ruta.is_dir():
             raise ErrorCorrida(f"La carpeta del proyecto no existe: {ruta}")
         if resumen.run_id is None and almacen.existe():
-            resumen.run_id = almacen.crear_run(tipos_prueba=["funcion"])["run_id"]
+            resumen.run_id = almacen.crear_run(
+                tipos_prueba=["funcion"],
+                estrategia_prueba=estrategia_prueba,
+            )["run_id"]
 
         from qagent.proyectos.seleccion import filtrar_modulos
 
@@ -199,7 +206,12 @@ def ejecutar_corrida(
         if timeout_paso_s is not None:
             opciones["timeout_paso_s"] = timeout_paso_s
         orquestador = Orquestador(
-            PlannerAgent(clientes["planner"], tracker, es_simulado=simulado),
+            PlannerAgent(
+                clientes["planner"],
+                tracker,
+                es_simulado=simulado,
+                estrategia_prueba=estrategia_prueba,
+            ),
             GeneratorAgent(clientes["generator"], tracker, es_simulado=simulado),
             ReviewerAgent(
                 tracker,
@@ -226,10 +238,14 @@ def ejecutar_corrida(
                 )
                 avisar(resumen.motivo, "fallo")
                 break
-            plan_guardado = almacen.buscar_plan_vigente(
-                modulo["ruta"], modulo["huella"]
+            plan_guardado = (
+                almacen.buscar_plan_vigente(modulo["ruta"], modulo["huella"])
+                if estrategia_prueba == UNITARIA
+                else None
             )
-            habia_spec = _existe_plan_modulo(almacen, modulo["ruta"])
+            habia_spec = estrategia_prueba == UNITARIA and _existe_plan_modulo(
+                almacen, modulo["ruta"]
+            )
             if plan_guardado is not None:
                 accion = "reutilizado"
                 avisar(
@@ -249,7 +265,7 @@ def ejecutar_corrida(
                 resultado = orquestador.ejecutar(modulo)
             resultados.append(resultado)
             contratos = resultado.plan_completo
-            if contratos:
+            if contratos and estrategia_prueba == UNITARIA:
                 planes_specs.append(
                     {
                         "modulo": modulo["ruta"],
@@ -274,12 +290,13 @@ def ejecutar_corrida(
             perfil,
             planes_specs,
             tipos,
+            estrategia_prueba,
         )
     except Exception as error:  # noqa: BLE001 — la corrida nunca debe tumbar la app
         resumen.estado = FALLO
         resumen.motivo = resumen.motivo or _texto_error(error)
         avisar(f"Corrida detenida: {resumen.motivo}", "fallo")
-        _cerrar_run(almacen, resumen, tipos)
+        _cerrar_run(almacen, resumen, tipos, estrategia_prueba)
 
     resumen.duracion_s = round(time.monotonic() - inicio, 3)
     avisar(
@@ -338,6 +355,7 @@ def _registrar(
     perfil: str,
     planes_specs: list[dict[str, Any]],
     tipos: list[str] | None = None,
+    estrategia_prueba: str = "unitaria",
 ) -> None:
     """log.json y results.json, specs y pruebas aprobadas, y cierre del run.json."""
     if resultados:
@@ -350,6 +368,7 @@ def _registrar(
             run_id=resumen.run_id,
             metas=metas_de(configuracion),
             rama=detectar_rama(ruta),
+            estrategia_prueba=estrategia_prueba,
         )
         resumen.run_id = rutas.run_id
         resumen.carpeta = str(rutas.carpeta)
@@ -400,7 +419,7 @@ def _registrar(
                     resumen.run_id,
                     error,
                 )
-    _cerrar_run(almacen, resumen, tipos)
+    _cerrar_run(almacen, resumen, tipos, estrategia_prueba)
 
 
 def _existe_plan_modulo(almacen: AlmacenProyecto, modulo: str) -> bool:
@@ -438,6 +457,7 @@ def _cerrar_run(
     almacen: AlmacenProyecto,
     resumen: ResumenCorrida,
     tipos: list[str] | None = None,
+    estrategia_prueba: str | None = None,
 ) -> None:
     """Marca el `run.json` como terminado. Si no se puede, la corrida no se pierde."""
     if resumen.run_id is None or not almacen.existe():
@@ -452,6 +472,7 @@ def _cerrar_run(
             + resumen.sin_veredicto
             + resumen.requieren_corrida_nueva,
             tipos_prueba=tipos or ["funcion"],
+            estrategia_prueba=estrategia_prueba,
         )
     except Exception as error:  # noqa: BLE001 — run.json dañado: no es motivo de fallo
         _registro.warning(

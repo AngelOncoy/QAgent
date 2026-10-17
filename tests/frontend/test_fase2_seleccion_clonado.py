@@ -40,7 +40,10 @@ def test_seleccion_persiste_y_se_envia_al_backend() -> None:
 
     assert "function obtenerSeleccionObjetivos" in vista
     assert "filter(f => f.inc).map(f => f.n)" in vista
-    assert "start_run(projectPath, profile, obtenerSeleccionObjetivos())" in monitor
+    assert (
+        "start_run(projectPath, profile, obtenerSeleccionObjetivos(), testStrategy)"
+        in monitor
+    )
 
 
 def test_examinar_usa_selector_nativo_sin_clonar_y_conserva_cancelacion() -> None:

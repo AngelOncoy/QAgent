@@ -362,6 +362,10 @@ def test_sin_key_nueva_ni_guardada_no_llama_al_proveedor(rutas):
     ("error", "motivo"),
     [
         (ErrorLLM("HTTP 401", codigo=401), "Key inválida"),
+        (
+            ErrorLLM("HTTP 403", codigo=403),
+            "Acceso denegado para esta cuenta, proyecto o modelo",
+        ),
         (SinConexion("sin red"), "Sin conexión"),
         (ErrorLLM("HTTP 404", codigo=404), "Modelo no disponible"),
     ],

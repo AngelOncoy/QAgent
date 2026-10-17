@@ -40,8 +40,10 @@ def config():
     return cargar_configuracion(RUTA_CONFIG, "no-existe.env", simulado=True).config
 
 
-def correr(almacen: AlmacenProyecto, config):
-    run_id = almacen.crear_run(tipos_prueba=["funcion"])["run_id"]
+def correr(almacen: AlmacenProyecto, config, estrategia_prueba="unitaria"):
+    run_id = almacen.crear_run(
+        tipos_prueba=["funcion"], estrategia_prueba=estrategia_prueba
+    )["run_id"]
     return ejecutar_corrida(
         almacen.raiz,
         "deep",
@@ -51,6 +53,7 @@ def correr(almacen: AlmacenProyecto, config):
         run_id=run_id,
         preparar_imagen=lambda _ruta: "imagen-prueba",
         ejecutor=ejecutor_exitoso,
+        estrategia_prueba=estrategia_prueba,
     )
 
 
@@ -97,6 +100,31 @@ def test_primera_corrida_genera_y_segunda_reutiliza_sin_planner(
     [spec] = almacen.listar_planes_modulo()
     assert spec["run_origen"] == primera.run_id
     assert spec["ultima_corrida"] == segunda.run_id
+
+
+def test_humo_no_reutiliza_ni_sobrescribe_el_plan_unitario(
+    tmp_path: Path, config
+) -> None:
+    shutil.copy(BANCO, tmp_path / "banco_mvp.py")
+    almacen = AlmacenProyecto(tmp_path)
+    almacen.inicializar()
+    unitario = correr(almacen, config)
+    plan_unitario = almacen.listar_planes_modulo()[0]
+
+    humo = correr(almacen, config, "humo")
+
+    assert len(llamadas_planner(almacen, humo.run_id)) == 1
+    assert almacen.listar_planes_modulo()[0] == plan_unitario
+    run_humo = almacen.leer_run(humo.run_id)
+    assert run_humo["estrategia_prueba"] == "humo"
+    assert run_humo.get("specs", []) == []
+    detalle = json.loads(
+        (almacen.carpeta_run(humo.run_id) / "detalle.json").read_text(encoding="utf-8")
+    )
+    assert all(
+        len(objetivo["contrato"]["casos"]) <= 1 for objetivo in detalle["funciones"]
+    )
+    assert unitario.run_id != humo.run_id
 
 
 def test_cambiar_codigo_y_luego_docstring_regenera_la_spec(

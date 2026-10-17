@@ -16,9 +16,15 @@ registrarComponente('config-pruebas/config-pruebas', `<!-- ===== 3. CONFIGURACI�
     <!-- Alcance elegido en la Vista previa -->
     <div class="card"><div class="scope" id="scopeSum"></div></div>
 
+    <!-- Tipo de prueba: selección escalar del Sprint 1 -->
+    <div class="card">
+      <h4>Tipo de prueba <span class="pill p-grey">elige uno</span></h4>
+      <div class="bd"><div class="test-types" id="testTypes"></div></div>
+    </div>
+
     <!-- Perfil de análisis -->
     <div class="card">
-      <h4>Perfil de análisis <span class="pill p-grey">elige uno · todos generan pruebas unitarias pytest</span></h4>
+      <h4>Perfil de ejecución <span class="pill p-grey">independiente del tipo de prueba</span></h4>
       <div class="bd">
         <div class="profiles" id="profiles"></div>
         <div class="leyenda-caja">
@@ -70,12 +76,31 @@ function estFor(k){
     ...m.fns.filter(f=>f.inc),
     ...(m.endpoints || [])
   ].map(objetivo=>({...objetivo, reuse: SPEC_STATUS[m.path]==='reuse'})));
-  const reused = k==='reg' ? 0 : objetivos.filter(objetivo=>objetivo.reuse).length;
+  const reused = testStrategy==='regresion' ? 0 : objetivos.filter(objetivo=>objetivo.reuse).length;
   const total = objetivos.length;
-  const et = {P: (total - reused) * p.tok * EST_SPLIT.P, G: total * p.tok * EST_SPLIT.G, R: total * p.tok * EST_SPLIT.R};
+  const factor = testStrategy==='humo' ? 0.45 : 1;
+  const et = testStrategy==='regresion'
+    ? {P:0,G:0,R:0}
+    : {P: (total - reused) * p.tok * EST_SPLIT.P * factor, G: total * p.tok * EST_SPLIT.G * factor, R: total * p.tok * EST_SPLIT.R * factor};
   const tok = Math.round(et.P + et.G + et.R);
   const saved = Math.round(reused * p.tok * EST_SPLIT.P);
   return {p, fns, endpoints, total, reused, et, tok, saved, time: Math.max(1, Math.round(total * p.t))};
+}
+function perfilesSeleccionables(){ return PROFILES.filter(p=>!p.legacy); }
+function pickTestStrategy(k){
+  if(!TEST_TYPES.some(t=>t.k===k)) return;
+  if(k==='regresion' && !HAS_PRIOR_RUN) return;
+  testStrategy = k;
+  calc();
+}
+function renderTestTypes(){
+  $('testTypes').innerHTML = TEST_TYPES.map(t => {
+    const locked = t.k==='regresion' && !HAS_PRIOR_RUN;
+    return `<label class="test-type ${t.k===testStrategy?'on':''} ${locked?'dis':''}">
+      <input type="radio" name="testStrategy" value="${t.k}" ${t.k===testStrategy?'checked':''} ${locked?'disabled':''} onchange="pickTestStrategy('${t.k}')">
+      <span><b>${t.n}</b><small>${t.descripcion}</small>${locked?'<em>Requiere al menos una prueba aprobada vigente.</em>':''}</span>
+    </label>`;
+  }).join('');
 }
 function pickProfile(k){
   profile = k;
@@ -83,8 +108,8 @@ function pickProfile(k){
   if (typeof desbloquearVista === 'function') desbloquearVista('monitor');
 }
 function renderProfiles(){
-  $('profiles').innerHTML = PROFILES.map(p => {
-    const locked = p.k==='reg' && !HAS_PRIOR_RUN;
+  $('profiles').innerHTML = perfilesSeleccionables().map(p => {
+    const locked = false;
     const e = estFor(p.k);
     return `
     <div class="prof ${p.k===profile?'on':''} ${locked?'dis':''}" onclick="${locked?'':`pickProfile('${p.k}')`}">
@@ -96,13 +121,13 @@ function renderProfiles(){
     </div>`;}).join('');
 }
 function renderCompare(){
-  const GEN = {humo:'1 caso feliz por función', std:'Casos felices, límite y excepciones', deep:'Igual que Estándar', reg:'Pruebas ya aprobadas y guardadas'};
+  const GEN = {std:'Profundidad equilibrada', deep:'Mayor énfasis en cobertura y ramas'};
   const crit = MODULES.filter(m=>m.sel).flatMap(m=>m.fns).filter(f=>f.inc && f.crit).length;
-  $('cmpBody').innerHTML = PROFILES.map(p => {
-    const locked = p.k==='reg' && !HAS_PRIOR_RUN, e = estFor(p.k);
+  $('cmpBody').innerHTML = perfilesSeleccionables().map(p => {
+    const locked = false, e = estFor(p.k);
     return `<tr class="pick ${p.k===profile?'sel':''} ${locked?'dis':''}" onclick="${locked?'':`pickProfile('${p.k}')`}">
-      <td><b>${p.n}</b></td><td>${GEN[p.k]}</td><td>${p.k==='reg'?'No':'Sí'}</td>
-      <td>${p.k==='deep' ? 'Sí · '+crit+' función(es) crítica(s)' : '—'}</td>
+      <td><b>${p.n}</b></td><td>${GEN[p.k]}</td><td>${testStrategy==='regresion'?'No':'Sí'}</td>
+      <td>${p.k==='deep' ? 'Pendiente · Sprint 2 ('+crit+' crítica(s))' : '—'}</td>
       <td class="mono">${p.tok ? '~'+e.tok.toLocaleString('es-PE') : '0'}</td>
       <td class="mono">${p.duracion} · ${e.time} min</td></tr>`;
   }).join('');
@@ -110,7 +135,7 @@ function renderCompare(){
 function calc(){
   const e = estFor(profile), {p, fns, endpoints, total, reused, et, tok, saved} = e;
   runEstimate = {tok};
-  $('eAgents').innerHTML = profile==='reg'
+  $('eAgents').innerHTML = testStrategy==='regresion'
     ? '<span class="ea"><i style="background:var(--emerald-500)"></i>Regresión: solo se ejecutan pruebas guardadas · ningún agente llama a la IA</span>'
     : ['P','G','R'].map(k => `<span class="ea"><i style="background:${{P:'var(--blue-500)',G:'var(--purple-500)',R:'var(--emerald-500)'}[k]}"></i>${AGENTS_CFG[k].name}: ~${Math.round(et[k]).toLocaleString('es-PE')} tok</span>`).join('');
   const noDoc = fns.filter(f=>!f.doc).length, crit = fns.filter(f=>f.crit).length;
@@ -121,7 +146,7 @@ function calc(){
   $('eTime').textContent = `${p.duracion} · ${e.time} min`;
   $('eNote').innerHTML = [
     reused ? `♻ ${reused} función(es) reutilizan su spec vigente: el Planner no trabaja ahí (ahorro ≈ ${saved.toLocaleString('es-PE')} tokens).` : '',
-    profile==='deep' ? `mutmut se aplicará a <b>${crit}</b> función(es) crítica(s): no consume tokens, sí tiempo de CPU.` : '',
+    testStrategy==='humo' ? 'Humo conserva como máximo un caso nominal verificable por objetivo.' : '',
   ].filter(Boolean).join('<br>');
   // Resumen del alcance (pantalla 3)
   $('scopeSum').innerHTML = `<span style="font-size:12px;color:var(--mut)">Alcance elegido en la vista previa:</span>
@@ -135,8 +160,10 @@ function calc(){
   if(!entornoListo){ msg = `<span class="err">${escHtml(entornoMotivo)}</span>`; block = true; }
   else if(!total){ msg = 'No hay objetivos seleccionados: vuelve a la vista previa.'; block = true; }
   else if(noDoc){ msg = `<span class="warn">⚠ ${noDoc} función(es) sin docstring: se generarán, pero con oráculo débil (se marcará en el informe).</span>`; }
-  else msg = profile==='reg' ? 'Regresión: re-ejecuta pruebas guardadas sin IA.' : `Listo: ${total} objetivos · perfil ${p.n}.`;
+  else if(!TEST_TYPES.some(t=>t.k===testStrategy)){ msg = 'Selecciona un tipo de prueba válido.'; block = true; }
+  else if(testStrategy==='regresion' && !HAS_PRIOR_RUN){ msg = 'Regresión requiere pruebas aprobadas vigentes.'; block = true; }
+  else msg = testStrategy==='regresion' ? 'Regresión: re-ejecuta pruebas guardadas sin IA.' : `Listo: ${total} objetivos · ${TEST_TYPES.find(t=>t.k===testStrategy).n} · perfil ${p.n}.`;
   $('footMsg2').innerHTML = msg; $('toPlan').disabled = block;
-  renderProfiles(); renderCompare();
+  renderTestTypes(); renderProfiles(); renderCompare();
 }
 

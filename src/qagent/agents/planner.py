@@ -17,6 +17,7 @@ from qagent import contracts
 from qagent.contracts import ContratoInvalido
 from qagent.llm import ClienteLLM, TokenTracker
 from qagent.llm.fake import MARCA_MODULO, MARCA_OBJETIVOS
+from qagent.pruebas.tipos import HUMO, LIMITES, UNITARIA, validar_estrategia
 
 #: Orígenes válidos de un valor esperado para una función (`planner_contract.v2`).
 #: No existe "ejecucion": el valor esperado nunca sale de ejecutar el código.
@@ -68,11 +69,13 @@ class PlannerAgent:
         tracker: TokenTracker,
         *,
         es_simulado: bool = False,
+        estrategia_prueba: str = UNITARIA,
     ) -> None:
         """Inicializa el Planner con su cliente y registro de tokens."""
         self.cliente = cliente
         self.tracker = tracker
         self.es_simulado = es_simulado
+        self.estrategia_prueba = validar_estrategia(estrategia_prueba)
         #: Qué se descartó en la última llamada (objetivos o casos) y por qué.
         self.descartados: list[str] = []
         #: Casos mínimos que faltan en el último plan de endpoints (no lo descartan).
@@ -151,6 +154,7 @@ class PlannerAgent:
 
         funcion = funciones[nombre]
         casos = self._casos_validos(nombre, elemento.get("casos"))
+        casos = self._aplicar_estrategia(casos, tipo="funcion")
         if not casos:
             self.descartados.append(f"{nombre}: sin casos válidos")
             return None
@@ -199,20 +203,28 @@ class PlannerAgent:
 
     # --- Prompt -------------------------------------------------------------------
 
-    @staticmethod
-    def _crear_prompt(modulo: dict[str, Any]) -> str:
+    def _crear_prompt(self, modulo: dict[str, Any]) -> str:
         """Prompt compacto: solo firma y docstring de cada función (sin el código)."""
         objetivos = [
             {
                 "nombre": funcion["nombre"],
                 "firma": funcion.get("firma"),
                 "docstring": funcion.get("docstring"),
+                **(
+                    {"parametros": funcion.get("parametros", [])}
+                    if self.estrategia_prueba == LIMITES
+                    else {}
+                ),
             }
             for funcion in modulo.get("funciones", [])
         ]
         ejemplo = json.dumps(_EJEMPLO_RESPUESTA, ensure_ascii=False)
+        politica = _politica_funciones(self.estrategia_prueba)
         return f"""
 Diseña casos de prueba unitaria pytest para las funciones de un módulo Python.
+
+ESTRATEGIA SELECCIONADA: {self.estrategia_prueba}
+{politica}
 
 REGLAS OBLIGATORIAS:
 - No ejecutes ni importes el código del usuario: no lo tienes y no hace falta.
@@ -354,6 +366,7 @@ EJEMPLO DE RESPUESTA:
                 self.descartados.append(f"{objetivo}: caso {caso['id']!r}: {motivo}")
                 continue
             validos.append(caso)
+        validos = self._aplicar_estrategia(validos, tipo="endpoint")
         if not validos:
             self.descartados.append(f"{objetivo}: sin casos válidos")
             return None
@@ -361,8 +374,8 @@ EJEMPLO DE RESPUESTA:
         contracts.validar(contracts.PLANNER, contrato)
         return contrato
 
-    @staticmethod
     def _crear_prompt_endpoints(
+        self,
         modulo: dict[str, Any],
         endpoints: dict[str, dict[str, Any]],
         fuente: str | None,
@@ -403,9 +416,13 @@ EJEMPLO DE RESPUESTA:
             for m in modulo.get("modelos", [])
         ]
         ejemplo = json.dumps(_EJEMPLO_ENDPOINTS, ensure_ascii=False)
+        politica = _politica_endpoints(self.estrategia_prueba)
         return f"""
 Diseña casos de prueba para los endpoints de una API FastAPI. Cada caso es una
 petición HTTP y la respuesta que la API DEBE dar según lo que declara.
+
+ESTRATEGIA SELECCIONADA: {self.estrategia_prueba}
+{politica}
 
 REGLAS OBLIGATORIAS:
 - No ejecutes ni importes el código: el valor esperado sale SOLO de lo declarado
@@ -432,6 +449,69 @@ MODELOS: {json.dumps(modelos, ensure_ascii=False)}
 {MARCA_MODULO} {modulo["ruta"]}
 {MARCA_OBJETIVOS} {json.dumps(objetivos, ensure_ascii=False)}
 """.strip()
+
+    def _aplicar_estrategia(
+        self, casos: list[dict[str, Any]], *, tipo: str
+    ) -> list[dict[str, Any]]:
+        """Aplica garantías deterministas después de la propuesta del modelo."""
+        if self.estrategia_prueba == HUMO:
+            nominales = [
+                caso
+                for caso in casos
+                if "valor_esperado" in caso
+                and (
+                    tipo != "endpoint"
+                    or 200 <= caso["valor_esperado"].get("status_code", 0) < 400
+                )
+            ]
+            return nominales[:1]
+        if self.estrategia_prueba == LIMITES and tipo == "funcion":
+            # Una firma o un tipo no bastan para deducir el resultado exacto de un
+            # borde. Solo se conservan oráculos respaldados por el docstring.
+            return [caso for caso in casos if caso.get("origen") == "docstring"]
+        return casos
+
+
+def _politica_funciones(estrategia: str) -> str:
+    """Instrucciones específicas y auditables para funciones."""
+    if estrategia == HUMO:
+        return (
+            "POLÍTICA HUMO: propón como máximo un caso nominal verificable por "
+            "función. No incluyas bordes ni errores. Si no hay un resultado "
+            "esperado sustentado en firma, tipos o docstring, omite la función."
+        )
+    if estrategia == LIMITES:
+        return (
+            "POLÍTICA LÍMITES: propón únicamente bordes descritos por el docstring "
+            "y apóyate en parámetros, tipos y valores por defecto para elegir las "
+            "entradas. Considera mínimo, justo debajo, máximo, justo encima, vacío, "
+            "null y tipo incorrecto solo cuando sean determinables. El valor esperado "
+            "o la excepción debe salir del docstring; si no, omite el caso."
+        )
+    return (
+        "POLÍTICA UNITARIA: prioriza casos nominales de funciones individuales y "
+        "errores documentados, con aserciones sustentadas en el contrato."
+    )
+
+
+def _politica_endpoints(estrategia: str) -> str:
+    """Instrucciones específicas y auditables para endpoints."""
+    if estrategia == HUMO:
+        return (
+            "POLÍTICA HUMO: propón como máximo un caso de éxito (2xx o 3xx) por "
+            "endpoint. No incluyas 422 ni errores. Omite el endpoint si no existe "
+            "una respuesta nominal sustentada."
+        )
+    if estrategia == LIMITES:
+        return (
+            "POLÍTICA LÍMITES: prioriza valores en y alrededor de gt, ge, lt, le, "
+            "longitudes, patrones y restricciones Pydantic/FastAPI. Incluye 422 para "
+            "entradas que violen una restricción declarada y no inventes límites."
+        )
+    return (
+        "POLÍTICA UNITARIA: prueba el comportamiento declarado de cada endpoint, "
+        "incluidos éxito y errores contractuales relevantes."
+    )
 
 
 def _aplicacion_principal(endpoints: Any) -> str:

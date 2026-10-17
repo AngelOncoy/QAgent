@@ -10,6 +10,7 @@ from qagent.config import Claves
 from qagent.llm import PrecioAgente, crear_cliente
 from qagent.llm.cliente import ErrorLLM, LimiteProveedor, SinConexion, error_http
 from qagent.llm.proveedores import (
+    ACCESO_DENEGADO,
     CONECTADO,
     KEY_INVALIDA,
     LIMITE_DE_USO,
@@ -193,7 +194,7 @@ def test_la_fabrica_usa_el_catalogo_y_la_variable_del_proveedor():
     ("error", "motivo"),
     [
         (ErrorLLM("HTTP 401", codigo=401), KEY_INVALIDA),
-        (ErrorLLM("HTTP 403", codigo=403), KEY_INVALIDA),
+        (ErrorLLM("HTTP 403", codigo=403), ACCESO_DENEGADO),
         (ErrorLLM("HTTP 404", codigo=404), MODELO_NO_DISPONIBLE),
         (
             ErrorLLM("HTTP 400", codigo=400, detalle='{"reason": "API_KEY_INVALID"}'),

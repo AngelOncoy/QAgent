@@ -56,6 +56,7 @@ TIPOS = {
 #: Motivos que ve el usuario cuando la prueba de conexión falla (HU-30, criterio 6).
 CONECTADO = "Conectado ✓"
 KEY_INVALIDA = "Key inválida"
+ACCESO_DENEGADO = "Acceso denegado para esta cuenta, proyecto o modelo"
 SIN_CONEXION = "Sin conexión"
 MODELO_NO_DISPONIBLE = "Modelo no disponible"
 LIMITE_DE_USO = (
@@ -383,8 +384,10 @@ def motivo_de_error(error: BaseException, clave: str = "") -> ResultadoValidacio
     cuerpo = error.detalle.lower()
     if error.codigo == 402:
         return ResultadoValidacion(False, SIN_CREDITO, detalle)
-    if error.codigo in (401, 403):
+    if error.codigo == 401:
         return ResultadoValidacion(False, KEY_INVALIDA, detalle)
+    if error.codigo == 403:
+        return ResultadoValidacion(False, ACCESO_DENEGADO, detalle)
     if error.codigo == 404:
         return ResultadoValidacion(False, MODELO_NO_DISPONIBLE, detalle)
     if error.codigo in (400, 422):

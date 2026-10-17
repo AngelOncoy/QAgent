@@ -10,7 +10,7 @@ registrarComponente('historial/historial', `<!-- ===== 7. HISTORIAL DE CORRIDAS 
     <div class="card">
       <h4>Corridas <span class="pill p-grey" id="histCount"></span></h4>
       <div class="table-scroll"><table>
-        <thead><tr><th>Corrida</th><th>Fecha</th><th>Perfil</th><th>Modelos</th><th>Specs</th><th>Pass Rate</th><th>Tokens</th><th>Costo</th><th></th></tr></thead>
+        <thead><tr><th>Corrida</th><th>Fecha</th><th>Tipo de prueba</th><th>Perfil</th><th>Modelos</th><th>Specs</th><th>Pass Rate</th><th>Tokens</th><th>Costo</th><th></th></tr></thead>
         <tbody id="histTable"></tbody>
       </table></div>
       <div class="hint" style="padding:10px 16px 14px">El costo baja cuando se reutilizan specs (se omite el Planner, el agente más caro) y es cero en Regresión (no se llama a ninguna IA). La columna Modelos distingue corridas de control, por ejemplo los 3 agentes con el mismo modelo.</div>
@@ -51,7 +51,7 @@ function renderHistoryDemo(){
   $('histCount').textContent = HISTORY.length + ' registradas';
   $('histTable').innerHTML = HISTORY.slice().reverse().map(h => `<tr>
     <td class="mono">#${h.run}${h.current?' <span class="pill p-blue" style="margin-left:4px">actual</span>':''}</td>
-    <td>${h.date}</td><td>${h.profile}</td><td style="font-size:11.5px">${h.models}</td><td>${h.specs}</td><td>${h.pass}</td><td class="mono">${h.tokens?kfmt(h.tokens):'0'}</td>
+    <td>${h.date}</td><td>Unitaria</td><td>${h.profile}</td><td style="font-size:11.5px">${h.models}</td><td>${h.specs}</td><td>${h.pass}</td><td class="mono">${h.tokens?kfmt(h.tokens):'0'}</td>
     <td class="mono">S/ ${(agentCost((sp => ({P:h.tokens*sp.P/100,G:h.tokens*sp.G/100,R:h.tokens*sp.R/100}))(h.split||AGENT_SPLIT))*FX).toFixed(2)}</td>
     <td>${h.current ? `<button class="btn" style="font-size:10.5px;padding:6px 10px" onclick="go('report')">Ver reporte</button>`
                     : `<button class="btn" style="font-size:10.5px;padding:6px 10px" onclick="toast('En la app real se abre el reporte archivado de la corrida #${h.run} <span style=&quot;color:var(--dim)&quot;>(simulado)</span>')">Ver reporte</button>`}</td></tr>`).join('');
@@ -75,22 +75,23 @@ function renderHistoryReal(datos){
   const corridas = datos.corridas || [], specs = datos.specs || [];
   $('histCount').textContent = corridas.length + ' registradas';
   $('histTable').innerHTML = corridas.length ? corridas.map((h, indice) => {
-    const fecha = new Date(h.fecha), modelos = h.perfil === 'reg' ? '— (sin IA)' : (Object.values(h.modelos || {}).filter(Boolean).join(' · ') || '—');
+    const fecha = new Date(h.fecha), modelos = h.estrategia_prueba === 'regresion' ? '— (sin IA)' : (Object.values(h.modelos || {}).filter(Boolean).join(' · ') || '—');
     const s = h.resumen_specs || {}, partes = [];
     if(s.generado) partes.push(s.generado + ' generados');
     if(s.reutilizado) partes.push(s.reutilizado + ' reutilizados');
     if(s.regenerado) partes.push(s.regenerado + ' regenerados');
     if(h.requieren_corrida_nueva) partes.push(h.requieren_corrida_nueva + ' requieren corrida nueva');
     const nomPerfil = {quick:'Rápido', std:'Equilibrado', deep:'Profundo', reg:'Regresión'}[h.perfil] || h.perfil || '—';
+    const nomTipo = {unitaria:'Unitarias', limites:'Valores límite', humo:'Humo', regresion:'Regresión'}[h.estrategia_prueba] || 'Unitarias';
     return `<tr>
       <td class="mono">#${escHtml(h.run_id)}${indice===0?' <span class="pill p-blue" style="margin-left:4px">actual</span>':''}</td>
       <td>${escHtml(isNaN(fecha) ? h.fecha : fecha.toLocaleString('es-PE'))}</td>
-      <td>${escHtml(nomPerfil)}</td><td style="font-size:11.5px">${escHtml(modelos)}</td>
+      <td>${escHtml(nomTipo)}</td><td>${escHtml(nomPerfil)}</td><td style="font-size:11.5px">${escHtml(modelos)}</td>
       <td>${escHtml(partes.join(' · ') || '—')}</td><td>${h.pass_rate===null || h.pass_rate===undefined?'—':Number(h.pass_rate).toFixed(1)+'%'}</td>
       <td class="mono">${Number(h.total_tokens || 0).toLocaleString('es-PE')}<div class="sub">Planner: ${Number(h.tokens_planner || 0).toLocaleString('es-PE')}</div></td>
       <td class="mono">US$ ${Number(h.costo_usd || 0).toFixed(4)}</td>
       <td><button class="btn" style="font-size:10.5px;padding:6px 10px" onclick="cargarReporteReal('${escHtml(h.run_id)}')">Ver reporte</button></td></tr>`;
-  }).join('') : '<tr><td colspan="9" class="hint">Todavía no hay corridas registradas en este proyecto.</td></tr>';
+  }).join('') : '<tr><td colspan="10" class="hint">Todavía no hay corridas registradas en este proyecto.</td></tr>';
 
   $('specTable').innerHTML = specs.length ? specs.map(spec => {
     const accion = spec.ultima_accion;

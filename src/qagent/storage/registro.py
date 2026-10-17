@@ -64,6 +64,7 @@ def escribir_corrida(
     fecha: str | None = None,
     metas: dict[str, float] | None = None,
     rama: str | None = None,
+    estrategia_prueba: str = "unitaria",
 ) -> RutasCorrida:
     """Genera, valida y escribe log.json y results.json de una corrida.
 
@@ -91,9 +92,26 @@ def escribir_corrida(
     fecha = fecha or datetime.now().astimezone().isoformat(timespec="seconds")
     proyecto = str(Path(raiz_proyecto).resolve())
 
-    log = construir_log(run_id, fecha, proyecto, perfil, resultados, tracker, precios)
+    log = construir_log(
+        run_id,
+        fecha,
+        proyecto,
+        perfil,
+        resultados,
+        tracker,
+        precios,
+        estrategia_prueba=estrategia_prueba,
+    )
     results = construir_results(
-        run_id, fecha, proyecto, perfil, resultados, tracker, precios, metas
+        run_id,
+        fecha,
+        proyecto,
+        perfil,
+        resultados,
+        tracker,
+        precios,
+        metas,
+        estrategia_prueba=estrategia_prueba,
     )
     results["rama"] = rama
     contracts.validar(contracts.RUN_LOG, log)
@@ -211,11 +229,20 @@ def construir_log(
     resultados: Sequence[ResultadoCorrida],
     tracker: TokenTracker,
     precios: dict[str, PrecioAgente],
+    estrategia_prueba: str = "unitaria",
 ) -> dict[str, Any]:
     """Contenido de log.json: cada llamada a la IA con sus tokens y costo."""
     return {
         **_cabecera(
-            "log", run_id, fecha, proyecto, perfil, resultados, tracker, precios
+            "log",
+            run_id,
+            fecha,
+            proyecto,
+            perfil,
+            resultados,
+            tracker,
+            precios,
+            estrategia_prueba,
         ),
         "llamadas": [ll.a_log() for ll in tracker.llamadas],
         "totales_por_agente": tracker.totales_por_agente(),
@@ -233,6 +260,7 @@ def construir_results(
     tracker: TokenTracker,
     precios: dict[str, PrecioAgente],
     metas: dict[str, float] | None = None,
+    estrategia_prueba: str = "unitaria",
 ) -> dict[str, Any]:
     """Contenido de results.json: las 5 métricas por función y un resumen."""
     objetivos = [
@@ -242,7 +270,15 @@ def construir_results(
     ]
     return {
         **_cabecera(
-            "results", run_id, fecha, proyecto, perfil, resultados, tracker, precios
+            "results",
+            run_id,
+            fecha,
+            proyecto,
+            perfil,
+            resultados,
+            tracker,
+            precios,
+            estrategia_prueba,
         ),
         "objetivos": objetivos,
         "resumen": _resumen(objetivos, tracker, metas),
@@ -261,6 +297,7 @@ def _cabecera(
     resultados: Sequence[ResultadoCorrida],
     tracker: TokenTracker,
     precios: dict[str, PrecioAgente],
+    estrategia_prueba: str,
 ) -> dict[str, Any]:
     fallos = [r for r in resultados if r.estado_final.value == "fallo_controlado"]
     return {
@@ -270,6 +307,7 @@ def _cabecera(
         "fecha": fecha,
         "proyecto": proyecto,
         "perfil": perfil,
+        "estrategia_prueba": estrategia_prueba,
         "modelos": {agente: _modelo(precio) for agente, precio in precios.items()},
         "estado_final": "fallo_controlado" if fallos else "fin",
         "motivo_fallo": f"{fallos[0].modulo}: {fallos[0].motivo_fallo}"

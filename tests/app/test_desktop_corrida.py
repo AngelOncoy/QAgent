@@ -40,7 +40,7 @@ def test_con_ia_real_lanza_el_pipeline(api, monkeypatch, corridas_lanzadas) -> N
 
     assert resultado["status"] == "started"
     assert resultado["modo"] == "real"
-    assert corridas_lanzadas == [("C:/proyecto", "deep", None, False, None)]
+    assert corridas_lanzadas == [("C:/proyecto", "deep", None, False, None, "unitaria")]
 
 
 def test_con_ia_simulada_y_docker_listo_tambien_es_real(
@@ -52,7 +52,7 @@ def test_con_ia_simulada_y_docker_listo_tambien_es_real(
     resultado = api.start_run("C:/proyecto", "deep")
 
     assert resultado["modo"] == "real"
-    assert corridas_lanzadas == [("C:/proyecto", "deep", None, True, None)]
+    assert corridas_lanzadas == [("C:/proyecto", "deep", None, True, None, "unitaria")]
 
 
 def test_envia_al_pipeline_la_seleccion_validada(
@@ -68,7 +68,9 @@ def test_envia_al_pipeline_la_seleccion_validada(
     resultado = api.start_run(str(tmp_path), "deep", seleccion)
 
     assert resultado["status"] == "started"
-    assert corridas_lanzadas == [(str(tmp_path), "deep", None, True, seleccion)]
+    assert corridas_lanzadas == [
+        (str(tmp_path), "deep", None, True, seleccion, "unitaria")
+    ]
 
 
 def test_rechaza_objetivo_inexistente_antes_de_iniciar(
@@ -84,6 +86,31 @@ def test_rechaza_objetivo_inexistente_antes_de_iniciar(
     assert resultado["status"] == "seleccion_invalida"
     assert "Objetivos inexistentes" in resultado["mensaje"]
     assert corridas_lanzadas == []
+
+
+@pytest.mark.parametrize(
+    "estrategia", ["inventada", ["unitaria"], ["humo", "regresion"]]
+)
+def test_rechaza_estrategia_desconocida_o_multiple(
+    api, corridas_lanzadas, estrategia
+) -> None:
+    resultado = api.start_run("C:/proyecto", "deep", None, estrategia)
+
+    assert resultado["status"] == "estrategia_invalida"
+    assert "Estrategia de prueba no valida" in resultado["mensaje"]
+    assert corridas_lanzadas == []
+
+
+def test_transmite_estrategia_independiente_del_perfil(
+    api, monkeypatch, corridas_lanzadas
+) -> None:
+    monkeypatch.setenv("QAGENT_FAKE_LLM", "1")
+    monkeypatch.setattr(DesktopAPI, "_sandbox_listo", lambda self: True)
+
+    resultado = api.start_run("C:/proyecto", "deep", None, "humo")
+
+    assert resultado["estrategia_prueba"] == "humo"
+    assert corridas_lanzadas == [("C:/proyecto", "deep", None, True, None, "humo")]
 
 
 def test_con_ia_simulada_sin_docker_queda_en_demostracion(
@@ -116,7 +143,18 @@ def test_el_hilo_envia_las_filas_y_el_resumen(api, monkeypatch) -> None:
     eventos: list[tuple[str, dict]] = []
     api.emit_event = lambda tipo, datos: eventos.append((tipo, datos))  # type: ignore[method-assign]
 
-    def corrida_falsa(ruta, perfil, config, claves, *, simulado, al_evento, run_id):
+    def corrida_falsa(
+        ruta,
+        perfil,
+        config,
+        claves,
+        *,
+        simulado,
+        al_evento,
+        run_id,
+        estrategia_prueba,
+    ):
+        assert estrategia_prueba == "unitaria"
         al_evento(
             {
                 "agente": "orquestador",

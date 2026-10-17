@@ -52,10 +52,16 @@ MODULES = priorizarModulos(MODULES);
 // Perfiles de análisis. `descripcion` y `tipo_caja` ('negra' | 'blanca') se muestran en cada cuadro (HU-31);
 // `duracion` es la duración aproximada del perfil (rápida, media o larga).
 const PROFILES = [
-  {k:'humo', n:'Humo', tipo_caja:'negra', duracion:'rápida', descripcion:'Verificación rápida de que el proyecto arranca: los módulos se importan sin errores y las funciones principales responden. No revisa el código por dentro.', tok:4000, t:0.3, m:['Pass Rate'], pill:'p-grey'},
+  {k:'humo', n:'Humo', legacy:true, tipo_caja:'negra', duracion:'rápida', descripcion:'Perfil histórico: las corridas antiguas se interpretan como estrategia Humo.', tok:4000, t:0.3, m:['Histórico'], pill:'p-grey'},
   {k:'std', n:'Estándar', tipo_caja:'negra', duracion:'media', descripcion:'Prueba cada función con entradas válidas, inválidas y valores límite, y compara la salida obtenida con la esperada. Se basa en lo que la función debe hacer, no en cómo está escrita.', tok:12000, t:0.9, m:['Pass Rate','Cobertura','Iteraciones'], pill:'p-blue'},
   {k:'deep', n:'Profundo', tipo_caja:'blanca', duracion:'larga', descripcion:'Analiza la estructura interna del código: recorre cada rama (if/else), bucle y manejo de excepciones, y mide la cobertura de sentencias y ramas.', tok:14000, t:1.2, m:['Todo lo anterior','Mutation Score'], pill:'p-purple'},
-  {k:'reg', n:'Regresión', tipo_caja:'negra', duracion:'media', descripcion:'Vuelve a ejecutar las pruebas ya aprobadas y guardadas en .qagent/ para confirmar que los cambios recientes no rompieron lo que ya funcionaba.', tok:0, t:0.2, m:['Pass Rate','Cobertura vs. anterior'], pill:'p-green'},
+  {k:'reg', n:'Regresión', legacy:true, tipo_caja:'negra', duracion:'media', descripcion:'Perfil histórico: las corridas antiguas se interpretan como estrategia Regresión.', tok:0, t:0.2, m:['Histórico'], pill:'p-green'},
+];
+const TEST_TYPES = [
+  {k:'unitaria', n:'Pruebas unitarias', descripcion:'Comprueba cada función o endpoint seleccionado con casos nominales y errores documentados.'},
+  {k:'limites', n:'Valores límite y casos borde', descripcion:'Prioriza bordes sustentados por docstrings y restricciones FastAPI/Pydantic.'},
+  {k:'humo', n:'Pruebas de humo', descripcion:'Ejecuta como máximo un caso nominal verificable por objetivo seleccionado.'},
+  {k:'regresion', n:'Pruebas de regresión', descripcion:'Reejecuta pruebas aprobadas vigentes, sin Planner, Generator ni llamadas LLM.'},
 ];
 // Texto de la insignia de cada tipo de caja
 const TIPO_CAJA = {negra:'Caja negra', blanca:'Caja blanca'};
@@ -63,6 +69,7 @@ let HAS_PRIOR_RUN = true;   // ¿el proyecto abierto ya tuvo una corrida? (dato 
 // Estado de los specs guardados en .qagent/specs/: 'reuse' = el código no cambió (huella igual), 'stale' = cambió → se regenera
 const SPEC_STATUS = {'services/pricing.py':'reuse','services/inventory.py':'reuse','services/payments.py':'reuse','services/shipping.py':'reuse','services/cart.py':'stale','services/discounts.py':'stale'};
 let profile = 'deep';
+let testStrategy = 'unitaria';
 let runEstimate = {tok:0}, projectPath = 'E:\\Proyectos\\ecommerce-core';
 
 

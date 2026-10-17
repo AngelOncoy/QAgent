@@ -58,10 +58,15 @@ def vista_reporte(
     pasaron = sum(1 for o in results["objetivos"] if o["metricas"]["paso"])
     por_agente = resumen.get("por_agente") or {}
 
+    from qagent.pruebas.tipos import estrategia_historica
+
     return {
         "run_id": results["run_id"],
         "fecha": results["fecha"],
         "perfil": results["perfil"],
+        "estrategia_prueba": estrategia_historica(
+            results.get("estrategia_prueba"), perfil=results.get("perfil")
+        ),
         "rama": results.get("rama"),
         "proyecto": results["proyecto"],
         "es_simulado": results["es_simulado"],

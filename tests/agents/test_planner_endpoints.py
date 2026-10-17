@@ -314,3 +314,66 @@ def test_planificar_funciones_no_cambia(modulo_api):
     """Las funciones sueltas del mismo módulo se siguen planificando aparte."""
     agente = PlannerAgent(FakeLLMClient(), TokenTracker(), es_simulado=True)
     assert agente.planificar(modulo_api) == []  # sin grabaciones para sus funciones
+
+
+def test_limites_conserva_un_422_fundado_en_el_modelo(modulo_api):
+    respuesta = [
+        {
+            "objetivo": "POST /items",
+            "casos": [
+                caso(
+                    "precio_cero",
+                    "POST",
+                    "/items",
+                    422,
+                    origen="modelo_pydantic",
+                    entrada={"json": {"nombre": "lapiz", "precio": 0}},
+                )
+            ],
+        }
+    ]
+    cliente = ClienteGrabado(respuesta)
+    agente = PlannerAgent(
+        cliente,
+        TokenTracker(),
+        estrategia_prueba="limites",
+    )
+
+    [contrato] = agente.planificar_endpoints(modulo_api)
+
+    assert [c["id"] for c in contrato["casos"]] == ["precio_cero"]
+    assert contrato["casos"][0]["valor_esperado"]["status_code"] == 422
+    assert "ESTRATEGIA SELECCIONADA: limites" in cliente.prompts[0]
+    assert '"gt": 0' in cliente.prompts[0]
+
+
+def test_humo_conserva_solo_un_caso_exitoso_por_endpoint(modulo_api):
+    respuesta = [
+        {
+            "objetivo": "GET /items/{item_id}",
+            "casos": [
+                caso("no_existe", "GET", "/items/9", 404, origen="docstring"),
+                caso(
+                    "existe",
+                    "GET",
+                    "/items/1",
+                    200,
+                    json={"id": 1, "nombre": "a", "precio": 1.0},
+                ),
+                caso(
+                    "otro",
+                    "GET",
+                    "/items/2",
+                    200,
+                    json={"id": 2, "nombre": "b", "precio": 2.0},
+                ),
+            ],
+        }
+    ]
+    cliente = ClienteGrabado(respuesta)
+    agente = PlannerAgent(cliente, TokenTracker(), estrategia_prueba="humo")
+
+    [contrato] = agente.planificar_endpoints(modulo_api)
+
+    assert [c["id"] for c in contrato["casos"]] == ["existe"]
+    assert contrato["casos"][0]["valor_esperado"]["status_code"] == 200

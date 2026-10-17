@@ -13,6 +13,7 @@ from qagent.llm.cliente import (
     ErrorLLM,
     LimiteProveedor,
     ProveedorSaturado,
+    SinConexion,
     SinCredito,
     SinCupoGratuito,
     error_http,
@@ -150,6 +151,17 @@ def test_cliente_real_usa_modelo_configurado_si_la_respuesta_no_lo_incluye() -> 
     assert respuesta.modelo == "modelo-configurado"
 
 
+def test_sin_usage_registra_tokens_cero_sin_inventar_consumo() -> None:
+    datos = respuesta_correcta()
+    datos.pop("usage")
+    cliente = crear_cliente(TransporteGrabado(respuesta=datos))
+
+    respuesta = cliente.generar("Prueba")
+
+    assert respuesta.tokens_entrada == 0
+    assert respuesta.tokens_salida == 0
+
+
 def test_cliente_real_rechaza_respuesta_sin_contenido() -> None:
     transporte = TransporteGrabado(
         respuesta={
@@ -275,6 +287,31 @@ def test_otros_errores_no_se_reintentan() -> None:
     assert esperas == []
 
 
+@pytest.mark.parametrize(
+    "error",
+    [
+        CupoAgotado("HTTP 429", espera_s=3, codigo=429, detalle="cuota"),
+        ProveedorSaturado("HTTP 503", espera_s=1, codigo=503, detalle="saturado"),
+        SinConexion("timeout", detalle="sin respuesta"),
+    ],
+)
+def test_generar_conserva_tipo_codigo_y_detalle_del_error(error) -> None:
+    transporte = TransporteGrabado(error=error)
+    cliente = ClienteLLMReal(
+        modelo="m",
+        clave=CLAVE_PRUEBA,
+        endpoint=ENDPOINT_PRUEBA,
+        transporte=transporte,
+        reintentos_limite=0,
+    )
+
+    with pytest.raises(type(error)) as capturado:
+        cliente.generar("hola")
+
+    assert capturado.value.codigo == error.codigo
+    assert capturado.value.detalle == error.detalle
+
+
 def test_transporte_http_convierte_429_en_limite_con_retry_after(monkeypatch) -> None:
     import io
     from email.message import Message
@@ -303,6 +340,51 @@ def test_transporte_http_convierte_429_en_limite_con_retry_after(monkeypatch) ->
 
     assert error.value.espera_s == 12.0
     assert "rate limit reached" in str(error.value)
+
+
+@pytest.mark.parametrize(
+    "error",
+    [TimeoutError("agotado"), OSError("red caída")],
+)
+def test_transporte_http_convierte_timeout_y_fallo_de_red(monkeypatch, error) -> None:
+    from qagent.llm import cliente as modulo
+
+    def falla(*_: Any, **__: Any) -> None:
+        raise error
+
+    monkeypatch.setattr(modulo, "urlopen", falla)
+
+    with pytest.raises(SinConexion):
+        modulo.TransporteHTTP().enviar(
+            url=ENDPOINT_PRUEBA,
+            cabeceras={},
+            datos={},
+            timeout_s=1,
+        )
+
+
+def test_transporte_http_rechaza_json_invalido(monkeypatch) -> None:
+    from qagent.llm import cliente as modulo
+
+    class Respuesta:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_: object) -> None:
+            return None
+
+        def read(self) -> bytes:
+            return b"esto no es json"
+
+    monkeypatch.setattr(modulo, "urlopen", lambda *_args, **_kwargs: Respuesta())
+
+    with pytest.raises(ErrorLLM, match="JSON inválido"):
+        modulo.TransporteHTTP().enviar(
+            url=ENDPOINT_PRUEBA,
+            cabeceras={},
+            datos={},
+            timeout_s=1,
+        )
 
 
 def test_envia_un_user_agent_propio_para_no_ser_bloqueado() -> None:

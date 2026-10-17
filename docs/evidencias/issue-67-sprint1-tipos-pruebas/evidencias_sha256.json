@@ -1,0 +1,9 @@
+{
+  "issue": 67,
+  "fecha": "2026-10-16",
+  "algoritmo": "SHA-256",
+  "capturas": [],
+  "cantidad": 0,
+  "estado": "pendiente",
+  "nota": "No se incorporaron capturas porque el entorno de validación no ofrece control interactivo del escritorio. No se inventaron archivos ni hashes."
+}

@@ -72,6 +72,35 @@ def test_finalizar_run_guarda_estado_fin_y_resumen(almacen):
     assert leido["tipos_prueba"] == ["funcion", "endpoint"]
 
 
+def test_run_persiste_estrategia_sin_confundirla_con_objetivos(almacen):
+    run = almacen.crear_run(
+        tipos_prueba=["funcion", "endpoint"],
+        estrategia_prueba="humo",
+        ahora=MOMENTO,
+    )
+
+    almacen.finalizar_run(
+        run["run_id"],
+        "fin",
+        1,
+        0,
+        estrategia_prueba="humo",
+        ahora=MOMENTO,
+    )
+
+    leido = almacen.leer_run(run["run_id"])
+    assert leido["tipos_prueba"] == ["funcion", "endpoint"]
+    assert leido["estrategia_prueba"] == "humo"
+
+
+def test_run_historico_sin_estrategia_sigue_siendo_legible(almacen):
+    run = almacen.crear_run(ahora=MOMENTO)
+
+    leido = almacen.leer_run(run["run_id"])
+
+    assert "estrategia_prueba" not in leido
+
+
 def test_run_json_convive_con_log_y_results_de_en05(almacen):
     run = almacen.crear_run(ahora=MOMENTO)
     carpeta = almacen.carpeta_run(run["run_id"])

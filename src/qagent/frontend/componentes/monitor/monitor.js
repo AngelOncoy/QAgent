@@ -84,7 +84,7 @@ async function startMonitor(){
   if (!entornoListo) { toast(escHtml(entornoMotivo)); return; }
   if (window.pywebview && window.pywebview.api) {
     // Python verifica Docker (HU-13) y el entorno completo (EN-06) antes de iniciar.
-    const r = await window.pywebview.api.start_run(projectPath, profile, obtenerSeleccionObjetivos());
+    const r = await window.pywebview.api.start_run(projectPath, profile, obtenerSeleccionObjetivos(), testStrategy);
     if (r && r.status === 'docker_no_disponible') {
       toastError(escHtml(r.mensaje));
       actualizarSandbox();
@@ -93,6 +93,7 @@ async function startMonitor(){
     }
     if (r && r.status === 'blocked') { await verificarEntorno(); toastError(escHtml(r.motivo)); return; }
     if (r && r.status === 'seleccion_invalida') { toastError(escHtml(r.mensaje)); return; }
+    if (r && r.status === 'estrategia_invalida') { toastError(escHtml(r.mensaje)); return; }
     if (r && r.status === 'en_curso') { toast(escHtml(r.mensaje)); return; }
     // Docker listo: la corrida real corre en Python y las filas llegan por corrida_evento.
     if (r && r.modo === 'real') { iniciarMonitorReal(); return; }

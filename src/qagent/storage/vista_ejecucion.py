@@ -109,10 +109,15 @@ def vista_ejecucion(results: dict[str, Any]) -> dict[str, Any]:
     estados = [estado_de(o) for o in objetivos]
     tipos = [tipo_de(o) for o in objetivos]
 
+    from qagent.pruebas.tipos import estrategia_historica
+
     return {
         "run_id": results["run_id"],
         "fecha": results["fecha"],
         "perfil": results["perfil"],
+        "estrategia_prueba": estrategia_historica(
+            results.get("estrategia_prueba"), perfil=results.get("perfil")
+        ),
         "es_simulado": results["es_simulado"],
         "estado_final": results["estado_final"],
         "motivo_fallo": results["motivo_fallo"],

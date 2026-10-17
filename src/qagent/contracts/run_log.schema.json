@@ -28,6 +28,10 @@
     "fecha": { "type": "string", "minLength": 1, "description": "Inicio de la corrida, ISO 8601." },
     "proyecto": { "type": "string", "minLength": 1 },
     "perfil": { "type": "string", "minLength": 1 },
+    "estrategia_prueba": {
+      "enum": ["unitaria", "limites", "humo", "regresion"],
+      "description": "Tipo de prueba escalar del Sprint 1. Es opcional para leer corridas historicas."
+    },
     "modelos": {
       "type": "object",
       "additionalProperties": false,

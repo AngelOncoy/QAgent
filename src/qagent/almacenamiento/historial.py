@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Any
 
 from qagent.almacenamiento.proyecto import AlmacenProyecto, nombre_spec_modulo
+from qagent.pruebas.tipos import estrategia_historica
 
 
 def construir_historial(ruta_proyecto: str | Path) -> dict[str, Any]:
@@ -35,6 +36,10 @@ def _fila_corrida(almacen: AlmacenProyecto, run: dict[str, Any]) -> dict[str, An
         "run_id": run["run_id"],
         "fecha": results.get("fecha", run["inicio"]),
         "perfil": results.get("perfil"),
+        "estrategia_prueba": estrategia_historica(
+            results.get("estrategia_prueba", run.get("estrategia_prueba")),
+            perfil=results.get("perfil"),
+        ),
         "estado": run["estado"],
         "modelos": {
             agente: datos.get("modelo")

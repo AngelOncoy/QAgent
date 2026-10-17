@@ -197,9 +197,10 @@ function renderExecRealKpis(v){
 }
 function actualizarBarraReal(v){   // barra superior: la corrida que se está mostrando
   const ok = v.estado_final === 'fin';
+  const tipo = {unitaria:'Unitarias', limites:'Valores límite', humo:'Humo', regresion:'Regresión'}[v.estrategia_prueba] || 'Unitarias';
   $('ctxChip').className = 'chip ' + (ok ? 'done' : 'amber');
   $('ctxLbl').textContent = 'Corrida ' + v.run_id + ':'; $('curFile').textContent = ok ? 'completada' : 'detenida';
-  $('progNum').textContent = v.total_objetivos + ' objetivos revisados'; $('progBar').style.width = '100%';
+  $('progNum').textContent = v.total_objetivos + ' objetivos revisados · Tipo: ' + tipo; $('progBar').style.width = '100%';
   $('liveBtn').className = 'live done'; $('liveTxt').innerHTML = ok ? '✓ COMPLETADO' : 'DETENIDA';
 }
 function renderExecReal(v){

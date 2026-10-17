@@ -200,6 +200,7 @@ def test_results_tiene_modelos_perfil_y_las_5_metricas(tmp_path: Path, precios) 
     )
 
     assert results["perfil"] == "rapido"
+    assert results["estrategia_prueba"] == "unitaria"
     assert results["modelos"]["reviewer"]["modelo"] == precios["reviewer"].modelo
     [funcion] = results["objetivos"]
     assert (funcion["modulo"], funcion["funcion"], funcion["decision"]) == (
@@ -220,6 +221,22 @@ def test_results_tiene_modelos_perfil_y_las_5_metricas(tmp_path: Path, precios) 
     }
     assert results["resumen"]["pass_rate"] == 100.0
     assert results["resumen"]["aceptadas"] == 1
+
+
+def test_log_y_results_persisten_la_estrategia_escalar(tmp_path, precios) -> None:
+    tracker, resultado = correr(precios)
+
+    rutas = escribir_corrida(
+        tmp_path,
+        resultado,
+        tracker,
+        precios,
+        "deep",
+        estrategia_prueba="limites",
+    )
+
+    assert leer(rutas.log)["estrategia_prueba"] == "limites"
+    assert leer(rutas.results)["estrategia_prueba"] == "limites"
 
 
 def test_corrida_con_fallo_controlado_tambien_se_registra(

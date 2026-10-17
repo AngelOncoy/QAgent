@@ -200,6 +200,18 @@ def test_corrida_antigua_sin_tipo_se_conserva_como_funcion(results) -> None:
     assert prueba["identificador"] == "aprobada"
 
 
+def test_estrategia_nueva_y_perfiles_historicos_se_muestran(results) -> None:
+    results["estrategia_prueba"] = "limites"
+    assert vista_ejecucion(results)["estrategia_prueba"] == "limites"
+
+    del results["estrategia_prueba"]
+    results["perfil"] = "reg"
+    assert vista_ejecucion(results)["estrategia_prueba"] == "regresion"
+
+    results["perfil"] = "deep"
+    assert vista_ejecucion(results)["estrategia_prueba"] == "unitaria"
+
+
 def test_pruebas_agrupadas_por_modulo(results) -> None:
     modulos = vista_ejecucion(results)["modulos"]
 

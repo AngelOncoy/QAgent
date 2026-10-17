@@ -446,6 +446,7 @@ class DesktopAPI:
         folder_path: str,
         profile: str = "deep",
         seleccion: list[dict[str, Any]] | None = None,
+        estrategia_prueba: Any = None,
     ) -> dict:
         """Inicia la corrida del sistema sobre el proyecto seleccionado.
 
@@ -473,7 +474,13 @@ class DesktopAPI:
         from qagent.analysis import analizar_proyecto
         from qagent.config import modo_simulado
         from qagent.proyectos.seleccion import filtrar_modulos
+        from qagent.pruebas.tipos import EstrategiaInvalida, estrategia_historica
         from qagent.sandbox import DockerNoDisponible, verificar_docker
+
+        try:
+            estrategia = estrategia_historica(estrategia_prueba, perfil=profile)
+        except EstrategiaInvalida as exc:
+            return {"status": "estrategia_invalida", "mensaje": str(exc)}
 
         if seleccion is not None:
             try:
@@ -482,7 +489,7 @@ class DesktopAPI:
                 return {"status": "seleccion_invalida", "mensaje": str(exc)}
 
         simulado = modo_simulado()
-        es_regresion = profile == "reg"
+        es_regresion = estrategia == "regresion"
         if es_regresion or not simulado:
             try:
                 verificar_docker()
@@ -532,15 +539,27 @@ class DesktopAPI:
                 "Docker no está listo: la pantalla muestra la demostración y no se "
                 "ejecuta el pipeline."
             )
-        run_id = _registrar_run(folder_path, usa_docker=modo == "real")
+        run_id = _registrar_run(
+            folder_path,
+            usa_docker=modo == "real",
+            estrategia_prueba=estrategia,
+        )
         # Emite un evento hacia la interfaz JS
         self.emit_event("log", {"message": f"Corrida iniciada en perfil '{profile}'"})
         if modo == "real":
-            self._lanzar_corrida(folder_path, profile, run_id, simulado, seleccion)
+            self._lanzar_corrida(
+                folder_path,
+                profile,
+                run_id,
+                simulado,
+                seleccion,
+                estrategia,
+            )
         return {
             "status": "started",
             "folder": folder_path,
             "profile": profile,
+            "estrategia_prueba": estrategia,
             "run_id": run_id,
             "modo": modo,
         }
@@ -560,11 +579,12 @@ class DesktopAPI:
         run_id: str | None,
         simulado: bool,
         seleccion: list[dict[str, Any]] | None,
+        estrategia_prueba: str = "unitaria",
     ) -> None:
         """Ejecuta la corrida en un hilo para no congelar la ventana."""
         self._corrida = threading.Thread(
             target=self._correr,
-            args=(ruta, perfil, run_id, simulado, seleccion),
+            args=(ruta, perfil, run_id, simulado, seleccion, estrategia_prueba),
             name="qagent-corrida",
             daemon=True,
         )
@@ -577,6 +597,7 @@ class DesktopAPI:
         run_id: str | None,
         simulado: bool,
         seleccion: list[dict[str, Any]] | None = None,
+        estrategia_prueba: str = "unitaria",
     ) -> None:
         """Cuerpo del hilo: lee la configuración, corre el pipeline y avisa el final."""
         from qagent.config import carga as config_carga
@@ -601,6 +622,7 @@ class DesktopAPI:
             }
             if seleccion is not None:
                 opciones_corrida["seleccion"] = seleccion
+            opciones_corrida["estrategia_prueba"] = estrategia_prueba
             resumen = ejecutar_corrida(
                 ruta,
                 perfil,
@@ -752,7 +774,9 @@ def _preparar_almacen(ruta: str) -> None:
         bitacora.registro.warning("No se pudo crear .qagent/ en '%s': %s", ruta, exc)
 
 
-def _registrar_run(ruta: str, usa_docker: bool) -> str | None:
+def _registrar_run(
+    ruta: str, usa_docker: bool, estrategia_prueba: str = "unitaria"
+) -> str | None:
     """Crea `.qagent/runs/<run_id>/run.json` de la corrida que empieza (EN-07).
 
     Solo en proyectos abiertos (con `.qagent/` ya creado al abrirlos). Un fallo al
@@ -767,7 +791,9 @@ def _registrar_run(ruta: str, usa_docker: bool) -> str | None:
         return None
     try:
         run = almacen.crear_run(
-            tipos_prueba=["funcion"], imagen_docker=IMAGEN_BASE if usa_docker else None
+            tipos_prueba=["funcion"],
+            imagen_docker=IMAGEN_BASE if usa_docker else None,
+            estrategia_prueba=estrategia_prueba,
         )
     except (OSError, ErrorAlmacen) as exc:
         bitacora.registro.warning(

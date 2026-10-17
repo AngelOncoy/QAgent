@@ -271,7 +271,19 @@ class ClienteLLMReal:
         except Exception as error:
             mensaje = str(error).replace(self._clave, "***")
             if isinstance(error, ErrorLLM):
-                raise ErrorLLM(mensaje) from error
+                detalle = error.detalle.replace(self._clave, "***")
+                if isinstance(error, LimiteProveedor):
+                    raise type(error)(
+                        mensaje,
+                        espera_s=error.espera_s,
+                        codigo=error.codigo,
+                        detalle=detalle,
+                    ) from error
+                raise type(error)(
+                    mensaje,
+                    codigo=error.codigo,
+                    detalle=detalle,
+                ) from error
             raise ErrorLLM(f"Error al llamar al proveedor LLM: {mensaje}") from error
 
     def _enviar_con_reintentos(
