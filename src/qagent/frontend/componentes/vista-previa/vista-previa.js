@@ -38,8 +38,8 @@ registrarComponente('vista-previa/vista-previa', `<!-- ===== 2. VISTA PREVIA Y C
 
     <!-- Árbol + funciones -->
     <div class="grid2">
-      <div class="card">
-        <h4>Árbol del proyecto <span class="pill p-grey" id="modCount"></span><label class="select-all"><input type="checkbox" id="selectAllModules" onchange="seleccionarTodosModulos(this.checked)"> Seleccionar todos</label></h4>
+      <div class="card tree-card">
+        <h4 class="tree-head"><span class="tree-head-title">Árbol del proyecto <span class="pill p-grey" id="modCount"></span></span><label class="select-all"><input type="checkbox" id="selectAllModules" onchange="seleccionarTodosModulos(this.checked)"> Seleccionar todos</label></h4>
         <div class="bd tree" id="tree"></div>
         <div class="hint" style="padding:0 16px 14px">Solo se analizan los módulos marcados. Menos módulos = menos tokens del Planner.</div>
       </div>
@@ -199,7 +199,9 @@ function cargarDatosVistaPrevia(res) {
       inc: true,
       linea: f.linea
     }));
-    const endpoints = (m.endpoints || []).map(e => ({
+    const endpoints = (m.endpoints || []).map(e => {
+      const decisiones = normalizarDecisiones(e.ramas);
+      return ({
       objetivo: e.objetivo || '',
       metodo: e.metodo || null,
       ruta: e.ruta || null,
@@ -209,10 +211,11 @@ function cargarDatosVistaPrevia(res) {
       status_code_declarado: !!e.status_code_declarado,
       excepciones_http: (e.excepciones_http || []).map(x => ({ ...x })),
       dependencias: (e.dependencias || []).map(d => d.funcion).filter(Boolean),
-      br: e.ramas || 0,
-      crit: e.critica_propuesta ?? ((e.ramas || 0) > 0),
+      br: decisiones,
+      crit: e.critica_propuesta ?? ((decisiones ?? 0) > 0),
       inc: true
-    }));
+      });
+    });
     const tieneObjetivos = fns.length > 0 || endpoints.length > 0;
     return {
       path: m.ruta,
@@ -420,6 +423,19 @@ function renderTree(){
      - Lista     : tipada === true && docstring === true
      - Mejorable : tipada === false && docstring === true */
 const CALIDAD_TEXTO = {lista:'Lista', mejorable:'Mejorable', incierto:'Incierto'};
+
+// Las decisiones son un conteo AST: solo un entero no negativo es válido. La ausencia
+// legítima se conserva como null y se representa con un guion; nunca se inventa un cero.
+function normalizarDecisiones(valor){
+  return typeof valor === 'number' && Number.isFinite(valor) && Number.isInteger(valor) && valor >= 0
+    ? valor
+    : null;
+}
+function textoDecisiones(valor){
+  const decisiones = normalizarDecisiones(valor);
+  return decisiones === null ? '—' : String(decisiones);
+}
+
 function calidadFuncion(f){
   if(!f.doc) return 'incierto';
   if(f.typed) return 'lista';
@@ -614,6 +630,7 @@ function renderEndpoints(){
       const elegible = endpointElegible(e);
       const estado = (e.status_code === null || e.status_code === undefined) ? '—' : e.status_code;
       const respuesta = e.response_model ? escHtml(e.response_model) : '—';
+      const decisiones = textoDecisiones(e.br);
       const errores = e.excepciones_http || [];
       const codigos = errores.map(x => x.status_code).filter(c => c !== undefined && c !== null);
       const tipErr = errores.length ? `Errores HTTP: ${codigos.join(', ') || errores.length}` : 'Sin errores HTTP identificados';
@@ -630,7 +647,7 @@ function renderEndpoints(){
         <td class="mono">${respuesta}</td>
         <td class="mono" title="${escHtml(tipErr)}">${errores.length}</td>
         <td>${simula}</td>
-        <td class="mono">${e.br}</td>
+        <td class="mono">${decisiones}</td>
         <td>${profundizar}</td>
         <td>${incluir}</td>
       </tr>`;

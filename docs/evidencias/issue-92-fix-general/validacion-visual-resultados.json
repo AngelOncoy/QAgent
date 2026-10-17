@@ -1,0 +1,197 @@
+{
+  "1024x700": {
+    "Q92-001": {
+      "pass": true,
+      "scroll_left": 0,
+      "scroll_width": 788,
+      "client_width": 788,
+      "table_scroll": {
+        "sw": 860,
+        "cw": 738,
+        "sl": 0,
+        "ox": "auto"
+      }
+    },
+    "Q92-002": {
+      "total_celdas": 7,
+      "valores_unicos": [
+        "—"
+      ],
+      "undefined_present": false,
+      "pass": true
+    },
+    "Q92-003": {
+      "pass": true,
+      "scroll_width": 738,
+      "client_width": 738
+    },
+    "Q92-004": {
+      "favicon_link_present": true,
+      "favicon_href": "assets/logo/qagent-icono.svg",
+      "favicon_404_error": false,
+      "favicon_responses": [
+        [
+          200,
+          "http://127.0.0.1:8795/assets/logo/qagent-icono.svg"
+        ]
+      ],
+      "pass": true
+    }
+  },
+  "1280x720": {
+    "Q92-001": {
+      "pass": true,
+      "scroll_left": 0,
+      "scroll_width": 1044,
+      "client_width": 1044,
+      "table_scroll": {
+        "sw": 860,
+        "cw": 678,
+        "sl": 0,
+        "ox": "auto"
+      }
+    },
+    "Q92-002": {
+      "total_celdas": 7,
+      "valores_unicos": [
+        "—"
+      ],
+      "undefined_present": false,
+      "pass": true
+    },
+    "Q92-003": {
+      "pass": true,
+      "scroll_width": 298,
+      "client_width": 298
+    },
+    "Q92-004": {
+      "favicon_link_present": true,
+      "favicon_href": "assets/logo/qagent-icono.svg",
+      "favicon_404_error": false,
+      "favicon_responses": [
+        [
+          200,
+          "http://127.0.0.1:8795/assets/logo/qagent-icono.svg"
+        ]
+      ],
+      "pass": true
+    }
+  },
+  "1366x768": {
+    "Q92-001": {
+      "pass": true,
+      "scroll_left": 0,
+      "scroll_width": 1130,
+      "client_width": 1130,
+      "table_scroll": {
+        "sw": 860,
+        "cw": 764,
+        "sl": 0,
+        "ox": "auto"
+      }
+    },
+    "Q92-002": {
+      "total_celdas": 7,
+      "valores_unicos": [
+        "—"
+      ],
+      "undefined_present": false,
+      "pass": true
+    },
+    "Q92-003": {
+      "pass": true,
+      "scroll_width": 298,
+      "client_width": 298
+    },
+    "Q92-004": {
+      "favicon_link_present": true,
+      "favicon_href": "assets/logo/qagent-icono.svg",
+      "favicon_404_error": false,
+      "favicon_responses": [
+        [
+          200,
+          "http://127.0.0.1:8795/assets/logo/qagent-icono.svg"
+        ]
+      ],
+      "pass": true
+    }
+  },
+  "1440x900": {
+    "Q92-001": {
+      "pass": true,
+      "scroll_left": 0,
+      "scroll_width": 1204,
+      "client_width": 1204,
+      "table_scroll": {
+        "sw": 860,
+        "cw": 838,
+        "sl": 0,
+        "ox": "auto"
+      }
+    },
+    "Q92-002": {
+      "total_celdas": 7,
+      "valores_unicos": [
+        "—"
+      ],
+      "undefined_present": false,
+      "pass": true
+    },
+    "Q92-003": {
+      "pass": true,
+      "scroll_width": 298,
+      "client_width": 298
+    },
+    "Q92-004": {
+      "favicon_link_present": true,
+      "favicon_href": "assets/logo/qagent-icono.svg",
+      "favicon_404_error": false,
+      "favicon_responses": [
+        [
+          200,
+          "http://127.0.0.1:8795/assets/logo/qagent-icono.svg"
+        ]
+      ],
+      "pass": true
+    }
+  },
+  "1920x1080": {
+    "Q92-001": {
+      "pass": true,
+      "scroll_left": 0,
+      "scroll_width": 1684,
+      "client_width": 1684,
+      "table_scroll": {
+        "sw": 1318,
+        "cw": 1318,
+        "sl": 0,
+        "ox": "auto"
+      }
+    },
+    "Q92-002": {
+      "total_celdas": 7,
+      "valores_unicos": [
+        "—"
+      ],
+      "undefined_present": false,
+      "pass": true
+    },
+    "Q92-003": {
+      "pass": true,
+      "scroll_width": 298,
+      "client_width": 298
+    },
+    "Q92-004": {
+      "favicon_link_present": true,
+      "favicon_href": "assets/logo/qagent-icono.svg",
+      "favicon_404_error": false,
+      "favicon_responses": [
+        [
+          200,
+          "http://127.0.0.1:8795/assets/logo/qagent-icono.svg"
+        ]
+      ],
+      "pass": true
+    }
+  }
+}
