@@ -3,6 +3,11 @@ aside{width:236px;background:var(--side);border-right:1px solid var(--line);disp
 .brand{display:flex;gap:12px;align-items:center;padding:18px 16px;border-bottom:1px solid var(--line)}
 .brand b{font-size:15px}.ver{font-family:var(--mono);font-size:10px;color:var(--mut);border:1px solid var(--line2);border-radius:4px;padding:1px 5px;margin-left:6px}
 .brand small{display:block;color:var(--mut);font-size:11px;margin-top:2px}
+.side-back-wrap{padding:12px 14px 4px}
+.btn-side-back{display:flex;align-items:center;gap:8px;width:100%;padding:8px 10px;border-radius:7px;border:1px solid var(--line);background:var(--panel2);color:var(--txt);font-family:var(--sans);font-size:12px;font-weight:500;cursor:pointer;transition:all .15s}
+.btn-side-back:hover{background:var(--panel);border-color:var(--line2);color:var(--white)}
+.btn-side-back svg{flex-shrink:0;color:var(--mut);transition:transform .15s}
+.btn-side-back:hover svg{color:var(--blue);transform:translateX(-2px)}
 .navlbl{font-size:10px;letter-spacing:.12em;color:var(--dim);padding:16px 16px 8px;text-transform:uppercase;font-weight:600}
 .seq{padding:0 16px 14px;border-bottom:1px solid var(--line)}
 .seq .it{display:flex;align-items:center;gap:8px;margin:7px 0;font-size:12px;font-weight:600}
