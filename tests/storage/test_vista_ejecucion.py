@@ -140,10 +140,49 @@ def test_los_indicadores_coinciden_con_results_json(results) -> None:
         assert k["costo"]["por_agente"][agente]["tokens"] == (
             fila["prompt_tokens"] + fila["completion_tokens"]
         )
-    assert k["mutation_score"] == {
-        "disponible": False,
-        "texto": "Disponible en Sprint 2",
-    }
+    # EN-09: sin funciones críticas no hay Mutation Score que promediar.
+    assert k["mutation_score"]["disponible"] is False
+    assert k["mutation_score"]["texto"].startswith("No se midió")
+
+
+def test_mutation_score_promedia_las_criticas_con_puntuacion(results) -> None:
+    results["perfil"] = "deep"
+    objetivos = results["objetivos"]
+    for objetivo, score in zip(objetivos, (80.0, 40.0)):
+        objetivo["critical"] = True
+        objetivo["metricas"]["mutation_score"] = score
+
+    ms = vista_ejecucion(results)["indicadores"]["mutation_score"]
+
+    assert ms["disponible"] is True
+    assert (ms["valor"], ms["meta"], ms["cumple"], ms["funciones"]) == (
+        60.0,
+        60,
+        True,
+        2,
+    )
+
+
+@pytest.mark.parametrize(
+    "perfil, critica, texto",
+    [
+        ("std", True, "no usó Profundizar"),
+        ("deep", False, "no hay funciones marcadas"),
+        ("deep", True, "el motivo está en el informe"),
+    ],
+)
+def test_mutation_score_sin_valor_explica_por_que(
+    results, perfil, critica, texto
+) -> None:
+    results["perfil"] = perfil
+    for objetivo in results["objetivos"]:
+        objetivo["critical"] = critica
+        objetivo["metricas"]["mutation_score"] = None
+
+    ms = vista_ejecucion(results)["indicadores"]["mutation_score"]
+
+    assert ms["disponible"] is False
+    assert texto in ms["texto"]
 
 
 def test_filtros_con_su_conteo(results) -> None:
@@ -219,6 +258,7 @@ def test_pruebas_agrupadas_por_modulo(results) -> None:
         "cobertura_ramas": None,
         "motivo_estancado": "error_repetido",
         "critical": False,
+        "categorias": None,  # #76: el ejemplo es anterior al conteo por categoría
     }
 
 

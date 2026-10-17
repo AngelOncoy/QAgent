@@ -46,22 +46,13 @@ import tokenize
 from pathlib import Path
 from typing import Any
 
+from qagent.analysis.ramas import contar_ramas
 from qagent.analysis.rutas import analizar_rutas
 
 DIRECTORIOS_IGNORADOS = frozenset(
     {"tests", "__pycache__", "venv", "node_modules", "site-packages", "mutants"}
 )
 
-_NODOS_RAMA = (
-    ast.If,
-    ast.IfExp,
-    ast.For,
-    ast.AsyncFor,
-    ast.While,
-    ast.ExceptHandler,
-    ast.match_case,
-)
-_NODOS_ANIDADOS = (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)
 _ERRORES_LECTURA = (SyntaxError, ValueError, RecursionError, OSError)
 
 
@@ -86,25 +77,6 @@ def listar_archivos_py(raiz: Path) -> list[Path]:
         subdirectorios[:] = [d for d in subdirectorios if not _es_ignorado(d)]
         encontrados.extend(Path(directorio) / a for a in archivos if a.endswith(".py"))
     return sorted(encontrados, key=lambda p: p.relative_to(raiz).as_posix())
-
-
-def contar_ramas(funcion: ast.FunctionDef | ast.AsyncFunctionDef) -> int:
-    """Cuenta los puntos de decisión propios de una función.
-
-    No desciende a funciones ni clases anidadas: sus ramas no son de ``funcion``.
-    """
-    total = 0
-    pendientes: list[ast.AST] = list(funcion.body)
-    while pendientes:
-        nodo = pendientes.pop()
-        if isinstance(nodo, _NODOS_ANIDADOS):
-            continue
-        if isinstance(nodo, _NODOS_RAMA):
-            total += 1
-        elif isinstance(nodo, ast.comprehension):
-            total += len(nodo.ifs)
-        pendientes.extend(ast.iter_child_nodes(nodo))
-    return total
 
 
 def _texto(nodo: ast.AST | None) -> str | None:

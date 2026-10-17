@@ -139,6 +139,53 @@ def test_falta_la_seccion_de_umbrales(tmp_path, env_completo):
     assert any("pass_rate_min" in a for a in carga.avisos_config)
 
 
+def test_config_del_equipo_define_el_tiempo_de_mutacion():
+    """EN-09: el tiempo máximo de mutmut por función sale de config.toml."""
+    config = cargar_configuracion(RUTA_CONFIG, "no-existe.env", simulado=True).config
+    assert config.mutacion.tiempo_maximo_por_funcion_s == 120
+
+
+def test_sin_seccion_de_mutacion_usa_el_valor_por_defecto(tmp_path, env_completo):
+    ruta = _config_con(tmp_path, {"[mutacion]\ntiempo_maximo_por_funcion_s = 120": ""})
+    carga = cargar_configuracion(ruta, env_completo, simulado=False)
+    assert carga.ok, carga.avisos
+    assert carga.config.mutacion.tiempo_maximo_por_funcion_s == (
+        carga_mod.TIEMPO_MUTACION_POR_DEFECTO_S
+    )
+
+
+@pytest.mark.parametrize(
+    "malo, aviso",
+    [
+        ("0", "mayor que 0"),
+        ("-5", "mayor que 0"),
+        ('"rapido"', "mayor que 0"),
+        ("90.5", "entero"),
+    ],
+)
+def test_tiempo_de_mutacion_invalido(tmp_path, env_completo, malo, aviso):
+    ruta = _config_con(
+        tmp_path,
+        {"tiempo_maximo_por_funcion_s = 120": f"tiempo_maximo_por_funcion_s = {malo}"},
+    )
+    carga = cargar_configuracion(ruta, env_completo, simulado=False)
+    assert carga.config is None
+    assert any(
+        "tiempo_maximo_por_funcion_s" in a and aviso in a for a in carga.avisos_config
+    )
+
+
+def test_config_local_puede_cambiar_el_tiempo_de_mutacion(tmp_path, env_completo):
+    local = tmp_path / "config.local.toml"
+    local.write_text(
+        "[mutacion]\ntiempo_maximo_por_funcion_s = 300\n", encoding="utf-8"
+    )
+    carga = cargar_configuracion(
+        RUTA_CONFIG, env_completo, simulado=False, ruta_local=local
+    )
+    assert carga.config.mutacion.tiempo_maximo_por_funcion_s == 300
+
+
 def test_proveedor_desconocido(tmp_path, env_completo):
     ruta = _config_con(tmp_path, {'proveedor = "openai"': 'proveedor = "inventado"'})
     carga = cargar_configuracion(ruta, env_completo, simulado=False)

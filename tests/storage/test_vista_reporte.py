@@ -140,6 +140,7 @@ def test_corrida_anterior_sin_controles_ni_detalle(corrida) -> None:
 
 
 def test_funcion_critica_sin_mutmut_queda_pendiente(corrida) -> None:
+    """Una corrida Profundo sin resultado de mutmut es anterior a EN-09."""
     raiz, _ = corrida
     results = leer_results(raiz)
     results["objetivos"][0]["critical"] = True
@@ -148,7 +149,86 @@ def test_funcion_critica_sin_mutmut_queda_pendiente(corrida) -> None:
 
     mutation = funcion["controles"][4]
     assert mutation["estado"] == "pendiente"
-    assert "Sprint 2" in mutation["nota"]
+    assert "anterior a EN-09" in mutation["nota"]
+
+
+def critica_con(results: dict, score, mutacion=None) -> dict:
+    objetivo = results["objetivos"][0]
+    objetivo["critical"] = True
+    objetivo["metricas"]["mutation_score"] = score
+    if mutacion is not None:
+        objetivo["mutacion"] = mutacion
+    return results
+
+
+MUTACION_OK = {
+    "estado": "ok",
+    "puntuacion": 75.0,
+    "detectados": 3,
+    "sobrevivientes": [
+        {"mutante": "m.x_f__mutmut_2", "linea": 9, "cambio": "x > 1 → x >= 1"}
+    ],
+    "mensaje": None,
+}
+
+
+@pytest.mark.parametrize("score, estado", [(75.0, "ok"), (60.0, "ok"), (40.0, "falla")])
+def test_mutation_score_contra_la_meta(corrida, score, estado) -> None:
+    raiz, _ = corrida
+    results = critica_con(
+        leer_results(raiz), score, {**MUTACION_OK, "puntuacion": score}
+    )
+
+    [funcion] = vista_reporte(results, None)["funciones"]
+
+    mutation = funcion["controles"][4]
+    assert mutation["estado"] == estado
+    assert f"(obtenido: {score:g} %)" in mutation["etiqueta"]
+    assert mutation["nota"] == "1 mutante(s) sobreviviente(s)"
+    assert funcion["mutacion"]["sobrevivientes"][0]["linea"] == 9
+    assert funcion["verde"] is (estado == "ok")
+
+
+def test_mutacion_sin_puntuacion_explica_el_motivo(corrida) -> None:
+    raiz, _ = corrida
+    mutacion = {
+        **MUTACION_OK,
+        "estado": "tiempo_agotado",
+        "puntuacion": None,
+        "detectados": 0,
+        "sobrevivientes": [],
+        "mensaje": "Se agotó el tiempo máximo de la mutación (120 s).",
+    }
+    results = critica_con(leer_results(raiz), None, mutacion)
+
+    [funcion] = vista_reporte(results, None)["funciones"]
+
+    mutation = funcion["controles"][4]
+    assert mutation["estado"] == "sin_dato"
+    assert "Se agotó el tiempo" in mutation["nota"]
+    assert funcion["verde"] is False
+
+
+def test_critica_en_corrida_sin_profundizar_no_aplica(corrida) -> None:
+    raiz, _ = corrida
+    results = critica_con(leer_results(raiz), None)
+    results["perfil"] = "std"
+
+    [funcion] = vista_reporte(results, None)["funciones"]
+
+    assert funcion["controles"][4]["estado"] == "no_aplica"
+    assert "no usó Profundizar" in funcion["controles"][4]["nota"]
+
+
+def test_critica_sin_prueba_aprobada_no_aplica(tmp_path, precios) -> None:  # noqa: F811
+    tracker, resultado = correr(precios, decisiones=("bug_detectado",))
+    escribir_corrida(tmp_path, resultado, tracker, precios, "deep", metas=METAS)
+    results = critica_con(leer_results(tmp_path), None)
+
+    [funcion] = vista_reporte(results, None)["funciones"]
+
+    assert funcion["controles"][4]["estado"] == "no_aplica"
+    assert "Sin prueba aprobada" in funcion["controles"][4]["nota"]
 
 
 def test_endpoint_muestra_identidad_contrato_http_y_cinco_controles(corrida) -> None:
@@ -204,6 +284,7 @@ def test_endpoint_muestra_identidad_contrato_http_y_cinco_controles(corrida) -> 
         "peticion": contrato["casos"][0]["entrada"],
         "respuesta_esperada": contrato["casos"][0]["valor_esperado"],
         "origen": "status_code",
+        "categoria": "normal",  # #76: inferida (el caso no la trae y espera un 2xx)
     }
     assert len(endpoint["controles"]) == 5
     assert vista["filtros_tipo"][2] == {

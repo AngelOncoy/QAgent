@@ -116,9 +116,16 @@ def generar_vista_previa(raiz: str | os.PathLike[str]) -> dict[str, Any]:
                     "critica_propuesta": f.get("ramas", 0) > 0,
                 }
             )
+        # #74: un endpoint con decisiones en su manejador se propone para profundizar,
+        # con la misma regla que una función.
+        endpoints_mod = [
+            {**e, "critica_propuesta": e.get("ramas", 0) > 0}
+            for e in mod.get("endpoints", [])
+        ]
         mod_copia = {
             **mod,
             "funciones": funciones_mod,
+            "endpoints": endpoints_mod,
             "funciones_con_ramas": sum(
                 1 for f in funciones_mod if f.get("ramas", 0) > 0
             ),

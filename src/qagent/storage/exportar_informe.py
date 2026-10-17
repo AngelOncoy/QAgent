@@ -26,7 +26,7 @@ from qagent import __version__
 from qagent.config import carga as config_carga
 from qagent.config.auditoria import PATRONES, Hallazgo
 from qagent.config.carga import Claves, leer_env
-from qagent.storage.registro import CARPETA_RUNS
+from qagent.storage.registro import CARPETA_RUNS, nombre_perfil
 from qagent.storage.vista_ejecucion import (
     AGENTES,
     leer_results,
@@ -748,6 +748,28 @@ def _sin_cubrir_texto(ejecucion: dict[str, Any]) -> str | None:
     )
 
 
+def _markdown_categorias(datos: dict[str, Any]) -> list[str]:
+    """Casos por categoría (normal / límite / error) de la corrida y de cada objetivo (#76).
+
+    El aviso de «sin casos límite» es informativo: no cuenta como fallo.
+    """
+    if not datos.get("texto_categorias"):
+        return []  # corrida anterior al conteo por categoría
+    lineas = [
+        "### Casos por categoría",
+        "",
+        f"**Corrida:** {datos['texto_categorias']}",
+        "",
+    ]
+    for f in datos["funciones"]:
+        if not f.get("texto_categorias"):
+            continue
+        aviso = f" — ⚠ {f['aviso_limites']}" if f.get("aviso_limites") else ""
+        lineas.append(f"- **{f['funcion']}**: {f['texto_categorias']}{aviso}")
+    lineas.append("")
+    return lineas
+
+
 def _markdown_ejecucion(datos: dict[str, Any], con_traza: bool) -> list[str]:
     """Secciones 2.1 y 2.2 del Markdown: datos de la ejecución y casos por función."""
     lineas = ["## 2.1 Datos de la ejecución", ""]
@@ -1024,7 +1046,7 @@ def datos_informe(
         "fecha": results["fecha"],
         "proyecto": results["proyecto"],
         "rama": results.get("rama"),
-        "perfil": results["perfil"],
+        "perfil": nombre_perfil(results["perfil"]),  # nombre legible (#70)
         "es_simulado": results["es_simulado"],
         "estado_final": results["estado_final"],
         "motivo_fallo": results["motivo_fallo"],
@@ -1038,6 +1060,7 @@ def datos_informe(
         "entorno": vista["entorno"],
         "totales_casos": vista["totales_casos"],
         "funciones": funciones_enriquecidas,
+        "texto_categorias": vista.get("texto_categorias"),  # #76
         "results": copy.deepcopy(results),
     }
     return _sanitizar_estructura(datos, claves)
@@ -1170,6 +1193,7 @@ def construir_markdown_informe(
                 f"{ms_lbl} | {f['tokens']} |"
             )
         lineas.append("")
+        lineas.extend(_markdown_categorias(datos))
         lineas.extend(_markdown_ejecucion(datos, opts["trazas"]))
 
     if opts["trazas"]:

@@ -12,11 +12,30 @@ import json
 from pathlib import Path
 from typing import Any
 
-from qagent.storage.registro import ARCHIVO_DETALLE, CARPETA_RUNS
-from qagent.storage.vista_ejecucion import estado_de, identidad_de, tipo_de
+from qagent.contracts import categoria_de, contar_categorias
+from qagent.storage.registro import (
+    ARCHIVO_DETALLE,
+    CARPETA_RUNS,
+    MUTATION_SCORE_MIN,
+    PERFIL_HUMO,
+    PERFILES_CON_MUTACION,
+    nombre_perfil,
+)
+from qagent.storage.vista_ejecucion import (
+    categorias_de,
+    estado_de,
+    identidad_de,
+    texto_categorias,
+    tipo_de,
+)
 
-#: Meta de Mutation Score de la carta (ADR-001); se aplica cuando EN-09 ejecute mutmut.
-MUTATION_SCORE_MIN = 60
+#: Aviso cuando un objetivo no tiene casos límite (#76). No cuenta como fallo.
+AVISO_SIN_LIMITES = {
+    "funcion": "Sin casos límite: el docstring no describe límites; documentarlos "
+    "permite probarlos.",
+    "endpoint": "Sin casos límite: ni el docstring ni las restricciones declaradas "
+    "(Field, Query, Path) describen límites; documentarlos permite probarlos.",
+}
 
 #: Estado de cada control para la pantalla.
 OK, FALLA, NO_APLICA, PENDIENTE, SIN_DATO = (
@@ -50,9 +69,10 @@ def vista_reporte(
         if isinstance(f, dict)
     }
     funciones = [
-        _funcion(o, textos.get((o["modulo"], o["funcion"])), metas)
+        _funcion(o, textos.get((o["modulo"], o["funcion"])), metas, results["perfil"])
         for o in results["objetivos"]
     ]
+    total_categorias = resumen.get("casos_por_categoria")
     verdes = sum(1 for f in funciones if f["verde"])
     tipos = [tipo_de(o) for o in results["objetivos"]]
     pasaron = sum(1 for o in results["objetivos"] if o["metricas"]["paso"])
@@ -62,6 +82,9 @@ def vista_reporte(
         "run_id": results["run_id"],
         "fecha": results["fecha"],
         "perfil": results["perfil"],
+        "perfil_nombre": nombre_perfil(results["perfil"]),
+        # #75: en Humo el Pass Rate es la métrica principal.
+        "es_humo": results["perfil"] == PERFIL_HUMO,
         "rama": results.get("rama"),
         "proyecto": results["proyecto"],
         "es_simulado": results["es_simulado"],
@@ -69,6 +92,9 @@ def vista_reporte(
         "motivo_fallo": results["motivo_fallo"],
         "total_funciones": resumen["total_funciones"],
         "total_objetivos": len(funciones),
+        # #76: casos de la corrida por categoría; None en corridas anteriores.
+        "categorias": total_categorias,
+        "texto_categorias": texto_categorias(total_categorias),
         "modelos": {
             agente: {"proveedor": m["proveedor"], "modelo": m["modelo"]}
             for agente, m in results["modelos"].items()
@@ -88,6 +114,7 @@ def vista_reporte(
             "cobertura": {
                 "lineas": resumen["cobertura_lineas_promedio"],
                 "ramas": resumen.get("cobertura_ramas_promedio"),
+                "exige_ramas": results["perfil"] != PERFIL_HUMO,  # #75
             },
             "costo": {
                 "usd": resumen["costo_total_usd"],
@@ -129,14 +156,21 @@ def vista_reporte(
 
 
 def _funcion(
-    objetivo: dict[str, Any], texto: dict[str, Any] | None, metas: dict[str, Any]
+    objetivo: dict[str, Any],
+    texto: dict[str, Any] | None,
+    metas: dict[str, Any],
+    perfil: str | None = None,
 ) -> dict[str, Any]:
     metricas = objetivo["metricas"]
     contrato = (texto or {}).get("contrato")
-    controles = _controles(objetivo, metas)
+    controles = _controles(objetivo, metas, perfil)
     intentos = _intentos((texto or {}).get("intentos"))
     verde = objetivo["decision"] == "accept" and all(
         c["estado"] in (OK, NO_APLICA, PENDIENTE) for c in controles
+    )
+    casos = contrato.get("casos") if isinstance(contrato, dict) else None
+    categorias = categorias_de(objetivo) or (
+        contar_categorias(casos) if casos else None
     )
     return {
         "modulo": objetivo["modulo"],
@@ -145,6 +179,20 @@ def _funcion(
         "firma": contrato.get("firma") if isinstance(contrato, dict) else None,
         "manejador": contrato.get("manejador") if isinstance(contrato, dict) else None,
         "critical": objetivo["critical"],
+        # #76: casos por categoría, el aviso si no hay límites (no es un fallo) y la
+        # categoría de cada caso para mostrarla junto a su resultado de pytest.
+        "categorias": categorias,
+        "texto_categorias": texto_categorias(categorias),
+        "aviso_limites": (
+            AVISO_SIN_LIMITES[tipo_de(objetivo)]
+            if categorias and not categorias["limite"] and perfil != PERFIL_HUMO
+            else None
+        ),
+        "categoria_por_caso": {
+            c["id"]: categoria_de(c)
+            for c in casos or []
+            if isinstance(c, dict) and isinstance(c.get("id"), str)
+        },
         "decision": objetivo["decision"],
         "estado": estado_de(objetivo),
         "verde": verde,
@@ -152,6 +200,7 @@ def _funcion(
         "cobertura_lineas": metricas["cobertura_lineas"],
         "cobertura_ramas": metricas["cobertura_ramas"],
         "mutation_score": metricas["mutation_score"],
+        "mutacion": objetivo.get("mutacion"),  # EN-09: estado y sobrevivientes
         "contrato": contrato,
         "contrato_http": _contrato_http(contrato),
         "codigo": (texto or {}).get("codigo"),
@@ -208,12 +257,15 @@ def _contrato_http(contrato: Any) -> dict[str, Any] | None:
                 "peticion": entrada,
                 "respuesta_esperada": esperado,
                 "origen": caso.get("origen"),
+                "categoria": categoria_de(caso),  # #76
             }
         )
     return {"casos": casos}
 
 
-def _controles(objetivo: dict[str, Any], metas: dict[str, Any]) -> list[dict[str, Any]]:
+def _controles(
+    objetivo: dict[str, Any], metas: dict[str, Any], perfil: str | None = None
+) -> list[dict[str, Any]]:
     """Los 5 controles en orden, con su texto; salen de `objetivo["controles"]`."""
     guardados = objetivo.get("controles") or {}
     metricas = objetivo["metricas"]
@@ -228,36 +280,21 @@ def _controles(objetivo: dict[str, Any], metas: dict[str, Any]) -> list[dict[str
         estado = SIN_DATO if valor is None else (OK if valor else FALLA)
         return {"clave": clave, "etiqueta": etiqueta, "estado": estado}
 
+    humo = perfil == PERFIL_HUMO
     cobertura = control(
         "cobertura",
-        f"Cobertura de líneas ({texto_lineas}) y ramas ({texto_ramas}) ≥ {minimo:g} %",
+        # #75: Humo prueba un caso normal; las ramas se muestran pero no se exigen.
+        f"Cobertura de líneas ({texto_lineas}) ≥ {minimo:g} % · ramas "
+        f"({texto_ramas}) no se exigen en Humo"
+        if humo
+        else f"Cobertura de líneas ({texto_lineas}) y ramas ({texto_ramas}) "
+        f"≥ {minimo:g} %",
     )
     if cobertura["estado"] == SIN_DATO and lineas is not None:  # corridas anteriores
-        cumple = lineas >= minimo and (ramas is None or ramas >= minimo)
+        cumple = lineas >= minimo and (ramas is None or humo or ramas >= minimo)
         cobertura["estado"] = OK if cumple else FALLA
 
-    if not objetivo["critical"]:
-        sujeto = "el endpoint" if tipo_de(objetivo) == "endpoint" else "la función"
-        mutation = {
-            "clave": "mutation",
-            "etiqueta": f"Mutation Score ≥ {MUTATION_SCORE_MIN} %",
-            "estado": NO_APLICA,
-            "nota": f"No aplica: {sujeto} no es crítico",
-        }
-    elif metricas["mutation_score"] is None:
-        mutation = {
-            "clave": "mutation",
-            "etiqueta": f"Mutation Score ≥ {MUTATION_SCORE_MIN} %",
-            "estado": PENDIENTE,
-            "nota": "Pendiente: mutmut llega en el Sprint 2 (EN-09)",
-        }
-    else:
-        score = metricas["mutation_score"]
-        mutation = {
-            "clave": "mutation",
-            "etiqueta": f"Mutation Score ≥ {MUTATION_SCORE_MIN} % (obtenido: {score:g} %)",
-            "estado": OK if score >= MUTATION_SCORE_MIN else FALLA,
-        }
+    mutation = _control_mutation(objetivo, perfil)
 
     return [
         control("sintaxis", "Sin errores de sintaxis"),
@@ -271,3 +308,50 @@ def _controles(objetivo: dict[str, Any], metas: dict[str, Any]) -> list[dict[str
         cobertura,
         mutation,
     ]
+
+
+def _control_mutation(objetivo: dict[str, Any], perfil: str | None) -> dict[str, Any]:
+    """Control de Mutation Score (EN-09), con la razón cuando no hay puntuación."""
+    etiqueta = f"Mutation Score ≥ {MUTATION_SCORE_MIN} %"
+    score = objetivo["metricas"]["mutation_score"]
+    mutacion = objetivo.get("mutacion")
+
+    def con(estado: str, nota: str | None = None, texto: str = etiqueta) -> dict:
+        control = {"clave": "mutation", "etiqueta": texto, "estado": estado}
+        if nota:
+            control["nota"] = nota
+        return control
+
+    if not objetivo["critical"]:
+        sujeto = "el endpoint" if tipo_de(objetivo) == "endpoint" else "la función"
+        return con(NO_APLICA, f"No aplica: {sujeto} no es crítico")
+    if score is not None:
+        vivos = len((mutacion or {}).get("sobrevivientes") or [])
+        notas = [f"{vivos} mutante(s) sobreviviente(s)" if vivos else ""]
+        if (mutacion or {}).get("reutilizada"):
+            notas.append(
+                f"reutilizado de la corrida {mutacion.get('run_origen')}: "
+                "la función y sus pruebas no cambiaron"
+            )
+        return con(
+            OK if score >= MUTATION_SCORE_MIN else FALLA,
+            " · ".join(n for n in notas if n) or None,
+            f"{etiqueta} (obtenido: {score:g} %)",
+        )
+    if isinstance(mutacion, dict):
+        return con(
+            SIN_DATO, mutacion.get("mensaje") or "mutmut no dio un Mutation Score."
+        )
+    if perfil is not None and perfil not in PERFILES_CON_MUTACION:
+        return con(NO_APLICA, "No se pidió: la corrida no usó Profundizar")
+    if objetivo["decision"] == "requiere_corrida_nueva":
+        return con(
+            NO_APLICA,
+            "Requiere corrida nueva: la función o su prueba cambiaron y mutmut solo "
+            "usa pruebas guardadas vigentes",
+        )
+    if objetivo["decision"] != "accept":
+        return con(
+            NO_APLICA, "Sin prueba aprobada: mutmut necesita una prueba que pase"
+        )
+    return con(PENDIENTE, "Corrida anterior a EN-09: sin mutation testing")

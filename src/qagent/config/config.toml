@@ -16,6 +16,12 @@ pass_rate_min = 70               # % de pruebas aprobadas
 cobertura_lineas_min = 60        # % de líneas cubiertas
 iteraciones_promedio_max = 2.0   # intentos promedio por prueba
 
+# Mutation testing (EN-09): mutmut solo corre sobre las funciones marcadas para
+# profundizar, nunca sobre el repositorio completo. Si se agota el tiempo, la función
+# queda como «tiempo agotado» sin Mutation Score y la corrida sigue.
+[mutacion]
+tiempo_maximo_por_funcion_s = 120   # segundos por función crítica
+
 # Cada agente usa la URL de chat de su proveedor (src/qagent/llm/fabrica.py).
 # Para otra URL agrega:  endpoint = "https://.../v1/chat/completions"
 # `esfuerzo` se envía como `reasoning_effort`; quítalo si el proveedor no lo acepta.

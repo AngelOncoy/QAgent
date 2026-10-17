@@ -71,6 +71,41 @@
   ],
   "$defs": {
     "agente": { "enum": ["planner", "generator", "reviewer"] },
+    "mutacion": {
+      "type": "object",
+      "description": "EN-09. Mutation testing (mutmut) de una función crítica aprobada en el perfil Profundo.",
+      "additionalProperties": false,
+      "required": ["estado", "puntuacion", "detectados", "sobrevivientes", "mensaje"],
+      "properties": {
+        "estado": {
+          "enum": ["ok", "tiempo_agotado", "config_propia", "error"],
+          "description": "ok: mutmut terminó; tiempo_agotado: superó [mutacion] de config.toml; config_propia: el proyecto tiene [tool.mutmut] y no se sobrescribe; error: mutmut no pudo ejecutarse."
+        },
+        "puntuacion": {
+          "type": ["number", "null"],
+          "minimum": 0,
+          "maximum": 100,
+          "description": "Mutation Score = detectados ÷ (detectados + sobrevivientes) × 100. null si no hubo mutantes evaluables o el estado no es ok."
+        },
+        "detectados": { "type": "integer", "minimum": 0, "description": "Mutantes que las pruebas detectaron (incluye timeouts)." },
+        "sobrevivientes": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["mutante", "linea", "cambio"],
+            "properties": {
+              "mutante": { "type": "string", "minLength": 1 },
+              "linea": { "type": ["integer", "null"], "minimum": 1 },
+              "cambio": { "type": "string" }
+            }
+          }
+        },
+        "mensaje": { "type": ["string", "null"], "description": "Explicación cuando el estado no es ok o no hay puntuación." },
+        "reutilizada": { "type": "boolean", "description": "#70. El resultado se tomó de .qagent/mutacion/ porque ni la función ni sus pruebas cambiaron." },
+        "run_origen": { "type": "string", "pattern": "^\\d{8}-\\d{6}-[0-9a-f]{4}$", "description": "#70. Corrida que calculó el resultado reutilizado." }
+      }
+    },
     "tokens": {
       "type": "object",
       "additionalProperties": false,
@@ -166,6 +201,11 @@
             "mutation": { "type": ["boolean", "null"] }
           }
         },
+        "mutacion": { "$ref": "#/$defs/mutacion" },
+        "casos_por_categoria": {
+          "$ref": "#/$defs/casos_por_categoria",
+          "description": "#76. Casos del contrato del objetivo por categoría. Opcional: las corridas anteriores no lo tienen."
+        },
         "motivo_estancado": {
           "enum": ["limite_intentos", "error_repetido", null],
           "description": "Por qué se cortó una prueba stalled: limite_intentos (3 intentos) o error_repetido (mismo hash de error dos veces seguidas). El intento del corte es metricas.iteraciones."
@@ -195,10 +235,20 @@
               "type": ["number", "null"],
               "minimum": 0,
               "maximum": 100,
-              "description": "Solo funciones critical: true; null hasta que EN-09 ejecute mutmut."
+              "description": "EN-09. Solo funciones critical: true aprobadas en el perfil Profundo; null si no se ejecutó mutmut o no hubo puntuación."
             }
           }
         }
+      }
+    },
+    "casos_por_categoria": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["normal", "limite", "error"],
+      "properties": {
+        "normal": { "type": "integer", "minimum": 0 },
+        "limite": { "type": "integer", "minimum": 0 },
+        "error": { "type": "integer", "minimum": 0 }
       }
     },
     "resumen": {
@@ -224,6 +274,10 @@
         "pass_rate": { "type": "number", "minimum": 0, "maximum": 100, "description": "% de funciones cuyo último test pasó." },
         "cobertura_lineas_promedio": { "type": ["number", "null"], "minimum": 0, "maximum": 100 },
         "cobertura_ramas_promedio": { "type": ["number", "null"], "minimum": 0, "maximum": 100, "description": "HU-18. Opcional: las corridas anteriores no lo tienen." },
+        "casos_por_categoria": {
+          "$ref": "#/$defs/casos_por_categoria",
+          "description": "#76. Total de casos de la corrida por categoría. Opcional: las corridas anteriores no lo tienen."
+        },
         "iteraciones_promedio": { "type": ["number", "null"], "minimum": 0, "maximum": 3, "description": "HU-18. Intentos promedio de las funciones con veredicto." },
         "costo_total_usd": { "type": "number", "minimum": 0 },
         "por_agente": {

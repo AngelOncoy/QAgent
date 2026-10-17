@@ -75,6 +75,8 @@ registrarComponente('vista-previa/vista-previa', `<!-- ===== 2. VISTA PREVIA Y C
               <th>Respuesta <span class="info" tabindex="0" role="button" aria-label="Modelo de datos que devuelve el endpoint, si está declarado." data-tip="Modelo de datos que devuelve el endpoint, si está declarado.">ⓘ</span></th>
               <th>Errores <span class="info" tabindex="0" role="button" aria-label="Cantidad de errores HTTP (HTTPException) que el endpoint puede lanzar." data-tip="Cantidad de errores HTTP (HTTPException) que el endpoint puede lanzar.">ⓘ</span></th>
               <th>Simula <span class="info" tabindex="0" role="button" aria-label="Dependencias de Depends() que QAgent simula al probar el endpoint." data-tip="Dependencias de Depends() que QAgent simula al probar el endpoint.">ⓘ</span></th>
+              <th>Decisiones <span class="info" tabindex="0" role="button" aria-label="Muestra cuántas estructuras condicionales se detectaron en el manejador del endpoint. Más condicionales pueden requerir más casos de prueba." data-tip="Muestra cuántas estructuras condicionales se detectaron en el manejador del endpoint. Más condicionales pueden requerir más casos de prueba.">ⓘ</span></th>
+              <th>Profundizar <span class="info" tabindex="0" role="button" aria-label="Solicita un análisis más exhaustivo del endpoint (mutación sobre su manejador). Puede requerir más tiempo de ejecución." data-tip="Solicita un análisis más exhaustivo del endpoint (mutación sobre su manejador). Puede requerir más tiempo de ejecución.">ⓘ</span></th>
               <th>Incluir <span class="info" tabindex="0" role="button" aria-label="Permite seleccionar si este endpoint formará parte de la corrida." data-tip="Permite seleccionar si este endpoint formará parte de la corrida.">ⓘ</span></th>
             </tr></thead>
             <tbody id="endpointTable"></tbody>
@@ -207,6 +209,8 @@ function cargarDatosVistaPrevia(res) {
       status_code_declarado: !!e.status_code_declarado,
       excepciones_http: (e.excepciones_http || []).map(x => ({ ...x })),
       dependencias: (e.dependencias || []).map(d => d.funcion).filter(Boolean),
+      br: e.ramas || 0,
+      crit: e.critica_propuesta ?? ((e.ramas || 0) > 0),
       inc: true
     }));
     const tieneObjetivos = fns.length > 0 || endpoints.length > 0;
@@ -268,6 +272,7 @@ async function loadProject(name, src, where, br='main', ruta=''){
     aplicarResumenDemo();   // modo demostración (navegador, sin Python)
   }
   HAS_PRIOR_RUN = await hayCorridaPrevia(ruta);
+  PRUEBAS_REPETIBLES = await pruebasRepetibles(ruta);
   ejecucionReal = null;
   reporteReal = null;
   if (typeof reiniciarVistasProyecto === 'function') reiniciarVistasProyecto();
@@ -287,6 +292,19 @@ function vaciarVistaPrevia() {
 }
 
 // Regresión requiere al menos una prueba aprobada persistida, no solo una corrida.
+// #70: funciones con prueba guardada que hoy se puede repetir, como "modulo::objetivo".
+// Sin pywebview (demostración) devuelve null y la configuración cuenta todas las marcadas.
+async function pruebasRepetibles(ruta) {
+  if (!(window.pywebview && window.pywebview.api && window.pywebview.api.pruebas_repetibles)) return null;
+  try {
+    const lista = await window.pywebview.api.pruebas_repetibles(ruta);
+    return new Set((lista || []).map(o => o.modulo + '::' + o.objetivo));
+  } catch (err) {
+    console.error("Error al consultar las pruebas guardadas:", err);
+    return new Set();
+  }
+}
+
 async function hayCorridaPrevia(ruta) {
   if (!(window.pywebview && window.pywebview.api && window.pywebview.api.tiene_pruebas_aprobadas)) return true;
   try {
@@ -530,6 +548,15 @@ function toggleEndpoint(indice, ei){
   renderTree();
 }
 
+// Profundizar de un endpoint (#74): como en funciones, no altera Incluir.
+function toggleEndpointCrit(indice, ei){
+  const m = MODULES[indice];
+  const e = m && !m.error ? (m.endpoints || [])[ei] : null;
+  if(!e || !endpointElegible(e)) return;
+  e.crit = !e.crit;
+  renderTree();
+}
+
 // Un módulo está marcado si tiene alguna función o algún endpoint analizable incluido.
 function moduloConSeleccion(m){
   return (m.fns || []).some(f => f.inc) || endpointsIncluidos(m).length > 0;
@@ -547,14 +574,15 @@ function sincronizarCheckboxesArchivoEndpoints(){
   });
 }
 
-/* Tabla de endpoints (issue #66): mismas 7 columnas en todas las filas, agrupadas por
-   archivo con encabezado plegable y "Incluir" por archivo y por endpoint. No inventa
+/* Tabla de endpoints (issue #66): mismas 9 columnas en todas las filas, agrupadas por
+   archivo con encabezado plegable y "Incluir" por archivo y por endpoint. Decisiones y
+   Profundizar (#74) siguen la misma regla que en funciones. No inventa
    datos: si el backend no entrega un campo, se muestra "—". */
 function renderEndpoints(){
   let h = '';
   MODULES.forEach((m, mi) => {
     if(m.error){
-      h += `<tr><td colspan="7" style="background:var(--panel2);color:var(--red-t);font-family:var(--mono);font-size:11px;padding:9px 12px">
+      h += `<tr><td colspan="9" style="background:var(--panel2);color:var(--red-t);font-family:var(--mono);font-size:11px;padding:9px 12px">
         <b>📄 ${escHtml(m.path)}</b> <span class="pill p-red" style="margin-left:8px">no se pudo analizar</span>
         <div class="sub" style="color:var(--red-t);margin-top:3px">
           Error de sintaxis (${escHtml(m.error.tipo || 'SyntaxError')}${m.error.linea ? ' en línea ' + m.error.linea : ''}): ${escHtml(m.error.mensaje || 'Error al analizar archivo')}
@@ -571,7 +599,7 @@ function renderEndpoints(){
     const inc = elegibles.filter(e => e.inc).length;
     const todosInc = !!m.sel && elegibles.length > 0 && inc === elegibles.length;
 
-    h += `<tr class="file-row"><td colspan="7"><div class="file-head">
+    h += `<tr class="file-row"><td colspan="9"><div class="file-head">
       <button type="button" class="file-toggle" aria-expanded="${abierto}" onclick="toggleArchivoEndpoints(${mi})" title="${abierto ? 'Ocultar endpoints' : 'Mostrar endpoints'}">${abierto ? '▾' : '▸'}</button>
       <span class="file-icon" aria-hidden="true">📄</span>
       <span class="file-path mono">${escHtml(m.path)}</span>
@@ -593,6 +621,8 @@ function renderEndpoints(){
         ? e.dependencias.map(d => `<span class="pill p-grey">${escHtml(d)}</span>`).join(' ')
         : '<span class="hint">Sin Depends</span>';
       const incluir = `<input type="checkbox" aria-label="Incluir endpoint: ${escHtml(e.objetivo || e.manejador || '')}" ${e.inc ? 'checked' : ''} ${elegible ? '' : 'disabled'} title="${elegible ? '' : 'Ruta no disponible: no se puede probar'}" onchange="toggleEndpoint(${mi},${ei})">`;
+      const nombreEp = escHtml(e.objetivo || e.manejador || '');
+      const profundizar = `<button type="button" class="star ${e.crit ? 'on' : ''}" aria-label="Profundizar: ${nombreEp}" aria-pressed="${e.crit ? 'true' : 'false'}" ${elegible ? '' : 'disabled'} title="Profundizar: solicita un análisis más exhaustivo del endpoint. Se aplica si activas Profundizar en la configuración de pruebas." onclick="toggleEndpointCrit(${mi},${ei})">${e.crit ? '★' : '☆'}</button>`;
       h += `<tr class="${elegible ? '' : 'ep-no-resuelta'}">
         <td class="fn"><span class="endpoint-method">${e.metodo ? escHtml(e.metodo) : 'SIN MÉTODO'}</span> <span class="endpoint-route">${e.ruta ? escHtml(e.ruta) : 'Ruta no disponible'}</span><div class="sub">${e.manejador ? escHtml(e.manejador) : '—'}</div></td>
         <td><span class="pill calidad-${cal}">${CALIDAD_TEXTO[cal]}</span></td>
@@ -600,11 +630,13 @@ function renderEndpoints(){
         <td class="mono">${respuesta}</td>
         <td class="mono" title="${escHtml(tipErr)}">${errores.length}</td>
         <td>${simula}</td>
+        <td class="mono">${e.br}</td>
+        <td>${profundizar}</td>
         <td>${incluir}</td>
       </tr>`;
     });
   });
-  $('endpointTable').innerHTML = h || '<tr><td colspan="7" class="hint">No se detectaron endpoints en el proyecto.</td></tr>';
+  $('endpointTable').innerHTML = h || '<tr><td colspan="9" class="hint">No se detectaron endpoints en el proyecto.</td></tr>';
   sincronizarCheckboxesArchivoEndpoints();
 }
 
@@ -739,13 +771,15 @@ function actualizarSeleccionTodos(){
   control.checked = habilitados.length > 0 && seleccionados === habilitados.length;
   control.indeterminate = seleccionados > 0 && seleccionados < habilitados.length;
 }
-// `criticas` (HU-06): funciones incluidas y marcadas en Profundizar; llegan al contrato como critical.
+// `criticas` (HU-06, #74): funciones y endpoints incluidos y marcados en Profundizar; llegan al
+// contrato como critical.
 function obtenerSeleccionObjetivos(){
   return MODULES.filter(m => m.sel && moduloTieneObjetivos(m)).map(m => ({
     ruta: m.path,
     funciones: (m.fns || []).filter(f => f.inc).map(f => f.n),
     endpoints: (m.endpoints || []).filter(e => endpointElegible(e) && e.inc).map(e => e.objetivo),
     criticas: (m.fns || []).filter(f => f.inc && f.crit).map(f => f.n)
+      .concat((m.endpoints || []).filter(e => endpointElegible(e) && e.inc && e.crit).map(e => e.objetivo))
   })).filter(m => m.funciones.length || m.endpoints.length);
 }
 

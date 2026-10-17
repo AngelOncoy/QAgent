@@ -64,6 +64,9 @@ class ResultadoObjetivo:
     duracion_s: float = 0.0
     reutilizada: bool = False
     motivo_regresion: str | None = None
+    #: Mutation testing de una función crítica aprobada (EN-09): estado, puntuacion,
+    #: detectados, sobrevivientes y mensaje. None si no se ejecutó mutmut.
+    mutacion: dict[str, Any] | None = None
 
 
 @dataclass
@@ -223,6 +226,12 @@ class Orquestador:
         plan = self._llamar("planner", self.planner.planificar, modulo)
         if not isinstance(plan, list):
             raise FalloControlado("El Planner no devolvió una lista de contratos")
+        # Avisos de las funciones (casos de más en Humo #75, categorías corregidas #76)
+        # y casos descartados, por ejemplo un límite sin oráculo (#76).
+        for aviso in getattr(self.planner, "avisos", None) or []:
+            self._emitir("planner", None, f"Aviso: {aviso}")
+        for descarte in getattr(self.planner, "descartados", None) or []:
+            self._emitir("planner", None, f"Caso descartado: {descarte}")
         plan_endpoints = self._planificar_endpoints(modulo)
         plan = [*plan, *plan_endpoints]
         for contrato in plan:
@@ -264,15 +273,24 @@ class Orquestador:
                 raise FalloControlado(
                     "La spec reutilizada no coincide con el módulo analizado"
                 )
-        # HU-06: la marca Profundizar es la de esta corrida, no la que se guardó.
-        # Las funciones que no vienen en el módulo conservan su marca guardada.
+        # HU-06 y #74: la marca Profundizar es la de esta corrida, no la que se guardó.
+        # Los objetivos que no vienen en el módulo conservan su marca guardada.
         marcas = {
-            funcion.get("nombre"): bool(funcion.get("critical", False))
+            ("funcion", funcion.get("nombre")): bool(funcion.get("critical", False))
             for funcion in modulo.get("funciones") or []
         }
+        marcas.update(
+            {
+                ("endpoint", endpoint.get("objetivo")): bool(
+                    endpoint.get("critical", False)
+                )
+                for endpoint in modulo.get("endpoints") or []
+            }
+        )
         for contrato in copia:
-            if contrato["tipo"] == "funcion" and contrato["objetivo"] in marcas:
-                contrato["critical"] = marcas[contrato["objetivo"]]
+            clave = (contrato["tipo"], contrato["objetivo"])
+            if clave in marcas:
+                contrato["critical"] = marcas[clave]
         self.tracker.fijar_contexto(None, None)
         self._emitir(
             "planner",

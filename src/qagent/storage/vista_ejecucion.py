@@ -18,9 +18,21 @@ from typing import Any
 
 from qagent import contracts
 from qagent.contracts import ContratoInvalido
-from qagent.storage.registro import CARPETA_RUNS
+from qagent.storage.registro import (
+    CARPETA_RUNS,
+    MUTATION_SCORE_MIN,
+    PERFIL_HUMO,
+    PERFILES_CON_MUTACION,
+    nombre_perfil,
+)
 
 ARCHIVO = "results.json"
+#: Nombre de cada categoría de caso en singular y plural (#76).
+NOMBRES_CATEGORIA = {
+    "normal": ("normal", "normales"),
+    "limite": ("límite", "límites"),
+    "error": ("error", "errores"),
+}
 AGENTES = ("planner", "generator", "reviewer")
 
 #: Estado de cada prueba en la vista y su etiqueta (filtros y tabla).
@@ -113,6 +125,10 @@ def vista_ejecucion(results: dict[str, Any]) -> dict[str, Any]:
         "run_id": results["run_id"],
         "fecha": results["fecha"],
         "perfil": results["perfil"],
+        "perfil_nombre": nombre_perfil(results["perfil"]),
+        # #75: Humo prueba un caso normal por objetivo; el Pass Rate es lo principal y
+        # la cobertura de ramas no se exige.
+        "es_humo": results["perfil"] == PERFIL_HUMO,
         "es_simulado": results["es_simulado"],
         "estado_final": results["estado_final"],
         "motivo_fallo": results["motivo_fallo"],
@@ -121,10 +137,13 @@ def vista_ejecucion(results: dict[str, Any]) -> dict[str, Any]:
         "metas_registradas": metas is not None,
         "indicadores": {
             "pass_rate": _pass_rate(objetivos, resumen, metas),
-            "cobertura": _cobertura(objetivos, resumen, metas),
+            "cobertura": {
+                **_cobertura(objetivos, resumen, metas),
+                "exige_ramas": results["perfil"] != PERFIL_HUMO,
+            },
             "iteraciones": _iteraciones(objetivos, resumen, metas),
             "costo": _costo(objetivos, resumen, metas),
-            "mutation_score": {"disponible": False, "texto": "Disponible en Sprint 2"},
+            "mutation_score": _mutation_score(objetivos, results["perfil"]),
         },
         "filtros": [
             {
@@ -148,6 +167,23 @@ def vista_ejecucion(results: dict[str, Any]) -> dict[str, Any]:
         ],
         "modulos": _por_modulo(objetivos, estados),
     }
+
+
+def categorias_de(objetivo: dict[str, Any]) -> dict[str, int] | None:
+    """Casos por categoría de un objetivo (#76); None en corridas anteriores."""
+    conteo = objetivo.get("casos_por_categoria")
+    return dict(conteo) if isinstance(conteo, dict) else None
+
+
+def texto_categorias(conteo: dict[str, int] | None) -> str | None:
+    """«2 normales · 1 límite · 1 error» (#76); None si no hay conteo."""
+    if not conteo:
+        return None
+    partes = []
+    for categoria, (singular, plural) in NOMBRES_CATEGORIA.items():
+        cantidad = conteo.get(categoria, 0)
+        partes.append(f"{cantidad} {singular if cantidad == 1 else plural}")
+    return " · ".join(partes)
 
 
 def tipo_de(objetivo: dict[str, Any]) -> str:
@@ -264,6 +300,40 @@ def _costo(objetivos, resumen, metas) -> dict[str, Any]:
     }
 
 
+def _mutation_score(objetivos, perfil: str) -> dict[str, Any]:
+    """Promedio del Mutation Score de las funciones críticas y endpoints prioritarios
+    que lo tienen (EN-09, #74)."""
+    criticas = [o for o in objetivos if o.get("critical")]
+    medidos = [o for o in criticas if o["metricas"]["mutation_score"] is not None]
+    valores = [o["metricas"]["mutation_score"] for o in medidos]
+    if valores:
+        valor = round(sum(valores) / len(valores), 1)
+        endpoints = sum(1 for o in medidos if tipo_de(o) == "endpoint")
+        funciones = len(medidos) - endpoints
+        partes = [f"{funciones} función(es) crítica(s)"] if funciones else []
+        if endpoints:
+            partes.append(f"{endpoints} endpoint(s) prioritario(s)")
+        return {
+            "disponible": True,
+            "valor": valor,
+            "meta": MUTATION_SCORE_MIN,
+            "cumple": valor >= MUTATION_SCORE_MIN,
+            "funciones": funciones,
+            "endpoints": endpoints,
+            "texto": f"{' y '.join(partes)} · meta ≥ {MUTATION_SCORE_MIN} %",
+        }
+    if perfil not in PERFILES_CON_MUTACION:
+        texto = "No se midió: la corrida no usó Profundizar"
+    elif not criticas:
+        texto = (
+            "No se midió: no hay funciones marcadas para profundizar "
+            "ni endpoints prioritarios"
+        )
+    else:
+        texto = "mutmut no dio un Mutation Score: el motivo está en el informe"
+    return {"disponible": False, "texto": texto}
+
+
 def _promedio(objetivos, metrica: str, decimales: int, sin_ceros: bool = False):
     valores = [
         o["metricas"][metrica]
@@ -292,6 +362,7 @@ def _por_modulo(objetivos, estados) -> list[dict[str, Any]]:
                 "cobertura_ramas": metricas["cobertura_ramas"],
                 "motivo_estancado": objetivo["motivo_estancado"],
                 "critical": objetivo["critical"],
+                "categorias": texto_categorias(categorias_de(objetivo)),  # #76
             }
         )
     return [{"modulo": m, "pruebas": pruebas} for m, pruebas in modulos.items()]

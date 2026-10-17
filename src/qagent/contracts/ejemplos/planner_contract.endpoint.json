@@ -34,7 +34,8 @@
           "precio": 2.5
         }
       },
-      "origen": "status_code"
+      "origen": "status_code",
+      "categoria": "normal"
     },
     {
       "id": "precio_cero",
@@ -50,7 +51,8 @@
       "valor_esperado": {
         "status_code": 422
       },
-      "origen": "modelo_pydantic"
+      "origen": "modelo_pydantic",
+      "categoria": "error"
     },
     {
       "id": "nombre_vacio",
@@ -66,7 +68,8 @@
       "valor_esperado": {
         "status_code": 422
       },
-      "origen": "modelo_pydantic"
+      "origen": "modelo_pydantic",
+      "categoria": "error"
     }
   ]
 }

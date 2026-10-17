@@ -32,7 +32,11 @@ def test_la_eleccion_por_defecto_equivale_al_perfil_por_defecto() -> None:
 def test_la_eleccion_se_traduce_a_los_cuatro_perfiles_del_backend() -> None:
     cuerpo = cuerpo_de(config(), "function perfilDeEleccion", "function elegirPruebas")
 
-    assert "if (modo === 'repetir') return 'reg';" in cuerpo
+    # #70: repetir puede además profundizar (reg_deep) si hay prioritarias repetibles.
+    assert (
+        "if (modo === 'repetir') return profundizarRepetir && repetibles > 0 ? 'reg_deep' : 'reg';"
+        in cuerpo
+    )
     assert "if (tipo === 'humo') return 'humo';" in cuerpo
     assert "return profundizar && prioritarias > 0 ? 'deep' : 'std';" in cuerpo
 
@@ -45,7 +49,10 @@ def test_elegir_recalcula_el_perfil_y_desbloquea_el_monitor() -> None:
     assert "eleccionPruebas = {...eleccionPruebas, ...cambio};" in elegir
     assert "calc();" in elegir
     assert "desbloquearVista('monitor')" in elegir
-    assert "profile = perfilDeEleccion(eleccionPruebas, prioritarias);" in recalcular
+    assert (
+        "profile = perfilDeEleccion(eleccionPruebas, prioritarias, repetibles);"
+        in recalcular
+    )
 
 
 def test_la_pantalla_pregunta_que_hacer_y_el_tipo_de_prueba() -> None:

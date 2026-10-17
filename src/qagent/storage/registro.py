@@ -31,6 +31,32 @@ CARPETA_RUNS = Path(".qagent") / "runs"
 ARCHIVO_DETALLE = "detalle.json"
 #: Mínimo de cobertura si la corrida no trae metas (meta de la carta, ADR-001).
 COBERTURA_MINIMA = 60.0
+#: Meta de Mutation Score de las funciones críticas (ADR-001).
+MUTATION_SCORE_MIN = 60
+
+#: Perfiles de la corrida (`start_run`). `reg_deep` repite las pruebas guardadas y
+#: además aplica mutmut a las funciones críticas (#70).
+PERFIL_HUMO = "humo"  # un caso normal por objetivo (#75)
+PERFIL_PROFUNDO = "deep"
+PERFIL_REGRESION = "reg"
+PERFIL_REGRESION_PROFUNDA = "reg_deep"
+PERFILES_REGRESION = frozenset({PERFIL_REGRESION, PERFIL_REGRESION_PROFUNDA})
+PERFILES_CON_MUTACION = frozenset({PERFIL_PROFUNDO, PERFIL_REGRESION_PROFUNDA})
+#: Nombre de cada perfil en el informe, la ejecución y el historial (los de #69).
+NOMBRES_PERFIL = {
+    PERFIL_HUMO: "Humo",
+    "std": "Estándar",
+    PERFIL_PROFUNDO: "Estándar + profundizar",
+    PERFIL_REGRESION: "Repetir pruebas guardadas",
+    PERFIL_REGRESION_PROFUNDA: "Repetir pruebas guardadas + profundizar",
+}
+
+
+def nombre_perfil(perfil: str | None) -> str:
+    """Nombre legible de un perfil; si es desconocido, el propio identificador."""
+    return NOMBRES_PERFIL.get(perfil or "", perfil or "—")
+
+
 #: Caracteres que se guardan de cada salida de pytest o comentario del Reviewer.
 LARGO_MAXIMO_TRAZA = 4000
 VERSION = "1"
@@ -236,7 +262,7 @@ def construir_results(
 ) -> dict[str, Any]:
     """Contenido de results.json: las 5 métricas por función y un resumen."""
     objetivos = [
-        _objetivo(resultado.modulo, objetivo, tracker, metas)
+        _objetivo(resultado.modulo, objetivo, tracker, metas, perfil)
         for resultado in resultados
         for objetivo in resultado.objetivos
     ]
@@ -293,10 +319,12 @@ def _objetivo(
     objetivo: Any,
     tracker: TokenTracker,
     metas: dict[str, float] | None = None,
+    perfil: str | None = None,
 ) -> dict[str, Any]:
     ultima = objetivo.revisiones[-1] if objetivo.revisiones else None
     cobertura = objetivo.cobertura or {}
-    return {
+    mutacion = getattr(objetivo, "mutacion", None)
+    datos = {
         "modulo": modulo,
         "funcion": objetivo.objetivo,
         "tipo": (objetivo.contrato or {}).get("tipo", "funcion"),  # EN-16
@@ -307,16 +335,24 @@ def _objetivo(
         "motivo_regresion": objetivo.motivo_regresion,
         "laundering_detectado": objetivo.laundering_detectado,  # HU-16
         "duracion_s": objetivo.duracion_s,
-        "controles": controles(objetivo, metas),  # HU-21
+        "controles": controles(objetivo, metas, perfil),  # HU-21
         "metricas": {
             "paso": ultima is not None and ultima["estado_sandbox"] == "ok",
             "cobertura_lineas": cobertura.get("lineas"),
             "cobertura_ramas": cobertura.get("ramas"),
             "iteraciones": objetivo.intentos,
             "tokens_por_agente": tracker.tokens_de_funcion(objetivo.objetivo),
-            "mutation_score": None,  # EN-09
+            "mutation_score": (mutacion or {}).get("puntuacion"),  # EN-09
         },
     }
+    if mutacion is not None:
+        datos["mutacion"] = mutacion  # EN-09: detalle de mutmut y sobrevivientes
+    if objetivo.contrato is not None:
+        # #76: casos del contrato por categoría (las de specs anteriores se infieren).
+        datos["casos_por_categoria"] = contracts.contar_categorias(
+            objetivo.contrato.get("casos")
+        )
+    return datos
 
 
 def _resumen(
@@ -339,6 +375,13 @@ def _resumen(
         "pass_rate": round(pasaron / total * 100, 1) if total else 0.0,
         "cobertura_lineas_promedio": _promedio(objetivos, "cobertura_lineas"),
         "cobertura_ramas_promedio": _promedio(objetivos, "cobertura_ramas"),
+        "casos_por_categoria": {  # #76
+            categoria: sum(
+                (o.get("casos_por_categoria") or {}).get(categoria, 0)
+                for o in objetivos
+            )
+            for categoria in contracts.CATEGORIAS
+        },
         "iteraciones_promedio": (
             round(sum(iteraciones) / len(iteraciones), 2) if iteraciones else None
         ),
@@ -358,7 +401,9 @@ def _promedio(objetivos: list[dict[str, Any]], metrica: str) -> float | None:
     return round(sum(valores) / len(valores), 1) if valores else None
 
 
-def controles(objetivo: Any, metas: dict[str, float] | None) -> dict[str, Any]:
+def controles(
+    objetivo: Any, metas: dict[str, float] | None, perfil: str | None = None
+) -> dict[str, Any]:
     """Los 5 controles del checklist de una función (HU-21).
 
     Cada uno es True (cumple), False (no cumple) o None (sin dato o no aplica):
@@ -369,13 +414,16 @@ def controles(objetivo: Any, metas: dict[str, float] | None) -> dict[str, Any]:
     - aserciones: el último test no debilitó aserciones (laundering) y cada valor
       esperado es trazable al contrato del Planner.
     - cobertura: líneas y ramas ≥ la meta (si la función no tiene ramas, solo líneas).
-    - mutation: Mutation Score ≥ 60 % en funciones críticas; None mientras EN-09 no
-      ejecute mutmut o si la función no es crítica.
+      En Humo (#75) solo líneas: un caso normal no busca cubrir las ramas.
+    - mutation: Mutation Score ≥ 60 % en funciones críticas (EN-09); None si la
+      función no es crítica, no se ejecutó mutmut o no hubo puntuación (por ejemplo,
+      tiempo agotado).
     """
     ultima = objetivo.revisiones[-1] if objetivo.revisiones else None
     minimo = (metas or {}).get("cobertura_lineas_min", COBERTURA_MINIMA)
     cobertura = objetivo.cobertura or {}
     lineas, ramas = cobertura.get("lineas"), cobertura.get("ramas")
+    score = (getattr(objetivo, "mutacion", None) or {}).get("puntuacion")
     return {
         "sintaxis": None if objetivo.codigo is None else _compila(objetivo.codigo),
         "sandbox": None
@@ -388,8 +436,11 @@ def controles(objetivo: Any, metas: dict[str, float] | None) -> dict[str, Any]:
         and not ultima["feedback"].startswith("Oráculo inválido"),
         "cobertura": None
         if lineas is None
-        else lineas >= minimo and (ramas is None or ramas >= minimo),
-        "mutation": None,  # EN-09 (Sprint 2): mutmut sobre funciones críticas
+        else lineas >= minimo
+        and (ramas is None or perfil == PERFIL_HUMO or ramas >= minimo),
+        "mutation": None
+        if not objetivo.critical or score is None
+        else score >= MUTATION_SCORE_MIN,
     }
 
 

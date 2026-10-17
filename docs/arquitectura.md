@@ -165,7 +165,7 @@ flowchart TB
 | Analizador | `src/qagent/analysis/` | Análisis estático con `ast`: firmas, tipos, docstrings, ramas, rutas FastAPI, `llama_a`, SHA-256. | EN-02, EN-14 |
 | Cliente LLM | `src/qagent/llm/` | Llama a la API del modelo de cada agente (o a la IA simulada) y registra el `usage`. | EN-05, EN-11 |
 | Sandbox | `src/qagent/sandbox/` | Prepara la imagen, copia el proyecto y ejecuta pytest, coverage y mutmut. | EN-03, EN-09 |
-| Almacenamiento | `src/qagent/almacenamiento/` | `AlmacenProyecto`: crea `.qagent/` y lee y escribe `runs/<run_id>/run.json`, `specs/` y `tests/` (pruebas aprobadas); `recientes.py`: `~/.qagent/recientes.json`. Escritura atómica en UTF-8. | EN-07, HU-01, HU-03 |
+| Almacenamiento | `src/qagent/almacenamiento/` | `AlmacenProyecto`: crea `.qagent/` y lee y escribe `runs/<run_id>/run.json`, `specs/`, `tests/` (pruebas aprobadas) y `mutacion/` (último Mutation Score por función, #70); `recientes.py`: `~/.qagent/recientes.json`. Escritura atómica en UTF-8. | EN-07, HU-01, HU-03 |
 | Registro de corridas | `src/qagent/storage/` | `log.json` y `results.json` de cada corrida, validados contra `run_log.schema.json`. | EN-05 |
 | Configuración | `src/qagent/config/` | Carga `config.toml` y `.env`, audita las claves y verifica Docker y Git. | EN-06 |
 | Contratos | `src/qagent/contracts/` | JSON Schema de cada mensaje; se validan en cada paso. | EN-01 |
@@ -365,7 +365,6 @@ Deuda conocida: `config` y `llm` se importan mutuamente (`llm/fabrica.py` lo res
 | Tope de gasto: `tope_por_corrida_usd` se carga, pero el orquestador no lo consulta. | `config/carga.py` | Sección 6.3 |
 | Caché del plan por SHA-256 del módulo. | — | HU-24 |
 | Corte por causa común entre objetivos distintos. Hoy el hash repetido se detecta solo dentro de un mismo objetivo. | `decidir_corte()` | Sección 6.4, regla 4 |
-| Mutation testing de las funciones `critical: true`. | — | EN-09 |
 
 ---
 
@@ -710,14 +709,20 @@ La pantalla hace dos preguntas y traduce la respuesta al perfil que recibe `star
 | Generar pruebas nuevas | Humo | — (no disponible) | `humo` |
 | Generar pruebas nuevas | Estándar | No, o sin funciones prioritarias | `std` |
 | Generar pruebas nuevas | Estándar | Sí | `deep` |
-| Repetir pruebas guardadas | — | — | `reg` |
+| Repetir pruebas guardadas | — | No, o sin prioritarias con prueba guardada vigente | `reg` |
+| Repetir pruebas guardadas | — | Sí | `reg_deep` |
 
 Profundizar no es un perfil aparte sino una casilla dentro de Estándar, porque añade la capa de caja blanca encima de las pruebas normales: la mutación mide qué tan buenas son las pruebas que ya existen, así que necesita una base completa. Con Humo (un solo caso por objetivo) casi todos los mutantes sobrevivirían y el resultado no aportaría información. «Repetir pruebas guardadas» tampoco es un nivel de profundidad: es otra acción, que vuelve a ejecutar sin IA las pruebas aprobadas cuyo código no cambió (HU-25).
+
+Al repetir, Profundizar (#70) mide sin gastar tokens qué tan fuertes son las pruebas que ya están guardadas, por ejemplo las que se aprobaron con Estándar. Solo cuentan las funciones marcadas que tienen hoy una prueba guardada vigente (`objetivos_repetibles`): las que requieren corrida nueva o fallaron no se mutan, porque su prueba no sirve hoy para juzgar a los mutantes. La casilla viene desmarcada, para que repetir no se vuelva lento sin pedirlo.
 
 ### 10.4 Por qué Profundizar solo en funciones prioritarias
 
 - **Regla del alcance:** mutmut solo se ejecuta sobre funciones `critical: true`, nunca sobre el repositorio completo (RN-04).
-- **Costo:** por cada función, mutmut crea decenas de versiones alteradas del código y ejecuta las pruebas contra cada una; aplicarlo a todo puede llevar horas.
+- **Costo:** por cada función, mutmut crea decenas de versiones alteradas del código y ejecuta las pruebas contra cada una; aplicarlo a todo puede llevar horas. El tiempo máximo por función se fija en `[mutacion]` de `config.toml`.
+- **Cálculo:** Mutation Score = mutantes detectados ÷ (detectados + sobrevivientes) × 100. Un mutante que agota el tiempo cuenta como detectado; uno sin pruebas que lo cubran, como sobreviviente. La meta es 60 % (ADR-001).
+- **Cómo se ejecuta (`sandbox/mutacion.py`):** las pruebas aprobadas se copian dentro de la copia del proyecto antes de llamar a mutmut. mutmut identifica las pruebas con rutas relativas; si quedan fuera del proyecto no las encuentra y cuenta cada mutante como «killed», lo que daría un 100 % falso. Si el proyecto ya tiene `[tool.mutmut]` en `pyproject.toml`, QAgent no la sobrescribe y no ejecuta la mutación.
+- **Reutilización (#70):** cada resultado con puntuación se guarda en `.qagent/mutacion/<spec>.json` con la huella AST de la función y la huella de las pruebas usadas (todas las aprobadas del módulo, porque cualquiera puede detectar un mutante). Si ninguna de las dos cambió, la siguiente corrida con Profundizar reutiliza el resultado sin ejecutar mutmut y el informe dice de qué corrida salió. Un tiempo agotado o un error no se guardan: se vuelven a intentar.
 - **Pruebas basadas en riesgo:** el esfuerzo se concentra donde un fallo es más probable o más grave. Ninguna función se deja sin probar: todas reciben su prueba Estándar.
 
 QAgent propone como prioritaria toda función con al menos una decisión (`if`/`elif`, ternario, `for`, `while`, `except`, `case` o `if` de comprensión; `contar_ramas` en `analysis/analyzer.py`). Una función sin decisiones tiene un solo camino, así que profundizar aporta poco, pero el usuario puede marcarla igual si es importante (por ejemplo, un cálculo de dinero), porque la mutación también cambia operadores y constantes (HU-06).
@@ -729,8 +734,10 @@ QAgent propone como prioritaria toda función con al menos una decisión (`if`/`
 | Pruebas unitarias y de API, regresión sin IA | Implementado | HU-27 · HU-25 |
 | Pantalla de configuración como opciones | Implementado | #69 |
 | Humo con un solo caso por objetivo | Pendiente: hoy el backend trata `humo` igual que `std` | Issue «Feat: perfil Humo con un caso normal por objetivo» |
-| Marcas de función prioritaria hasta la corrida | Pendiente: la selección no envía las marcas y todas llegan como `critical: false` | HU-06 |
-| Mutación (Profundizar) | Pendiente: el campo `mutation` de `results.json` queda en `null` | EN-09 |
+| Marcas de función prioritaria hasta la corrida | Implementado: la selección envía las marcas y el spec reutilizado toma la marca actual | HU-06 |
+| Mutación (Profundizar) | Implementado en el perfil Profundo: mutmut en el sandbox solo sobre las funciones críticas aprobadas; Mutation Score y sobrevivientes en `results.json` y en el informe | EN-09 |
+| Mutación al repetir pruebas guardadas | Implementado (`reg_deep`): sin IA, solo sobre las críticas con prueba guardada vigente, con reutilización del resultado si nada cambió | #70 |
+| Mutación en endpoints | Pendiente | Issue de endpoints con caja blanca |
 | Categoría de cada caso (normal / límite / error) | Pendiente | Issue «Feat: categoría de cada caso de prueba» |
 
 ---

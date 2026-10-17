@@ -209,18 +209,18 @@ function metaTexto(cumple, conMeta, sinMeta){
   return `<div class="ks" style="color:${cumple?'var(--emerald-400)':'var(--amber-400)'}">${I(cumple?'check':'warn','currentColor',12)} ${conMeta}</div>`;
 }
 function renderExecRealKpis(v){
-  const k = v.indicadores, pr = k.pass_rate, cv = k.cobertura, it = k.iteraciones, cs = k.costo;
+  const k = v.indicadores, pr = k.pass_rate, cv = k.cobertura, it = k.iteraciones, cs = k.costo, ms = k.mutation_score;
   const barra = x => Math.max(0, Math.min(100, Number(x) || 0));
   const agentes = Object.entries(cs.por_agente).map(([a, f]) => { const [l, c] = AGENTE_REAL[a] || [a, 'var(--mut)'];
     return `<div class="kscale"><span style="color:${c}" title="${escHtml(a)}">${l}</span><span>${f.tokens.toLocaleString('es-PE')} tok · ${usdReal(f.costo_usd)}</span></div>`; }).join('');
   $('kpis').innerHTML = `
-  <div class="kpi"><div class="kh"><span>PASS RATE</span>${I('checkc','var(--emerald-400)',15)}</div>
+  <div class="kpi"><div class="kh"><span>PASS RATE${v.es_humo ? ' · MÉTRICA PRINCIPAL (HUMO)' : ''}</span>${I('checkc','var(--emerald-400)',15)}</div>
     <div class="kmid"><div class="kv">${numReal(pr.valor)} <small>${pr.meta===null?'':'/ meta ≥ ' + numReal(pr.meta, 0)}</small></div>
     ${metaTexto(pr.cumple, `${pr.cumple?'Dentro de la meta':'Bajo la meta'} · ${pr.pasaron}/${pr.total} pruebas sin error`, 'Meta no registrada en esta corrida')}</div>
     <div><div class="kb"><i style="width:${barra(pr.valor)}%;background:linear-gradient(90deg,var(--emerald-500),var(--teal-400))"></i></div></div></div>
   <div class="kpi"><div class="kh"><span>COBERTURA CÓDIGO</span>${I('merge','var(--blue-400)',15)}</div>
     <div class="kmid"><div class="kv">${numReal(cv.lineas)} <small>líneas</small></div>
-    <div class="ks" style="color:var(--blue-400)">${numReal(cv.ramas)} de ramas</div>
+    <div class="ks" style="color:var(--blue-400)">${numReal(cv.ramas)} de ramas${cv.exige_ramas === false ? ' · no se exigen en Humo' : ''}</div>
     ${metaTexto(cv.cumple, `Meta ≥ ${numReal(cv.meta_lineas, 0)} de líneas ${cv.cumple?'alcanzada':'no alcanzada'}`, 'Meta no registrada en esta corrida')}</div>
     <div><div class="kb"><i style="width:${barra(cv.lineas)}%;background:var(--blue-500)"></i></div><div class="kb thin"><i style="width:${barra(cv.ramas)}%;background:var(--indigo-400)"></i></div></div></div>
   <div class="kpi"><div class="kh"><span>ITERACIONES PROMEDIO</span>${I('refresh','var(--purple-400)',15)}</div>
@@ -232,8 +232,8 @@ function renderExecRealKpis(v){
     ${metaTexto(cs.cumple, `Tope por corrida: ${usdReal(cs.tope_usd)} ${cs.cumple?'respetado':'superado'}`, 'Tope no registrado en esta corrida')}</div>
     <div>${agentes}</div></div>
   <div class="kpi"><div class="kh"><span>MUTATION SCORE</span>${I('dna','var(--rose-400)',15)}</div>
-    <div class="kmid"><div class="kv" style="color:var(--mut)">—</div>
-    <div class="ks" style="color:var(--mut)">${escHtml(k.mutation_score.texto)}</div></div></div>`;
+    <div class="kmid"><div class="kv" style="color:${ms.disponible ? (ms.cumple ? 'var(--emerald-400)' : 'var(--rose-400)') : 'var(--mut)'}">${ms.disponible ? numReal(ms.valor, 1) : '—'}</div>
+    <div class="ks" style="color:var(--mut)">${escHtml(ms.texto)}</div></div></div>`;
 }
 function actualizarBarraReal(v){   // barra superior: la corrida que se está mostrando
   const ok = v.estado_final === 'fin';
@@ -284,7 +284,7 @@ function renderExecReal(v){
       ${g.pruebas.map(p => { const e = ESTADO_REAL[p.estado], s = ST[e.st].exec;
         const etiqueta = p.estado==='estancado' ? `Estancado ${p.intento_final}/3` + (MOTIVO_ESTANCADO[p.motivo_estancado] ? ` · ${MOTIVO_ESTANCADO[p.motivo_estancado]}` : '') : e.txt;
         return `<div class="fnrow"><div class="fnhead" style="cursor:default">
-          <div class="l"><span class="nm">${I(s[0],s[1],16)} ${p.tipo==='endpoint'?escHtml(p.identificador):`test_${escHtml(p.identificador)}()`}</span><span class="bdg ${p.tipo==='endpoint'?'b-blue':'b-grey'}">${p.tipo==='endpoint'?'Endpoint':'Función'}</span>${p.critical?'<span class="bdg b-orc">Crítica</span>':''}</div>
+          <div class="l"><span class="nm">${I(s[0],s[1],16)} ${p.tipo==='endpoint'?escHtml(p.identificador):`test_${escHtml(p.identificador)}()`}</span><span class="bdg ${p.tipo==='endpoint'?'b-blue':'b-grey'}">${p.tipo==='endpoint'?'Endpoint':'Función'}</span>${p.critical?'<span class="bdg b-orc">Crítica</span>':''}${p.categorias?`<span class="bdg b-grey" title="Casos del contrato por categoría">${escHtml(p.categorias)}</span>`:''}</div>
           <div class="r"><span>Intento final: <b style="color:${p.intento_final>1?'var(--amber-400)':'var(--slate-200)'}">${Number(p.intento_final)}/3</b></span>
             <span>${I('clock','var(--slate-300-c)',12)} ${tiempoReal(p.duracion_s)}</span>
             <span>Cov: <b style="color:var(--blue-400)">${numReal(p.cobertura_lineas)}</b> líneas · <b style="color:var(--blue-400)">${numReal(p.cobertura_ramas)}</b> ramas</span>

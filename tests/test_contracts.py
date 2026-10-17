@@ -330,3 +330,74 @@ def test_caso_de_funcion_no_sirve_para_un_endpoint() -> None:
     dato = endpoint()
     dato["casos"] = ejemplo(PLANNER)["casos"]
     assert not es_valido(PLANNER, dato)
+
+
+# --- EN-09: mutation testing en results.json -------------------------------------
+
+MUTACION = {
+    "estado": "ok",
+    "puntuacion": 75.0,
+    "detectados": 3,
+    "sobrevivientes": [
+        {"mutante": "calc.x_f__mutmut_2", "linea": 12, "cambio": "x > 1 → x >= 1"}
+    ],
+    "mensaje": None,
+}
+
+
+def resultados_con_mutacion(mutacion: dict[str, Any]) -> dict[str, Any]:
+    dato = ejemplo("run_log.results")
+    objetivo = dato["objetivos"][0]
+    objetivo["critical"] = True
+    objetivo["metricas"]["mutation_score"] = mutacion.get("puntuacion")
+    objetivo["mutacion"] = mutacion
+    return dato
+
+
+def test_results_acepta_el_detalle_de_mutacion() -> None:
+    assert es_valido(RUN_LOG, resultados_con_mutacion(copy.deepcopy(MUTACION)))
+
+
+def test_results_acepta_mutacion_sin_puntuacion() -> None:
+    mutacion = {
+        **MUTACION,
+        "estado": "tiempo_agotado",
+        "puntuacion": None,
+        "detectados": 0,
+        "sobrevivientes": [],
+        "mensaje": "Se agotó el tiempo máximo de la mutación (120 s).",
+    }
+    assert es_valido(RUN_LOG, resultados_con_mutacion(mutacion))
+
+
+@pytest.mark.parametrize(
+    "cambio",
+    [
+        {"estado": "inventado"},
+        {"puntuacion": 120},
+        {"detectados": -1},
+        {"sobrevivientes": [{"mutante": "m", "linea": 0, "cambio": ""}]},
+        {"sobrevivientes": [{"mutante": "m", "cambio": ""}]},
+    ],
+)
+def test_results_rechaza_mutacion_invalida(cambio) -> None:
+    assert not es_valido(RUN_LOG, resultados_con_mutacion({**MUTACION, **cambio}))
+
+
+def test_results_rechaza_mutacion_sin_campos_obligatorios() -> None:
+    mutacion = copy.deepcopy(MUTACION)
+    del mutacion["sobrevivientes"]
+    assert not es_valido(RUN_LOG, resultados_con_mutacion(mutacion))
+
+
+def test_results_acepta_mutacion_reutilizada() -> None:
+    """#70: el resultado puede venir de .qagent/mutacion/ con su corrida de origen."""
+    mutacion = {**MUTACION, "reutilizada": True, "run_origen": "20261017-101500-abcd"}
+    assert es_valido(RUN_LOG, resultados_con_mutacion(mutacion))
+
+
+@pytest.mark.parametrize(
+    "cambio", [{"reutilizada": "si"}, {"run_origen": "ayer"}, {"run_origen": None}]
+)
+def test_results_rechaza_reutilizacion_invalida(cambio) -> None:
+    assert not es_valido(RUN_LOG, resultados_con_mutacion({**MUTACION, **cambio}))
