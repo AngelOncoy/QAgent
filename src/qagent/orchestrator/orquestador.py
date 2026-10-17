@@ -264,6 +264,15 @@ class Orquestador:
                 raise FalloControlado(
                     "La spec reutilizada no coincide con el módulo analizado"
                 )
+        # HU-06: la marca Profundizar es la de esta corrida, no la que se guardó.
+        # Las funciones que no vienen en el módulo conservan su marca guardada.
+        marcas = {
+            funcion.get("nombre"): bool(funcion.get("critical", False))
+            for funcion in modulo.get("funciones") or []
+        }
+        for contrato in copia:
+            if contrato["tipo"] == "funcion" and contrato["objetivo"] in marcas:
+                contrato["critical"] = marcas[contrato["objetivo"]]
         self.tracker.fijar_contexto(None, None)
         self._emitir(
             "planner",
