@@ -90,3 +90,12 @@
   --fuchsia-950-a80:rgba(74,4,78,0.8);
   --pink-400:#f472b6;
 }
+
+/* Semáforo de Calidad de la Vista previa (issue #65): reutiliza los colores semánticos
+   existentes. Cada estado lleva color + texto, para que se entienda sin depender del color. */
+:root{
+  --calidad-lista-t:var(--green-t); --calidad-lista-bg:var(--green-s); --calidad-lista-b:var(--green-b);
+  --calidad-mejorable-t:var(--amber-t); --calidad-mejorable-bg:var(--amber-s); --calidad-mejorable-b:var(--amber-b);
+  --calidad-incierto-t:var(--red-t); --calidad-incierto-bg:var(--red-s); --calidad-incierto-b:var(--red-b);
+  --tooltip-bg:var(--slate-950); --tooltip-t:var(--slate-200); --tooltip-b:var(--line2);
+}

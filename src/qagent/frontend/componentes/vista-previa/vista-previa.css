@@ -28,3 +28,29 @@
   #s-preview .page{padding-top:12px;padding-bottom:16px;gap:10px}
   #s-preview .card .bd{padding-top:10px;padding-bottom:10px}
 }
+
+/* ---- Issue #65: funciones agrupadas por archivo, Calidad y plegado ---- */
+
+/* Encabezado plegable de cada archivo Python */
+.fn-table .file-row>td{padding:0;background:var(--panel2);border-bottom:1px solid var(--line)}
+.file-head{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:8px 10px;font-family:var(--mono);font-size:11px;color:var(--mut)}
+.file-head.no-targets{opacity:.55}
+.file-toggle{background:none;border:0;color:var(--mut);cursor:pointer;font-size:12px;line-height:1;width:18px;padding:0;text-align:center}
+.file-toggle:hover{color:var(--blue-t)}
+.file-toggle:focus-visible{outline:2px solid var(--blue-800-a60);outline-offset:1px;border-radius:4px}
+.file-icon{font-size:12px}
+.file-path{font-weight:700;color:var(--txt);overflow-wrap:anywhere}
+.file-count{color:var(--dim)}
+.file-head .no-targets-note{font-family:var(--sans);font-size:10px;color:var(--mut)}
+.file-incl{margin-left:auto;display:flex;align-items:center;gap:6px;font-family:var(--sans);font-size:11px;color:var(--mut);cursor:pointer}
+
+/* Semáforo de Calidad: además del color, siempre hay texto (Lista / Mejorable / Incierto) */
+.calidad-lista{background:var(--calidad-lista-bg);color:var(--calidad-lista-t);border-color:var(--calidad-lista-b)}
+.calidad-mejorable{background:var(--calidad-mejorable-bg);color:var(--calidad-mejorable-t);border-color:var(--calidad-mejorable-b)}
+.calidad-incierto{background:var(--calidad-incierto-bg);color:var(--calidad-incierto-t);border-color:var(--calidad-incierto-b)}
+
+/* Cabeceras con icono informativo ⓘ (accesible con mouse y con teclado) */
+.info{display:inline-flex;align-items:center;justify-content:center;width:13px;height:13px;margin-left:4px;border-radius:50%;border:1px solid var(--line2);color:var(--dim);font-size:9px;line-height:1;cursor:help;text-transform:none;letter-spacing:0;vertical-align:middle}
+.info:hover{color:var(--blue-t);border-color:var(--blue-b)}
+.info:focus-visible{outline:2px solid var(--blue-800-a60);outline-offset:1px;color:var(--blue-t)}
+.tip-flotante{position:fixed;z-index:60;max-width:260px;background:var(--tooltip-bg);color:var(--tooltip-t);border:1px solid var(--tooltip-b);border-radius:8px;padding:8px 10px;font-family:var(--sans);font-size:11px;line-height:1.45;box-shadow:0 10px 30px var(--black-a50);pointer-events:none}
