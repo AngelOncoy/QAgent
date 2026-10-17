@@ -12,11 +12,8 @@ import json
 from pathlib import Path
 from typing import Any
 
-from qagent.storage.registro import ARCHIVO_DETALLE, CARPETA_RUNS
+from qagent.storage.registro import ARCHIVO_DETALLE, CARPETA_RUNS, MUTATION_SCORE_MIN
 from qagent.storage.vista_ejecucion import estado_de, identidad_de, tipo_de
-
-#: Meta de Mutation Score de la carta (ADR-001); se aplica cuando EN-09 ejecute mutmut.
-MUTATION_SCORE_MIN = 60
 
 #: Estado de cada control para la pantalla.
 OK, FALLA, NO_APLICA, PENDIENTE, SIN_DATO = (

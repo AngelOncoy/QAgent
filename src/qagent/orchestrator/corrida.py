@@ -7,10 +7,11 @@ Une las piezas que ya existían por separado:
 3. Ejecuta el orquestador módulo por módulo; cada `Evento` llega a `al_evento` con el
    progreso (`hechos` / `total`), para el Monitor en vivo (HU-09).
 4. Corta antes del siguiente módulo si se alcanzó el tope de gasto de `config.toml`.
-5. Reutiliza la spec modular si su huella sigue vigente, solo para los objetivos
+5. En el perfil Profundo, aplica mutmut a las funciones críticas aprobadas (EN-09).
+6. Reutiliza la spec modular si su huella sigue vigente, solo para los objetivos
    elegidos en la Vista previa; si cambió o le falta alguno, llama al Planner. La
    spec guardada conserva los contratos de los objetivos que no se eligieron.
-6. Escribe `log.json` y `results.json` (EN-05) en la carpeta de la corrida, guarda las
+7. Escribe `log.json` y `results.json` (EN-05) en la carpeta de la corrida, guarda las
    specs y las pruebas aprobadas en `.qagent/` y cierra el `run.json` (EN-07).
 
 No depende de la interfaz: la app la llama en un hilo y le pasa una función para los
@@ -36,12 +37,14 @@ from qagent.almacenamiento import (
     nombre_prueba,
 )
 from qagent.analysis.analyzer import analizar_proyecto
+from qagent.config.carga import Mutacion
 from qagent.llm import TokenTracker, crear_cliente
 from qagent.llm.fabrica import FuenteClaves
 from qagent.orchestrator.eventos import BusEventos, Evento
+from qagent.orchestrator.mutacion import PERFIL_PROFUNDO, Mutador, mutar_modulo
 from qagent.orchestrator.orquestador import Orquestador, ResultadoCorrida
 from qagent.proyectos.proyecto_local import detectar_rama
-from qagent.sandbox import ejecutar_pruebas
+from qagent.sandbox import ejecutar_mutacion, ejecutar_pruebas
 from qagent.storage import escribir_corrida
 
 AlEvento = Callable[[dict[str, Any]], None]
@@ -88,6 +91,7 @@ def ejecutar_corrida(
     ejecutor: Ejecutor = ejecutar_pruebas,
     timeout_paso_s: float | None = None,
     seleccion: list[dict[str, Any]] | None = None,
+    mutador: Mutador = ejecutar_mutacion,
 ) -> ResumenCorrida:
     """Ejecuta la corrida completa de un proyecto y devuelve su resumen.
 
@@ -108,6 +112,8 @@ def ejecutar_corrida(
             orquestador).
         seleccion: módulos, funciones y endpoints elegidos en la Vista previa. Si es
             ``None``, se conservan todos los objetivos analizables.
+        mutador: cómo se ejecuta mutmut en el perfil Profundo (EN-09; Docker,
+            reemplazable en pruebas).
     """
     if perfil == "reg":
         from qagent.orchestrator.regresion import ejecutar_regresion
@@ -263,6 +269,20 @@ def ejecutar_corrida(
                         archivo=modulo["ruta"],
                     )
                 resultado = orquestador.ejecutar(modulo)
+            if perfil == PERFIL_PROFUNDO:
+                mutar_modulo(
+                    ruta,
+                    imagen,
+                    modulo,
+                    resultado,
+                    getattr(
+                        configuracion, "mutacion", Mutacion()
+                    ).tiempo_maximo_por_funcion_s,
+                    mutador,
+                    lambda mensaje, archivo=modulo["ruta"]: avisar(
+                        mensaje, archivo=archivo
+                    ),
+                )
             resultados.append(resultado)
             contratos = resultado.plan_completo
             if contratos and plan_guardado is not None:

@@ -31,6 +31,8 @@ CARPETA_RUNS = Path(".qagent") / "runs"
 ARCHIVO_DETALLE = "detalle.json"
 #: Mínimo de cobertura si la corrida no trae metas (meta de la carta, ADR-001).
 COBERTURA_MINIMA = 60.0
+#: Meta de Mutation Score de las funciones críticas (ADR-001).
+MUTATION_SCORE_MIN = 60
 #: Caracteres que se guardan de cada salida de pytest o comentario del Reviewer.
 LARGO_MAXIMO_TRAZA = 4000
 VERSION = "1"
@@ -296,7 +298,8 @@ def _objetivo(
 ) -> dict[str, Any]:
     ultima = objetivo.revisiones[-1] if objetivo.revisiones else None
     cobertura = objetivo.cobertura or {}
-    return {
+    mutacion = getattr(objetivo, "mutacion", None)
+    datos = {
         "modulo": modulo,
         "funcion": objetivo.objetivo,
         "tipo": (objetivo.contrato or {}).get("tipo", "funcion"),  # EN-16
@@ -314,9 +317,12 @@ def _objetivo(
             "cobertura_ramas": cobertura.get("ramas"),
             "iteraciones": objetivo.intentos,
             "tokens_por_agente": tracker.tokens_de_funcion(objetivo.objetivo),
-            "mutation_score": None,  # EN-09
+            "mutation_score": (mutacion or {}).get("puntuacion"),  # EN-09
         },
     }
+    if mutacion is not None:
+        datos["mutacion"] = mutacion  # EN-09: detalle de mutmut y sobrevivientes
+    return datos
 
 
 def _resumen(
@@ -369,13 +375,15 @@ def controles(objetivo: Any, metas: dict[str, float] | None) -> dict[str, Any]:
     - aserciones: el último test no debilitó aserciones (laundering) y cada valor
       esperado es trazable al contrato del Planner.
     - cobertura: líneas y ramas ≥ la meta (si la función no tiene ramas, solo líneas).
-    - mutation: Mutation Score ≥ 60 % en funciones críticas; None mientras EN-09 no
-      ejecute mutmut o si la función no es crítica.
+    - mutation: Mutation Score ≥ 60 % en funciones críticas (EN-09); None si la
+      función no es crítica, no se ejecutó mutmut o no hubo puntuación (por ejemplo,
+      tiempo agotado).
     """
     ultima = objetivo.revisiones[-1] if objetivo.revisiones else None
     minimo = (metas or {}).get("cobertura_lineas_min", COBERTURA_MINIMA)
     cobertura = objetivo.cobertura or {}
     lineas, ramas = cobertura.get("lineas"), cobertura.get("ramas")
+    score = (getattr(objetivo, "mutacion", None) or {}).get("puntuacion")
     return {
         "sintaxis": None if objetivo.codigo is None else _compila(objetivo.codigo),
         "sandbox": None
@@ -389,7 +397,9 @@ def controles(objetivo: Any, metas: dict[str, float] | None) -> dict[str, Any]:
         "cobertura": None
         if lineas is None
         else lineas >= minimo and (ramas is None or ramas >= minimo),
-        "mutation": None,  # EN-09 (Sprint 2): mutmut sobre funciones críticas
+        "mutation": None
+        if not objetivo.critical or score is None
+        else score >= MUTATION_SCORE_MIN,
     }
 
 
