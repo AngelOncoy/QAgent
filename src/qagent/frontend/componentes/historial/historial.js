@@ -81,7 +81,7 @@ function renderHistoryReal(datos){
     if(s.reutilizado) partes.push(s.reutilizado + ' reutilizados');
     if(s.regenerado) partes.push(s.regenerado + ' regenerados');
     if(h.requieren_corrida_nueva) partes.push(h.requieren_corrida_nueva + ' requieren corrida nueva');
-    const nomPerfil = {quick:'Rápido', std:'Equilibrado', deep:'Profundo', reg:'Regresión'}[h.perfil] || h.perfil || '—';
+    const nomPerfil = h.perfil_nombre || h.perfil || '—';   // el nombre sale del backend (#70)
     return `<tr>
       <td class="mono">#${escHtml(h.run_id)}${indice===0?' <span class="pill p-blue" style="margin-left:4px">actual</span>':''}</td>
       <td>${escHtml(isNaN(fecha) ? h.fecha : fecha.toLocaleString('es-PE'))}</td>

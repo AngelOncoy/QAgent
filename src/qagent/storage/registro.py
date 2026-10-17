@@ -41,6 +41,21 @@ PERFIL_REGRESION = "reg"
 PERFIL_REGRESION_PROFUNDA = "reg_deep"
 PERFILES_REGRESION = frozenset({PERFIL_REGRESION, PERFIL_REGRESION_PROFUNDA})
 PERFILES_CON_MUTACION = frozenset({PERFIL_PROFUNDO, PERFIL_REGRESION_PROFUNDA})
+#: Nombre de cada perfil en el informe, la ejecución y el historial (los de #69).
+NOMBRES_PERFIL = {
+    "humo": "Humo",
+    "std": "Estándar",
+    PERFIL_PROFUNDO: "Estándar + profundizar",
+    PERFIL_REGRESION: "Repetir pruebas guardadas",
+    PERFIL_REGRESION_PROFUNDA: "Repetir pruebas guardadas + profundizar",
+}
+
+
+def nombre_perfil(perfil: str | None) -> str:
+    """Nombre legible de un perfil; si es desconocido, el propio identificador."""
+    return NOMBRES_PERFIL.get(perfil or "", perfil or "—")
+
+
 #: Caracteres que se guardan de cada salida de pytest o comentario del Reviewer.
 LARGO_MAXIMO_TRAZA = 4000
 VERSION = "1"
