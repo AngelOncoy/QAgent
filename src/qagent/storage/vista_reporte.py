@@ -25,6 +25,7 @@ from qagent.storage.vista_ejecucion import (
     categorias_de,
     estado_de,
     identidad_de,
+    regresion_de,
     texto_categorias,
     tipo_de,
 )
@@ -195,6 +196,7 @@ def _funcion(
         },
         "decision": objetivo["decision"],
         "estado": estado_de(objetivo),
+        **regresion_de(objetivo),  # #70: prueba repetida sin IA y motivo
         "verde": verde,
         "iteraciones": metricas["iteraciones"],
         "cobertura_lineas": metricas["cobertura_lineas"],

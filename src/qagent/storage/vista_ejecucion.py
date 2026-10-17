@@ -46,6 +46,14 @@ ESTADOS = {
 }
 #: Filtros que se muestran siempre, aunque su conteo sea 0 (criterio 3).
 FILTROS_FIJOS = ("aprobado", "rechazado_laundering", "estancado")
+#: Por qué una prueba guardada no se pudo repetir (#70): texto para la pantalla.
+MOTIVOS_REGRESION = {
+    "huella_distinta": "cambió el código de la función o su prueba",
+    "huella_ausente": "la prueba guardada no tiene huella del código",
+    "objetivo_ausente": "la función o el endpoint ya no existe en el código",
+    "prueba_ausente": "no se encontró el archivo de la prueba guardada",
+    "metadatos_corruptos": "los datos guardados de la prueba están dañados",
+}
 TIPOS = {
     "funcion": "Funciones",
     "endpoint": "Endpoints",
@@ -184,6 +192,21 @@ def texto_categorias(conteo: dict[str, int] | None) -> str | None:
         cantidad = conteo.get(categoria, 0)
         partes.append(f"{cantidad} {singular if cantidad == 1 else plural}")
     return " · ".join(partes)
+
+
+def regresion_de(objetivo: dict[str, Any]) -> dict[str, Any]:
+    """Si la prueba se repitió sin IA y por qué requiere corrida nueva (#70).
+
+    Las corridas anteriores no traen estos campos: salen como False y None.
+    """
+    motivo = objetivo.get("motivo_regresion")
+    return {
+        "reutilizada": bool(objetivo.get("reutilizada")),
+        "motivo_regresion": motivo,
+        "texto_motivo_regresion": (
+            MOTIVOS_REGRESION.get(motivo, motivo) if isinstance(motivo, str) else None
+        ),
+    }
 
 
 def tipo_de(objetivo: dict[str, Any]) -> str:
@@ -363,6 +386,7 @@ def _por_modulo(objetivos, estados) -> list[dict[str, Any]]:
                 "motivo_estancado": objetivo["motivo_estancado"],
                 "critical": objetivo["critical"],
                 "categorias": texto_categorias(categorias_de(objetivo)),  # #76
+                **regresion_de(objetivo),  # #70
             }
         )
     return [{"modulo": m, "pruebas": pruebas} for m, pruebas in modulos.items()]

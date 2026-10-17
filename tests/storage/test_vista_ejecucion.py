@@ -259,6 +259,9 @@ def test_pruebas_agrupadas_por_modulo(results) -> None:
         "motivo_estancado": "error_repetido",
         "critical": False,
         "categorias": None,  # #76: el ejemplo es anterior al conteo por categoría
+        "reutilizada": False,  # #70: no es una corrida de regresión
+        "motivo_regresion": None,
+        "texto_motivo_regresion": None,
     }
 
 
