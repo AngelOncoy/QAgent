@@ -2,13 +2,20 @@
 // HTML del componente (se monta en el marcador data-componente="ejecucion/ejecucion" de index.html)
 registrarComponente('ejecucion/ejecucion', `<!-- ===== 5. EJECUCIÓN DE PRUEBAS (según tu diseño en React) ===== -->
 <section id="s-exec" class="hide" style="display:flex;flex-direction:column;flex:1;min-height:0">
-  <div class="scroll"><div class="execwrap">
+  <div class="exec-pinned">
     <div class="kpis" id="kpis"></div>
 
     <div class="toolbar">
       <div class="tleft"><span class="flbl"><span class='ico' data-i='filter' data-c='var(--slate-300-c)'></span> Tipo:</span><div id="tipoBtns"></div><span class="flbl">Estado:</span><div id="fbtns"></div></div>
+      <div class="tsearch">
+        <span class="search-ico"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg></span>
+        <input type="text" id="execSearch" class="search-exec-inp" placeholder="Buscar archivo o función..." oninput="filtrarEjecucion(this.value)">
+        <button id="execSearchClear" class="clear-search-btn hide" onclick="limpiarBusquedaEjecucion()" title="Limpiar búsqueda">×</button>
+      </div>
       <div class="cmd2"><span class='ico' data-i='term' data-c='var(--blue-400)'></span> docker run --rm --network none qagent-sandbox:base pytest -v --cov --cov-branch</div>
     </div>
+  </div>
+  <div class="scroll exec-body-scroll"><div class="execwrap">
     <div id="suites"></div>
     <div class="nextbox" id="execNextBox">
       <span>Ejecución de pruebas completada · resultados listos para el reporte final.</span>
@@ -34,7 +41,22 @@ function irAReporteFinal(){
 /* ---------------- Ejecución de pruebas ---------------- */
 let filterState = 'ALL';
 let filterType = 'todos';
+let execSearchQuery = '';
 const expanded = {fn_1:true, fn_2:true};
+
+function filtrarEjecucion(val){
+  execSearchQuery = (val || '').trim().toLowerCase();
+  const clearBtn = $('execSearchClear');
+  if (clearBtn) clearBtn.classList.toggle('hide', !execSearchQuery);
+  if (ejecucionReal) renderExecReal(ejecucionReal);
+  else renderExec();
+}
+
+function limpiarBusquedaEjecucion(){
+  const inp = $('execSearch');
+  if (inp) inp.value = '';
+  filtrarEjecucion('');
+}
 function renderExecKpis(){
   const m = metrics(), passOk = m.pass >= META.pass[0], msOk = m.ms >= META.ms, est = runEstimate;
   $('kpis').innerHTML = `
@@ -81,7 +103,25 @@ function renderExec(){
     const bg = k==='ALL' ? 'var(--blue-600)' : ST[k].c, lbl = k==='ALL' ? 'Todos' : ST[k].filter;
     return `<button class="fb2 ${filterState===k?'on':''}" style="${filterState===k?'background:'+bg:''}" onclick="filterState='${k}';renderExec()">${k!=='ALL'?`<i class="fdot" style="background:${ST[k].c}"></i>`:''}${lbl} (${n})</button>`;
   }).join('');
-  const list = RUN.filter(f => filterState==='ALL' || f.status===filterState);
+  const q = execSearchQuery;
+  const list = RUN.filter(f => {
+    const matchState = (filterState==='ALL' || f.status===filterState);
+    if (!matchState) return false;
+    if (!q) return true;
+    const mod = (f.module || '').toLowerCase();
+    const nm = (f.name || '').toLowerCase();
+    return mod.includes(q) || nm.includes(q);
+  });
+  if (list.length === 0) {
+    $('suites').innerHTML = `
+      <div class="suite-empty">
+        <span class="ico" data-i="filter" data-c="var(--slate-400)"></span>
+        <span>${q ? 'No se encontraron archivos o funciones que coincidan con la búsqueda.' : 'No hay resultados para los filtros seleccionados.'}</span>
+        ${q ? `<button class="fb2" style="margin-top:6px;font-size:11px;padding:3px 10px" onclick="limpiarBusquedaEjecucion()">Limpiar búsqueda</button>` : ''}
+      </div>`;
+    paintIcons($('suites'));
+    return;
+  }
   const groups = {}; list.forEach(x => (groups[x.module] ||= []).push(x));
   $('suites').innerHTML = Object.keys(groups).map(m => `
     <div class="suite2">
@@ -211,11 +251,33 @@ function renderExecReal(v){
     const color = f.clave==='ALL' ? 'var(--blue-600)' : ST[ESTADO_REAL[f.clave].st].c, activo = filterState===f.clave;
     return `<button class="fb2 ${activo?'on':''}" style="${activo?'background:'+color:''}" onclick="filterState='${f.clave}';renderExec()">${f.clave!=='ALL'?`<i class="fdot" style="background:${color}"></i>`:''}${escHtml(f.etiqueta)} (${Number(f.cantidad)})</button>`;
   }).join('');
-  const grupos = v.modulos.map(m => ({modulo: m.modulo, pruebas: m.pruebas.filter(p =>
-                            (filterState==='ALL' || p.estado===filterState)
-                            && (filterType==='todos' || p.tipo===filterType))}))
-                          .filter(g => g.pruebas.length);
-  $('suites').innerHTML = grupos.length ? grupos.map(g => `
+  const q = execSearchQuery;
+  const grupos = v.modulos.map(m => {
+    const modMatch = (m.modulo || '').toLowerCase().includes(q);
+    const pruebas = m.pruebas.filter(p => {
+      const matchState = (filterState==='ALL' || p.estado===filterState);
+      const matchType = (filterType==='todos' || p.tipo===filterType);
+      if (!matchState || !matchType) return false;
+      if (!q) return true;
+      if (modMatch) return true;
+      const fnName = (p.identificador || p.nombre || p.funcion || '').toLowerCase();
+      return fnName.includes(q);
+    });
+    return {modulo: m.modulo, pruebas};
+  }).filter(g => g.pruebas.length);
+
+  if (grupos.length === 0) {
+    $('suites').innerHTML = `
+      <div class="suite-empty">
+        <span class="ico" data-i="filter" data-c="var(--slate-400)"></span>
+        <span>${q ? 'No se encontraron archivos o funciones que coincidan con la búsqueda.' : 'No hay resultados para los filtros seleccionados.'}</span>
+        ${q ? `<button class="fb2" style="margin-top:6px;font-size:11px;padding:3px 10px" onclick="limpiarBusquedaEjecucion()">Limpiar búsqueda</button>` : ''}
+      </div>`;
+    paintIcons($('suites'));
+    return;
+  }
+
+  $('suites').innerHTML = grupos.map(g => `
     <div class="suite2">
       <div class="sh2"><div class="l">${I('file','var(--blue-400)',15)}<b>${escHtml(g.modulo)}</b></div>
         <div class="r"><span>Corrida ${escHtml(v.run_id)}</span>${v.es_simulado?'<span>IA simulada</span>':''}</div></div>
@@ -228,5 +290,5 @@ function renderExecReal(v){
             <span>Cov: <b style="color:var(--blue-400)">${numReal(p.cobertura_lineas)}</b> líneas · <b style="color:var(--blue-400)">${numReal(p.cobertura_ramas)}</b> ramas</span>
             <span class="sbdg ${s[2]}">${I(s[3],'currentColor',12)} ${escHtml(etiqueta)}</span></div>
         </div></div>`; }).join('')}
-    </div>`).join('') : '<div class="suite2" style="padding:18px;color:var(--mut)">No hay resultados para los filtros seleccionados.</div>';
+    </div>`).join('');
 }
