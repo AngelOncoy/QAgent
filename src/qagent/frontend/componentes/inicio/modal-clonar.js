@@ -88,6 +88,7 @@ function doClone(){
     }, 400);
     return;
   }
+  if (typeof demoRegistrar === 'function') demoRegistrar(nombreRepo(url), 'git', url);
   const steps = [`Cloning into '${dir}'...`, 'Receiving objects: 100% (212/212), 88.4 KiB, done.', 'Resolving deltas: 100% (31/31), done.'];
   let i = 0;
   cloneTimer = setInterval(() => {

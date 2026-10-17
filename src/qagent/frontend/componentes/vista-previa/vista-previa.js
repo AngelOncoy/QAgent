@@ -240,7 +240,7 @@ function cargarDatosVistaPrevia(res) {
 }
 
 /* ---------------- Vista previa ---------------- */
-async function loadProject(name, src, where, br='main', ruta=''){
+async function loadProject(name, src, where, br='main', ruta='', opciones = {}){
   if(!apiRec()) demoRegistrar(name, src, where);
   document.querySelectorAll('.repoName').forEach(e=>e.textContent=name);
   document.querySelectorAll('.repoLbl').forEach(e=>e.textContent = src==='git' ? where.replace('https://','').replace(/\.git$/,'') : where);
@@ -274,15 +274,42 @@ async function loadProject(name, src, where, br='main', ruta=''){
   } else {
     aplicarResumenDemo();   // modo demostración (navegador, sin Python)
   }
-  HAS_PRIOR_RUN = await hayCorridaPrevia(ruta);
+  const esReciente = !!(opciones && opciones.esReciente);
+  const corridaPrevia = await hayCorridaPrevia(projectPath || ruta);
   PRUEBAS_REPETIBLES = await pruebasRepetibles(ruta);
-  ejecucionReal = null;
-  reporteReal = null;
-  if (typeof reiniciarVistasProyecto === 'function') reiniciarVistasProyecto();
-  else document.querySelectorAll('#views a[data-v=exec],#views a[data-v=report],#views a[data-v=monitor],#views a[data-v=history]').forEach(a=>a.classList.add('hide','off'));
+  const yaCargoPrueba = !!((opciones && opciones.yaCargoPrueba) || (esReciente && corridaPrevia));
+  HAS_PRIOR_RUN = corridaPrevia || yaCargoPrueba;
 
   renderTree();   // termina en calc(), que también dibuja la configuración de pruebas
-  go('preview');
+
+  if (esReciente && yaCargoPrueba) {
+    if (typeof desbloquearTodasLasVistas === 'function') {
+      desbloquearTodasLasVistas();
+    } else {
+      document.querySelectorAll('#views a').forEach(a => a.classList.remove('hide', 'off'));
+    }
+    monitorStarted = true;
+    runDone = true;
+    if (window.pywebview && window.pywebview.api) {
+      try {
+        if (typeof cargarEjecucionReal === 'function') await cargarEjecucionReal(null, false);
+      } catch (err) {
+        console.warn("No se pudo pre-cargar ejecución:", err);
+      }
+      try {
+        if (typeof cargarReporteReal === 'function') await cargarReporteReal(null, false);
+      } catch (err) {
+        console.warn("No se pudo pre-cargar reporte:", err);
+      }
+    }
+    go('report');
+  } else {
+    ejecucionReal = null;
+    reporteReal = null;
+    if (typeof reiniciarVistasProyecto === 'function') reiniciarVistasProyecto();
+    else document.querySelectorAll('#views a[data-v=exec],#views a[data-v=report],#views a[data-v=monitor],#views a[data-v=history]').forEach(a=>a.classList.add('hide','off'));
+    go('preview');
+  }
 }
 
 // Sin análisis (fallo en la app real): lista vacía y contadores en cero, sin datos de ejemplo.

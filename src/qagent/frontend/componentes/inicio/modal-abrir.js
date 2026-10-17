@@ -81,6 +81,7 @@ async function confirmOpenReal() {
     const info = await window.pywebview.api.abrir_proyecto(realFolder);
     if (!info.ok) { showOpenReal(info); return; }
     closeModal(); realFolder = null;
+    if (typeof cargarRecientes === 'function') await cargarRecientes();
     // Sin repositorio Git no hay rama que mostrar.
     loadProject(info.nombre, 'local', info.ruta, info.rama || '—', info.ruta);
     toast(`Proyecto abierto: <span class="mono">${escHtml(info.ruta)}</span>`);
@@ -112,6 +113,9 @@ function iniciarModalAbrir(){
 
 function confirmOpen(){
   if (realFolder) { confirmOpenReal(); return; }
-  closeModal(); loadProject(pickedFolder,'local','E:\\Proyectos\\'+pickedFolder);
+  closeModal();
+  if (typeof demoRegistrar === 'function') demoRegistrar(pickedFolder, 'local', 'E:\\Proyectos\\'+pickedFolder);
+  if (typeof cargarRecientes === 'function') cargarRecientes();
+  loadProject(pickedFolder,'local','E:\\Proyectos\\'+pickedFolder);
 }
 
