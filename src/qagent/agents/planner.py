@@ -162,8 +162,8 @@ class PlannerAgent:
             "tipo": "funcion",
             "objetivo": nombre,
             "firma": funcion.get("firma") or "()",
-            # HU-06 (Sprint 2) permitirá marcar funciones críticas; hasta entonces
-            # solo es crítica si el análisis lo indica.
+            # HU-06: la marca Profundizar de la vista previa (filtrar_modulos);
+            # nunca la decide el modelo.
             "critical": bool(funcion.get("critical", False)),
             "llama_a": list(dict.fromkeys(funcion.get("llama_a") or [])),
             "casos": casos,

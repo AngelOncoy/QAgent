@@ -40,7 +40,7 @@ def config():
     return cargar_configuracion(RUTA_CONFIG, "no-existe.env", simulado=True).config
 
 
-def correr(almacen: AlmacenProyecto, config):
+def correr(almacen: AlmacenProyecto, config, seleccion=None):
     run_id = almacen.crear_run(tipos_prueba=["funcion"])["run_id"]
     return ejecutar_corrida(
         almacen.raiz,
@@ -51,6 +51,7 @@ def correr(almacen: AlmacenProyecto, config):
         run_id=run_id,
         preparar_imagen=lambda _ruta: "imagen-prueba",
         ejecutor=ejecutor_exitoso,
+        seleccion=seleccion,
     )
 
 
@@ -97,6 +98,61 @@ def test_primera_corrida_genera_y_segunda_reutiliza_sin_planner(
     [spec] = almacen.listar_planes_modulo()
     assert spec["run_origen"] == primera.run_id
     assert spec["ultima_corrida"] == segunda.run_id
+
+
+FUNCIONES_BANCO = [
+    "calcular_descuento",
+    "clasificar_edad",
+    "buscar_elemento_mayor",
+    "es_palindromo",
+    "invertir_palabras",
+    "formatear_moneda",
+]
+
+
+def seleccion_con(criticas: list[str]) -> list[dict]:
+    return [
+        {
+            "ruta": "banco_mvp.py",
+            "funciones": FUNCIONES_BANCO,
+            "endpoints": [],
+            "criticas": criticas,
+        }
+    ]
+
+
+def criticas_guardadas(almacen: AlmacenProyecto) -> dict[str, bool]:
+    [plan] = almacen.listar_planes_modulo()
+    return {c["objetivo"]: c["critical"] for c in plan["contratos"]}
+
+
+def test_la_spec_reutilizada_toma_la_marca_de_la_corrida_actual(
+    tmp_path: Path, config
+) -> None:
+    """HU-06: desmarcar Profundizar se refleja aunque la spec se reutilice."""
+    shutil.copy(BANCO, tmp_path / "banco_mvp.py")
+    almacen = AlmacenProyecto(tmp_path)
+    almacen.inicializar()
+
+    correr(almacen, config, seleccion_con(["calcular_descuento", "clasificar_edad"]))
+    marcas_primera = criticas_guardadas(almacen)
+    segunda = correr(almacen, config, seleccion_con(["clasificar_edad"]))
+
+    assert marcas_primera["calcular_descuento"] is True
+    assert marcas_primera["clasificar_edad"] is True
+    assert marcas_primera["es_palindromo"] is False
+    assert estados_specs(almacen, segunda.run_id) == {"banco_mvp.py": "reutilizado"}
+    assert llamadas_planner(almacen, segunda.run_id) == []
+    marcas_segunda = criticas_guardadas(almacen)
+    assert marcas_segunda["calcular_descuento"] is False
+    assert marcas_segunda["clasificar_edad"] is True
+    por_funcion = {
+        spec["contrato"]["objetivo"]: spec["contrato"]["critical"]
+        for spec in almacen.listar_specs()
+        if spec["estado"] == "vigente"
+    }
+    assert por_funcion["calcular_descuento"] is False
+    assert por_funcion["clasificar_edad"] is True
 
 
 def test_cambiar_codigo_y_luego_docstring_regenera_la_spec(
