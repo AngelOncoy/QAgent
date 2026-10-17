@@ -19,13 +19,14 @@ def cuerpo(js: str, inicio: str) -> str:
 
 
 def test_cada_endpoint_trae_sus_decisiones_y_la_marca_propuesta() -> None:
-    assert "br: e.ramas || 0," in VISTA_JS
-    assert "crit: e.critica_propuesta ?? ((e.ramas || 0) > 0)," in VISTA_JS
+    assert "const decisiones = normalizarDecisiones(e.ramas);" in VISTA_JS
+    assert "br: decisiones," in VISTA_JS
+    assert "crit: e.critica_propuesta ?? ((decisiones ?? 0) > 0)," in VISTA_JS
 
 
 def test_la_tabla_muestra_decisiones_y_una_marca_editable() -> None:
     render = cuerpo(VISTA_JS, "function renderEndpoints")
-    assert '<td class="mono">${e.br}</td>' in render
+    assert '<td class="mono">${decisiones}</td>' in render
     assert 'onclick="toggleEndpointCrit(${mi},${ei})"' in render
     assert "Se aplica si activas Profundizar en la configuración de pruebas." in render
     marca = cuerpo(VISTA_JS, "function toggleEndpointCrit")
