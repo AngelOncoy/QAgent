@@ -2,6 +2,7 @@
 
 Paso 1 (con red): `preparar_imagen` instala el requirements.txt del proyecto en una imagen derivada.
 Paso 2 (sin red): `ejecutar_pruebas` corre pytest + coverage sobre una copia del proyecto.
+Mutation testing (EN-09): `ejecutar_mutacion` corre mutmut solo sobre las funciones críticas.
 """
 
 from qagent.sandbox.cliente import obtener_cliente
@@ -32,6 +33,12 @@ from qagent.sandbox.modelos import (
     LimitesSandbox,
     ResultadoSandbox,
 )
+from qagent.sandbox.mutacion import (
+    MutacionFuncion,
+    ResultadoMutacion,
+    Sobreviviente,
+    ejecutar_mutacion,
+)
 
 __all__ = [
     "IMAGEN_BASE",
@@ -45,12 +52,16 @@ __all__ = [
     "InformePytest",
     "JUnitInvalido",
     "LimitesSandbox",
+    "MutacionFuncion",
+    "ResultadoMutacion",
     "ResultadoSandbox",
+    "Sobreviviente",
     "clasificar_resultado",
     "comando_pytest",
     "construir_imagen_base",
     "copiar_proyecto",
     "ejecutar_en_sandbox",
+    "ejecutar_mutacion",
     "ejecutar_pruebas",
     "estado_docker",
     "obtener_cliente",

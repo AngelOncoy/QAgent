@@ -18,7 +18,7 @@ from typing import Any
 
 from qagent import contracts
 from qagent.contracts import ContratoInvalido
-from qagent.storage.registro import CARPETA_RUNS
+from qagent.storage.registro import CARPETA_RUNS, MUTATION_SCORE_MIN
 
 ARCHIVO = "results.json"
 AGENTES = ("planner", "generator", "reviewer")
@@ -124,7 +124,7 @@ def vista_ejecucion(results: dict[str, Any]) -> dict[str, Any]:
             "cobertura": _cobertura(objetivos, resumen, metas),
             "iteraciones": _iteraciones(objetivos, resumen, metas),
             "costo": _costo(objetivos, resumen, metas),
-            "mutation_score": {"disponible": False, "texto": "Disponible en Sprint 2"},
+            "mutation_score": _mutation_score(objetivos, results["perfil"]),
         },
         "filtros": [
             {
@@ -262,6 +262,33 @@ def _costo(objetivos, resumen, metas) -> dict[str, Any]:
         "tope_usd": tope,
         "cumple": None if tope is None else costo <= tope,
     }
+
+
+def _mutation_score(objetivos, perfil: str) -> dict[str, Any]:
+    """Promedio del Mutation Score de las funciones críticas que lo tienen (EN-09)."""
+    criticas = [o for o in objetivos if o.get("critical")]
+    valores = [
+        o["metricas"]["mutation_score"]
+        for o in criticas
+        if o["metricas"]["mutation_score"] is not None
+    ]
+    if valores:
+        valor = round(sum(valores) / len(valores), 1)
+        return {
+            "disponible": True,
+            "valor": valor,
+            "meta": MUTATION_SCORE_MIN,
+            "cumple": valor >= MUTATION_SCORE_MIN,
+            "funciones": len(valores),
+            "texto": f"{len(valores)} función(es) crítica(s) · meta ≥ {MUTATION_SCORE_MIN} %",
+        }
+    if perfil != "deep":
+        texto = "No se midió: la corrida no usó Profundizar"
+    elif not criticas:
+        texto = "No se midió: no hay funciones marcadas para profundizar"
+    else:
+        texto = "mutmut no dio un Mutation Score: el motivo está en el informe"
+    return {"disponible": False, "texto": texto}
 
 
 def _promedio(objetivos, metrica: str, decimales: int, sin_ceros: bool = False):

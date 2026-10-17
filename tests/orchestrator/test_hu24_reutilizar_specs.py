@@ -13,7 +13,7 @@ from qagent.almacenamiento.historial import construir_historial
 from qagent.config import cargar_configuracion
 from qagent.config.carga import RUTA_CONFIG
 from qagent.orchestrator.corrida import ejecutar_corrida
-from qagent.sandbox import ResultadoSandbox
+from qagent.sandbox import ResultadoMutacion, ResultadoSandbox
 
 BANCO = Path(__file__).resolve().parents[2] / "bench" / "banco_mvp.py"
 COBERTURA = {
@@ -35,6 +35,11 @@ def ejecutor_con_error(_imagen, _proyecto, _tests, _modulo) -> ResultadoSandbox:
     raise RuntimeError("sandbox no disponible")
 
 
+def mutador_vacio(_imagen, _proyecto, _tests, modulo, funciones, _limites, **_):
+    """EN-09: sin Docker; la mutación no es lo que se prueba aquí."""
+    return ResultadoMutacion(modulo, {})
+
+
 @pytest.fixture
 def config():
     return cargar_configuracion(RUTA_CONFIG, "no-existe.env", simulado=True).config
@@ -52,6 +57,7 @@ def correr(almacen: AlmacenProyecto, config, seleccion=None):
         preparar_imagen=lambda _ruta: "imagen-prueba",
         ejecutor=ejecutor_exitoso,
         seleccion=seleccion,
+        mutador=mutador_vacio,
     )
 
 

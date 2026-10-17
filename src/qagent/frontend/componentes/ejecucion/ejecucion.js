@@ -209,7 +209,7 @@ function metaTexto(cumple, conMeta, sinMeta){
   return `<div class="ks" style="color:${cumple?'var(--emerald-400)':'var(--amber-400)'}">${I(cumple?'check':'warn','currentColor',12)} ${conMeta}</div>`;
 }
 function renderExecRealKpis(v){
-  const k = v.indicadores, pr = k.pass_rate, cv = k.cobertura, it = k.iteraciones, cs = k.costo;
+  const k = v.indicadores, pr = k.pass_rate, cv = k.cobertura, it = k.iteraciones, cs = k.costo, ms = k.mutation_score;
   const barra = x => Math.max(0, Math.min(100, Number(x) || 0));
   const agentes = Object.entries(cs.por_agente).map(([a, f]) => { const [l, c] = AGENTE_REAL[a] || [a, 'var(--mut)'];
     return `<div class="kscale"><span style="color:${c}" title="${escHtml(a)}">${l}</span><span>${f.tokens.toLocaleString('es-PE')} tok · ${usdReal(f.costo_usd)}</span></div>`; }).join('');
@@ -232,8 +232,8 @@ function renderExecRealKpis(v){
     ${metaTexto(cs.cumple, `Tope por corrida: ${usdReal(cs.tope_usd)} ${cs.cumple?'respetado':'superado'}`, 'Tope no registrado en esta corrida')}</div>
     <div>${agentes}</div></div>
   <div class="kpi"><div class="kh"><span>MUTATION SCORE</span>${I('dna','var(--rose-400)',15)}</div>
-    <div class="kmid"><div class="kv" style="color:var(--mut)">—</div>
-    <div class="ks" style="color:var(--mut)">${escHtml(k.mutation_score.texto)}</div></div></div>`;
+    <div class="kmid"><div class="kv" style="color:${ms.disponible ? (ms.cumple ? 'var(--emerald-400)' : 'var(--rose-400)') : 'var(--mut)'}">${ms.disponible ? numReal(ms.valor, 1) : '—'}</div>
+    <div class="ks" style="color:var(--mut)">${escHtml(ms.texto)}</div></div></div>`;
 }
 function actualizarBarraReal(v){   // barra superior: la corrida que se está mostrando
   const ok = v.estado_final === 'fin';

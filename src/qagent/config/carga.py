@@ -104,6 +104,9 @@ MODELO_SIMULADO = "ia-simulada"
 #: Umbrales de calidad que debe definir `[umbrales]` (metas de la carta, ADR-001).
 UMBRALES = ("pass_rate_min", "cobertura_lineas_min", "iteraciones_promedio_max")
 
+#: Tiempo máximo de mutmut por función crítica si `[mutacion]` no lo define (EN-09).
+TIEMPO_MUTACION_POR_DEFECTO_S = 120
+
 MIN_LARGO_SECRETO = 8  # menos que esto no se redacta: daría falsos positivos
 _NOMBRE_ENV = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 
@@ -126,6 +129,13 @@ class Umbrales:
 
 
 @dataclass(frozen=True)
+class Mutacion:
+    """Mutation testing de las funciones críticas (EN-09)."""
+
+    tiempo_maximo_por_funcion_s: int = TIEMPO_MUTACION_POR_DEFECTO_S
+
+
+@dataclass(frozen=True)
 class Configuracion:
     """Contenido validado de `config.toml`."""
 
@@ -133,6 +143,7 @@ class Configuracion:
     max_intentos: int
     umbrales: Umbrales
     agentes: dict[str, PrecioAgente]
+    mutacion: Mutacion = Mutacion()
 
     def proveedores(self) -> dict[str, list[str]]:
         """Agentes que usa cada proveedor: `{"openai": ["reviewer"], ...}`."""
@@ -475,6 +486,7 @@ def _leer_config(
     presupuesto = _leer_presupuesto(datos.get("presupuesto", {}), avisos)
     max_intentos = _leer_reintentos(datos.get("reintentos", {}), avisos)
     umbrales = _leer_umbrales(datos.get("umbrales", {}), avisos)
+    mutacion = _leer_mutacion(datos.get("mutacion", {}), avisos)
     agentes = _leer_agentes(
         datos.get("agentes", {}),
         avisos,
@@ -482,7 +494,7 @@ def _leer_config(
     )
     if len(avisos) > antes:
         return None
-    return Configuracion(presupuesto, max_intentos, umbrales, agentes)  # type: ignore[arg-type]
+    return Configuracion(presupuesto, max_intentos, umbrales, agentes, mutacion)  # type: ignore[arg-type]
 
 
 def superponer_config(
@@ -557,6 +569,24 @@ def _leer_reintentos(tabla: Mapping[str, Any], avisos: list[str]) -> int | None:
         avisos.append("max_intentos en [reintentos] debe ser un número entero.")
         return None
     return int(intentos)
+
+
+def _leer_mutacion(tabla: Mapping[str, Any], avisos: list[str]) -> Mutacion | None:
+    """`[mutacion]` es opcional: sin `tiempo_maximo_por_funcion_s` usa el valor por defecto."""
+    if not isinstance(tabla, Mapping):
+        avisos.append("[mutacion] de config.toml debe ser una sección.")
+        return None
+    if "tiempo_maximo_por_funcion_s" not in tabla:
+        return Mutacion()
+    tiempo = _numero(tabla, "tiempo_maximo_por_funcion_s", "mutacion", avisos)
+    if tiempo is None:
+        return None
+    if tiempo != int(tiempo):
+        avisos.append(
+            "tiempo_maximo_por_funcion_s en [mutacion] debe ser un número entero."
+        )
+        return None
+    return Mutacion(int(tiempo))
 
 
 def _leer_umbrales(tabla: Mapping[str, Any], avisos: list[str]) -> Umbrales | None:

@@ -64,6 +64,9 @@ class ResultadoObjetivo:
     duracion_s: float = 0.0
     reutilizada: bool = False
     motivo_regresion: str | None = None
+    #: Mutation testing de una función crítica aprobada (EN-09): estado, puntuacion,
+    #: detectados, sobrevivientes y mensaje. None si no se ejecutó mutmut.
+    mutacion: dict[str, Any] | None = None
 
 
 @dataclass
