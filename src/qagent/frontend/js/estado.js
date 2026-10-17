@@ -73,6 +73,8 @@ const PROFILES = [
 ];
 // Texto de la insignia del tipo de caja
 const TIPO_CAJA = {blanca:'Caja blanca'};
+// #70: Set de "modulo::objetivo" con prueba guardada repetible; null en la demostración.
+let PRUEBAS_REPETIBLES = null;
 let HAS_PRIOR_RUN = true;   // ¿el proyecto abierto ya tuvo una corrida? (dato real en la app; simulado en la demostración)
 // Estado de los specs guardados en .qagent/specs/: 'reuse' = el código no cambió (huella igual), 'stale' = cambió → se regenera
 const SPEC_STATUS = {'services/pricing.py':'reuse','services/inventory.py':'reuse','services/payments.py':'reuse','services/shipping.py':'reuse','services/cart.py':'stale','services/discounts.py':'stale'};

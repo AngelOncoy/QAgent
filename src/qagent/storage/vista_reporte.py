@@ -12,7 +12,13 @@ import json
 from pathlib import Path
 from typing import Any
 
-from qagent.storage.registro import ARCHIVO_DETALLE, CARPETA_RUNS, MUTATION_SCORE_MIN
+from qagent.storage.registro import (
+    ARCHIVO_DETALLE,
+    CARPETA_RUNS,
+    MUTATION_SCORE_MIN,
+    PERFILES_CON_MUTACION,
+    nombre_perfil,
+)
 from qagent.storage.vista_ejecucion import estado_de, identidad_de, tipo_de
 
 #: Estado de cada control para la pantalla.
@@ -59,6 +65,7 @@ def vista_reporte(
         "run_id": results["run_id"],
         "fecha": results["fecha"],
         "perfil": results["perfil"],
+        "perfil_nombre": nombre_perfil(results["perfil"]),
         "rama": results.get("rama"),
         "proyecto": results["proyecto"],
         "es_simulado": results["es_simulado"],
@@ -272,17 +279,29 @@ def _control_mutation(objetivo: dict[str, Any], perfil: str | None) -> dict[str,
         return con(NO_APLICA, f"No aplica: {sujeto} no es crítico")
     if score is not None:
         vivos = len((mutacion or {}).get("sobrevivientes") or [])
+        notas = [f"{vivos} mutante(s) sobreviviente(s)" if vivos else ""]
+        if (mutacion or {}).get("reutilizada"):
+            notas.append(
+                f"reutilizado de la corrida {mutacion.get('run_origen')}: "
+                "la función y sus pruebas no cambiaron"
+            )
         return con(
             OK if score >= MUTATION_SCORE_MIN else FALLA,
-            f"{vivos} mutante(s) sobreviviente(s)" if vivos else None,
+            " · ".join(n for n in notas if n) or None,
             f"{etiqueta} (obtenido: {score:g} %)",
         )
     if isinstance(mutacion, dict):
         return con(
             SIN_DATO, mutacion.get("mensaje") or "mutmut no dio un Mutation Score."
         )
-    if perfil is not None and perfil != "deep":
+    if perfil is not None and perfil not in PERFILES_CON_MUTACION:
         return con(NO_APLICA, "No se pidió: la corrida no usó Profundizar")
+    if objetivo["decision"] == "requiere_corrida_nueva":
+        return con(
+            NO_APLICA,
+            "Requiere corrida nueva: la función o su prueba cambiaron y mutmut solo "
+            "usa pruebas guardadas vigentes",
+        )
     if objetivo["decision"] != "accept":
         return con(
             NO_APLICA, "Sin prueba aprobada: mutmut necesita una prueba que pase"

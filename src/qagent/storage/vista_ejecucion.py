@@ -18,7 +18,12 @@ from typing import Any
 
 from qagent import contracts
 from qagent.contracts import ContratoInvalido
-from qagent.storage.registro import CARPETA_RUNS, MUTATION_SCORE_MIN
+from qagent.storage.registro import (
+    CARPETA_RUNS,
+    MUTATION_SCORE_MIN,
+    PERFILES_CON_MUTACION,
+    nombre_perfil,
+)
 
 ARCHIVO = "results.json"
 AGENTES = ("planner", "generator", "reviewer")
@@ -113,6 +118,7 @@ def vista_ejecucion(results: dict[str, Any]) -> dict[str, Any]:
         "run_id": results["run_id"],
         "fecha": results["fecha"],
         "perfil": results["perfil"],
+        "perfil_nombre": nombre_perfil(results["perfil"]),
         "es_simulado": results["es_simulado"],
         "estado_final": results["estado_final"],
         "motivo_fallo": results["motivo_fallo"],
@@ -282,7 +288,7 @@ def _mutation_score(objetivos, perfil: str) -> dict[str, Any]:
             "funciones": len(valores),
             "texto": f"{len(valores)} función(es) crítica(s) · meta ≥ {MUTATION_SCORE_MIN} %",
         }
-    if perfil != "deep":
+    if perfil not in PERFILES_CON_MUTACION:
         texto = "No se midió: la corrida no usó Profundizar"
     elif not criticas:
         texto = "No se midió: no hay funciones marcadas para profundizar"

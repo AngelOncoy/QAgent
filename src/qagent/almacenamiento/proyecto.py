@@ -9,6 +9,8 @@ Estructura::
         specs/<id>.json     spec de cada prueba (contrato del Planner), para regresión
         specs/<modulo>.spec.json  plan completo y huella para reutilización (HU-24)
         tests/test_*.py     solo las pruebas aprobadas
+        mutacion/<id>.json  último Mutation Score de una función crítica, con las huellas
+                            de la función y de su prueba, para reutilizarlo (#70)
 
 El historial son los `run.json` ordenados por `run_id` (empieza con la fecha), sin un
 archivo de índice aparte. Es el único lugar que crea esta estructura. No depende de la
@@ -147,6 +149,11 @@ def id_de_modulo(modulo: str) -> str:
     return identificador
 
 
+def huella_de_prueba(codigo: str) -> str:
+    """SHA-256 del código de una prueba aprobada (para la caché de mutación, #70)."""
+    return hashlib.sha256(codigo.replace("\r\n", "\n").encode("utf-8")).hexdigest()
+
+
 def nombre_spec_modulo(modulo: str) -> str:
     """Nombre de `.qagent/specs/<modulo>.spec.json` sin colisiones por carpetas."""
     return f"{id_de_modulo(modulo)}.spec.json"
@@ -158,7 +165,8 @@ class AlmacenProyecto:
     Atributos:
         raiz: carpeta del proyecto del usuario.
         carpeta: `<raiz>/.qagent`.
-        carpeta_runs, carpeta_specs, carpeta_tests: subcarpetas de `carpeta`.
+        carpeta_runs, carpeta_specs, carpeta_tests, carpeta_mutacion: subcarpetas de
+            `carpeta`.
     """
 
     def __init__(self, ruta_proyecto: str | Path) -> None:
@@ -168,6 +176,7 @@ class AlmacenProyecto:
         self.carpeta_runs = self.carpeta / "runs"
         self.carpeta_specs = self.carpeta / "specs"
         self.carpeta_tests = self.carpeta / "tests"
+        self.carpeta_mutacion = self.carpeta / "mutacion"
 
     def existe(self) -> bool:
         """Indica si el proyecto ya tiene la carpeta `.qagent/`."""
@@ -403,6 +412,74 @@ class AlmacenProyecto:
             for spec in self.listar_specs()
         )
 
+    # --- Mutation testing (#70) ----------------------------------------------------
+
+    def guardar_mutacion(
+        self,
+        spec_id: str,
+        huella_objetivo: str,
+        huella_prueba: str,
+        mutacion: dict[str, Any],
+        run_id: str,
+        ahora: datetime | None = None,
+    ) -> dict[str, Any]:
+        """Guarda el último Mutation Score de una función para reutilizarlo.
+
+        Solo se guardan resultados con puntuación (estado "ok"): un tiempo agotado o un
+        error se vuelve a intentar en la próxima corrida.
+
+        Args:
+            spec_id: id de la spec de la función (`id_de_spec`).
+            huella_objetivo: huella AST de la función cuando se mutó.
+            huella_prueba: `huella_de_prueba()` de la prueba usada contra los mutantes.
+            mutacion: resultado de mutmut (forma `mutacion` de `run_log.schema.json`).
+            run_id: corrida que lo calculó.
+
+        Raises:
+            ErrorAlmacen: si algún campo no es válido (no se escribe nada).
+        """
+        datos = {
+            "version": "1",
+            "id": spec_id,
+            "huella_objetivo": huella_objetivo,
+            "huella_prueba": huella_prueba,
+            "run_id": run_id,
+            "fecha": _iso(ahora),
+            "mutacion": mutacion,
+        }
+        _validar_mutacion(datos)
+        self.carpeta_mutacion.mkdir(parents=True, exist_ok=True)
+        escribir_json_atomico(self._ruta_mutacion(spec_id), datos)
+        return datos
+
+    def mutacion_vigente(
+        self, spec_id: str, huella_objetivo: str | None, huella_prueba: str | None
+    ) -> dict[str, Any] | None:
+        """Último Mutation Score guardado si la función y su prueba no cambiaron.
+
+        Returns:
+            El registro guardado (con `run_id` y `mutacion`), o None si no hay, está
+            dañado o alguna de las dos huellas es distinta.
+        """
+        if not huella_objetivo or not huella_prueba:
+            return None
+        try:
+            datos = leer_json_objeto(self._ruta_mutacion(spec_id))
+            _validar_mutacion(datos)
+        except ErrorAlmacen:
+            return None
+        if (datos["huella_objetivo"], datos["huella_prueba"]) != (
+            huella_objetivo,
+            huella_prueba,
+        ):
+            return None
+        return datos
+
+    def _ruta_mutacion(self, spec_id: str) -> Path:
+        if not isinstance(spec_id, str) or not PATRON_ID.match(spec_id):
+            raise ErrorAlmacen(f"id de spec no válido: {spec_id!r}")
+        return self.carpeta_mutacion / f"{spec_id}.json"
+
     def _ruta_spec(self, spec_id: str) -> Path:
         if not isinstance(spec_id, str) or not PATRON_ID.match(spec_id):
             raise ErrorAlmacen(f"id de spec no válido: {spec_id!r}")
@@ -632,6 +709,25 @@ def _validar_spec(spec: dict[str, Any]) -> None:
         isinstance(huella, str) and PATRON_HUELLA.fullmatch(huella)
     ):
         raise ErrorAlmacen("huella_objetivo debe ser SHA-256 hexadecimal o null.")
+
+
+def _validar_mutacion(datos: dict[str, Any]) -> None:
+    """Valida un registro de `mutacion/<id>.json` (#70)."""
+    if not isinstance(datos.get("id"), str) or not PATRON_ID.match(datos["id"]):
+        raise ErrorAlmacen(f"id de spec no válido: {datos.get('id')!r}")
+    for campo in ("huella_objetivo", "huella_prueba"):
+        valor = datos.get(campo)
+        if not (isinstance(valor, str) and PATRON_HUELLA.fullmatch(valor)):
+            raise ErrorAlmacen(f"{campo} debe ser SHA-256 hexadecimal.")
+    run_id = datos.get("run_id")
+    if not (isinstance(run_id, str) and PATRON_RUN_ID.match(run_id)):
+        raise ErrorAlmacen(f"run_id no válido: {run_id!r}")
+    mutacion = datos.get("mutacion")
+    if not isinstance(mutacion, dict) or mutacion.get("estado") != "ok":
+        raise ErrorAlmacen("Solo se guarda una mutación terminada (estado ok).")
+    puntuacion = mutacion.get("puntuacion")
+    if not isinstance(puntuacion, (int, float)) or isinstance(puntuacion, bool):
+        raise ErrorAlmacen("La mutación guardada debe tener puntuación.")
 
 
 def _validar_plan_modulo(plan: dict[str, Any]) -> None:

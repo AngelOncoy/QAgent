@@ -25,7 +25,7 @@ from typing import Any
 from qagent import __version__
 from qagent.config.auditoria import PATRONES, Hallazgo
 from qagent.config.carga import RUTA_ENV, Claves, leer_env
-from qagent.storage.registro import CARPETA_RUNS
+from qagent.storage.registro import CARPETA_RUNS, nombre_perfil
 from qagent.storage.vista_ejecucion import (
     AGENTES,
     leer_results,
@@ -695,7 +695,7 @@ def datos_informe(
         "fecha": results["fecha"],
         "proyecto": results["proyecto"],
         "rama": results.get("rama"),
-        "perfil": results["perfil"],
+        "perfil": nombre_perfil(results["perfil"]),  # nombre legible (#70)
         "es_simulado": results["es_simulado"],
         "estado_final": results["estado_final"],
         "motivo_fallo": results["motivo_fallo"],

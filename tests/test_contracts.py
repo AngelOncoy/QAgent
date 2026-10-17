@@ -388,3 +388,16 @@ def test_results_rechaza_mutacion_sin_campos_obligatorios() -> None:
     mutacion = copy.deepcopy(MUTACION)
     del mutacion["sobrevivientes"]
     assert not es_valido(RUN_LOG, resultados_con_mutacion(mutacion))
+
+
+def test_results_acepta_mutacion_reutilizada() -> None:
+    """#70: el resultado puede venir de .qagent/mutacion/ con su corrida de origen."""
+    mutacion = {**MUTACION, "reutilizada": True, "run_origen": "20261017-101500-abcd"}
+    assert es_valido(RUN_LOG, resultados_con_mutacion(mutacion))
+
+
+@pytest.mark.parametrize(
+    "cambio", [{"reutilizada": "si"}, {"run_origen": "ayer"}, {"run_origen": None}]
+)
+def test_results_rechaza_reutilizacion_invalida(cambio) -> None:
+    assert not es_valido(RUN_LOG, resultados_con_mutacion({**MUTACION, **cambio}))

@@ -12,6 +12,7 @@ from qagent.almacenamiento import AlmacenProyecto, recientes
 from qagent.app import bitacora
 from qagent.app.monitor_eventos import a_evento_bitacora, a_fila_monitor
 from qagent.proyectos import proyecto_local
+from qagent.storage.registro import PERFILES_REGRESION
 
 # Interfaz web (HTML/CSS/JS), separada del backend e instalada con el paquete: qagent/frontend/
 FRONTEND_DIR = Path(__file__).resolve().parents[1] / "frontend"
@@ -428,6 +429,16 @@ class DesktopAPI:
         """Habilita Regresion solo si hay pruebas aprobadas persistidas."""
         return AlmacenProyecto(ruta).tiene_pruebas_aprobadas()
 
+    def pruebas_repetibles(self, ruta: str) -> list[dict[str, str]]:
+        """Funciones y endpoints con prueba guardada que hoy se puede repetir (#70)."""
+        from qagent.orchestrator.regresion import objetivos_repetibles
+
+        try:
+            return objetivos_repetibles(ruta)
+        except OSError as error:
+            bitacora.registro.warning("No se leyeron las pruebas guardadas: %s", error)
+            return []
+
     def descargar_specs_zip(self, ruta: str, modulo: str | None = None) -> dict:
         """Crea un ZIP y abre el diálogo nativo para elegir dónde guardarlo."""
         from qagent.almacenamiento import ErrorAlmacen
@@ -501,7 +512,7 @@ class DesktopAPI:
                 return {"status": "seleccion_invalida", "mensaje": str(exc)}
 
         simulado = modo_simulado()
-        es_regresion = profile == "reg"
+        es_regresion = profile in PERFILES_REGRESION  # reg y reg_deep (#70): sin IA
         if es_regresion or not simulado:
             try:
                 verificar_docker()

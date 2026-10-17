@@ -1,4 +1,4 @@
-"""Reejecucion sin IA de pruebas aprobadas (HU-25)."""
+"""Reejecucion sin IA de pruebas aprobadas (HU-25), con mutación opcional (#70)."""
 
 from __future__ import annotations
 
@@ -17,10 +17,12 @@ from qagent.almacenamiento import AlmacenProyecto
 from qagent.llm.tracker import TokenTracker
 from qagent.orchestrator.estados import Estado
 from qagent.orchestrator.eventos import Evento
+from qagent.orchestrator.mutacion import mutar_modulo
 from qagent.orchestrator.orquestador import ResultadoCorrida, ResultadoObjetivo
 from qagent.proyectos.proyecto_local import detectar_rama
 from qagent.sandbox import clasificar_resultado, ejecutar_pruebas
 from qagent.storage import escribir_corrida
+from qagent.storage.registro import PERFIL_REGRESION_PROFUNDA
 
 
 def huellas_de_objetivos(raiz: str | Path) -> dict[tuple[str, str], str]:
@@ -108,6 +110,33 @@ def _specs_aprobadas(almacen: AlmacenProyecto) -> list[dict[str, Any]]:
     return candidatas
 
 
+def objetivos_repetibles(ruta_proyecto: str | Path) -> list[dict[str, str]]:
+    """Objetivos cuya prueba aprobada guardada se puede repetir hoy (#70).
+
+    Son los de una spec vigente, con su archivo de prueba presente y la misma huella
+    AST que cuando se aprobó. La Configuración los usa para contar las funciones
+    prioritarias que se pueden profundizar al repetir pruebas guardadas.
+    """
+    raiz = Path(ruta_proyecto)
+    almacen = AlmacenProyecto(raiz)
+    huellas = huellas_de_objetivos(raiz)
+    repetibles = []
+    for spec in _specs_aprobadas(almacen):
+        contrato = spec["contrato"]
+        clave = (contrato["modulo"], contrato["objetivo"])
+        esperada = spec.get("huella_objetivo")
+        if (
+            spec.get("_motivo_regresion")
+            or not esperada
+            or huellas.get(clave) != esperada
+        ):
+            continue
+        if not (almacen.carpeta_tests / spec["archivo_prueba"]).is_file():
+            continue
+        repetibles.append({"modulo": clave[0], "objetivo": clave[1]})
+    return repetibles
+
+
 def ejecutar_regresion(
     ruta_proyecto: str | Path,
     perfil: str,
@@ -118,8 +147,15 @@ def ejecutar_regresion(
     preparar_imagen: Any = None,
     ejecutor: Any = ejecutar_pruebas,
     seleccion: list[dict[str, Any]] | None = None,
+    mutador: Any = None,
 ) -> Any:
-    """Reejecuta una vez cada prueba aprobada vigente; nunca crea clientes LLM."""
+    """Reejecuta una vez cada prueba aprobada vigente; nunca crea clientes LLM.
+
+    Con el perfil `reg_deep` (#70), al final aplica mutmut a las funciones críticas
+    cuya prueba guardada volvió a pasar, sin IA. Las críticas son las marcadas en la
+    Vista previa (`criticas` de la selección, HU-06); sin selección, las del contrato
+    guardado.
+    """
     from qagent.orchestrator.corrida import ResumenCorrida, _cerrar_run, metas_de
 
     inicio = time.monotonic()
@@ -129,6 +165,16 @@ def ejecutar_regresion(
     tracker = TokenTracker(configuracion.agentes)
     resultados: list[ResultadoCorrida] = []
     huellas = huellas_de_objetivos(raiz)
+    marcadas = (
+        None
+        if seleccion is None
+        else {e["ruta"]: set(e.get("criticas") or []) for e in seleccion}
+    )
+
+    def es_critica(modulo: str, objetivo: str, contrato: dict[str, Any]) -> bool:
+        if marcadas is None:
+            return bool(contrato.get("critical"))
+        return objetivo in marcadas.get(modulo, set())
 
     def emitir(
         mensaje: str,
@@ -200,7 +246,7 @@ def ejecutar_regresion(
             if motivo:
                 obj = ResultadoObjetivo(
                     objetivo,
-                    bool(contrato.get("critical")),
+                    es_critica(modulo, objetivo, contrato),
                     decision="requiere_corrida_nueva",
                     contrato=contrato,
                     codigo=codigo,
@@ -260,7 +306,7 @@ def ejecutar_regresion(
             }
             obj = ResultadoObjetivo(
                 objetivo,
-                bool(contrato.get("critical")),
+                es_critica(modulo, objetivo, contrato),
                 decision=decision,
                 intentos=1,
                 cobertura=_cobertura(salida.coverage),
@@ -287,6 +333,18 @@ def ejecutar_regresion(
                 modulo,
                 "veredicto",
                 {"decision": decision, "intento": 1, "objetivo": objetivo},
+            )
+        if perfil == PERFIL_REGRESION_PROFUNDA:
+            _mutar_criticas(
+                raiz,
+                imagen,
+                resultados,
+                configuracion,
+                mutador,
+                almacen,
+                resumen.run_id,
+                huellas,
+                emitir,
             )
         decisiones = [o.decision for r in resultados for o in r.objetivos]
         resumen.total_funciones = len(decisiones)
@@ -319,6 +377,57 @@ def ejecutar_regresion(
         tipo="fin",
     )
     return resumen
+
+
+def _mutar_criticas(
+    raiz: Path,
+    imagen: str | None,
+    resultados: list[ResultadoCorrida],
+    configuracion: Any,
+    mutador: Any,
+    almacen: AlmacenProyecto,
+    run_id: str | None,
+    huellas: dict[tuple[str, str], str],
+    emitir: Any,
+) -> None:
+    """#70: mutmut sobre las críticas cuya prueba guardada volvió a pasar.
+
+    Las que requieren corrida nueva o fallaron no se mutan: su prueba no sirve hoy
+    para juzgar a los mutantes. Reutiliza el resultado guardado si la función y las
+    pruebas usadas no cambiaron, y guarda los nuevos.
+    """
+    from qagent.config.carga import Mutacion
+
+    tiempo = getattr(configuracion, "mutacion", Mutacion()).tiempo_maximo_por_funcion_s
+    por_modulo: dict[str, list[ResultadoObjetivo]] = {}
+    for resultado in resultados:
+        por_modulo.setdefault(resultado.modulo, []).extend(resultado.objetivos)
+    for modulo, objetivos in por_modulo.items():
+        mutar_modulo(
+            raiz,
+            imagen,
+            {"ruta": modulo, "funciones": _lineas_de(raiz, modulo)},
+            ResultadoCorrida(modulo, Estado.FIN, None, objetivos, [], {}, 0.0),
+            tiempo,
+            mutador,
+            lambda mensaje, archivo=modulo: emitir(mensaje, archivo),
+            almacen=almacen if almacen.existe() else None,
+            run_id=run_id,
+            huellas=huellas,
+        )
+
+
+def _lineas_de(raiz: Path, modulo: str) -> list[dict[str, Any]]:
+    """Línea del `def` de cada función de primer nivel del módulo (solo `ast`)."""
+    try:
+        arbol = ast.parse((raiz / modulo).read_text(encoding="utf-8"))
+    except (OSError, UnicodeDecodeError, SyntaxError, ValueError):
+        return []
+    return [
+        {"nombre": nodo.name, "linea": nodo.lineno}
+        for nodo in arbol.body
+        if isinstance(nodo, (ast.FunctionDef, ast.AsyncFunctionDef))
+    ]
 
 
 def _preparar_imagen(ruta: Path) -> str:
