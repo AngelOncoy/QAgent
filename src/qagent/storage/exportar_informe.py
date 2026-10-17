@@ -23,8 +23,9 @@ from pathlib import Path
 from typing import Any
 
 from qagent import __version__
+from qagent.config import carga as config_carga
 from qagent.config.auditoria import PATRONES, Hallazgo
-from qagent.config.carga import RUTA_ENV, Claves, leer_env
+from qagent.config.carga import Claves, leer_env
 from qagent.storage.registro import CARPETA_RUNS
 from qagent.storage.vista_ejecucion import (
     AGENTES,
@@ -100,8 +101,8 @@ def normalizar_opciones(opciones: Mapping[str, Any] | None = None) -> dict[str, 
         "resumen": True,
         "detalle": bool(src.get("detalle", True)),
         "trazas": bool(src.get("trazas", True)),
-        "codigo": bool(src.get("codigo", False)),
-        "contratos": bool(src.get("contratos", False)),
+        "codigo": bool(src.get("codigo", True)),
+        "contratos": bool(src.get("contratos", True)),
     }
 
 
@@ -112,8 +113,9 @@ def sanitizar_secretos(texto: str, claves: Claves | None = None) -> str:
     if claves is not None:
         texto = claves.redactar(texto)
     try:
-        if RUTA_ENV.is_file():
-            texto = Claves(leer_env(RUTA_ENV)).redactar(texto)
+        ruta_env = Path(config_carga.RUTA_ENV)
+        if ruta_env.is_file():
+            texto = Claves(leer_env(ruta_env)).redactar(texto)
     except (OSError, UnicodeDecodeError):
         pass
 
@@ -358,6 +360,295 @@ _MOTIVO_FALLO = {
 }
 
 
+def _resumen_casos_planner(contrato: dict[str, Any] | None) -> list[dict[str, Any]]:
+    """Extrae los casos planificados por el Planner de forma estructurada."""
+    if not isinstance(contrato, dict):
+        return []
+    casos = []
+    if isinstance(contrato.get("casos"), list):
+        for idx, c in enumerate(contrato["casos"]):
+            if not isinstance(c, dict):
+                continue
+            casos.append(
+                {
+                    "id": c.get("id") or f"caso_{idx + 1}",
+                    "descripcion": c.get("descripcion") or f"Caso {idx + 1}",
+                    "tipo": c.get("tipo", "normal"),
+                    "entrada": c.get("entrada") or c.get("entradas"),
+                    "esperado": c.get("valor_esperado") or c.get("esperado"),
+                    "excepcion": c.get("excepcion"),
+                    "origen": c.get("origen"),
+                }
+            )
+    elif isinstance(contrato.get("comportamiento_esperado"), list):
+        for idx, comp in enumerate(contrato["comportamiento_esperado"]):
+            casos.append(
+                {
+                    "id": f"regla_{idx + 1}",
+                    "descripcion": str(comp),
+                    "tipo": "especificacion",
+                    "entrada": None,
+                    "esperado": str(comp),
+                    "excepcion": None,
+                    "origen": "docstring / especificación",
+                }
+            )
+    return casos
+
+
+def _salud_proyecto(datos: dict[str, Any]) -> dict[str, Any]:
+    """Sintetiza métricas prácticas, fortalezas, deficiencias y plan de mejora del proyecto."""
+    funciones = datos.get("funciones") or []
+    total = len(funciones)
+    aprobadas = sum(1 for f in funciones if f.get("estado") == "aprobado")
+    bugs = sum(1 for f in funciones if f.get("estado") == "bug_detectado")
+    laundering = sum(
+        1
+        for f in funciones
+        if f.get("estado") == "rechazado_laundering" or f.get("laundering_detectado")
+    )
+    estancadas = sum(1 for f in funciones if f.get("estado") == "estancado")
+
+    lineas_vals = [float(f.get("cobertura_lineas") or 0.0) for f in funciones]
+    ramas_vals = [float(f.get("cobertura_ramas") or 0.0) for f in funciones]
+    prom_lineas = round(sum(lineas_vals) / len(lineas_vals), 1) if lineas_vals else 0.0
+    prom_ramas = round(sum(ramas_vals) / len(ramas_vals), 1) if ramas_vals else 0.0
+
+    criticas_fns = [f for f in funciones if f.get("critical")]
+    ms_vals = [
+        float(f["mutation_score"])
+        for f in criticas_fns
+        if f.get("mutation_score") is not None
+    ]
+    prom_ms = round(sum(ms_vals) / len(ms_vals), 1) if ms_vals else None
+
+    pct_aprobadas = (aprobadas / total * 100.0) if total else 0.0
+    pts_pass = (aprobadas / total * 45.0) if total else 0.0
+    pts_lin = (min(100.0, prom_lineas) / 100.0) * 25.0
+    pts_ram = (min(100.0, prom_ramas) / 100.0) * 15.0
+    pts_ms = ((prom_ms / 100.0) * 15.0) if prom_ms is not None else 12.0
+    penalizacion_laund = laundering * 8.0
+    penalizacion_bugs = bugs * 5.0
+    indice_salud = max(
+        0,
+        min(
+            100,
+            round(
+                pts_pass
+                + pts_lin
+                + pts_ram
+                + pts_ms
+                - penalizacion_laund
+                - penalizacion_bugs
+            ),
+        ),
+    )
+
+    if indice_salud >= 90:
+        nivel_madurez = "Excelente (Listo para producción)"
+        estado_salud = "excelente"
+    elif indice_salud >= 75:
+        nivel_madurez = "Estable (Observaciones menores)"
+        estado_salud = "estable"
+    elif indice_salud >= 50:
+        nivel_madurez = "En Riesgo (Requiere correcciones prioritarias)"
+        estado_salud = "riesgo"
+    else:
+        nivel_madurez = "Crítico (Defectos estructurales detectados)"
+        estado_salud = "critico"
+
+    fortalezas: list[str] = []
+    fns_alta_cob = [
+        f
+        for f in funciones
+        if (f.get("cobertura_lineas") or 0.0) >= 90.0 and f.get("verde", True)
+    ]
+    if fns_alta_cob:
+        nombres = ", ".join(
+            f"`{f['funcion']}` ({f['modulo']})" for f in fns_alta_cob[:3]
+        )
+        if len(fns_alta_cob) > 3:
+            nombres += f" y {len(fns_alta_cob) - 3} más"
+        fortalezas.append(
+            f"Alta cobertura de código: {len(fns_alta_cob)}/{total} funciones ({nombres}) "
+            f"alcanzan >= 90% de cobertura en líneas con pruebas unitarias sólidas."
+        )
+    fns_ms_ok = [f for f in criticas_fns if (f.get("mutation_score") or 0.0) >= 60.0]
+    if fns_ms_ok:
+        crit_nombres = ", ".join(f"`{f['funcion']}`" for f in fns_ms_ok)
+        fortalezas.append(
+            f"Resistencia frente a mutaciones: Funciones críticas ({crit_nombres}) superan "
+            f"el 60% de Mutation Score, garantizando aserciones sensibles a cambios de lógica."
+        )
+    fns_sin_laund = [
+        f
+        for f in funciones
+        if not f.get("laundering_detectado") and f.get("verde", True)
+    ]
+    if fns_sin_laund:
+        fortalezas.append(
+            f"Integridad de contratos: {len(fns_sin_laund)}/{total} funciones mantuvieron "
+            f"oráculos estrictos sin debilitar ni relajar aserciones."
+        )
+    if prom_lineas >= 80.0:
+        fortalezas.append(
+            f"Promedio general de cobertura saludable: {prom_lineas:.1f}% en líneas y {prom_ramas:.1f}% en ramas evaluadas."
+        )
+
+    deficiencias: list[str] = []
+    fns_bugs = [f for f in funciones if f.get("estado") == "bug_detectado"]
+    for fb in fns_bugs:
+        ejec = fb.get("ejecucion") or {}
+        casos_f = [
+            c for c in ejec.get("casos", []) if c.get("resultado") in ("fallo", "error")
+        ]
+        prim = casos_f[0] if casos_f else None
+        ubicacion = (
+            f"{prim['archivo']}:{prim.get('linea')}"
+            if prim and prim.get("archivo")
+            else f"{fb['modulo']}::{fb['funcion']}"
+        )
+        esp_obt = (
+            f" (esperado: {prim.get('esperado')}, obtenido: {prim.get('obtenido')})"
+            if prim and prim.get("esperado") is not None
+            else ""
+        )
+        deficiencias.append(
+            f"Defecto de lógica detectado en `{fb['modulo']}::{fb['funcion']}`: "
+            f"Fallo en aserción en `{ubicacion}`{esp_obt}. El código de producción no cumple el contrato esperado."
+        )
+    fns_laund = [
+        f
+        for f in funciones
+        if f.get("laundering_detectado") or f.get("estado") == "rechazado_laundering"
+    ]
+    for fl in fns_laund:
+        deficiencias.append(
+            f"Intento de alteración de aserciones (Assertion Laundering) en `{fl['modulo']}::{fl['funcion']}`: "
+            f"Se intentó debilitar el oráculo para ocultar un fallo, lo cual fue bloqueado por el Reviewer."
+        )
+    fns_bajas_ramas = [
+        f for f in funciones if (f.get("cobertura_ramas") or 100.0) < 85.0
+    ]
+    if fns_bajas_ramas:
+        bajas_txt = ", ".join(
+            f"`{f['funcion']}` ({f.get('cobertura_ramas', 0):g}% ramas)"
+            for f in fns_bajas_ramas[:3]
+        )
+        deficiencias.append(
+            f"Ramas condicionales sin evaluar: {bajas_txt} dejan bifurcaciones (`if/else`) sin probar."
+        )
+    if not deficiencias:
+        deficiencias.append(
+            "No se detectaron deficiencias críticas ni anomalías en la lógica analizada."
+        )
+
+    recomendaciones: list[str] = []
+    if fns_bugs:
+        for fb in fns_bugs:
+            recomendaciones.append(
+                f"Prioridad 1 — Corregir la lógica de `{fb['modulo']}::{fb['funcion']}`: "
+                f"Modificar el cálculo o condición en el código de producción para que retorne el valor esperado según la especificación del negocio."
+            )
+    if fns_bajas_ramas:
+        bajas_nom = ", ".join(f"`{f['funcion']}`" for f in fns_bajas_ramas[:2])
+        recomendaciones.append(
+            f"Prioridad 2 — Agregar casos límite para ramas en {bajas_nom}: "
+            f"Probar entradas vacías, bordes numéricos o condiciones alternas para alcanzar 100% de cobertura de ramas."
+        )
+    if fns_laund:
+        recomendaciones.append(
+            "Prioridad 3 — Auditar oráculos de prueba: Evitar modificar los valores esperados de las aserciones para forzar el paso de los tests; resolver siempre el defecto en el código fuente."
+        )
+    if not recomendaciones:
+        recomendaciones.append(
+            "Mantener la ejecución automatizada de esta suite en el pipeline de Integración Continua (CI) para prevenir regresiones."
+        )
+
+    incidentes_detallados = []
+    for f in funciones:
+        if not f.get("verde", True) or f.get("traza"):
+            ejec = f.get("ejecucion") or {}
+            fallos_casos = [
+                c
+                for c in ejec.get("casos", [])
+                if c.get("resultado") in ("fallo", "error")
+            ]
+            primer_fallo = fallos_casos[0] if fallos_casos else None
+            donde = (
+                f"{primer_fallo['archivo']}:{primer_fallo['linea']}"
+                if primer_fallo and primer_fallo.get("archivo")
+                else f"{f['modulo']}::{f['funcion']}"
+            )
+            motivo = f.get("motivo_fallo") or (
+                primer_fallo.get("mensaje")
+                if primer_fallo
+                else "Discrepancia detectada en aserción de prueba"
+            )
+            accion = (
+                f"Corregir cálculo/retorno en `{f['modulo']}::{f['funcion']}`"
+                if f.get("estado") == "bug_detectado"
+                else (
+                    f"Restaurar aserción estricta en suite de tests de `{f['funcion']}`"
+                    if f.get("laundering_detectado")
+                    else "Revisar traza de ejecución en el sandbox"
+                )
+            )
+            incidentes_detallados.append(
+                {
+                    "funcion": f["funcion"],
+                    "modulo": f["modulo"],
+                    "estado": f.get("estado"),
+                    "ubicacion": donde,
+                    "causa": motivo,
+                    "tipo_error": (
+                        primer_fallo.get("tipo_error")
+                        if primer_fallo
+                        else "AssertionError"
+                    ),
+                    "esperado": primer_fallo.get("esperado") if primer_fallo else None,
+                    "obtenido": primer_fallo.get("obtenido") if primer_fallo else None,
+                    "laundering": bool(f.get("laundering_detectado")),
+                    "accion_sugerida": accion,
+                }
+            )
+
+    if bugs == 0 and laundering == 0 and estancadas == 0:
+        diagnostico = (
+            f"El proyecto supera con éxito las pruebas unitarias ({aprobadas}/{total} funciones aprobadas, "
+            f"{pct_aprobadas:.1f}%). No se detectaron defectos en la lógica evaluada."
+        )
+    else:
+        partes = [f"{aprobadas}/{total} aprobadas ({pct_aprobadas:.1f}%)"]
+        if bugs:
+            partes.append(f"{bugs} con defecto confirmado en código (bug detectado)")
+        if laundering:
+            partes.append(f"{laundering} con aserciones relajadas rechazadas")
+        if estancadas:
+            partes.append(f"{estancadas} estancadas")
+        diagnostico = (
+            f"El proyecto presenta observaciones de calidad: {', '.join(partes)}. "
+            "Consulte las deficiencias y el plan de mejora para corregir las líneas afectadas en su código."
+        )
+
+    return {
+        "total": total,
+        "aprobadas": aprobadas,
+        "bugs": bugs,
+        "laundering": laundering,
+        "estancadas": estancadas,
+        "pct_aprobadas": pct_aprobadas,
+        "indice_salud": indice_salud,
+        "nivel_madurez": nivel_madurez,
+        "estado_salud": estado_salud,
+        "diagnostico": diagnostico,
+        "fortalezas": fortalezas,
+        "deficiencias": deficiencias,
+        "recomendaciones": recomendaciones,
+        "incidentes": incidentes_detallados,
+    }
+
+
 def _filas_entorno(datos: dict[str, Any]) -> list[tuple[str, str]]:
     """Pares (etiqueta, valor) con los datos de la ejecución; vacío si no los hay."""
     entorno = datos.get("entorno")
@@ -478,6 +769,39 @@ def _markdown_ejecucion(datos: dict[str, Any], con_traza: bool) -> list[str]:
         if historial:
             lineas.extend(f"- {h}" for h in historial)
             lineas.append("")
+
+        # Documentación concisa orientada al usuario
+        contrato = f.get("contrato") or {}
+        casos_plan = _resumen_casos_planner(contrato)
+        firma = (
+            f.get("firma")
+            or contrato.get("firma")
+            or f.get("manejador")
+            or f["funcion"]
+        )
+        crit_txt = "Crítica" if f["critical"] else "Estándar"
+        lineas.append(
+            f"- **Objetivo analizado:** `{firma}` ({len(casos_plan)} casos deducidos del AST · {crit_txt})"
+        )
+        lineas.append(
+            f"- **Suite pytest:** `tests/test_{f['funcion']}.py` ({f['iteraciones']}/3 iteraciones en sandbox hermético)"
+        )
+        laund_txt = (
+            "DETECTADO (aserciones alteradas)"
+            if f.get("laundering_detectado")
+            else "Aserciones estrictas e íntegras"
+        )
+        lineas.append(
+            f"- **Evaluación del Reviewer:** {estado_lbl} · Cobertura: {_fmt_pct(f['cobertura_lineas'])} líneas / {_fmt_pct(f['cobertura_ramas'])} ramas · Laundering: {laund_txt}"
+        )
+        for it in f.get("intentos") or []:
+            fb = it.get("feedback")
+            if fb:
+                lineas.append(
+                    f"  - *Diagnóstico Reviewer (Intento {it.get('intento')}):* {fb}"
+                )
+        lineas.append("")
+
         ejecucion = f["ejecucion"]
         lineas.extend(["| Resultado | Caso | Duración | Dónde |", "|---|---|---|---|"])
         for c in ejecucion["casos"]:
@@ -674,8 +998,9 @@ def datos_informe(
     specs = resumen_specs_corrida(raiz_proyecto, run_actual)
     por_agente = ejec["indicadores"]["costo"]["por_agente"]
 
-    # Tokens por función desde results.json
+    # Tokens por función y por agente desde results.json
     tokens_funcion: dict[tuple[str, str], int] = {}
+    tokens_agente_funcion: dict[tuple[str, str], dict[str, Any]] = {}
     for obj in results["objetivos"]:
         tok_ag = obj["metricas"].get("tokens_por_agente") or {}
         total_fn = sum(
@@ -683,11 +1008,15 @@ def datos_informe(
             for t in tok_ag.values()
         )
         tokens_funcion[(obj["modulo"], obj["funcion"])] = total_fn
+        tokens_agente_funcion[(obj["modulo"], obj["funcion"])] = tok_ag
 
     funciones_enriquecidas = []
     for fn in vista["funciones"]:
         copia = dict(fn)
         copia["tokens"] = tokens_funcion.get((fn["modulo"], fn["funcion"]), 0)
+        copia["tokens_por_agente"] = tokens_agente_funcion.get(
+            (fn["modulo"], fn["funcion"]), {}
+        )
         funciones_enriquecidas.append(copia)
 
     datos = {
@@ -765,6 +1094,56 @@ def construir_markdown_informe(
     )
     lineas.append("")
 
+    salud = _salud_proyecto(datos)
+    lineas.extend(
+        [
+            "### 1.1 Estado de salud del proyecto",
+            "",
+            f"- **Índice de salud del código:** {salud['indice_salud']}/100 — **Nivel:** {salud['nivel_madurez']}",
+            f"- **Progreso del proyecto:** {salud['aprobadas']}/{salud['total']} funciones aprobadas ({salud['pct_aprobadas']:.1f}%)",
+            f"- **Diagnóstico global:** {salud['diagnostico']}",
+            (
+                f"- **Balance de calidad:** ✅ {salud['aprobadas']} aprobadas · "
+                f"🐛 {salud['bugs']} defectos en código · "
+                f"🛡️ {salud['laundering']} laundering bloqueado · "
+                f"⏳ {salud['estancadas']} estancadas (de {salud['total']} evaluadas)"
+            ),
+            "",
+            "#### Fortalezas del proyecto",
+        ]
+    )
+    for fort in salud["fortalezas"]:
+        lineas.append(f"- ✅ {fort}")
+    lineas.extend(
+        [
+            "",
+            "#### Deficiencias detectadas (áreas de riesgo)",
+        ]
+    )
+    for defic in salud["deficiencias"]:
+        lineas.append(f"- ⚠️ {defic}")
+    lineas.extend(
+        [
+            "",
+            "#### Cómo mejorar su proyecto (Plan de acción recomendado)",
+        ]
+    )
+    for idx_rec, rec in enumerate(salud["recomendaciones"], start=1):
+        lineas.append(f"{idx_rec}. {rec}")
+    lineas.append("")
+    if salud["incidentes"]:
+        lineas.append("- **Puntos críticos que requieren corrección en el código:**")
+        for inc in salud["incidentes"]:
+            det = f"`{inc['funcion']}` en `{inc['ubicacion']}`: {inc['causa']}"
+            if inc["esperado"] is not None and inc["obtenido"] is not None:
+                det += (
+                    f" (Esperado: `{inc['esperado']}` | Obtenido: `{inc['obtenido']}`)"
+                )
+            if inc.get("accion_sugerida"):
+                det += f" — *Sugerencia:* {inc['accion_sugerida']}"
+            lineas.append(f"  - {det}")
+    lineas.append("")
+
     if opts["detalle"]:
         lineas.extend(
             [
@@ -806,6 +1185,61 @@ def construir_markdown_informe(
                 estado_lbl = ETIQUETAS_ESTADO.get(f["estado"], f["estado"])
                 lineas.append(f"### {f['funcion']} ({f['modulo']}) — {estado_lbl}")
                 lineas.append("")
+                # Diagnóstico formal del incidente: qué parte falló y por qué
+                lineas.append(
+                    f"- **Parte del código afectada:** `{f['modulo']}::{f['funcion']}`"
+                )
+                lineas.append(f"- **Veredicto del Reviewer:** {estado_lbl}")
+                causa_incidente = f.get("motivo_fallo") or (
+                    "Assertion Laundering detectado (el Generator intentó debilitar o relajar aserciones para enmascarar un fallo)."
+                    if f.get("laundering_detectado")
+                    else (
+                        "Defecto confirmado en código (el test detectó una discrepancia frente a la especificación esperada)."
+                        if f.get("estado") == "bug_detectado"
+                        else "Ejecución estancada o fallo durante la validación en el sandbox."
+                    )
+                )
+                lineas.append(f"- **¿Por qué falló?:** {causa_incidente}")
+                if f.get("laundering_detectado"):
+                    lineas.append(
+                        "- **Incidente de seguridad:** Assertion Laundering detectado "
+                        "(el Generator intentó debilitar o relajar aserciones para enmascarar un fallo)."
+                    )
+                intentos = f.get("intentos") or []
+                if intentos:
+                    lineas.append(
+                        f"- **Historial de intentos del Reviewer ({len(intentos)}/3):**"
+                    )
+                    for it in intentos:
+                        dec = _ETIQUETA_DECISION.get(
+                            str(it.get("decision")), it.get("decision")
+                        )
+                        fb = it.get("feedback") or "Sin retroalimentación adicional."
+                        lineas.append(
+                            f"  - *Intento {it.get('intento')}:* Decisión `{dec}` · Diagnóstico: {fb}"
+                        )
+                ejec = f.get("ejecucion")
+                if ejec and ejec.get("casos"):
+                    fallos_caso = [
+                        c
+                        for c in ejec["casos"]
+                        if c.get("resultado") in ("fallo", "error")
+                    ]
+                    if fallos_caso:
+                        lineas.append("- **Casos fallidos en pytest:**")
+                        for fc in fallos_caso:
+                            partes_fc = [f"`{fc['nombre']}`"]
+                            if fc.get("linea"):
+                                partes_fc.append(f"Línea: {fc['linea']}")
+                            if (
+                                fc.get("esperado") is not None
+                                or fc.get("obtenido") is not None
+                            ):
+                                partes_fc.append(
+                                    f"Esperado: `{fc.get('esperado')}` | Obtenido: `{fc.get('obtenido')}`"
+                                )
+                            lineas.append(f"  - {' — '.join(partes_fc)}")
+                lineas.append("")
                 if f.get("traza"):
                     lineas.append("```text")
                     lineas.append(str(f["traza"]))
@@ -815,9 +1249,25 @@ def construir_markdown_informe(
                 lineas.append("")
 
     if opts["codigo"]:
-        lineas.extend(["## 4. Código de las pruebas generadas", ""])
+        lineas.extend(
+            [
+                "## 4. Código de las pruebas generadas",
+                "",
+                "_Anexo de referencia: suites de prueba pytest generadas por el Generator._",
+                "",
+            ]
+        )
         for f in datos["funciones"]:
+            estado_lbl = ETIQUETAS_ESTADO.get(f["estado"], f["estado"])
             lineas.append(f"### tests/test_{f['funcion']}.py ({f['modulo']})")
+            lineas.append("")
+            lineas.append(
+                f"- **Autor:** Generator (QAgent) · **Estado:** {estado_lbl} · "
+                f"**Iteraciones:** {f['iteraciones']}/3"
+            )
+            lineas.append(
+                "- **Entorno de prueba:** Ejecución hermética en sandbox Docker sin acceso a red"
+            )
             lineas.append("")
             if f.get("codigo"):
                 lineas.append("```python")
@@ -828,9 +1278,31 @@ def construir_markdown_informe(
             lineas.append("")
 
     if opts["contratos"]:
-        lineas.extend(["## 5. Contratos JSON del Planner", ""])
+        lineas.extend(
+            [
+                "## 5. Contratos JSON del Planner",
+                "",
+                "_Anexo técnico secundario: especificaciones y contratos formales del Planner para auditoría de oráculos._",
+                "",
+            ]
+        )
         for f in datos["funciones"]:
+            contrato = f.get("contrato") or {}
+            casos_plan = _resumen_casos_planner(contrato)
+            crit_txt = (
+                "Sí (crítica, evaluada con mutation testing)"
+                if f["critical"]
+                else "No (función estándar)"
+            )
             lineas.append(f"### {f['funcion']} ({f['modulo']})")
+            lineas.append("")
+            lineas.append(
+                f"- **Diseñado por:** Planner (QAgent) mediante análisis estático AST · "
+                f"**Criticidad:** {crit_txt}"
+            )
+            lineas.append(
+                f"- **Casos planificados:** {len(casos_plan)} casos deducidos formalmente"
+            )
             lineas.append("")
             if f.get("contrato") is not None:
                 lineas.append("```json")
@@ -854,13 +1326,19 @@ def construir_json_informe(
     base["specs"] = copy.deepcopy(datos["specs"])
     base["costo_por_agente"] = copy.deepcopy(datos["costo_por_agente"])
     base["metricas"] = copy.deepcopy(datos["metricas"])
-    base["opciones_incluidas"] = opts
+    base["salud_proyecto"] = _salud_proyecto(datos)
+    base["agentes"] = {
+        "modelos": copy.deepcopy(datos["modelos"]),
+        "costo_por_agente": copy.deepcopy(datos["costo_por_agente"]),
+        "roles": {
+            "planner": "Analiza el AST del código, firmas, docstrings y dependencias para deducir casos de prueba formales.",
+            "generator": "Escribe las suites de pruebas pytest herméticas a partir de los contratos del Planner.",
+            "reviewer": "Ejecuta las pruebas en sandbox Docker, audita Assertion Laundering y emite veredictos de calidad.",
+        },
+    }
 
     if opts["detalle"]:
         base["ejecucion"] = _json_ejecucion(datos, opts["trazas"])
-    if not opts["detalle"]:
-        base["objetivos"] = []
-    elif opts["trazas"] or opts["codigo"] or opts["contratos"]:
         detalles_fn = []
         for fn in datos["funciones"]:
             item: dict[str, Any] = {
@@ -874,8 +1352,85 @@ def construir_json_informe(
                 item["codigo"] = fn.get("codigo")
             if opts["contratos"]:
                 item["contrato"] = fn.get("contrato")
+
+            contrato_fn = fn.get("contrato") or {}
+            casos_plan = _resumen_casos_planner(contrato_fn)
+            tok_ag = fn.get("tokens_por_agente") or {}
+            item["planner"] = {
+                "firma": fn.get("firma") or contrato_fn.get("firma") or fn["funcion"],
+                "critical": bool(fn.get("critical")),
+                "total_casos_planificados": len(casos_plan),
+                "casos_planificados": casos_plan,
+                "llama_a": contrato_fn.get("llama_a", []),
+                "tokens": tok_ag.get("planner", {}),
+            }
+            item["generator"] = {
+                "archivo_test": f"tests/test_{fn['funcion']}.py",
+                "iteraciones": fn.get("iteraciones", 1),
+                "aislamiento": "sandbox_docker_sin_red",
+                "codigo": fn.get("codigo") if opts["codigo"] else None,
+                "tokens": tok_ag.get("generator", {}),
+            }
+            item["reviewer"] = {
+                "veredicto": fn.get("estado"),
+                "laundering_detectado": bool(fn.get("laundering_detectado")),
+                "cobertura_lineas": fn.get("cobertura_lineas"),
+                "cobertura_ramas": fn.get("cobertura_ramas"),
+                "intentos": fn.get("intentos", []),
+                "tokens": tok_ag.get("reviewer", {}),
+            }
+            ejecucion_fn = fn.get("ejecucion") or {}
+            casos_fallidos = [
+                {
+                    "nombre": c.get("nombre"),
+                    "resultado": c.get("resultado"),
+                    "archivo": c.get("archivo"),
+                    "linea": c.get("linea"),
+                    "esperado": c.get("esperado"),
+                    "obtenido": c.get("obtenido"),
+                    "mensaje": c.get("mensaje"),
+                }
+                for c in ejecucion_fn.get("casos", [])
+                if c.get("resultado") in ("fallo", "error")
+            ]
+            item["errores"] = {
+                "hay_incidente": not fn.get("verde", True) or bool(fn.get("traza")),
+                "estado": fn.get("estado"),
+                "motivo_fallo": fn.get("motivo_fallo"),
+                "casos_fallidos": casos_fallidos,
+                "traza": fn.get("traza") if opts["trazas"] else None,
+            }
+            ubicacion_fallo = None
+            if not fn.get("verde", True):
+                for c in ejecucion_fn.get("casos", []):
+                    if c.get("archivo"):
+                        ubicacion_fallo = f"{c['archivo']}:{c.get('linea')}"
+                        break
+                if not ubicacion_fallo:
+                    ubicacion_fallo = f"{fn['modulo']}::{fn['funcion']}"
+            motivo_fallo = fn.get("motivo_fallo") or (
+                "Assertion Laundering detectado"
+                if fn.get("laundering_detectado")
+                else (
+                    "Defecto confirmado en código"
+                    if fn.get("estado") == "bug_detectado"
+                    else (
+                        "Fallo detectado durante la validación"
+                        if not fn.get("verde", True)
+                        else None
+                    )
+                )
+            )
+            item["diagnostico"] = {
+                "aprobada": bool(fn.get("verde", True)),
+                "estado": fn.get("estado"),
+                "motivo_fallo": motivo_fallo,
+                "ubicacion_fallo": ubicacion_fallo,
+            }
             detalles_fn.append(item)
         base["detalle_funciones"] = detalles_fn
+    else:
+        base["objetivos"] = []
 
     limpio = _sanitizar_estructura(base, claves)
     texto = json.dumps(limpio, indent=2, ensure_ascii=False)
@@ -918,6 +1473,88 @@ def construir_html_informe(
             f"<td>{esc(m['meta'])}</td><td>{pill}</td></tr>"
         )
 
+    salud = _salud_proyecto(datos)
+    filas_puntos = []
+    for inc in salud["incidentes"]:
+        esp_obt = (
+            f"Esperado: <code>{esc(inc['esperado'])}</code> | Obtenido: <code>{esc(inc['obtenido'])}</code>"
+            if inc["esperado"] is not None and inc["obtenido"] is not None
+            else "—"
+        )
+        accion_txt = (
+            f"<br><small style='color:#38bdf8'><b>Acción sugerida:</b> {esc(inc['accion_sugerida'])}</small>"
+            if inc.get("accion_sugerida")
+            else ""
+        )
+        filas_puntos.append(
+            f"<tr><td><b>{esc(inc['funcion'])}</b></td>"
+            f"<td><code>{esc(inc['ubicacion'])}</code></td>"
+            f"<td>{esc(inc['causa'])}{accion_txt}</td>"
+            f"<td><small>{esp_obt}</small></td></tr>"
+        )
+    tabla_puntos_html = (
+        f"<h3 style='margin:16px 0 6px 0;font-size:13.5px;color:#cbd5e1'>Puntos de atención que requieren corrección en el código</h3>"
+        f"<table><thead><tr><th>Función</th><th>Ubicación (archivo:línea)</th><th>Causa del fallo y sugerencia</th><th>Esperado vs Obtenido</th></tr></thead>"
+        f"<tbody>{''.join(filas_puntos)}</tbody></table>"
+        if filas_puntos
+        else ""
+    )
+
+    fortalezas_items = "".join(
+        f"<li style='margin-bottom:6px'><b>✅</b> {esc(f)}</li>"
+        for f in salud["fortalezas"]
+    )
+    deficiencias_items = "".join(
+        f"<li style='margin-bottom:6px'><b>⚠️</b> {esc(d)}</li>"
+        for d in salud["deficiencias"]
+    )
+    recomendaciones_items = "".join(
+        f"<li style='margin-bottom:6px'><b>👉</b> {esc(r)}</li>"
+        for r in salud["recomendaciones"]
+    )
+    color_score = (
+        "#10b981"
+        if salud["indice_salud"] >= 75
+        else ("#f59e0b" if salud["indice_salud"] >= 50 else "#ef4444")
+    )
+
+    salud_html = (
+        f"<div style='background:#111c33;border:1px solid #334155;border-left:4px solid #3b82f6;border-radius:10px;padding:18px;margin:18px 0'>"
+        f"<div style='display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;margin-bottom:12px'>"
+        f"<div>"
+        f"<h3 style='margin:0 0 4px 0;font-size:16px;color:#93c5fd'>🏥 Estado de Salud del Proyecto</h3>"
+        f"<p style='margin:0;font-size:13px;color:#94a3b8'>Evaluación técnica para desarrolladores y auditoría de calidad</p>"
+        f"</div>"
+        f"<div style='text-align:right'>"
+        f"<div style='font-size:24px;font-weight:800;color:{color_score}'>{salud['indice_salud']}/100</div>"
+        f"<small style='color:#cbd5e1;font-weight:600'>{esc(salud['nivel_madurez'])}</small>"
+        f"</div>"
+        f"</div>"
+        f"<p style='margin:0 0 12px 0;font-size:13px;line-height:1.5'>{esc(salud['diagnostico'])}</p>"
+        f"<div style='display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px'>"
+        f"<span class='pill pass'>✓ {salud['aprobadas']} aprobadas ({salud['pct_aprobadas']:.1f}%)</span>"
+        f"<span class='pill fail'>🐛 {salud['bugs']} defectos en código</span>"
+        f"<span class='pill fail'>🛡️ {salud['laundering']} laundering bloqueado</span>"
+        f"<span class='pill' style='color:#f59e0b;font-weight:700'>⏳ {salud['estancadas']} estancadas</span>"
+        f"</div>"
+        f"<div style='display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px;margin-top:14px'>"
+        f"<div style='background:#0d1527;border:1px solid #1e293b;border-radius:8px;padding:12px'>"
+        f"<h4 style='margin:0 0 8px 0;font-size:13px;color:#34d399'>🛡️ Fortalezas del Proyecto</h4>"
+        f"<ul style='margin:0;padding-left:16px;font-size:12.5px;color:#cbd5e1;line-height:1.45'>{fortalezas_items}</ul>"
+        f"</div>"
+        f"<div style='background:#0d1527;border:1px solid #1e293b;border-radius:8px;padding:12px'>"
+        f"<h4 style='margin:0 0 8px 0;font-size:13px;color:#f87171'>⚠️ Deficiencias Detectadas</h4>"
+        f"<ul style='margin:0;padding-left:16px;font-size:12.5px;color:#cbd5e1;line-height:1.45'>{deficiencias_items}</ul>"
+        f"</div>"
+        f"<div style='background:#0d1527;border:1px solid #1e293b;border-radius:8px;padding:12px'>"
+        f"<h4 style='margin:0 0 8px 0;font-size:13px;color:#38bdf8'>🚀 Plan de Mejora Accionable</h4>"
+        f"<ul style='margin:0;padding-left:16px;font-size:12.5px;color:#cbd5e1;line-height:1.45'>{recomendaciones_items}</ul>"
+        f"</div>"
+        f"</div>"
+        f"{tabla_puntos_html}"
+        f"</div>"
+    )
+
     tarjetas_fn = []
     for f in datos["funciones"]:
         est = esc(ETIQUETAS_ESTADO.get(str(f.get("estado", "")), f.get("estado", "")))
@@ -930,12 +1567,193 @@ def construir_html_informe(
                 else f"{f['mutation_score']:g}%"
             )
         )
+        contrato = f.get("contrato") or {}
+        casos_plan = _resumen_casos_planner(contrato)
+        firma = (
+            f.get("firma")
+            or contrato.get("firma")
+            or f.get("manejador")
+            or f["funcion"]
+        )
+        casos_plan_txt = "".join(
+            f"<li><b>[{esc(cp['id'])}]</b> {esc(cp['descripcion'])}"
+            + (
+                f" · Entrada: <code>{esc(cp['entrada'])}</code>"
+                if cp.get("entrada") is not None
+                else ""
+            )
+            + (
+                f" · Esperado: <code>{esc(cp['esperado'])}</code>"
+                if cp.get("esperado") is not None
+                else ""
+            )
+            + (
+                f" · Excepción: <code>{esc(cp['excepcion'])}</code>"
+                if cp.get("excepcion")
+                else ""
+            )
+            + "</li>"
+            for cp in casos_plan
+        )
+        casos_plan_html = (
+            f"<ul>{casos_plan_txt}</ul>"
+            if casos_plan_txt
+            else "<p><i>Sin casos planificados.</i></p>"
+        )
+
+        intentos_items = []
+        for it in f.get("intentos") or []:
+            dec = _ETIQUETA_DECISION.get(str(it.get("decision")), it.get("decision"))
+            fb = it.get("feedback")
+            fb_txt = f" — <i>{esc(fb)}</i>" if fb else ""
+            intentos_items.append(
+                f"<li>Intento {it.get('intento')}: {esc(dec)}{fb_txt}</li>"
+            )
+        intentos_html = (
+            f"<ul>{''.join(intentos_items)}</ul>"
+            if intentos_items
+            else "<p><i>1 intento registrado.</i></p>"
+        )
+
+        laund_txt = (
+            "<span class='pill fail'>Laundering detectado</span>"
+            if f.get("laundering_detectado")
+            else "<span class='pill pass'>Aserciones estrictas</span>"
+        )
+        llama_a = contrato.get("llama_a")
+        llama_html = (
+            f"<p><small><b>Dependencias simuladas:</b> {', '.join(f'<code>{esc(m)}</code>' for m in llama_a)}</small></p>"
+            if llama_a
+            else ""
+        )
+
         tarjetas_fn.append(
-            f"<div class='fn-card'><b>{esc(f['funcion'])}</b> <span>({esc(f['modulo'])})</span> "
-            f"— <span class='badge'>{est}</span><br>"
+            f"<div class='fn-card'>"
+            f"<div style='display:flex;justify-content:space-between;align-items:center;margin-bottom:8px'>"
+            f"<b>{esc(f['funcion'])}</b> <span>({esc(f['modulo'])})</span> — <span class='badge'>{est}</span>"
+            f"</div>"
             f"<small>Intentos: {f['iteraciones']}/3 · Cob. líneas: {_fmt_pct(f['cobertura_lineas'])} · "
             f"Cob. ramas: {_fmt_pct(f['cobertura_ramas'])} · Mutation Score: {esc(ms_lbl)} · "
-            f"Tokens: {f['tokens']}</small></div>"
+            f"Tokens: {f['tokens']}</small>"
+            f"<div class='agent-grid'>"
+            f"<div class='agent-box'><h4>📋 Planner (Análisis AST)</h4>"
+            f"<p><small><b>Firma:</b> <code>{esc(firma)}</code> | <b>Criticidad:</b> {'Crítica' if f['critical'] else 'Estándar'}</small></p>"
+            f"{llama_html}"
+            f"<details><summary>Casos planificados ({len(casos_plan)})</summary>{casos_plan_html}</details>"
+            f"</div>"
+            f"<div class='agent-box'><h4>⚙️ Generator (Suite pytest)</h4>"
+            f"<p><small><b>Archivo:</b> <code>tests/test_{esc(f['funcion'])}.py</code></small></p>"
+            f"<p><small><b>Iteraciones:</b> {f['iteraciones']}/3 | <b>Aislamiento:</b> Sandbox Docker hermético</small></p>"
+            f"</div>"
+            f"<div class='agent-box'><h4>🛡️ Reviewer & Ejecutor</h4>"
+            f"<p><small><b>Veredicto:</b> {est} | <b>Laundering:</b> {laund_txt}</small></p>"
+            f"<details><summary>Historial de intentos y diagnósticos</summary>{intentos_html}</details>"
+            f"</div>"
+            f"</div>"
+            f"</div>"
+        )
+
+    tarjetas_inc = []
+    incidentes = [f for f in datos["funciones"] if not f["verde"] or f.get("traza")]
+    if not incidentes:
+        tarjetas_inc.append(
+            "<p>No se registraron incidentes ni trazas de fallo en esta corrida.</p>"
+        )
+    else:
+        for f in incidentes:
+            est = esc(
+                ETIQUETAS_ESTADO.get(str(f.get("estado", "")), f.get("estado", ""))
+            )
+            motivo = f.get("motivo_fallo") or "Error detectado durante la validación"
+            ejec_f = f.get("ejecucion") or {}
+            casos_fallidos = [
+                c
+                for c in ejec_f.get("casos", [])
+                if c.get("resultado") in ("fallo", "error")
+            ]
+            filas_cf = []
+            for cf in casos_fallidos:
+                donde = f"{cf['archivo']}:{cf['linea']}" if cf.get("archivo") else "—"
+                esp_obt = ""
+                if cf.get("esperado") is not None or cf.get("obtenido") is not None:
+                    esp_obt = (
+                        f" · Esperado: <code>{esc(cf.get('esperado'))}</code> | "
+                        f"Obtenido: <code>{esc(cf.get('obtenido'))}</code>"
+                    )
+                filas_cf.append(
+                    f"<li><b>{esc(cf['nombre'])}</b> (en <code>{esc(donde)}</code>){esp_obt}</li>"
+                )
+            casos_fallidos_html = (
+                f"<ul style='margin:6px 0 10px 18px'>{''.join(filas_cf)}</ul>"
+                if filas_cf
+                else ""
+            )
+
+            laund_alerta = (
+                "<div style='background:#450a0a;border:1px solid #991b1b;color:#fecdd3;padding:8px 12px;border-radius:6px;margin:8px 0;font-size:12px'>"
+                "<b>🛡️ Alerta de integridad:</b> Assertion Laundering detectado "
+                "(el Generator intentó debilitar o relajar aserciones para ocultar un fallo)."
+                "</div>"
+                if f.get("laundering_detectado")
+                else ""
+            )
+
+            fb_list = "".join(
+                f"<li><b>Intento {it.get('intento')}:</b> {esc(it.get('feedback') or 'Sin diagnóstico')}</li>"
+                for it in (f.get("intentos") or [])
+                if it.get("feedback")
+            )
+            fb_html = (
+                f"<details style='margin:8px 0'><summary style='cursor:pointer;color:#93c5fd;font-size:12px'>"
+                f"Diagnósticos del Reviewer por intento ({len(f.get('intentos') or [])})</summary>"
+                f"<ul>{fb_list}</ul></details>"
+                if fb_list
+                else ""
+            )
+            traza_html = (
+                f"<details open style='margin-top:8px'><summary style='cursor:pointer;color:#f87171;font-size:12px'>Traza del error en pytest</summary>"
+                f"<pre class='fallo'>{esc(f['traza'])}</pre></details>"
+                if f.get("traza")
+                else "<p><i>Sin traza registrada.</i></p>"
+            )
+            tarjetas_inc.append(
+                f"<div class='fn-card'>"
+                f"<div style='display:flex;justify-content:space-between;align-items:center;margin-bottom:8px'>"
+                f"<h3>{esc(f['funcion'])} <span style='font-weight:400;color:#94a3b8'>({esc(f['modulo'])})</span></h3>"
+                f"<span class='badge'>{est}</span>"
+                f"</div>"
+                f"<p style='margin:4px 0;font-size:13px'><b>Parte del código afectada:</b> <code>{esc(f['modulo'])}::{esc(f['funcion'])}</code></p>"
+                f"<p style='margin:4px 0;font-size:13px'><b>¿Por qué falló?:</b> {esc(motivo)}</p>"
+                f"{laund_alerta}"
+                f"{casos_fallidos_html}"
+                f"{fb_html}"
+                f"{traza_html}"
+                f"</div>"
+            )
+
+    tarjetas_cod = []
+    for f in datos["funciones"]:
+        cod = f.get("codigo")
+        cod_html = (
+            f"<pre><code>{esc(cod)}</code></pre>"
+            if cod
+            else "<p><i>Sin código registrado.</i></p>"
+        )
+        tarjetas_cod.append(
+            f"<div class='fn-card'><b>tests/test_{esc(f['funcion'])}.py</b> ({esc(f['modulo'])})<br>{cod_html}</div>"
+        )
+
+    tarjetas_con = []
+    for f in datos["funciones"]:
+        con = f.get("contrato")
+        con_str = json.dumps(con, indent=2, ensure_ascii=False) if con else None
+        con_html = (
+            f"<pre><code>{esc(con_str)}</code></pre>"
+            if con_str
+            else "<p><i>Sin contrato registrado.</i></p>"
+        )
+        tarjetas_con.append(
+            f"<div class='fn-card'><b>{esc(f['funcion'])}</b> ({esc(f['modulo'])})<br>{con_html}</div>"
         )
 
     por_ag = datos["costo_por_agente"]
@@ -967,11 +1785,17 @@ body{{font-family:system-ui,-apple-system,sans-serif;background:#0f172a;color:#f
 table{{width:100%;border-collapse:collapse;margin-top:12px}}
 th,td{{padding:10px 12px;border-bottom:1px solid #334155;text-align:left}}
 .pill.pass{{color:#34d399;font-weight:700}}.pill.fail{{color:#fb7185;font-weight:700}}
-.fn-card{{padding:12px;border:1px solid #334155;border-radius:10px;margin-bottom:10px;background:#0f172a}}
+.fn-card{{padding:14px;border:1px solid #334155;border-radius:10px;margin-bottom:12px;background:#0f172a}}
+.agent-grid{{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:10px;margin-top:10px}}
+.agent-box{{background:#111c33;border:1px solid #334155;border-radius:8px;padding:10px}}
+.agent-box h4{{margin:0 0 6px 0;font-size:13px;color:#93c5fd}}
+.agent-box p{{margin:4px 0;font-size:12px}}
+.agent-box ul{{margin:4px 0 4px 18px;padding:0;font-size:11.5px}}
+.agent-box details summary{{cursor:pointer;color:#60a5fa;font-size:12px;margin-top:4px}}
 .caso{{padding:8px 10px;border-left:3px solid #334155;margin:6px 0;background:#111c33;border-radius:6px}}
 .caso.paso{{border-color:#34d399}}.caso.fallo{{border-color:#fb7185}}.caso.omitido{{border-color:#94a3b8}}
 .caso pre,details pre{{white-space:pre-wrap;overflow-wrap:anywhere;background:#020617;border:1px solid #334155;border-radius:6px;padding:8px;font-size:12px}}
-.caso pre.fallo{{color:#fecdd3}}
+.caso pre.fallo,pre.fallo{{color:#fecdd3;background:#450a0a;border:1px solid #991b1b;padding:10px;border-radius:6px;white-space:pre-wrap}}
 code{{font-family:ui-monospace,monospace}}
 </style>
 </head>
@@ -986,19 +1810,35 @@ code{{font-family:ui-monospace,monospace}}
     <button class="tab active" onclick="verTab('t1',this)">1. Resumen y KPIs</button>
     <button class="tab" onclick="verTab('t2',this)">2. Detalle por Función</button>
     <button class="tab" onclick="verTab('t3',this)">3. Casos y ejecución</button>
+    <button class="tab" onclick="verTab('t4',this)">4. Incidentes y Errores</button>
+    <button class="tab" onclick="verTab('t5',this)">5. Suites Generadas (Anexo)</button>
+    <button class="tab" onclick="verTab('t6',this)">6. Contratos Planner (Anexo Secundario)</button>
   </div>
   <div id="t1" class="panel active">
     <h2>1. Resumen de las 5 métricas</h2>
+    {salud_html}
     <table><thead><tr><th>Métrica</th><th>Resultado</th><th>Meta</th><th>Estado</th></tr></thead>
     <tbody>{"".join(filas_metricas)}</tbody></table>
   </div>
   <div id="t2" class="panel">
-    <h2>2. Resultado por función</h2>
+    <h2>2. Resultado por función y actividad de agentes</h2>
     {"".join(tarjetas_fn) if opts["detalle"] else "<p>Sección opcional desactivada.</p>"}
   </div>
   <div id="t3" class="panel">
     <h2>3. Casos de prueba y datos de la ejecución</h2>
     {_html_ejecucion(datos, opts["trazas"], esc) if opts["detalle"] else "<p>Sección opcional desactivada.</p>"}
+  </div>
+  <div id="t4" class="panel">
+    <h2>4. Dónde falló el código (Incidentes y Errores)</h2>
+    {"".join(tarjetas_inc) if opts["trazas"] else "<p>Sección opcional desactivada.</p>"}
+  </div>
+  <div id="t5" class="panel">
+    <h2>5. Código de las pruebas generadas (Generator — Anexo)</h2>
+    {"".join(tarjetas_cod) if opts["codigo"] else "<p>Sección opcional desactivada.</p>"}
+  </div>
+  <div id="t6" class="panel">
+    <h2>6. Contratos JSON del Planner (Anexo Secundario)</h2>
+    {"".join(tarjetas_con) if opts["contratos"] else "<p>Sección opcional desactivada.</p>"}
   </div>
 </div>
 <script>
@@ -1368,6 +2208,30 @@ def _bloques_pdf(
         }
     )
 
+    salud_pdf = _salud_proyecto(datos)
+    bloques.append(
+        {
+            "tipo": "panel_salud",
+            "seccion": 1,
+            "indice": salud_pdf["indice_salud"],
+            "nivel": limpiar(salud_pdf["nivel_madurez"]),
+            "progreso": limpiar(
+                f"{salud_pdf['aprobadas']}/{salud_pdf['total']} aprobadas ({salud_pdf['pct_aprobadas']:.1f}%)"
+            ),
+            "diagnostico": _envolver_linea(limpiar(salud_pdf["diagnostico"]), 88),
+            "fortalezas": [
+                _envolver_linea(limpiar(f), 82) for f in salud_pdf["fortalezas"][:2]
+            ],
+            "deficiencias": [
+                _envolver_linea(limpiar(d), 82) for d in salud_pdf["deficiencias"][:2]
+            ],
+            "recomendaciones": [
+                _envolver_linea(limpiar(r), 82)
+                for r in salud_pdf["recomendaciones"][:2]
+            ],
+        }
+    )
+
     # Sección de Gráficas y Estadísticas Relevantes (Pestaña 2)
     funciones_graf = []
     for f in datos["funciones"][:6]:
@@ -1466,6 +2330,17 @@ def _bloques_pdf(
                 if controles_txt
                 else []
             )
+            contrato_fn = f.get("contrato") or {}
+            casos_plan = _resumen_casos_planner(contrato_fn)
+            laund_lbl = (
+                "Laundering DETECTADO"
+                if f.get("laundering_detectado")
+                else "Sin laundering"
+            )
+            lineas_ctrl.append(
+                f"Planner: {len(casos_plan)} casos planificados | "
+                f"Generator: {f['iteraciones']}/3 intentos | Reviewer: {laund_lbl}"
+            )
             bloques.append(
                 {
                     "tipo": "tarjeta_funcion",
@@ -1515,10 +2390,24 @@ def _bloques_pdf(
                     "acento": "incidente",
                 }
             )
+            diag_lines = []
+            if f.get("motivo_fallo"):
+                diag_lines.append(f"Causa: {f['motivo_fallo']}")
+            for it in f.get("intentos") or []:
+                fb = it.get("feedback")
+                if fb:
+                    diag_lines.append(f"Intento {it.get('intento')}: {fb}")
+            if f.get("laundering_detectado"):
+                diag_lines.append(
+                    "Alerta: Assertion Laundering detectado por el Reviewer."
+                )
+
             traza_txt = limpiar(
                 f.get("traza") or "Sin traza registrada en este incidente."
             )
             lineas_traza: list[str] = []
+            for d in diag_lines:
+                lineas_traza.extend(_envolver_linea(limpiar(d), 84))
             for sub in traza_txt.splitlines() or [""]:
                 lineas_traza.extend(_envolver_linea(sub, 84))
             for idx_l, ln in enumerate(lineas_traza):
@@ -1616,22 +2505,22 @@ def _colores_estado_pdf(estado_clave: str) -> tuple[str, str, str]:
     return ("0.85 0.48 0.04", "0.99 0.94 0.83", "0.58 0.30 0.04")
 
 
-_PESTANAS_PDF = (
-    (1, "1. Resumen & KPIs", 36.0, 102.0),
-    (2, "2. Graficas y Estad.", 140.5, 102.0),
-    (3, "3. Detalle Funcion", 245.0, 102.0),
-    (4, "4. Incidentes", 349.5, 102.0),
-    (5, "5. Codigo y Contratos", 454.0, 105.0),
+_SECCIONES_PDF = (
+    (1, "1. Resumen y KPIs"),
+    (2, "2. Graficas y Estadisticas"),
+    (3, "3. Detalle por Funcion"),
+    (4, "4. Incidentes y Trazas"),
+    (5, "5. Codigo y Contratos"),
 )
 
 
 def _renderizar_pdf(bloques: list[dict[str, Any]], run_id: str) -> bytes:
-    """Maqueta los bloques con pestañas interactivas, gráficas y marcadores en PDF-1.4."""
+    """Maqueta los bloques con diseño formal de documento, gráficas y marcadores en PDF-1.4."""
     paginas: list[list[str]] = []
     secciones_pagina: list[int] = []
     pagina_inicio_seccion: dict[int, int] = {1: 0}
     comandos: list[str] = []
-    y = 774.0
+    y = 788.0
     margen_inf = 48.0
     seccion_actual = 1
 
@@ -1647,10 +2536,10 @@ def _renderizar_pdf(bloques: list[dict[str, Any]], run_id: str) -> bytes:
             # Barra superior ejecutiva con acento esmeralda
             "0.06 0.09 0.16 rg 36 804 523 22 re f",
             "0.06 0.73 0.51 rg 36 804 4 22 re f",
-            f"BT /F2 8.5 Tf 1 1 1 rg 48 812 Td (QAgent v{__version__}  |  Informe Interactivo de Auditoria  |  Corrida #{esc_id}) Tj ET",
+            f"BT /F2 8.5 Tf 1 1 1 rg 48 812 Td (QAgent v{__version__}  |  Informe de Auditoria  |  Corrida #{esc_id}) Tj ET",
             "BT /F1 7.8 Tf 0.70 0.78 0.90 rg 425 812 Td (Verificacion RN-07 Activa) Tj ET",
         ]
-        y = 774.0
+        y = 788.0
 
     def asegurar_espacio(alto_necesario: float, sec: int | None = None) -> None:
         nonlocal y, seccion_actual
@@ -1686,7 +2575,7 @@ def _renderizar_pdf(bloques: list[dict[str, Any]], run_id: str) -> bytes:
             comandos.append(f"0.06 0.45 0.33 rg 48 {top - 18:.1f} 295 11 re f")
             comandos.append(
                 f"BT /F2 7.2 Tf 0.85 0.99 0.92 rg 54 {top - 15:.1f} Td "
-                "(INFORME INTERACTIVO DE ANALISIS DE DATOS Y AUDITORIA) Tj ET"
+                "(INFORME DE AUDITORIA DE PRUEBAS UNITARIAS) Tj ET"
             )
             comandos.append(
                 f"BT /F2 12.5 Tf 1 1 1 rg 48 {top - 33:.1f} Td "
@@ -1859,6 +2748,55 @@ def _renderizar_pdf(bloques: list[dict[str, Any]], run_id: str) -> bytes:
                     f"({_escapar_literal_pdf(ln)}) Tj ET"
                 )
                 cy -= 11.0
+            y = base - 7.0
+            continue
+
+        if tipo == "panel_salud":
+            filas_f = [ln for f_list in b["fortalezas"] for ln in f_list]
+            filas_d = [ln for d_list in b["deficiencias"] for ln in d_list]
+            filas_r = [ln for r_list in b["recomendaciones"] for ln in r_list]
+            total_items = len(filas_f) + len(filas_d) + len(filas_r)
+            alto_s = 28.0 + len(b["diagnostico"]) * 9.5 + total_items * 9.5
+            asegurar_espacio(alto_s + 6.0, sec_b)
+            top = y
+            base = top - alto_s
+            comandos.append(f"0.96 0.98 1.00 rg 36 {base:.1f} 523 {alto_s:.1f} re f")
+            comandos.append(
+                f"0.75 0.85 0.96 RG 0.6 w 36 {base:.1f} 523 {alto_s:.1f} re S"
+            )
+            comandos.append(f"0.15 0.39 0.92 rg 36 {base:.1f} 4 {alto_s:.1f} re f")
+            hdr = f"SALUD DEL PROYECTO: {b['indice']}/100 — {b['nivel']} | Progreso: {b['progreso']}"
+            comandos.append(
+                f"BT /F2 8.2 Tf 0.08 0.18 0.36 rg 46 {top - 12:.1f} Td "
+                f"({_escapar_literal_pdf(hdr)}) Tj ET"
+            )
+            cy = top - 22.5
+            for ln in b["diagnostico"]:
+                comandos.append(
+                    f"BT /F1 7.4 Tf 0.20 0.26 0.38 rg 46 {cy:.1f} Td ({_escapar_literal_pdf(ln)}) Tj ET"
+                )
+                cy -= 9.5
+            for f_list in b["fortalezas"]:
+                for idx_ln, ln in enumerate(f_list):
+                    prefix = "[+] Fortaleza: " if idx_ln == 0 else "    "
+                    comandos.append(
+                        f"BT /F1 7.2 Tf 0.04 0.45 0.26 rg 46 {cy:.1f} Td ({_escapar_literal_pdf(prefix + ln)}) Tj ET"
+                    )
+                    cy -= 9.5
+            for d_list in b["deficiencias"]:
+                for idx_ln, ln in enumerate(d_list):
+                    prefix = "[!] Deficiencia: " if idx_ln == 0 else "    "
+                    comandos.append(
+                        f"BT /F1 7.2 Tf 0.75 0.15 0.20 rg 46 {cy:.1f} Td ({_escapar_literal_pdf(prefix + ln)}) Tj ET"
+                    )
+                    cy -= 9.5
+            for r_list in b["recomendaciones"]:
+                for idx_ln, ln in enumerate(r_list):
+                    prefix = "[->] Plan mejora: " if idx_ln == 0 else "    "
+                    comandos.append(
+                        f"BT /F1 7.2 Tf 0.10 0.35 0.65 rg 46 {cy:.1f} Td ({_escapar_literal_pdf(prefix + ln)}) Tj ET"
+                    )
+                    cy -= 9.5
             y = base - 7.0
             continue
 
@@ -2149,30 +3087,18 @@ def _renderizar_pdf(bloques: list[dict[str, Any]], run_id: str) -> bytes:
         paginas.append(comandos)
         secciones_pagina.append(seccion_actual)
 
-    # Dibujar barra de pestañas interactivas y pie de página en cada hoja
+    # Dibujar pie de página en cada hoja
     total_pags = len(paginas)
     for idx_pag, cmds in enumerate(paginas):
-        sec_activa = secciones_pagina[idx_pag] if idx_pag < len(secciones_pagina) else 1
-        for sec_id, etq_tab, tx, tw in _PESTANAS_PDF:
-            es_activa = sec_id == sec_activa
-            bg_t = "0.15 0.39 0.92" if es_activa else "0.91 0.94 0.98"
-            fg_t = "1 1 1" if es_activa else "0.22 0.28 0.38"
-            cmds.append(f"{bg_t} rg {tx:.1f} 785 {tw:.1f} 15 re f")
-            if es_activa:
-                cmds.append(f"0.06 0.73 0.51 rg {tx:.1f} 785 {tw:.1f} 2 re f")
-            cmds.append(
-                f"BT /F2 7.2 Tf {fg_t} rg {tx + 6:.1f} 790 Td ({_escapar_literal_pdf(etq_tab)}) Tj ET"
-            )
-
         pie_izq = _escapar_literal_pdf(
-            "QAgent Autonomous Test Engine  |  Informe Interactivo con Pestanas Clicables  |  Sin claves de IA (RN-07)"
+            "QAgent Autonomous Test Engine  |  Documento de Auditoria  |  Sin claves de IA (RN-07)"
         )
         pie_der = _escapar_literal_pdf(f"Página {idx_pag + 1} de {total_pags}")
         cmds.append("0.84 0.88 0.93 RG 0.6 w 36 38 m 559 38 l S")
         cmds.append(f"BT /F1 7.5 Tf 0.45 0.50 0.58 rg 36 26 Td ({pie_izq}) Tj ET")
         cmds.append(f"BT /F2 8 Tf 0.30 0.36 0.46 rg 492 26 Td ({pie_der}) Tj ET")
 
-    # Construcción de objetos PDF-1.4 con /Outlines y /Link annotations en las pestañas
+    # Construcción de objetos PDF-1.4 con marcadores nativos (/Outlines)
     objetos: list[bytes] = []
 
     def reservar_objeto(cuerpo: str) -> int:
@@ -2203,31 +3129,18 @@ def _renderizar_pdf(bloques: list[dict[str, Any]], run_id: str) -> bytes:
         ids_contenidos.append(id_contenido)
         ids_paginas.append(id_pagina)
 
-    # Crear anotaciones /Link para las 5 pestañas superiores apuntando a la página de cada sección
-    ids_annots_tabs: list[int] = []
-    for sec_id, _, tx, tw in _PESTANAS_PDF:
-        pag_idx = pagina_inicio_seccion.get(sec_id, 0)
-        pag_idx = max(0, min(len(ids_paginas) - 1, pag_idx))
-        id_pag_dest = ids_paginas[pag_idx]
-        id_annot = reservar_objeto(
-            f"<< /Type /Annot /Subtype /Link /Rect [{tx:.1f} 785 {tx + tw:.1f} 800] "
-            f"/Border [0 0 0] /Dest [{id_pag_dest} 0 R /XYZ null 842 null] >>"
-        )
-        ids_annots_tabs.append(id_annot)
-
-    annots_str = " ".join(f"{aid} 0 R" for aid in ids_annots_tabs)
     for idx_p, id_pagina in enumerate(ids_paginas):
         id_contenido = ids_contenidos[idx_p]
         objetos[id_pagina - 1] = (
             f"<< /Type /Page /Parent {id_pages} 0 R /MediaBox [0 0 595 842] "
             f"/Resources << /Font << /F1 {id_font_reg} 0 R /F2 {id_font_bold} 0 R /F3 {id_font_mono} 0 R >> >> "
-            f"/Contents {id_contenido} 0 R /Annots [{annots_str}] >>"
+            f"/Contents {id_contenido} 0 R >>"
         ).encode("ascii")
 
-    # Marcadores laterales interactivos (/Outlines)
+    # Marcadores laterales nativos del lector PDF (/Outlines)
     id_outlines = reservar_objeto("")
-    ids_items_outline: list[int] = [reservar_objeto("") for _ in _PESTANAS_PDF]
-    for i_tab, (sec_id, etq_tab, _, _) in enumerate(_PESTANAS_PDF):
+    ids_items_outline: list[int] = [reservar_objeto("") for _ in _SECCIONES_PDF]
+    for i_tab, (sec_id, etq_tab) in enumerate(_SECCIONES_PDF):
         pag_idx = max(
             0, min(len(ids_paginas) - 1, pagina_inicio_seccion.get(sec_id, 0))
         )

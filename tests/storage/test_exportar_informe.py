@@ -302,3 +302,62 @@ def test_formato_invalido_lanza_excepcion(corrida_con_specs) -> None:
     raiz, rutas = corrida_con_specs
     with pytest.raises(FormatoInvalido):
         exportar_informe(raiz, run_id=rutas.run_id, formato="docx")
+
+
+def test_salud_proyecto_y_diagnostico_en_informes(tmp_path: Path, precios) -> None:  # noqa: F811
+    """Verifica que el informe incluya salud del proyecto, diagnóstico y métricas útiles para el usuario."""
+    almacen = AlmacenProyecto(tmp_path)
+    almacen.inicializar()
+    run_id = almacen.crear_run(tipos_prueba=["funcion"])["run_id"]
+    tracker, resultado = correr(precios, decisiones=("retry", "bug_detectado"))
+    escribir_corrida(
+        tmp_path, resultado, tracker, precios, "deep", run_id=run_id, metas=METAS
+    )
+
+    res_md = exportar_informe(tmp_path, run_id=run_id, formato="md")
+    res_html = exportar_informe(tmp_path, run_id=run_id, formato="html")
+    res_json = exportar_informe(tmp_path, run_id=run_id, formato="json")
+
+    texto_md = Path(res_md["ruta"]).read_text(encoding="utf-8")
+    texto_html = Path(res_html["ruta"]).read_text(encoding="utf-8")
+    datos_json = json.loads(Path(res_json["ruta"]).read_text(encoding="utf-8"))
+
+    # 1. Markdown contiene sección 1.1, fortalezas, deficiencias, recomendaciones y detalles de incidentes
+    assert "### 1.1 Estado de salud del proyecto" in texto_md
+    assert "Índice de salud del código:" in texto_md
+    assert "Fortalezas del proyecto" in texto_md
+    assert "Deficiencias detectadas" in texto_md
+    assert "Cómo mejorar su proyecto" in texto_md
+    assert "Diagnóstico global:" in texto_md
+    assert "Parte del código afectada:" in texto_md
+    assert "¿Por qué falló?:" in texto_md
+    assert "_Anexo de referencia" in texto_md
+    assert "_Anexo técnico secundario" in texto_md
+
+    # 2. HTML contiene tarjeta de salud y tabla de puntos de atención
+    assert "Estado de Salud del Proyecto" in texto_html
+    assert "Fortalezas del Proyecto" in texto_html
+    assert "Deficiencias Detectadas" in texto_html
+    assert "Plan de Mejora Accionable" in texto_html
+    assert "Parte del código afectada:" in texto_html
+    assert "Puntos de atención que requieren corrección" in texto_html
+
+    # 3. JSON expone salud_proyecto y diagnóstico por función
+    salud = datos_json["salud_proyecto"]
+    assert salud["total"] == 1
+    assert salud["bugs"] == 1
+    assert "indice_salud" in salud
+    assert "nivel_madurez" in salud
+    assert "fortalezas" in salud
+    assert "deficiencias" in salud
+    assert "recomendaciones" in salud
+    assert len(salud["deficiencias"]) >= 1
+    assert len(salud["recomendaciones"]) >= 1
+    assert "diagnostico" in salud
+    assert len(salud["incidentes"]) == 1
+    assert salud["incidentes"][0]["funcion"] == "duplicar"
+
+    [fn] = datos_json["detalle_funciones"]
+    assert fn["diagnostico"]["aprobada"] is False
+    assert fn["diagnostico"]["estado"] == "bug_detectado"
+    assert "ubicacion_fallo" in fn["diagnostico"]

@@ -468,6 +468,429 @@ _SPECS_DEMO: tuple[dict[str, str], ...] = (
 )
 
 
+_ENTORNO_DEMO: dict[str, Any] = {
+    "imagen": "qagent-sandbox:base",
+    "comando": "pytest -v --cov=services --cov-branch --cov-report=json",
+    "plataforma": "Linux x86_64 (Docker)",
+    "python": "3.10.12",
+    "pytest": "8.2.2",
+    "limites": {
+        "cpus": 1.0,
+        "memoria": "512 MB",
+        "timeout_s": 60.0,
+    },
+}
+
+
+def _construir_intentos_demo(
+    f: dict[str, Any], entorno: dict[str, Any]
+) -> list[dict[str, Any]]:
+    fn = f["funcion"]
+    if fn == "calculate_discount":
+        return [
+            {
+                "intento": 1,
+                "decision": "accept",
+                "estado_sandbox": "ok",
+                "tipo_fallo": None,
+                "laundering_detectado": False,
+                "feedback": "Prueba aprobada en sandbox Docker (3 casos pasaron, 100% líneas, 95% ramas).",
+                "hash_error": None,
+                "cobertura": {"lineas": 100.0, "ramas": 95.0},
+                "ejecucion": {
+                    "exit_code": 0,
+                    "duracion_s": 0.124,
+                    "timeout": False,
+                    "oom": False,
+                    "salida": (
+                        "tests/test_pricing.py::test_calculate_discount_normal_vip PASSED [33%]\n"
+                        "tests/test_pricing.py::test_calculate_discount_coupon_cap PASSED [66%]\n"
+                        "tests/test_pricing.py::test_calculate_discount_negative_raises PASSED [100%]\n"
+                        "3 passed in 0.12s"
+                    ),
+                    "totales": {
+                        "total": 3,
+                        "pasaron": 3,
+                        "fallaron": 0,
+                        "errores": 0,
+                        "omitidos": 0,
+                    },
+                    "casos": [
+                        {
+                            "nombre": "test_calculate_discount_normal_vip",
+                            "resultado": "paso",
+                            "duracion_s": 0.04,
+                            "archivo": "tests/test_pricing.py",
+                            "linea": 6,
+                        },
+                        {
+                            "nombre": "test_calculate_discount_coupon_cap",
+                            "resultado": "paso",
+                            "duracion_s": 0.04,
+                            "archivo": "tests/test_pricing.py",
+                            "linea": 11,
+                        },
+                        {
+                            "nombre": "test_calculate_discount_negative_raises",
+                            "resultado": "paso",
+                            "duracion_s": 0.04,
+                            "archivo": "tests/test_pricing.py",
+                            "linea": 16,
+                        },
+                    ],
+                    "lineas_sin_cubrir": [],
+                    "entorno": copy.deepcopy(entorno),
+                },
+            }
+        ]
+    if fn == "reserve_stock_atomic":
+        return [
+            {
+                "intento": 1,
+                "decision": "retry",
+                "estado_sandbox": "fallo",
+                "tipo_fallo": "error_test",
+                "laundering_detectado": False,
+                "feedback": "AssertionError: lock no fue adquirido en Redis (assert lock.is_acquired() is True).",
+                "hash_error": "a1b2c3d4",
+                "cobertura": {"lineas": 68.0, "ramas": 55.0},
+                "ejecucion": {
+                    "exit_code": 1,
+                    "duracion_s": 0.08,
+                    "timeout": False,
+                    "oom": False,
+                    "salida": "FAILED tests/test_inventory.py::test_reserve_stock_atomic - AssertionError: assert False is True",
+                    "totales": {
+                        "total": 2,
+                        "pasaron": 1,
+                        "fallaron": 1,
+                        "errores": 0,
+                        "omitidos": 0,
+                    },
+                    "casos": [
+                        {
+                            "nombre": "test_reserve_stock_atomic",
+                            "resultado": "fallo",
+                            "duracion_s": 0.05,
+                            "archivo": "tests/test_inventory.py",
+                            "linea": 12,
+                            "codigo": "assert lock.is_acquired() is True",
+                            "mensaje": "AssertionError: lock no fue adquirido en Redis",
+                            "tipo_error": "AssertionError",
+                            "esperado": "True",
+                            "obtenido": "False",
+                            "pila": [
+                                {
+                                    "archivo": "tests/test_inventory.py",
+                                    "linea": 12,
+                                    "detalle": "test_reserve_stock_atomic()",
+                                    "codigo": "assert lock.is_acquired() is True",
+                                }
+                            ],
+                        },
+                        {
+                            "nombre": "test_reserve_stock_insufficient",
+                            "resultado": "paso",
+                            "duracion_s": 0.03,
+                            "archivo": "tests/test_inventory.py",
+                            "linea": 20,
+                        },
+                    ],
+                    "lineas_sin_cubrir": [28, 29, 30],
+                    "entorno": copy.deepcopy(entorno),
+                },
+            },
+            {
+                "intento": 2,
+                "decision": "retry",
+                "estado_sandbox": "ok",
+                "tipo_fallo": "error_test",
+                "laundering_detectado": True,
+                "feedback": "Reviewer Security Alert [Intento 2]: Se detectó relajación deliberada de aserciones ('Assertion Laundering'). El generador cambió 'assert lock.is_acquired() is True' por 'assert res is not None'. Se rechaza la prueba.",
+                "hash_error": "d4e5f6a1",
+                "cobertura": {"lineas": 68.0, "ramas": 55.0},
+                "ejecucion": None,
+            },
+            {
+                "intento": 3,
+                "decision": "stalled",
+                "estado_sandbox": "ok",
+                "tipo_fallo": "error_test",
+                "laundering_detectado": True,
+                "feedback": "Reviewer Security Alert [Intento 3]: Misma relajación de aserciones detectada (hash repetido). Estancado por error repetido tras 3 intentos. Prueba rechazada formalmente.",
+                "hash_error": "d4e5f6a1",
+                "cobertura": {"lineas": 68.0, "ramas": 55.0},
+                "ejecucion": None,
+            },
+        ]
+    if fn == "validate_credit_card_token":
+        return [
+            {
+                "intento": 1,
+                "decision": "retry",
+                "estado_sandbox": "fallo",
+                "tipo_fallo": "error_test",
+                "laundering_detectado": False,
+                "feedback": "ConnectionRefusedError: [Errno 111] Connection refused (127.0.0.1:8443). El código intenta conectar a red real.",
+                "hash_error": "11223344",
+                "cobertura": {"lineas": 52.0, "ramas": 40.0},
+                "ejecucion": {
+                    "exit_code": 1,
+                    "duracion_s": 0.17,
+                    "timeout": False,
+                    "oom": False,
+                    "salida": "FAILED tests/test_payments.py::test_validate_token_expired - ConnectionRefusedError: [Errno 111] Connection refused",
+                    "totales": {
+                        "total": 1,
+                        "pasaron": 0,
+                        "fallaron": 1,
+                        "errores": 0,
+                        "omitidos": 0,
+                    },
+                    "casos": [
+                        {
+                            "nombre": "test_validate_token_expired",
+                            "resultado": "fallo",
+                            "duracion_s": 0.17,
+                            "archivo": "tests/test_payments.py",
+                            "linea": 9,
+                            "codigo": "validate_credit_card_token(token, gateway_id='stripe_v3')",
+                            "mensaje": "ConnectionRefusedError: [Errno 111] Connection refused",
+                            "tipo_error": "ConnectionRefusedError",
+                            "esperado": "InvalidTokenSignature",
+                            "obtenido": "ConnectionRefusedError",
+                            "pila": [
+                                {
+                                    "archivo": "tests/test_payments.py",
+                                    "linea": 9,
+                                    "detalle": "test_validate_token_expired()",
+                                    "codigo": "validate_credit_card_token(token, gateway_id='stripe_v3')",
+                                }
+                            ],
+                        }
+                    ],
+                    "lineas_sin_cubrir": [48, 49, 50, 51],
+                    "entorno": copy.deepcopy(entorno),
+                },
+            },
+            {
+                "intento": 2,
+                "decision": "retry",
+                "estado_sandbox": "fallo",
+                "tipo_fallo": "error_test",
+                "laundering_detectado": False,
+                "feedback": "ConnectionRefusedError reiterado: se requiere mock de gateways.stripe.",
+                "hash_error": "55667788",
+                "cobertura": {"lineas": 52.0, "ramas": 40.0},
+                "ejecucion": None,
+            },
+            {
+                "intento": 3,
+                "decision": "stalled",
+                "estado_sandbox": "fallo",
+                "tipo_fallo": "error_test",
+                "laundering_detectado": False,
+                "feedback": "Límite de intentos alcanzado (3/3). La prueba requiere simulación de socket/mTLS; el sandbox no tiene red (--network none).",
+                "hash_error": "99aabbcc",
+                "cobertura": {"lineas": 52.0, "ramas": 40.0},
+                "ejecucion": None,
+            },
+        ]
+    if fn == "compute_loyalty_multiplier":
+        return [
+            {
+                "intento": 1,
+                "decision": "accept",
+                "estado_sandbox": "ok",
+                "tipo_fallo": None,
+                "laundering_detectado": False,
+                "feedback": "Prueba aprobada en sandbox (1 caso pasó, 98% líneas, 92% ramas). Advertencia de Mutation Testing: Mutation Score bajo (38%).",
+                "hash_error": None,
+                "cobertura": {"lineas": 98.0, "ramas": 92.0},
+                "ejecucion": {
+                    "exit_code": 0,
+                    "duracion_s": 0.095,
+                    "timeout": False,
+                    "oom": False,
+                    "salida": "tests/test_discounts.py::test_compute_loyalty_basic PASSED\n1 passed in 0.09s",
+                    "totales": {
+                        "total": 1,
+                        "pasaron": 1,
+                        "fallaron": 0,
+                        "errores": 0,
+                        "omitidos": 0,
+                    },
+                    "casos": [
+                        {
+                            "nombre": "test_compute_loyalty_basic",
+                            "resultado": "paso",
+                            "duracion_s": 0.095,
+                            "archivo": "tests/test_discounts.py",
+                            "linea": 5,
+                        }
+                    ],
+                    "lineas_sin_cubrir": [14],
+                    "entorno": copy.deepcopy(entorno),
+                },
+            }
+        ]
+    if fn == "apply_bulk_promotion":
+        return [
+            {
+                "intento": 1,
+                "decision": "retry",
+                "estado_sandbox": "fallo",
+                "tipo_fallo": "bug_codigo",
+                "laundering_detectado": False,
+                "feedback": "Oracle Traceability Check [Intento 1]: assert summary.total_discount == 20.0 -> FAILED (la función devolvió 10.0 en lugar de 20.0).",
+                "hash_error": "c1d2e3f4",
+                "cobertura": {"lineas": 94.0, "ramas": 88.0},
+                "ejecucion": {
+                    "exit_code": 1,
+                    "duracion_s": 0.09,
+                    "timeout": False,
+                    "oom": False,
+                    "salida": "FAILED tests/test_cart.py::test_apply_bulk_promotion_six_items - AssertionError: assert 10.0 == 20.0",
+                    "totales": {
+                        "total": 2,
+                        "pasaron": 1,
+                        "fallaron": 1,
+                        "errores": 0,
+                        "omitidos": 0,
+                    },
+                    "casos": [
+                        {
+                            "nombre": "test_apply_bulk_promotion_six_items",
+                            "resultado": "fallo",
+                            "duracion_s": 0.06,
+                            "archivo": "tests/test_cart.py",
+                            "linea": 15,
+                            "codigo": "assert summary.total_discount == 20.0",
+                            "mensaje": "AssertionError: la función devolvió 10.0 pero el contrato exige 20.0",
+                            "tipo_error": "AssertionError",
+                            "esperado": "20.0",
+                            "obtenido": "10.0",
+                            "pila": [
+                                {
+                                    "archivo": "tests/test_cart.py",
+                                    "linea": 15,
+                                    "detalle": "test_apply_bulk_promotion_six_items()",
+                                    "codigo": "assert summary.total_discount == 20.0",
+                                }
+                            ],
+                        },
+                        {
+                            "nombre": "test_apply_bulk_promotion_empty",
+                            "resultado": "paso",
+                            "duracion_s": 0.03,
+                            "archivo": "tests/test_cart.py",
+                            "linea": 22,
+                        },
+                    ],
+                    "lineas_sin_cubrir": [],
+                    "entorno": copy.deepcopy(entorno),
+                },
+            },
+            {
+                "intento": 2,
+                "decision": "bug_detectado",
+                "estado_sandbox": "ok",
+                "tipo_fallo": "bug_codigo",
+                "laundering_detectado": False,
+                "feedback": "Oracle Traceability Alert [Intento 2]: El Generador cambió el valor esperado a 10.0 para hacer pasar el test. Regla violada: el valor esperado solo proviene del contrato, no de la ejecución. Veredicto: BUG DETECTADO en services/cart.py::apply_bulk_promotion.",
+                "hash_error": "f4e3d2c1",
+                "cobertura": {"lineas": 94.0, "ramas": 88.0},
+                "ejecucion": None,
+            },
+        ]
+    if fn == "refund_charge_idempotent":
+        return [
+            {
+                "intento": 1,
+                "decision": "retry",
+                "estado_sandbox": "fallo",
+                "tipo_fallo": "error_test",
+                "laundering_detectado": False,
+                "feedback": "KeyError: 'idempotency_key' faltante en mock de pasarela Stripe.",
+                "hash_error": "aa11bb22",
+                "cobertura": {"lineas": 85.0, "ramas": 75.0},
+                "ejecucion": None,
+            },
+            {
+                "intento": 2,
+                "decision": "accept",
+                "estado_sandbox": "ok",
+                "tipo_fallo": None,
+                "laundering_detectado": False,
+                "feedback": "Prueba aprobada en sandbox con mock idempotente (100% líneas, 94% ramas).",
+                "hash_error": None,
+                "cobertura": {"lineas": 100.0, "ramas": 94.0},
+                "ejecucion": {
+                    "exit_code": 0,
+                    "duracion_s": 0.290,
+                    "timeout": False,
+                    "oom": False,
+                    "salida": "tests/test_payments.py::test_refund_duplicate_idempotency_key_does_not_double_charge PASSED",
+                    "totales": {
+                        "total": 1,
+                        "pasaron": 1,
+                        "fallaron": 0,
+                        "errores": 0,
+                        "omitidos": 0,
+                    },
+                    "casos": [
+                        {
+                            "nombre": "test_refund_duplicate_idempotency_key_does_not_double_charge",
+                            "resultado": "paso",
+                            "duracion_s": 0.290,
+                            "archivo": "tests/test_payments.py",
+                            "linea": 5,
+                        }
+                    ],
+                    "lineas_sin_cubrir": [],
+                    "entorno": copy.deepcopy(entorno),
+                },
+            },
+        ]
+    return [
+        {
+            "intento": 1,
+            "decision": "accept",
+            "estado_sandbox": "ok",
+            "tipo_fallo": None,
+            "laundering_detectado": False,
+            "feedback": f"Prueba aprobada en sandbox ({f['lineas']:g}% líneas, {f['ramas']:g}% ramas).",
+            "hash_error": None,
+            "cobertura": {"lineas": f["lineas"], "ramas": f["ramas"]},
+            "ejecucion": {
+                "exit_code": 0,
+                "duracion_s": f["duracion_s"],
+                "timeout": False,
+                "oom": False,
+                "salida": f"tests/test_{fn}.py PASSED in {f['duracion_s']:.2f}s",
+                "totales": {
+                    "total": 1,
+                    "pasaron": 1,
+                    "fallaron": 0,
+                    "errores": 0,
+                    "omitidos": 0,
+                },
+                "casos": [
+                    {
+                        "nombre": f"test_{fn}_basico",
+                        "resultado": "paso",
+                        "duracion_s": f["duracion_s"],
+                        "archivo": f"tests/test_{fn}.py",
+                        "linea": 5,
+                    }
+                ],
+                "lineas_sin_cubrir": [],
+                "entorno": copy.deepcopy(entorno),
+            },
+        }
+    ]
+
+
 def construir_archivos_demo(
     raiz_proyecto: str | Path, run_id: str = CORRIDA_DEMO_ID
 ) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any]]:
@@ -475,6 +898,13 @@ def construir_archivos_demo(
     proyecto = str(Path(raiz_proyecto).resolve())
     objetivos = []
     funciones_detalle = []
+    totales_casos = {
+        "total": 0,
+        "pasaron": 0,
+        "fallaron": 0,
+        "errores": 0,
+        "omitidos": 0,
+    }
 
     for f in _FUNCIONES_DEMO:
         tok_p, tok_g, tok_r = f["tokens"]
@@ -514,6 +944,14 @@ def construir_archivos_demo(
                 },
             }
         )
+        intentos = _construir_intentos_demo(f, _ENTORNO_DEMO)
+        for i in intentos:
+            ej = i.get("ejecucion")
+            if ej and ej.get("totales"):
+                t = ej["totales"]
+                for k in totales_casos:
+                    totales_casos[k] += t.get(k, 0)
+                break
         funciones_detalle.append(
             {
                 "modulo": f["modulo"],
@@ -521,7 +959,7 @@ def construir_archivos_demo(
                 "contrato": copy.deepcopy(f["contrato"]),
                 "codigo": f["codigo"],
                 "traza": f["traza"],
-                "intentos": [],
+                "intentos": intentos,
             }
         )
 
@@ -604,8 +1042,11 @@ def construir_archivos_demo(
         "version": "1",
         "tipo": "detalle",
         "run_id": run_id,
+        "entorno": copy.deepcopy(_ENTORNO_DEMO),
+        "totales_casos": totales_casos,
         "funciones": funciones_detalle,
     }
+    contracts.validar(contracts.DETALLE, detalle)
     run_meta: dict[str, Any] = {
         "run_id": run_id,
         "inicio": _FECHA_DEMO,
@@ -629,13 +1070,20 @@ def asegurar_corrida_demo(
     ruta_detalle = carpeta / ARCHIVO_DETALLE
     ruta_run = carpeta / "run.json"
 
-    if ruta_results.is_file() and ruta_detalle.is_file() and ruta_run.is_file():
-        return carpeta
-
     results, detalle, run_meta = construir_archivos_demo(raiz_proyecto, run_id=run_id)
+
+    necesita_detalle = not ruta_detalle.is_file()
+    if not necesita_detalle:
+        try:
+            d_existente = json.loads(ruta_detalle.read_text(encoding="utf-8"))
+            if not d_existente.get("entorno") or not d_existente.get("totales_casos"):
+                necesita_detalle = True
+        except (OSError, json.JSONDecodeError):
+            necesita_detalle = True
+
     if not ruta_results.is_file():
         _escribir_json_atomico(ruta_results, results)
-    if not ruta_detalle.is_file():
+    if necesita_detalle:
         _escribir_json_atomico(ruta_detalle, detalle)
     if not ruta_run.is_file():
         _escribir_json_atomico(ruta_run, run_meta)
