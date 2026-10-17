@@ -72,6 +72,13 @@ function prioritariasRepetibles(){
     .flatMap(m=>m.fns.filter(f=>f.inc && f.crit).map(f=>m.path + '::' + f.n))
     .filter(clave=>PRUEBAS_REPETIBLES===null || PRUEBAS_REPETIBLES.has(clave)).length;
 }
+// #74: «4 funciones y 2 endpoints prioritarios» según lo marcado en Profundizar.
+function textoPrioritarias(fns, eps){
+  if (!eps) return `${fns} ${fns===1 ? 'función prioritaria' : 'funciones prioritarias'}`;
+  const ep = `${eps} ${eps===1 ? 'endpoint' : 'endpoints'}`;
+  if (!fns) return `${ep} ${eps===1 ? 'prioritario' : 'prioritarios'}`;
+  return `${fns} ${fns===1 ? 'función' : 'funciones'} y ${ep} prioritarios`;
+}
 function elegirPruebas(cambio){
   eleccionPruebas = {...eleccionPruebas, ...cambio};
   calc();
@@ -82,7 +89,7 @@ function usoIA(tok){
   if (!tok) return 'sin IA';
   return tok < 50000 ? 'bajo' : tok < 200000 ? 'medio' : 'alto';
 }
-function renderOpcionesPruebas(prioritarias, repetibles = 0){
+function renderOpcionesPruebas(prioritarias, repetibles = 0, epsPrioritarios = 0){
   const {modo, tipo, profundizar, profundizarRepetir = false} = eleccionPruebas;
   const perfil = k => PROFILES.find(p => p.k === k);
   $('cfgModo').innerHTML = [
@@ -118,19 +125,19 @@ function renderOpcionesPruebas(prioritarias, repetibles = 0){
   };
   const deep = perfil('deep');
   const apagada = tipo === 'humo' || prioritarias === 0;
-  const porque = tipo === 'humo' ? 'Disponible con el tipo Estándar' : 'Marca funciones en la vista previa para profundizar';
-  const cuantas = `${prioritarias} ${prioritarias===1 ? 'función prioritaria' : 'funciones prioritarias'}`;
+  const porque = tipo === 'humo' ? 'Disponible con el tipo Estándar' : 'Marca funciones en la vista previa para profundizar (o endpoints)';
+  const cuantas = textoPrioritarias(prioritarias - epsPrioritarios, epsPrioritarios);
   $('cfgOpciones').innerHTML = `<div class="cfg-pregunta">Tipos de prueba</div>
     ${opcion('humo')}
     ${opcion('std')}
     <label class="cfg-profundizar ${apagada?'dis':''}" ${apagada ? `title="${porque}"` : ''}>
       <input type="checkbox" ${profundizar && !apagada ? 'checked' : ''} ${apagada ? 'disabled' : ''} onchange="elegirPruebas({profundizar:this.checked})">
       <span><b>${deep.n} en ${cuantas}</b> <span class="caja caja-${deep.tipo_caja}">${TIPO_CAJA[deep.tipo_caja]}</span>
-        <span class="cfg-desc">${deep.descripcion} Las funciones se marcan en la columna Profundizar de la vista previa.
+        <span class="cfg-desc">${deep.descripcion} Las funciones y los endpoints se marcan en la columna Profundizar de la vista previa; en un endpoint solo se muta el código de su manejador.
           <a href="#" onclick="go('preview');return false">Cambiar cuáles</a></span></span>
     </label>`;
 }
-function renderDetallesCorrida(e, prioritarias, repetibles = 0){
+function renderDetallesCorrida(e, prioritarias, repetibles = 0, epsPrioritarios = 0){
   const {p, reused, et, tok, saved} = e;
   const repite = profile==='reg' || profile==='reg_deep';
   const filas = [
@@ -140,14 +147,17 @@ function renderDetallesCorrida(e, prioritarias, repetibles = 0){
       ? 'Solo se ejecutan pruebas guardadas: ningún agente llama a la IA.'
       : 'Por agente: ' + ['P','G','R'].map(k => `${AGENTS_CFG[k].name} ~${Math.round(et[k]).toLocaleString('es-PE')}`).join(' · ') + ' tokens',
     reused ? `♻ ${reused} objetivo(s) reutilizan su spec vigente: el Planner no trabaja ahí (ahorro ≈ ${saved.toLocaleString('es-PE')} tokens).` : '',
-    profile==='deep' ? `mutmut se aplicará a <b>${prioritarias}</b> función(es) prioritaria(s): no consume tokens, sí tiempo de CPU.` : '',
+    profile==='deep' ? `mutmut se aplicará a <b>${textoPrioritarias(prioritarias - epsPrioritarios, epsPrioritarios)}</b>: no consume tokens, sí tiempo de CPU.` : '',
     profile==='reg_deep' ? `mutmut se aplicará a <b>${repetibles}</b> función(es) prioritaria(s) con prueba guardada vigente: no consume tokens, pero suma tiempo de CPU a la duración (salvo las que se reutilizan).` : '',
   ];
   $('cfgDetalles').innerHTML = filas.filter(Boolean).map(f => `<div>${f}</div>`).join('');
 }
 function calc(){
   if (eleccionPruebas.modo === 'repetir' && !HAS_PRIOR_RUN) eleccionPruebas.modo = 'nuevas';
-  const prioritarias = estFor('std').fns.filter(f=>f.crit).length;
+  // #74: los endpoints marcados también cuentan como prioritarios (solo al generar).
+  const estStd = estFor('std');
+  const epsPrioritarios = estStd.endpoints.filter(e=>e.crit).length;
+  const prioritarias = estStd.fns.filter(f=>f.crit).length + epsPrioritarios;
   const repetibles = prioritariasRepetibles();
   profile = perfilDeEleccion(eleccionPruebas, prioritarias, repetibles);
   const e = estFor(profile==='reg_deep' ? 'reg' : profile), {fns, endpoints, total, tok} = e;
@@ -158,7 +168,7 @@ function calc(){
   // Resumen del alcance (pantalla 3)
   $('scopeSum').innerHTML = `<span style="font-size:12px;color:var(--mut)">Alcance elegido en la vista previa:</span>
     <span class="pill p-grey">${total} objetivos · ${fns.length} funciones · ${endpoints.length} endpoints · ${nMods} ${nMods===1?'módulo':'módulos'}</span>
-    <span class="pill p-grey">★ ${prioritarias} prioritaria(s)</span>
+    <span class="pill p-grey">★ ${textoPrioritarias(prioritarias - epsPrioritarios, epsPrioritarios)}</span>
     ${noDoc?`<span class="pill p-amber">⚠ ${noDoc} sin docstring</span>`:''}
     <button class="btn" onclick="go('preview')">Editar selección</button>`;
   renderPieVistaPrevia(fns, noDoc, endpoints);
@@ -171,6 +181,6 @@ function calc(){
     : profile==='reg_deep' ? `Repetir pruebas guardadas + profundizar: sin IA · mutmut en ${repetibles} función(es).`
     : `Listo: ${total} objetivos · ${NOMBRE_ELECCION[profile]}.`;
   $('footMsg2').innerHTML = msg; $('toPlan').disabled = block;
-  renderOpcionesPruebas(prioritarias, repetibles);
-  renderDetallesCorrida(e, prioritarias, repetibles);
+  renderOpcionesPruebas(prioritarias, repetibles, epsPrioritarios);
+  renderDetallesCorrida(e, prioritarias, repetibles, epsPrioritarios);
 }

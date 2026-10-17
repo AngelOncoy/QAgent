@@ -271,27 +271,34 @@ def _costo(objetivos, resumen, metas) -> dict[str, Any]:
 
 
 def _mutation_score(objetivos, perfil: str) -> dict[str, Any]:
-    """Promedio del Mutation Score de las funciones críticas que lo tienen (EN-09)."""
+    """Promedio del Mutation Score de las funciones críticas y endpoints prioritarios
+    que lo tienen (EN-09, #74)."""
     criticas = [o for o in objetivos if o.get("critical")]
-    valores = [
-        o["metricas"]["mutation_score"]
-        for o in criticas
-        if o["metricas"]["mutation_score"] is not None
-    ]
+    medidos = [o for o in criticas if o["metricas"]["mutation_score"] is not None]
+    valores = [o["metricas"]["mutation_score"] for o in medidos]
     if valores:
         valor = round(sum(valores) / len(valores), 1)
+        endpoints = sum(1 for o in medidos if tipo_de(o) == "endpoint")
+        funciones = len(medidos) - endpoints
+        partes = [f"{funciones} función(es) crítica(s)"] if funciones else []
+        if endpoints:
+            partes.append(f"{endpoints} endpoint(s) prioritario(s)")
         return {
             "disponible": True,
             "valor": valor,
             "meta": MUTATION_SCORE_MIN,
             "cumple": valor >= MUTATION_SCORE_MIN,
-            "funciones": len(valores),
-            "texto": f"{len(valores)} función(es) crítica(s) · meta ≥ {MUTATION_SCORE_MIN} %",
+            "funciones": funciones,
+            "endpoints": endpoints,
+            "texto": f"{' y '.join(partes)} · meta ≥ {MUTATION_SCORE_MIN} %",
         }
     if perfil not in PERFILES_CON_MUTACION:
         texto = "No se midió: la corrida no usó Profundizar"
     elif not criticas:
-        texto = "No se midió: no hay funciones marcadas para profundizar"
+        texto = (
+            "No se midió: no hay funciones marcadas para profundizar "
+            "ni endpoints prioritarios"
+        )
     else:
         texto = "mutmut no dio un Mutation Score: el motivo está en el informe"
     return {"disponible": False, "texto": texto}

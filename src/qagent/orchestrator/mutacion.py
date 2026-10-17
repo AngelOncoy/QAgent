@@ -8,6 +8,10 @@ como pruebas las aprobadas de las funciones del módulo y no llama a ningún age
 (0 tokens). Un fallo de mutmut nunca detiene la corrida: queda registrado en la función
 con su motivo.
 
+En el perfil Profundo también se mutan los endpoints FastAPI marcados como prioritarios
+(#74): solo el código de su manejador, con las pruebas de endpoint (`TestClient`) y de
+función aprobadas del módulo. Al repetir pruebas guardadas no (fuera del alcance de #74).
+
 Si se le da el almacén del proyecto, reutiliza el último resultado de una función cuando
 ni ella ni las pruebas usadas cambiaron (`.qagent/mutacion/`, #70) y guarda los nuevos.
 """
@@ -41,9 +45,15 @@ Avisar = Callable[[str], None]
 _registro = logging.getLogger("qagent.mutacion")
 
 
-def criticas_aprobadas(resultado: ResultadoCorrida) -> list[ResultadoObjetivo]:
-    """Funciones críticas del módulo cuya prueba aprobó el Reviewer."""
-    return [o for o in _funciones_aprobadas(resultado) if o.critical]
+def criticas_aprobadas(
+    resultado: ResultadoCorrida, con_endpoints: bool = False
+) -> list[ResultadoObjetivo]:
+    """Funciones críticas (y, si se pide, endpoints prioritarios) aprobados del módulo."""
+    return [
+        o
+        for o in _aprobadas(resultado)
+        if o.critical and (con_endpoints or _tipo(o) == "funcion")
+    ]
 
 
 def mutar_modulo(
@@ -58,12 +68,14 @@ def mutar_modulo(
     almacen: AlmacenProyecto | None = None,
     run_id: str | None = None,
     huellas: dict[tuple[str, str], str] | None = None,
+    con_endpoints: bool = True,
 ) -> None:
     """Ejecuta mutmut sobre las funciones críticas aprobadas y anota el resultado.
 
-    Deja en `objetivo.mutacion` de cada función crítica aprobada el estado, el Mutation
-    Score, los detectados y los sobrevivientes. El tiempo máximo del contenedor es
-    `tiempo_por_funcion_s` por cada función mutada.
+    Deja en `objetivo.mutacion` de cada función crítica aprobada (y de cada endpoint
+    prioritario aprobado, #74) el estado, el Mutation Score, los detectados y los
+    sobrevivientes. El tiempo máximo del contenedor es `tiempo_por_funcion_s` por cada
+    función o manejador mutado.
 
     Args:
         raiz: carpeta del proyecto (se copia al sandbox; no se modifica).
@@ -75,13 +87,15 @@ def mutar_modulo(
         avisar: recibe los mensajes para el Monitor.
         almacen: si se da junto con `huellas`, reutiliza y guarda resultados (#70).
         run_id: corrida actual, para guardar de dónde salió cada resultado.
-        huellas: huella AST de cada `(modulo, funcion)` (`huellas_de_objetivos`).
+        huellas: huella AST de cada `(modulo, objetivo)` (`huellas_de_objetivos`).
+        con_endpoints: si también se mutan los manejadores de los endpoints
+            prioritarios (#74). La regresión (`reg_deep`) no los muta.
     """
-    objetivos = criticas_aprobadas(resultado)
+    objetivos = criticas_aprobadas(resultado, con_endpoints)
     if not objetivos:
         return
     avisar = avisar or (lambda _mensaje: None)
-    aprobadas = _funciones_aprobadas(resultado)
+    aprobadas = _aprobadas(resultado)
     # Las pruebas que se usan contra los mutantes son todas las aprobadas del módulo:
     # si cualquiera cambia, el resultado guardado deja de valer.
     huella_pruebas = huella_de_prueba(
@@ -109,19 +123,24 @@ def mutar_modulo(
     if not pendientes:
         return
 
-    nombres = [o.objetivo for o in pendientes]
+    nombres = [o.objetivo for o in pendientes if _tipo(o) == "funcion"]
+    # Un manejador puede atender varias rutas: se muta una sola vez (#74).
+    manejadores = list(
+        dict.fromkeys(_manejador(o) for o in pendientes if _tipo(o) == "endpoint")
+    )
     inicios = {
         f["nombre"]: f["linea"]
-        for f in modulo.get("funciones") or []
+        for f in [*(modulo.get("funciones") or []), *_manejadores_de(modulo)]
         if isinstance(f.get("linea"), int)
     }
     limites = replace(
-        LIMITES_POR_DEFECTO, timeout_s=tiempo_por_funcion_s * len(nombres)
+        LIMITES_POR_DEFECTO,
+        timeout_s=tiempo_por_funcion_s * (len(nombres) + len(manejadores)),
     )
-    avisar(
-        f"Mutation testing (mutmut) sobre {len(nombres)} función(es) crítica(s): "
-        f"{', '.join(nombres)} · 0 tokens"
-    )
+    avisar(_texto_inicio(pendientes, len(nombres)))
+    opciones: dict[str, Any] = {"inicios": inicios}
+    if manejadores:
+        opciones["manejadores"] = manejadores
 
     with tempfile.TemporaryDirectory(prefix="qagent-mutacion-") as carpeta:
         for aprobada in aprobadas:
@@ -137,7 +156,7 @@ def mutar_modulo(
                 resultado.modulo,
                 nombres,
                 limites,
-                inicios=inicios,
+                **opciones,
             ).funciones
         except Exception as error:  # noqa: BLE001 — mutmut nunca detiene la corrida
             _registro.warning("mutmut falló en %s: %s", resultado.modulo, error)
@@ -145,14 +164,22 @@ def mutar_modulo(
                 nombre: MutacionFuncion(
                     nombre, ERROR, mensaje=f"mutmut no pudo ejecutarse: {error}"
                 )
-                for nombre in nombres
+                for nombre in [*nombres, *manejadores]
             }
 
     for objetivo in pendientes:
-        mutacion = por_funcion.get(objetivo.objetivo) or MutacionFuncion(
-            objetivo.objetivo,
-            ERROR,
-            mensaje="mutmut no devolvió resultado para esta función.",
+        clave = (
+            _manejador(objetivo) if _tipo(objetivo) == "endpoint" else objetivo.objetivo
+        )
+        encontrada = por_funcion.get(clave)
+        mutacion = (
+            replace(encontrada, funcion=objetivo.objetivo)
+            if encontrada is not None
+            else MutacionFuncion(
+                objetivo.objetivo,
+                ERROR,
+                mensaje="mutmut no devolvió resultado para este objetivo.",
+            )
         )
         objetivo.mutacion = a_dict(mutacion)
         avisar(texto_para_monitor(mutacion))
@@ -180,14 +207,40 @@ def texto_para_monitor(mutacion: MutacionFuncion) -> str:
     return f"{mutacion.funcion}: sin Mutation Score · {mutacion.mensaje}"
 
 
-def _funciones_aprobadas(resultado: ResultadoCorrida) -> list[ResultadoObjetivo]:
+def _aprobadas(resultado: ResultadoCorrida) -> list[ResultadoObjetivo]:
+    """Objetivos aprobados con prueba: sus pruebas se usan contra los mutantes."""
+    return [o for o in resultado.objetivos if o.decision == "accept" and o.codigo]
+
+
+def _tipo(objetivo: ResultadoObjetivo) -> str:
+    return (objetivo.contrato or {}).get("tipo", "funcion")
+
+
+def _manejador(objetivo: ResultadoObjetivo) -> str:
+    """Función que atiende el endpoint (del contrato del Planner)."""
+    return (objetivo.contrato or {}).get("manejador") or objetivo.objetivo
+
+
+def _manejadores_de(modulo: dict[str, Any]) -> list[dict[str, Any]]:
+    """Línea del `def` de cada manejador, con la forma de una función del análisis."""
     return [
-        o
-        for o in resultado.objetivos
-        if o.decision == "accept"
-        and o.codigo
-        and (o.contrato or {}).get("tipo", "funcion") == "funcion"
+        {"nombre": e.get("manejador"), "linea": e.get("linea")}
+        for e in modulo.get("endpoints") or []
+        if e.get("manejador")
     ]
+
+
+def _texto_inicio(pendientes: list[ResultadoObjetivo], funciones: int) -> str:
+    endpoints = len(pendientes) - funciones
+    partes = []
+    if funciones:
+        partes.append(f"{funciones} función(es) crítica(s)")
+    if endpoints:
+        partes.append(f"{endpoints} endpoint(s) prioritario(s)")
+    return (
+        f"Mutation testing (mutmut) sobre {' y '.join(partes)}: "
+        f"{', '.join(o.objetivo for o in pendientes)} · 0 tokens"
+    )
 
 
 def _guardado(

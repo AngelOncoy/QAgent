@@ -12,6 +12,10 @@ sobre la copia del proyecto:
 3. Ejecuta `mutmut run` solo con los mutantes de las funciones pedidas.
 4. Lee el resultado de cada mutante y el cambio de los que sobrevivieron.
 
+Los manejadores de endpoints FastAPI (#74) llevan decorador y mutmut no los muta; antes de
+correr, su cuerpo se aísla en una función sin decorador (`manejadores.py`), solo en la
+copia del sandbox, y se mutan únicamente esas funciones.
+
 Si el proyecto ya trae `[tool.mutmut]` en su `pyproject.toml`, mutmut la prefiere sobre la
 de QAgent: en ese caso no se ejecuta y el resultado lo explica.
 """
@@ -20,6 +24,8 @@ from __future__ import annotations
 
 import json
 import re
+import shutil
+import tempfile
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -27,6 +33,11 @@ from typing import Any
 import docker
 
 from qagent.sandbox.ejecucion import DIR_SALIDA, ejecutar_en_sandbox
+from qagent.sandbox.manejadores import (
+    aislar_manejadores,
+    motivo_no_aislable,
+    nombre_aislado,
+)
 from qagent.sandbox.modelos import (
     LIMITES_POR_DEFECTO,
     LimitesSandbox,
@@ -36,6 +47,9 @@ from qagent.sandbox.modelos import (
 ARCHIVO_RESULTADO = "mutacion.json"
 #: Carpeta (dentro de la copia del proyecto) donde se copian las pruebas aprobadas.
 CARPETA_PRUEBAS = "_qagent_mutacion"
+#: Módulo con los manejadores aislados (#74); viaja con las pruebas y reemplaza al
+#: módulo en la copia del proyecto. No termina en .py para que pytest no lo recoja.
+ARCHIVO_AISLADO = "_qagent_modulo_aislado.txt"
 LIMITE_RESULTADO_BYTES = 2_000_000
 
 #: Estados de una función tras la mutación.
@@ -73,6 +87,11 @@ if pyproject.is_file():
         terminar({{"estado": "{CONFIG_PROPIA}"}})
 
 shutil.copytree("/work/tests", "{CARPETA_PRUEBAS}")
+# Manejadores aislados (#74): reemplazan al módulo solo en esta copia del proyecto.
+aislado = Path("{CARPETA_PRUEBAS}") / "{ARCHIVO_AISLADO}"
+if aislado.is_file():
+    Path(archivo).write_text(aislado.read_text("utf-8"), encoding="utf-8")
+    aislado.unlink()
 fuentes = sorted(
     p.name for p in Path(".").iterdir()
     if p.name not in {{"mutants", "{CARPETA_PRUEBAS}"}}
@@ -273,6 +292,7 @@ def ejecutar_mutacion(
     limites: LimitesSandbox = LIMITES_POR_DEFECTO,
     cliente: docker.DockerClient | None = None,
     inicios: dict[str, int] | None = None,
+    manejadores: list[str] | None = None,
 ) -> ResultadoMutacion:
     """Ejecuta mutmut en el sandbox solo sobre `funciones` del archivo `modulo`.
 
@@ -284,12 +304,28 @@ def ejecutar_mutacion(
         funciones: nombres de las funciones críticas a mutar.
         limites: CPU, memoria y tiempo máximo de toda la ejecución.
         cliente: cliente Docker; si es None se crea uno.
-        inicios: línea del `def` de cada función, para ubicar los sobrevivientes.
+        inicios: línea del `def` de cada función o manejador, para ubicar los
+            sobrevivientes.
+        manejadores: manejadores de endpoints críticos (#74). Se muta solo su cuerpo,
+            aislado en la copia del sandbox; el resultado queda con su nombre.
 
     Returns:
-        Resultado por función. Si se agota el tiempo, todas quedan en "tiempo_agotado"
+        Resultado por función y por manejador. Si se agota el tiempo, todas quedan en "tiempo_agotado"
         sin puntuación; nunca lanza por un fallo de mutmut.
     """
+    manejadores = list(dict.fromkeys(manejadores or []))
+    if manejadores:
+        return _con_manejadores_aislados(
+            imagen,
+            ruta_proyecto,
+            ruta_tests,
+            modulo,
+            funciones,
+            limites,
+            cliente,
+            inicios or {},
+            manejadores,
+        )
     leido: dict[str, Any] = {}
 
     def leer(_copia: Path, salida: Path) -> None:
@@ -330,6 +366,67 @@ def ejecutar_mutacion(
         duracion_s=ejecucion.duracion_s,
         salida=salida,
     )
+
+
+def _con_manejadores_aislados(
+    imagen: str,
+    ruta_proyecto: str | Path,
+    ruta_tests: str | Path,
+    modulo: str,
+    funciones: list[str],
+    limites: LimitesSandbox,
+    cliente: docker.DockerClient | None,
+    inicios: dict[str, int],
+    manejadores: list[str],
+) -> ResultadoMutacion:
+    """Aísla los manejadores, corre mutmut y devuelve el resultado con sus nombres."""
+    try:
+        fuente = (Path(ruta_proyecto) / modulo).read_text(encoding="utf-8")
+    except (OSError, UnicodeDecodeError) as error:
+        fuente, motivos = "", dict.fromkeys(manejadores, f"No se pudo leer: {error}")
+    else:
+        motivos = {m: motivo_no_aislable(fuente, m) for m in manejadores}
+    aislables = [m for m in manejadores if not motivos[m]]
+    no_aislables = {
+        m: MutacionFuncion(m, ERROR, mensaje=motivo)
+        for m, motivo in motivos.items()
+        if motivo
+    }
+    if not funciones and not aislables:
+        return ResultadoMutacion(Path(modulo).as_posix(), no_aislables)
+
+    with tempfile.TemporaryDirectory(prefix="qagent-aislado-") as carpeta:
+        pruebas = Path(carpeta) / "pruebas"
+        shutil.copytree(ruta_tests, pruebas)
+        if aislables:
+            (pruebas / ARCHIVO_AISLADO).write_text(
+                aislar_manejadores(fuente, aislables), encoding="utf-8"
+            )
+        resultado = ejecutar_mutacion(
+            imagen,
+            ruta_proyecto,
+            pruebas,
+            modulo,
+            [*funciones, *(nombre_aislado(m) for m in aislables)],
+            limites,
+            cliente,
+            {
+                **inicios,
+                **{nombre_aislado(m): inicios[m] for m in aislables if m in inicios},
+            },
+        )
+    por_nombre = {
+        nombre: resultado.funciones[nombre]
+        for nombre in funciones
+        if nombre in resultado.funciones
+    }
+    for manejador in aislables:
+        aislado = resultado.funciones.get(nombre_aislado(manejador))
+        if aislado is not None:
+            aislado.funcion = manejador
+            por_nombre[manejador] = aislado
+    resultado.funciones = {**por_nombre, **no_aislables}
+    return resultado
 
 
 def _todas(
