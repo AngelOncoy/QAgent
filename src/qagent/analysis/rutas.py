@@ -10,7 +10,8 @@ módulos del proyecto y extrae, sin ejecutar nada (solo ``ast``):
   ``include_router(..., prefix=...)``), parámetros de ruta, de consulta y de
   cabecera, modelo del cuerpo, ``response_model``, ``status_code`` (200 si no se
   declara), dependencias ``Depends(...)``, las ``HTTPException`` que lanza, la
-  función que la atiende (``manejador``) y su rango de líneas.
+  función que la atiende (``manejador``), su rango de líneas y las ``ramas`` del
+  manejador (misma regla que en funciones, #74).
 * **Modelos Pydantic**: clases que heredan de ``BaseModel`` (directa o
   indirectamente dentro del proyecto), con sus campos, tipos, valores por
   defecto y restricciones de ``Field`` (``gt``, ``ge``, ``min_length``…).
@@ -30,6 +31,8 @@ import re
 from collections.abc import Iterable
 from dataclasses import dataclass, field
 from typing import Any
+
+from qagent.analysis.ramas import contar_ramas
 
 #: Métodos HTTP que QAgent prueba (los del contrato planner_contract.v2).
 METODOS = ("GET", "POST", "PUT", "PATCH", "DELETE")
@@ -630,6 +633,7 @@ class _Analisis:
             "firma": f"({ast.unparse(funcion.args)})"
             + (f" -> {ast.unparse(funcion.returns)}" if funcion.returns else ""),
             "docstring": (ast.get_docstring(funcion) or "").strip() or None,
+            "ramas": contar_ramas(funcion),
             "parametros_ruta": parametros["ruta"],
             "parametros_consulta": parametros["consulta"],
             "cabeceras": parametros["cabeceras"],

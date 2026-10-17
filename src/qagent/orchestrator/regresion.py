@@ -414,6 +414,7 @@ def _mutar_criticas(
             almacen=almacen if almacen.existe() else None,
             run_id=run_id,
             huellas=huellas,
+            con_endpoints=False,
         )
 
 

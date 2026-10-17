@@ -130,13 +130,15 @@ def test_columnas_de_la_tabla_de_endpoints_en_orden() -> None:
         "Respuesta",
         "Errores",
         "Simula",
+        "Decisiones",  # #74
+        "Profundizar",  # #74
         "Incluir",
     ]
 
 
 def test_cada_columna_de_endpoint_tiene_tooltip() -> None:
     tooltips = _columnas_tooltips()
-    assert len(tooltips) == 7
+    assert len(tooltips) == 9  # #74 añade Decisiones y Profundizar
     for texto in (
         "Método HTTP y ruta del endpoint detectado en el proyecto.",
         "Indica si QAgent tiene suficiente información (modelo de respuesta y estado declarado) para probar el endpoint.",
@@ -149,11 +151,12 @@ def test_cada_columna_de_endpoint_tiene_tooltip() -> None:
         assert f'data-tip="{texto}"' in VISTA_JS
 
 
-def test_todas_las_filas_comparten_las_siete_columnas() -> None:
+def test_todas_las_filas_comparten_las_nueve_columnas() -> None:
     render = cuerpo("renderEndpoints")
-    # Encabezado de archivo, fila normal y fila de error: todas ocupan 7 columnas.
-    assert 'colspan="7"' in render
-    assert render.count("<td") >= 7
+    # Encabezado de archivo, fila normal y fila de error: todas ocupan 9 columnas (#74).
+    assert 'colspan="9"' in render
+    assert 'colspan="7"' not in render
+    assert render.count("<td") >= 9
 
 
 # ---------------- 10-14. Contenido de las celdas ----------------

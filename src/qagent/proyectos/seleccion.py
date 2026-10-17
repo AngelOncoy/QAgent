@@ -18,10 +18,11 @@ def filtrar_modulos(
     tengan funciones públicas o endpoints. Una lista explícita nunca puede incluir
     rutas u objetivos que no existan en el análisis AST recibido.
 
-    Cada entrada puede traer ``criticas``: las funciones marcadas en la columna
-    Profundizar (HU-06). Deben estar entre sus ``funciones``; cada función
-    seleccionada se copia con ``critical`` True o False según esa lista, sin
-    modificar el análisis recibido. Sin ``criticas``, ninguna función es crítica.
+    Cada entrada puede traer ``criticas``: los objetivos marcados en la columna
+    Profundizar, nombres de función (HU-06) u objetivos de endpoint como
+    ``"POST /pedidos"`` (#74). Deben estar entre sus ``funciones`` o ``endpoints``;
+    cada objetivo seleccionado se copia con ``critical`` True o False según esa
+    lista, sin modificar el análisis recibido. Sin ``criticas``, nada es crítico.
     """
     analizables = [m for m in modulos if m.get("funciones") or m.get("endpoints")]
     if seleccion is None:
@@ -72,11 +73,15 @@ def filtrar_modulos(
             raise SeleccionInvalida(
                 f"El módulo no tiene objetivos seleccionados: {ruta}"
             )
-        no_seleccionadas = [nombre for nombre in criticas if nombre not in funciones]
+        no_seleccionadas = [
+            nombre
+            for nombre in criticas
+            if nombre not in funciones and nombre not in endpoints
+        ]
         if no_seleccionadas:
             raise SeleccionInvalida(
-                f"Funciones marcadas para profundizar que no están seleccionadas en "
-                f"{ruta}: {', '.join(no_seleccionadas)}"
+                "Funciones o endpoints marcados para profundizar que no están "
+                f"seleccionadas en {ruta}: {', '.join(no_seleccionadas)}"
             )
 
         filtrado = dict(modulo)
@@ -84,7 +89,10 @@ def filtrar_modulos(
             {**funciones_reales[nombre], "critical": nombre in criticas}
             for nombre in funciones
         ]
-        filtrado["endpoints"] = [endpoints_reales[objetivo] for objetivo in endpoints]
+        filtrado["endpoints"] = [
+            {**endpoints_reales[objetivo], "critical": objetivo in criticas}
+            for objetivo in endpoints
+        ]
         filtrados.append(filtrado)
 
     return filtrados

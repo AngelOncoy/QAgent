@@ -134,3 +134,57 @@ def test_rechaza_criticas_invalidas(modulos, criticas, mensaje) -> None:
 def test_rechaza_seleccion_vacia_o_inexistente(modulos, seleccion, mensaje) -> None:
     with pytest.raises(SeleccionInvalida, match=mensaje):
         filtrar_modulos(modulos, seleccion)
+
+
+# --- #74: endpoints marcados para profundizar ---------------------------------------
+
+
+def test_los_endpoints_marcados_llegan_como_criticos(modulos) -> None:
+    seleccion = [
+        {
+            "ruta": "api.py",
+            "funciones": [],
+            "endpoints": ["GET /items", "POST /items"],
+            "criticas": ["POST /items"],
+        }
+    ]
+
+    resultado = filtrar_modulos(modulos, seleccion)
+
+    criticos = {e["objetivo"]: e["critical"] for e in resultado[0]["endpoints"]}
+    assert criticos == {"GET /items": False, "POST /items": True}
+    # El análisis recibido no cambia.
+    assert modulos[2]["endpoints"] == [
+        {"objetivo": "GET /items"},
+        {"objetivo": "POST /items"},
+    ]
+
+
+def test_sin_criticas_ningun_endpoint_es_critico(modulos) -> None:
+    seleccion = [{"ruta": "api.py", "funciones": [], "endpoints": ["GET /items"]}]
+
+    resultado = filtrar_modulos(modulos, seleccion)
+
+    assert resultado[0]["endpoints"] == [{"objetivo": "GET /items", "critical": False}]
+
+
+@pytest.mark.parametrize(
+    "criticas, mensaje",
+    [
+        (["DELETE /items"], "no están seleccionadas en api.py: DELETE /items"),
+        (["POST /items"], "no están seleccionadas en api.py: POST /items"),
+        (["GET /items", "GET /items"], "no es válida"),
+    ],
+)
+def test_rechaza_endpoints_marcados_invalidos(modulos, criticas, mensaje) -> None:
+    seleccion = [
+        {
+            "ruta": "api.py",
+            "funciones": [],
+            "endpoints": ["GET /items"],
+            "criticas": criticas,
+        }
+    ]
+
+    with pytest.raises(SeleccionInvalida, match=mensaje):
+        filtrar_modulos(modulos, seleccion)
