@@ -43,9 +43,11 @@ from qagent.llm.fabrica import FuenteClaves
 from qagent.orchestrator.eventos import BusEventos, Evento
 from qagent.orchestrator.mutacion import PERFIL_PROFUNDO, Mutador, mutar_modulo
 from qagent.orchestrator.orquestador import Orquestador, ResultadoCorrida
+from qagent.orchestrator.regresion import huellas_de_objetivos
 from qagent.proyectos.proyecto_local import detectar_rama
 from qagent.sandbox import ejecutar_mutacion, ejecutar_pruebas
 from qagent.storage import escribir_corrida
+from qagent.storage.registro import PERFILES_REGRESION
 
 AlEvento = Callable[[dict[str, Any]], None]
 PrepararImagen = Callable[[Path], str]
@@ -115,7 +117,7 @@ def ejecutar_corrida(
         mutador: cómo se ejecuta mutmut en el perfil Profundo (EN-09; Docker,
             reemplazable en pruebas).
     """
-    if perfil == "reg":
+    if perfil in PERFILES_REGRESION:
         from qagent.orchestrator.regresion import ejecutar_regresion
 
         return ejecutar_regresion(
@@ -127,6 +129,7 @@ def ejecutar_corrida(
             preparar_imagen=preparar_imagen,
             ejecutor=ejecutor,
             seleccion=seleccion,
+            mutador=mutador,
         )
 
     inicio = time.monotonic()
@@ -224,6 +227,9 @@ def ejecutar_corrida(
 
         resultados: list[ResultadoCorrida] = []
         planes_specs: list[dict[str, Any]] = []
+        # #70: con las huellas, el Mutation Score de esta corrida queda guardado para
+        # reutilizarlo al repetir las pruebas sin cambios.
+        huellas = huellas_de_objetivos(ruta) if perfil == PERFIL_PROFUNDO else None
         tope = configuracion.presupuesto.tope_por_corrida_usd
         for modulo in modulos:
             if tracker.total_costo_usd >= tope:
@@ -282,6 +288,9 @@ def ejecutar_corrida(
                     lambda mensaje, archivo=modulo["ruta"]: avisar(
                         mensaje, archivo=archivo
                     ),
+                    almacen=almacen if almacen.existe() else None,
+                    run_id=resumen.run_id,
+                    huellas=huellas,
                 )
             resultados.append(resultado)
             contratos = resultado.plan_completo
@@ -393,8 +402,6 @@ def _registrar(
         resumen.carpeta = str(rutas.carpeta)
 
     if resumen.run_id is not None and almacen.existe():
-        from qagent.orchestrator.regresion import huellas_de_objetivos
-
         huellas_objetivos = huellas_de_objetivos(ruta)
         for resultado in resultados:
             for objetivo in resultado.objetivos:

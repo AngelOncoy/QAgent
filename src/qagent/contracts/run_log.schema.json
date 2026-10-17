@@ -101,7 +101,9 @@
             }
           }
         },
-        "mensaje": { "type": ["string", "null"], "description": "Explicación cuando el estado no es ok o no hay puntuación." }
+        "mensaje": { "type": ["string", "null"], "description": "Explicación cuando el estado no es ok o no hay puntuación." },
+        "reutilizada": { "type": "boolean", "description": "#70. El resultado se tomó de .qagent/mutacion/ porque ni la función ni sus pruebas cambiaron." },
+        "run_origen": { "type": "string", "pattern": "^\\d{8}-\\d{6}-[0-9a-f]{4}$", "description": "#70. Corrida que calculó el resultado reutilizado." }
       }
     },
     "tokens": {

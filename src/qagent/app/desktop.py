@@ -12,6 +12,7 @@ from qagent.almacenamiento import AlmacenProyecto, recientes
 from qagent.app import bitacora
 from qagent.app.monitor_eventos import a_evento_bitacora, a_fila_monitor
 from qagent.proyectos import proyecto_local
+from qagent.storage.registro import PERFILES_REGRESION
 
 # Interfaz web (HTML/CSS/JS), separada del backend e instalada con el paquete: qagent/frontend/
 FRONTEND_DIR = Path(__file__).resolve().parents[1] / "frontend"
@@ -501,7 +502,7 @@ class DesktopAPI:
                 return {"status": "seleccion_invalida", "mensaje": str(exc)}
 
         simulado = modo_simulado()
-        es_regresion = profile == "reg"
+        es_regresion = profile in PERFILES_REGRESION  # reg y reg_deep (#70): sin IA
         if es_regresion or not simulado:
             try:
                 verificar_docker()

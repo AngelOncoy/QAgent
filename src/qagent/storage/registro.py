@@ -33,6 +33,14 @@ ARCHIVO_DETALLE = "detalle.json"
 COBERTURA_MINIMA = 60.0
 #: Meta de Mutation Score de las funciones críticas (ADR-001).
 MUTATION_SCORE_MIN = 60
+
+#: Perfiles de la corrida (`start_run`). `reg_deep` repite las pruebas guardadas y
+#: además aplica mutmut a las funciones críticas (#70).
+PERFIL_PROFUNDO = "deep"
+PERFIL_REGRESION = "reg"
+PERFIL_REGRESION_PROFUNDA = "reg_deep"
+PERFILES_REGRESION = frozenset({PERFIL_REGRESION, PERFIL_REGRESION_PROFUNDA})
+PERFILES_CON_MUTACION = frozenset({PERFIL_PROFUNDO, PERFIL_REGRESION_PROFUNDA})
 #: Caracteres que se guardan de cada salida de pytest o comentario del Reviewer.
 LARGO_MAXIMO_TRAZA = 4000
 VERSION = "1"
