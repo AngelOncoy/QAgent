@@ -14,8 +14,6 @@ from pathlib import Path
 from typing import Any
 
 from qagent.config.carga import (
-    RUTA_CONFIG,
-    RUTA_ENV,
     ResultadoCarga,
     cargar_configuracion,
 )
@@ -74,8 +72,8 @@ def _estado_docker() -> dict[str, str]:
 
 
 def verificar_entorno(
-    ruta_config: str | Path = RUTA_CONFIG,
-    ruta_env: str | Path = RUTA_ENV,
+    ruta_config: str | Path | None = None,
+    ruta_env: str | Path | None = None,
     simulado: bool | None = None,
     docker: Callable[[], dict[str, str]] = _estado_docker,
     git: Callable[[], dict[str, str]] = estado_git,

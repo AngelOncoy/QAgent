@@ -29,10 +29,10 @@ from pathlib import Path
 from typing import Any
 
 from qagent.almacenamiento.disco import escribir_texto_atomico
+from qagent.config import carga as config_carga
 from qagent.config.carga import (
     NOMBRE_AGENTE,
     RUTA_CONFIG,
-    RUTA_ENV,
     crear_env,
     leer_env,
     superponer_config,
@@ -111,8 +111,8 @@ def listar_proveedores() -> list[dict[str, Any]]:
 
 
 def leer_roles(
-    ruta_config: str | Path = RUTA_CONFIG,
-    ruta_env: str | Path = RUTA_ENV,
+    ruta_config: str | Path | None = None,
+    ruta_env: str | Path | None = None,
     ruta_local: str | Path | None = None,
 ) -> list[dict[str, Any]]:
     """Estado de cada agente para la pantalla Configuración.
@@ -133,8 +133,10 @@ def leer_roles(
         `tiene_clave`, `clave_enmascarada`, `clave_repetida_con` (otros agentes con la
         misma clave) y `desde_local`. Nunca incluye la clave completa.
     """
-    tablas, locales = _tablas_agentes(Path(ruta_config), ruta_local)
-    env = _leer_env_seguro(Path(ruta_env))
+    ruta_config_res = RUTA_CONFIG if ruta_config is None else Path(ruta_config)
+    ruta_env_res = config_carga.RUTA_ENV if ruta_env is None else Path(ruta_env)
+    tablas, locales = _tablas_agentes(ruta_config_res, ruta_local)
+    env = _leer_env_seguro(ruta_env_res)
     actuales = _claves_actuales(tablas, env)
     return [
         _estado_rol(agente, tablas.get(agente), actuales, agente in locales)
@@ -257,8 +259,8 @@ def configurar_rol(
     modelo: str,
     clave: str | None = None,
     *,
-    ruta_config: str | Path = RUTA_CONFIG,
-    ruta_env: str | Path = RUTA_ENV,
+    ruta_config: str | Path | None = None,
+    ruta_env: str | Path | None = None,
     ruta_local: str | Path | None = None,
     transporte: TransporteLLM | None = None,
 ) -> dict[str, Any]:
@@ -293,9 +295,10 @@ def configurar_rol(
             "La API key no puede tener espacios, saltos de línea ni comillas."
         )
 
-    ruta_config, ruta_env = Path(ruta_config), Path(ruta_env)
-    tablas, _ = _tablas_agentes(ruta_config, ruta_local)
-    env = _leer_env_seguro(ruta_env)
+    ruta_config_res = RUTA_CONFIG if ruta_config is None else Path(ruta_config)
+    ruta_env_res = config_carga.RUTA_ENV if ruta_env is None else Path(ruta_env)
+    tablas, _ = _tablas_agentes(ruta_config_res, ruta_local)
+    env = _leer_env_seguro(ruta_env_res)
     actuales = _claves_actuales(tablas, env)
     anterior = tablas.get(agente)
     mismo_proveedor = anterior is not None and anterior["proveedor"] == proveedor
@@ -317,7 +320,7 @@ def configurar_rol(
     previa = (
         variable_de_agente(agente, str(anterior["proveedor"])) if anterior else None
     )
-    destino = Path(ruta_local) if ruta_local else ruta_config
+    destino = Path(ruta_local) if ruta_local else ruta_config_res
     try:
         _guardar(
             agente,
@@ -353,8 +356,8 @@ def aviso_clave_compartida(otros: list[str]) -> str:
 def eliminar_rol(
     agente: str,
     *,
-    ruta_config: str | Path = RUTA_CONFIG,
-    ruta_env: str | Path = RUTA_ENV,
+    ruta_config: str | Path | None = None,
+    ruta_env: str | Path | None = None,
     ruta_local: str | Path | None = None,
 ) -> dict[str, Any]:
     """Deja al agente «Sin configurar»: quita su sección de `config.toml` y su clave.
@@ -369,33 +372,34 @@ def eliminar_rol(
     """
     if agente not in AGENTES:
         return {"ok": False, "mensaje": f"Agente desconocido: {agente}."}
-    ruta_config, ruta_env = Path(ruta_config), Path(ruta_env)
+    ruta_config_res = RUTA_CONFIG if ruta_config is None else Path(ruta_config)
+    ruta_env_res = config_carga.RUTA_ENV if ruta_env is None else Path(ruta_env)
     try:
         if ruta_local:
             local = Path(ruta_local)
-            tabla = _tablas_agentes(ruta_config, local)[0].get(agente)
+            tabla = _tablas_agentes(ruta_config_res, local)[0].get(agente)
             texto = _texto_o_encabezado(local)
             nuevo = reemplazar_seccion_agente(texto, agente, [MARCA_SIN_CONFIGURAR])
             _comprobar_toml(nuevo)
             local.parent.mkdir(parents=True, exist_ok=True)
             escribir_texto_atomico(local, nuevo)
         else:
-            texto = ruta_config.read_text(encoding="utf-8")
-            tabla = _leer_toml(ruta_config).get("agentes", {}).get(agente)
+            texto = ruta_config_res.read_text(encoding="utf-8")
+            tabla = _leer_toml(ruta_config_res).get("agentes", {}).get(agente)
             nuevo = reemplazar_seccion_agente(texto, agente, None)
             if nuevo != texto:
                 _comprobar_toml(nuevo)
-                escribir_texto_atomico(ruta_config, nuevo)
+                escribir_texto_atomico(ruta_config_res, nuevo)
         propia = (
             variable_de_agente(agente, str(tabla.get("proveedor")))
             if isinstance(tabla, dict)
             else None
         )
-        if propia and ruta_env.exists():
-            env_texto = ruta_env.read_text(encoding="utf-8-sig")
+        if propia and ruta_env_res.exists():
+            env_texto = ruta_env_res.read_text(encoding="utf-8-sig")
             env_nuevo = quitar_variable_env(env_texto, propia)
             if env_nuevo != env_texto:
-                escribir_texto_atomico(ruta_env, env_nuevo)
+                escribir_texto_atomico(ruta_env_res, env_nuevo)
     except (OSError, ValueError) as error:
         return {
             "ok": False,

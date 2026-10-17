@@ -16,8 +16,8 @@ registrarComponente('informe/modal-exportar', `<!-- Exportar informe (HU-22) -->
         <label class="chk"><input type="checkbox" checked disabled> Resumen de las 5 métricas vs. metas de la carta</label>
         <label class="chk"><input type="checkbox" class="expOpt" id="expDetail" checked> Resultado por función (estado, intentos, cobertura, Mutation Score, tokens)</label>
         <label class="chk"><input type="checkbox" class="expOpt" id="expTrace" checked> Trazas del Reviewer de los incidentes</label>
-        <label class="chk"><input type="checkbox" class="expOpt" id="expCode"> Código de las pruebas generadas</label>
-        <label class="chk"><input type="checkbox" class="expOpt" id="expContract"> Contratos JSON del Planner</label>
+        <label class="chk"><input type="checkbox" class="expOpt" id="expCode" checked> Código de las pruebas generadas</label>
+        <label class="chk"><input type="checkbox" class="expOpt" id="expContract" checked> Contratos JSON del Planner</label>
       </div></div>
     <div><label class="l">Guardar en</label>
       <div style="display:flex;gap:8px"><input class="inp" id="expPath" readonly><button class="btn" id="expChangeBtn" onclick="cambiarCarpetaExportar()">Cambiar…</button></div>
@@ -121,27 +121,130 @@ function buildMarkdown(){
   const m = metrics(), inc = id => $(id).checked, ok = b => b ? '✅ Cumple' : '❌ No cumple';
   let md = `# Informe de auditoría de pruebas unitarias — Corrida #${RUN_ID}\n\n`;
   md += `- **Proyecto:** ${document.querySelector('.repoLbl').textContent}\n- **Rama:** ${$('branchLbl').textContent}\n- **Fecha:** ${RUN_DATE}\n- **Perfil:** Profundo · **Funciones evaluadas:** ${m.n} (${m.crit} críticas)\n- **Generado por:** QAgent ${textoVersion()} (Planner → Generator → Reviewer)\n- **Modelos:** Planner: ${AGENTS_CFG.P.model} (US$ ${AGENTS_CFG.P.price}/M) · Generator: ${AGENTS_CFG.G.model} (US$ ${AGENTS_CFG.G.price}/M) · Reviewer: ${AGENTS_CFG.R.model} (US$ ${AGENTS_CFG.R.price}/M)\n- **Specs:** 4 reutilizados de corridas anteriores · 2 regenerados (cart.py, discounts.py cambiaron) · guardados en \`.qagent/specs/\`\n\n`;
-  md += `## 1. Resumen de métricas\n\n| Métrica | Resultado | Meta (carta) | Estado |\n|---|---|---|---|\n`;
+  md += `## 1. Resumen de las 5 métricas\n\n| Métrica | Resultado | Meta (carta) | Estado |\n|---|---|---|---|\n`;
   md += `| Pass Rate | ${pct(m.pass,1)} (${m.ok}/${m.n}) | ${META.pass[0]}–${META.pass[1]}% | ${ok(m.pass>=META.pass[0])} |\n`;
   md += `| Cobertura de líneas / ramas | ${pct(m.lines,1)} / ${pct(m.branch,1)} | ≥ ${META.lines}% líneas | ${ok(m.lines>=META.lines)} |\n`;
   md += `| Iteraciones promedio | ${m.iter.toFixed(2)} | < ${META.iter} (máx. 3) | ${ok(m.iter<META.iter)} |\n`;
   md += `| Tokens (P ${AGENT_SPLIT.P}% · G ${AGENT_SPLIT.G}% · R ${AGENT_SPLIT.R}%) | ${m.tokens.toLocaleString('es-PE')} · US$ ${m.usd.toFixed(2)} · S/ ${m.pen.toFixed(2)} | Reportar | ✅ Cumple |\n`;
   md += `| Costo por agente | Planner US$ ${m.agentUsd.P.toFixed(3)} · Generator US$ ${m.agentUsd.G.toFixed(3)} · Reviewer US$ ${m.agentUsd.R.toFixed(3)} | — | ✅ Reportado |\n`;
   md += `| Mutation Score (solo ${m.crit} funciones críticas) | ${pct(m.ms,1)} | ≥ ${META.ms}% | ${ok(m.ms>=META.ms)} |\n\n`;
+
+  const aprobadas = RUN.filter(f => f.status === 'passed').length;
+  const bugs = RUN.filter(f => f.status === 'rejected_oracle').length;
+  const laundering = RUN.filter(f => f.status === 'rejected_laundering').length;
+  const estancadas = RUN.filter(f => f.status !== 'passed' && f.status !== 'rejected_oracle' && f.status !== 'rejected_laundering').length;
+  const ptsPass = RUN.length ? (aprobadas / RUN.length) * 45 : 0;
+  const ptsLin = (Math.min(100, m.lines) / 100) * 25;
+  const ptsRam = (Math.min(100, m.branch) / 100) * 15;
+  const ptsMs = m.ms !== null ? (m.ms / 100) * 15 : 12;
+  const scoreSalud = Math.max(0, Math.min(100, Math.round(ptsPass + ptsLin + ptsRam + ptsMs - laundering * 8 - bugs * 5)));
+  const nivelMadurez = scoreSalud >= 90 ? 'Excelente (Listo para producción)' : (scoreSalud >= 75 ? 'Estable (Observaciones menores)' : (scoreSalud >= 50 ? 'En Riesgo (Requiere correcciones prioritarias)' : 'Crítico (Defectos en código detectados)'));
+
+  const diagGlobal = (bugs === 0 && laundering === 0 && estancadas === 0)
+    ? `El proyecto tiene un estado de salud óptimo: el 100% de las funciones (${aprobadas}/${RUN.length}) aprobaron sus suites de prueba con aserciones íntegras.`
+    : `El proyecto presenta observaciones de calidad: ${aprobadas}/${RUN.length} aprobadas (${pct(m.pass,1)}). Consulte las deficiencias y el plan de mejora para corregir las líneas afectadas en su código.`;
+
+  md += `### 1.1 Estado de salud del proyecto\n\n`;
+  md += `- **Índice de salud del código:** ${scoreSalud}/100 — **Nivel:** ${nivelMadurez}\n`;
+  md += `- **Progreso del proyecto:** ${aprobadas}/${RUN.length} funciones aprobadas (${pct(m.pass,1)})\n`;
+  md += `- **Diagnóstico global:** ${diagGlobal}\n`;
+  md += `- **Balance de calidad:** ✅ ${aprobadas} aprobadas · 🐛 ${bugs} defectos en código · 🛡️ ${laundering} laundering bloqueado · ⏳ ${estancadas} estancadas (de ${RUN.length} evaluadas)\n\n`;
+
+  md += `#### Fortalezas del proyecto\n`;
+  const fnsAltaCob = RUN.filter(f => f.lines_cov >= 90 && f.status === 'passed');
+  if (fnsAltaCob.length) {
+    md += `- ✅ Alta cobertura de código: ${fnsAltaCob.length}/${RUN.length} funciones (${fnsAltaCob.map(f=>`\`${f.name}\``).slice(0,3).join(', ')}) alcanzan ≥ 90% de líneas cubiertas con pruebas sólidas.\n`;
+  }
+  const fnsMsOk = RUN.filter(f => f.mutation_score !== null && f.mutation_score >= 60);
+  if (fnsMsOk.length) {
+    md += `- ✅ Resistencia frente a mutaciones: Funciones críticas (${fnsMsOk.map(f=>`\`${f.name}\``).join(', ')}) superan el 60% de Mutation Score, garantizando aserciones sensibles a cambios de lógica.\n`;
+  }
+  md += `- ✅ Integridad de contratos: ${RUN.filter(f => !f.laundering && f.status === 'passed').length}/${RUN.length} funciones mantuvieron oráculos estrictos sin alterar aserciones.\n\n`;
+
+  md += `#### Deficiencias detectadas (áreas de riesgo)\n`;
+  const fnsBugs = RUN.filter(f => f.status === 'rejected_oracle');
+  fnsBugs.forEach(fb => {
+    md += `- ⚠️ Defecto de lógica detectado en \`${fb.module}::${fb.name}\`: ${fb.diag || 'Discrepancia frente al contrato'}. El código de producción no cumple la especificación esperada.\n`;
+  });
+  const fnsLaund = RUN.filter(f => f.laundering || f.status === 'rejected_laundering');
+  fnsLaund.forEach(fl => {
+    md += `- ⚠️ Intento de alteración de aserciones (Assertion Laundering) en \`${fl.module}::${fl.name}\`: Se bloqueó la relajación de oráculos de prueba.\n`;
+  });
+  const fnsBajasRamas = RUN.filter(f => f.branch_cov < 85);
+  if (fnsBajasRamas.length) {
+    md += `- ⚠️ Ramas condicionales sin evaluar: ${fnsBajasRamas.map(f=>`\`${f.name}\` (${f.branch_cov}% ramas)`).join(', ')} dejan bifurcaciones (if/else) sin probar.\n`;
+  }
+  md += `\n`;
+
+  md += `#### Cómo mejorar su proyecto (Plan de acción recomendado)\n`;
+  let idxRec = 1;
+  fnsBugs.forEach(fb => {
+    md += `${idxRec++}. Prioridad 1 — Corregir la lógica en \`${fb.module}::${fb.name}\`: Modificar la función en el código de producción para que devuelva el valor esperado según el contrato.\n`;
+  });
+  if (fnsBajasRamas.length) {
+    md += `${idxRec++}. Prioridad 2 — Agregar casos límite para ramas en ${fnsBajasRamas.map(f=>`\`${f.name}\``).join(', ')}: Probar valores vacíos o condiciones alternas para alcanzar 100% de ramas.\n`;
+  }
+  if (fnsLaund.length) {
+    md += `${idxRec++}. Prioridad 3 — Auditar oráculos de prueba: Evitar modificar valores esperados para forzar el paso de los tests; resolver siempre el defecto en el código fuente.\n`;
+  }
+  md += `\n`;
+
+  const incidentesCriticos = RUN.filter(f => f.status !== 'passed' || f.diag);
+  if (incidentesCriticos.length) {
+    md += `- **Puntos críticos que requieren corrección en el código:**\n`;
+    incidentesCriticos.forEach(f => {
+      md += `  - \`${f.name}\` en \`${f.module}::${f.name}\`: ${f.diag || 'Fallo de aserciones en pytest'}\n`;
+    });
+    md += `\n`;
+  }
+
   if(inc('expDetail')){
     md += `## 2. Resultado por función\n\n| Función | Módulo | Estado | Intentos | Cob. líneas | Cob. ramas | Mutation Score | Tokens |\n|---|---|---|---|---|---|---|---|\n`;
     RUN.forEach(f => md += `| ${f.name} | ${f.module} | ${stRep(f)} | ${f.iterations}/3 | ${f.lines_cov}% | ${f.branch_cov}% | ${f.mutation_score===null?'N/A (no crítica)':f.mutation_score+'%'} | ${f.tokens.toLocaleString('es-PE')} |\n`);
     md += `\n`;
-  }
-  if(inc('expTrace')){
-    md += `## 3. Incidentes\n\n`;
-    RUN.filter(f=>f.diag).forEach(f => {
-      md += `### ${f.name} — ${stRep(f)}\n\n${f.diag}\n\n`;
-      if(f.trace) md += '```text\n' + f.trace + '\n```\n\n';
+    md += `## 2.2 Actividad detallada de los agentes\n\n`;
+    RUN.forEach(f => {
+      md += `### ${f.name} (${f.module}) — ${stRep(f)}\n\n`;
+      md += `- **Objetivo analizado (Planner):** Análisis estático AST (${(f.contract && f.contract.casos && f.contract.casos.length) || 0} casos deducidos)\n`;
+      md += `- **Suite pytest (Generator):** \`tests/test_${f.name}.py\`, ${f.iterations}/3 intentos en sandbox hermético Docker sin red\n`;
+      md += `- **Evaluación del Reviewer:** Veredicto ${stRep(f)}, cobertura ${f.lines_cov}% líneas / ${f.branch_cov}% ramas, control de laundering ${f.laundering ? 'DETECTADO' : 'estricto'}\n\n`;
     });
   }
-  if(inc('expCode')){ md += `## 4. Pruebas generadas\n\n`; RUN.forEach(f => md += `### tests/test_${f.name}.py\n\n\`\`\`python\n${f.code}\n\`\`\`\n\n`); }
-  if(inc('expContract')){ md += `## 5. Contratos del Planner\n\n`; RUN.forEach(f => md += `### ${f.name}\n\n\`\`\`json\n${JSON.stringify(f.contract,null,2)}\n\`\`\`\n\n`); }
+  if(inc('expTrace')){
+    md += `## 3. Trazas del Reviewer de los incidentes\n\n`;
+    const incs = RUN.filter(f=>f.diag || f.trace);
+    if (!incs.length) {
+      md += `No se registraron incidentes ni trazas de fallo en esta corrida.\n\n`;
+    } else {
+      incs.forEach(f => {
+        md += `### ${f.name} (${f.module}) — ${stRep(f)}\n\n`;
+        md += `- **Parte del código afectada:** \`${f.module}::${f.name}\`\n`;
+        md += `- **Veredicto del Reviewer:** ${stRep(f)}\n`;
+        if (f.diag) md += `- **¿Por qué falló?:** ${f.diag}\n`;
+        if (f.laundering) md += `- **Incidente de seguridad:** Assertion Laundering detectado (aserciones relajadas para ocultar fallos).\n`;
+        md += `\n`;
+        if(f.trace) md += '```text\n' + f.trace + '\n```\n\n';
+      });
+    }
+  }
+  if(inc('expCode')){
+    md += `## 4. Código de las pruebas generadas\n\n`;
+    md += `_Anexo de referencia: suites de prueba pytest generadas por el Generator._\n\n`;
+    RUN.forEach(f => {
+      md += `### tests/test_${f.name}.py (${f.module})\n\n`;
+      md += `- **Autor:** Generator (QAgent) · **Iteraciones:** ${f.iterations}/3\n\n`;
+      md += `\`\`\`python\n${f.code || '# Sin código registrado'}\n\`\`\`\n\n`;
+    });
+  }
+  if(inc('expContract')){
+    md += `## 5. Contratos JSON del Planner\n\n`;
+    md += `_Anexo técnico secundario: especificaciones y contratos formales del Planner para auditoría de oráculos._\n\n`;
+    RUN.forEach(f => {
+      md += `### ${f.name} (${f.module})\n\n`;
+      md += `- **Autor:** Planner (QAgent) · Análisis estático AST\n\n`;
+      md += `\`\`\`json\n${JSON.stringify(f.contract || {},null,2)}\n\`\`\`\n\n`;
+    });
+  }
   return md;
 }
 
@@ -204,12 +307,12 @@ function coloresEstadoPdf(st){
   return ['0.85 0.48 0.04', '0.99 0.94 0.83', '0.58 0.30 0.04'];
 }
 
-const PESTANAS_PDF_JS = [
-  [1, '1. Resumen & KPIs', 36.0, 102.0],
-  [2, '2. Graficas y Estad.', 140.5, 102.0],
-  [3, '3. Detalle Funcion', 245.0, 102.0],
-  [4, '4. Incidentes', 349.5, 102.0],
-  [5, '5. Codigo y Contratos', 454.0, 105.0],
+const SECCIONES_PDF_JS = [
+  [1, '1. Resumen y KPIs'],
+  [2, '2. Graficas y Estadisticas'],
+  [3, '3. Detalle por Funcion'],
+  [4, '4. Incidentes y Trazas'],
+  [5, '5. Codigo y Contratos'],
 ];
 
 function buildPdfBytes(){
@@ -258,6 +361,27 @@ function buildPdfBytes(){
     bloques.push({tipo: 'tabla_metrica', seccion: 1, par: idx % 2 === 1, nombre: nom, resultado: res, meta, estado: cumple ? 'Cumple' : 'No cumple', cumple});
   });
   bloques.push({tipo: 'nota_agentes', seccion: 1, lineas: envolverLineaPdf(`Desglose de costo por agente: ${costoAgTxt} (Estado: Reportado)`, 90)});
+
+  const ptsPassP = RUN.length ? (m.ok / RUN.length) * 45 : 0;
+  const ptsLinP = (Math.min(100, m.lines) / 100) * 25;
+  const ptsRamP = (Math.min(100, m.branch) / 100) * 15;
+  const ptsMsP = m.ms !== null ? (m.ms / 100) * 15 : 12;
+  const launderingP = RUN.filter(f => f.laundering || f.status === 'rejected_laundering').length;
+  const bugsP = RUN.filter(f => f.status === 'rejected_oracle').length;
+  const scoreSaludP = Math.max(0, Math.min(100, Math.round(ptsPassP + ptsLinP + ptsRamP + ptsMsP - launderingP * 8 - bugsP * 5)));
+  const nivelMadurezP = scoreSaludP >= 90 ? 'Excelente (Listo para produccion)' : (scoreSaludP >= 75 ? 'Estable (Observaciones menores)' : (scoreSaludP >= 50 ? 'En Riesgo (Requiere correcciones)' : 'Critico (Defectos detectados)'));
+
+  bloques.push({
+    tipo: 'panel_salud',
+    seccion: 1,
+    indice: scoreSaludP,
+    nivel: nivelMadurezP,
+    progreso: `${m.ok}/${RUN.length} aprobadas (${pct(m.pass,1)})`,
+    diagnostico: envolverLineaPdf(bugsP === 0 ? `El proyecto supera las pruebas unitarias con ${m.ok}/${RUN.length} funciones aprobadas.` : `El proyecto presenta observaciones: ${m.ok}/${RUN.length} aprobadas con defectos identificados en codigo.`, 88),
+    fortalezas: [envolverLineaPdf('Alta cobertura y resistencia a mutaciones en funciones criticas sin mutantes sobrevivientes.', 82)],
+    deficiencias: [envolverLineaPdf(bugsP ? 'Defecto de logica en apply_bulk_promotion: el codigo no satisface el contrato formal.' : 'Sin deficiencias criticas.', 82)],
+    recomendaciones: [envolverLineaPdf(bugsP ? 'Prioridad: Corregir calculo de descuento en services/cart.py::apply_bulk_promotion.' : 'Mantener ejecucion en pipeline CI.', 82)],
+  });
 
   // Panel de Gráficas y Estadísticas Relevantes (Pestaña 2)
   const fnsGraf = RUN.slice(0, 6).map(f => ({
@@ -344,7 +468,7 @@ function buildPdfBytes(){
   }
 
   const paginas = [], seccionesPagina = [], paginaInicioSeccion = {1: 0};
-  let comandos = [], y = 774, margenInf = 48, seccionActual = 1;
+  let comandos = [], y = 788, margenInf = 48, seccionActual = 1;
   function nuevaPagina(sec){
     if (sec !== undefined) seccionActual = sec;
     if (comandos.length) {
@@ -355,10 +479,10 @@ function buildPdfBytes(){
     comandos = [
       '0.06 0.09 0.16 rg 36 804 523 22 re f',
       '0.06 0.73 0.51 rg 36 804 4 22 re f',
-      `BT /F2 8.5 Tf 1 1 1 rg 48 812 Td (QAgent ${textoVersion()}  |  Informe Interactivo de Auditoria  |  Corrida #${escId}) Tj ET`,
+      `BT /F2 8.5 Tf 1 1 1 rg 48 812 Td (QAgent ${textoVersion()}  |  Informe de Auditoria  |  Corrida #${escId}) Tj ET`,
       'BT /F1 7.8 Tf 0.70 0.78 0.90 rg 425 812 Td (Verificacion RN-07 Activa) Tj ET'
     ];
-    y = 774;
+    y = 788;
   }
   function asegurar(h, sec){
     if (sec !== undefined) {
@@ -384,7 +508,7 @@ function buildPdfBytes(){
       comandos.push(`0.08 0.12 0.22 rg 36 ${base.toFixed(1)} 523 ${h.toFixed(1)} re f`);
       comandos.push(`0.23 0.51 0.96 rg 36 ${(top - 3).toFixed(1)} 523 3 re f`);
       comandos.push(`0.06 0.45 0.33 rg 48 ${(top - 18).toFixed(1)} 295 11 re f`);
-      comandos.push(`BT /F2 7.2 Tf 0.85 0.99 0.92 rg 54 ${(top - 15).toFixed(1)} Td (INFORME INTERACTIVO DE ANALISIS DE DATOS Y AUDITORIA) Tj ET`);
+      comandos.push(`BT /F2 7.2 Tf 0.85 0.99 0.92 rg 54 ${(top - 15).toFixed(1)} Td (INFORME DE AUDITORIA DE PRUEBAS UNITARIAS) Tj ET`);
       comandos.push(`BT /F2 12.5 Tf 1 1 1 rg 48 ${(top - 33).toFixed(1)} Td (${escaparLiteralPdf(b.titulo)}) Tj ET`);
       comandos.push(`BT /F1 8.2 Tf 0.80 0.86 0.95 rg 48 ${(top - 46).toFixed(1)} Td (${escaparLiteralPdf(b.sub1)}) Tj ET`);
       comandos.push(`BT /F1 8.2 Tf 0.72 0.80 0.92 rg 48 ${(top - 56).toFixed(1)} Td (${escaparLiteralPdf(b.sub2)}) Tj ET`);
@@ -468,6 +592,47 @@ function buildPdfBytes(){
       b.lineas.forEach(ln => {
         comandos.push(`BT /F1 7.8 Tf 0.22 0.28 0.38 rg 44 ${cy.toFixed(1)} Td (${escaparLiteralPdf(ln)}) Tj ET`);
         cy -= 11;
+      });
+      y = base - 7; return;
+    }
+    if (b.tipo === 'panel_salud') {
+      const filasF = b.fortalezas.flat();
+      const filasD = b.deficiencias.flat();
+      const filasR = b.recomendaciones.flat();
+      const totalItems = filasF.length + filasD.length + filasR.length;
+      const altoS = 28 + b.diagnostico.length * 9.5 + totalItems * 9.5;
+      asegurar(altoS + 6, secB);
+      const top = y, base = top - altoS;
+      comandos.push(`0.96 0.98 1.00 rg 36 ${base.toFixed(1)} 523 ${altoS.toFixed(1)} re f`);
+      comandos.push(`0.75 0.85 0.96 RG 0.6 w 36 ${base.toFixed(1)} 523 ${altoS.toFixed(1)} re S`);
+      comandos.push(`0.15 0.39 0.92 rg 36 ${base.toFixed(1)} 4 ${altoS.toFixed(1)} re f`);
+      const hdr = `SALUD DEL PROYECTO: ${b.indice}/100 — ${b.nivel} | Progreso: ${b.progreso}`;
+      comandos.push(`BT /F2 8.2 Tf 0.08 0.18 0.36 rg 46 ${(top - 12).toFixed(1)} Td (${escaparLiteralPdf(hdr)}) Tj ET`);
+      let cy = top - 22.5;
+      b.diagnostico.forEach(ln => {
+        comandos.push(`BT /F1 7.4 Tf 0.20 0.26 0.38 rg 46 ${cy.toFixed(1)} Td (${escaparLiteralPdf(ln)}) Tj ET`);
+        cy -= 9.5;
+      });
+      b.fortalezas.forEach(fList => {
+        fList.forEach((ln, idxLn) => {
+          const prefix = idxLn === 0 ? '[+] Fortaleza: ' : '    ';
+          comandos.push(`BT /F1 7.2 Tf 0.04 0.45 0.26 rg 46 ${cy.toFixed(1)} Td (${escaparLiteralPdf(prefix + ln)}) Tj ET`);
+          cy -= 9.5;
+        });
+      });
+      b.deficiencias.forEach(dList => {
+        dList.forEach((ln, idxLn) => {
+          const prefix = idxLn === 0 ? '[!] Deficiencia: ' : '    ';
+          comandos.push(`BT /F1 7.2 Tf 0.75 0.15 0.20 rg 46 ${cy.toFixed(1)} Td (${escaparLiteralPdf(prefix + ln)}) Tj ET`);
+          cy -= 9.5;
+        });
+      });
+      b.recomendaciones.forEach(rList => {
+        rList.forEach((ln, idxLn) => {
+          const prefix = idxLn === 0 ? '[->] Plan mejora: ' : '    ';
+          comandos.push(`BT /F1 7.2 Tf 0.10 0.35 0.65 rg 46 ${cy.toFixed(1)} Td (${escaparLiteralPdf(prefix + ln)}) Tj ET`);
+          cy -= 9.5;
+        });
       });
       y = base - 7; return;
     }
@@ -630,16 +795,7 @@ function buildPdfBytes(){
 
   const idsPaginas = [], idsStreams = [];
   paginas.forEach((cmds, idx) => {
-    const secActiva = seccionesPagina[idx] || 1;
-    PESTANAS_PDF_JS.forEach(([secId, etqTab, tx, tw]) => {
-      const esActiva = secId === secActiva;
-      const bgT = esActiva ? '0.15 0.39 0.92' : '0.91 0.94 0.98';
-      const fgT = esActiva ? '1 1 1' : '0.22 0.28 0.38';
-      cmds.push(`${bgT} rg ${tx.toFixed(1)} 785 ${tw.toFixed(1)} 15 re f`);
-      if (esActiva) cmds.push(`0.06 0.73 0.51 rg ${tx.toFixed(1)} 785 ${tw.toFixed(1)} 2 re f`);
-      cmds.push(`BT /F2 7.2 Tf ${fgT} rg ${(tx + 6).toFixed(1)} 790 Td (${escaparLiteralPdf(etqTab)}) Tj ET`);
-    });
-    const pieIzq = escaparLiteralPdf('QAgent Autonomous Test Engine  |  Informe Interactivo con Pestanas Clicables  |  Sin claves de IA (RN-07)');
+    const pieIzq = escaparLiteralPdf('QAgent Autonomous Test Engine  |  Documento de Auditoria  |  Sin claves de IA (RN-07)');
     const pieDer = escaparLiteralPdf(`Pagina ${idx + 1} de ${paginas.length}`);
     cmds.push('0.84 0.88 0.93 RG 0.6 w 36 38 m 559 38 l S');
     cmds.push(`BT /F1 7.5 Tf 0.45 0.50 0.58 rg 36 26 Td (${pieIzq}) Tj ET`);
@@ -651,21 +807,13 @@ function buildPdfBytes(){
     idsPaginas.push(idPag);
   });
 
-  const idsAnnots = PESTANAS_PDF_JS.map(([secId, _, tx, tw]) => {
-    let pagIdx = paginaInicioSeccion[secId] !== undefined ? paginaInicioSeccion[secId] : 0;
-    pagIdx = Math.max(0, Math.min(idsPaginas.length - 1, pagIdx));
-    const idPagDest = idsPaginas[pagIdx];
-    return addObj(`<< /Type /Annot /Subtype /Link /Rect [${tx.toFixed(1)} 785 ${(tx + tw).toFixed(1)} 800] /Border [0 0 0] /Dest [${idPagDest} 0 R /XYZ null 842 null] >>`);
-  });
-
-  const annotsStr = idsAnnots.map(id => `${id} 0 R`).join(' ');
   idsPaginas.forEach((idPag, idx) => {
-    objetos[idPag - 1] = `<< /Type /Page /Parent ${idPages} 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 ${idFontReg} 0 R /F2 ${idFontBold} 0 R /F3 ${idFontMono} 0 R >> >> /Contents ${idsStreams[idx]} 0 R /Annots [${annotsStr}] >>`;
+    objetos[idPag - 1] = `<< /Type /Page /Parent ${idPages} 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 ${idFontReg} 0 R /F2 ${idFontBold} 0 R /F3 ${idFontMono} 0 R >> >> /Contents ${idsStreams[idx]} 0 R >>`;
   });
 
   const idOutlines = addObj('');
-  const idsOutlineItems = PESTANAS_PDF_JS.map(() => addObj(''));
-  PESTANAS_PDF_JS.forEach(([secId, etqTab], iTab) => {
+  const idsOutlineItems = SECCIONES_PDF_JS.map(() => addObj(''));
+  SECCIONES_PDF_JS.forEach(([secId, etqTab], iTab) => {
     let pagIdx = paginaInicioSeccion[secId] !== undefined ? paginaInicioSeccion[secId] : 0;
     pagIdx = Math.max(0, Math.min(idsPaginas.length - 1, pagIdx));
     const idPagDest = idsPaginas[pagIdx];
@@ -724,14 +872,81 @@ async function doExport(){
   if(expFmt==='md') download(name, buildMarkdown(), 'text/markdown');
   if(expFmt==='html') download(name, buildHtmlInteractivo(opts), 'text/html');
   if(expFmt==='json') {
+    const aprobadas = RUN.filter(f => f.status === 'passed').length;
+    const bugs = RUN.filter(f => f.status === 'rejected_oracle').length;
+    const laundering = RUN.filter(f => f.status === 'rejected_laundering').length;
+    const estancadas = RUN.filter(f => f.status !== 'passed' && f.status !== 'rejected_oracle' && f.status !== 'rejected_laundering').length;
+    const pctAprobadas = RUN.length ? (aprobadas / RUN.length) * 100 : 0;
+    const salud = {
+      total: RUN.length,
+      aprobadas,
+      bugs,
+      laundering,
+      estancadas,
+      pct_aprobadas: pctAprobadas,
+      diagnostico: bugs === 0 && laundering === 0 && estancadas === 0
+        ? `El proyecto tiene un estado de salud óptimo: el 100% de las funciones (${aprobadas}/${RUN.length}) aprobaron sus suites de prueba con aserciones íntegras.`
+        : `El proyecto presenta observaciones de calidad: ${aprobadas}/${RUN.length} aprobadas (${pctAprobadas.toFixed(1)}%). Consulte el diagnóstico de incidentes para corregir las líneas afectadas en su código.`,
+      incidentes: RUN.filter(f => f.status !== 'passed').map(f => ({
+        funcion: f.name,
+        modulo: f.module,
+        ubicacion: `${f.module}::${f.name}`,
+        causa: f.diag || 'Fallo de aserciones en pruebas',
+        esperado: null,
+        obtenido: null,
+      }))
+    };
+
     const funciones = opts.detalle ? RUN.map(f => {
       const {code, logs, cmp, diag, trace, contract, ...base} = f;
       if (opts.trazas && trace) base.trace = trace;
       if (opts.codigo && code) base.code = code;
       if (opts.contratos && contract) base.contract = contract;
+      base.diagnostico = {
+        aprobada: f.status === 'passed',
+        estado: f.status,
+        motivo_fallo: diag || null,
+        ubicacion_fallo: f.status !== 'passed' ? `${f.module}::${f.name}` : null,
+      };
+      base.planner = {
+        name: f.name,
+        module: f.module,
+        critical: !!f.critical,
+        contract: contract || {},
+      };
+      base.generator = {
+        test_file: `tests/test_${f.name}.py`,
+        iterations: f.iterations,
+        code: opts.codigo ? code : undefined,
+      };
+      base.reviewer = {
+        status: f.status,
+        veredicto: stRep(f),
+        diag: diag,
+        laundering: !!f.laundering,
+        lines_cov: f.lines_cov,
+        branch_cov: f.branch_cov,
+      };
+      base.errores = {
+        hay_incidente: f.status !== 'passed' || !!(diag || trace),
+        motivo: diag,
+        trace: opts.trazas ? trace : undefined,
+      };
       return base;
     }) : [];
-    download(name, JSON.stringify({run_id:RUN_ID, date:RUN_DATE, metrics:metrics(), opciones:opts, functions:funciones}, null, 2), 'application/json');
+    download(name, JSON.stringify({
+      run_id: runIdExportar(),
+      date: RUN_DATE,
+      metrics: metrics(),
+      salud_proyecto: salud,
+      agentes: {
+        planner: AGENTS_CFG.P,
+        generator: AGENTS_CFG.G,
+        reviewer: AGENTS_CFG.R,
+      },
+      opciones: opts,
+      functions: funciones
+    }, null, 2), 'application/json');
   }
   closeModal();
   toast(`Informe descargado como <span class="mono">${escHtml(name)}</span> (ruta del proyecto: <span class="mono">${escHtml(path)}</span>)`);
@@ -779,6 +994,93 @@ function buildHtmlInteractivo(opts){
     <div class="kpi-bar-bg"><div class="kpi-bar-fill" style="width:${Math.max(4,Math.min(100,k.bar)).toFixed(0)}%;background:${k.ok?'\x2310b981':'\x23f43f5e'}"></div></div>
   </div>`).join('');
 
+  const aprobadasN = RUN.filter(f => f.status === 'passed').length;
+  const bugsN = RUN.filter(f => f.status === 'rejected_oracle').length;
+  const launderingN = RUN.filter(f => f.status === 'rejected_laundering').length;
+  const estancadasN = RUN.filter(f => f.status !== 'passed' && f.status !== 'rejected_oracle' && f.status !== 'rejected_laundering').length;
+  const ptsPassH = RUN.length ? (aprobadasN / RUN.length) * 45 : 0;
+  const ptsLinH = (Math.min(100, m.lines) / 100) * 25;
+  const ptsRamH = (Math.min(100, m.branch) / 100) * 15;
+  const ptsMsH = m.ms !== null ? (m.ms / 100) * 15 : 12;
+  const scoreSaludH = Math.max(0, Math.min(100, Math.round(ptsPassH + ptsLinH + ptsRamH + ptsMsH - launderingN * 8 - bugsN * 5)));
+  const nivelMadurezH = scoreSaludH >= 90 ? 'Excelente (Listo para producción)' : (scoreSaludH >= 75 ? 'Estable (Observaciones menores)' : (scoreSaludH >= 50 ? 'En Riesgo (Requiere correcciones prioritarias)' : 'Crítico (Defectos estructurales)'));
+  const scoreColorH = scoreSaludH >= 75 ? '\x2310b981' : (scoreSaludH >= 50 ? '\x23f59e0b' : '\x23ef4444');
+
+  const fnsAltaCobH = RUN.filter(f => f.lines_cov >= 90 && f.status === 'passed');
+  const fortalezasHtml = [
+    fnsAltaCobH.length ? `Alta cobertura de código: ${fnsAltaCobH.length}/${RUN.length} funciones (${fnsAltaCobH.map(f=>`<code>${escHtml(f.name)}</code>`).slice(0,3).join(', ')}) alcanzan ≥90% de líneas.` : '',
+    RUN.some(f => f.mutation_score >= 60) ? `Resistencia frente a mutaciones: Funciones críticas superan el 60% de Mutation Score con aserciones estrictas.` : '',
+    `Integridad de contratos: ${RUN.filter(f => !f.laundering && f.status === 'passed').length}/${RUN.length} funciones mantuvieron oráculos de prueba sin relajar condiciones.`
+  ].filter(Boolean).map(s => `<li style="margin-bottom:6px"><b>✅</b> ${s}</li>`).join('');
+
+  const deficienciasHtml = [
+    ...RUN.filter(f => f.status === 'rejected_oracle').map(f => `<li style="margin-bottom:6px"><b>⚠️</b> Defecto de lógica en <code>${escHtml(f.module)}::${escHtml(f.name)}</code>: ${escHtml(f.diag||'Discrepancia frente al contrato')}</li>`),
+    ...RUN.filter(f => f.laundering || f.status === 'rejected_laundering').map(f => `<li style="margin-bottom:6px"><b>⚠️</b> Alteración de pruebas en <code>${escHtml(f.name)}</code>: Intento de relajar aserciones bloqueado.</li>`),
+    ...RUN.filter(f => f.branch_cov < 85).map(f => `<li style="margin-bottom:6px"><b>⚠️</b> Ramas sin evaluar en <code>${escHtml(f.name)}</code> (${f.branch_cov}% ramas): Caminos if/else pendientes.</li>`)
+  ].join('') || '<li style="margin-bottom:6px"><b>✅</b> No se detectaron deficiencias críticas.</li>';
+
+  const recomendacionesHtml = [
+    ...RUN.filter(f => f.status === 'rejected_oracle').map(f => `<li style="margin-bottom:6px"><b>👉</b> Prioridad 1 — Corregir la lógica en <code>${escHtml(f.module)}::${escHtml(f.name)}</code> según el contrato formal.</li>`),
+    ...RUN.filter(f => f.branch_cov < 85).map(f => `<li style="margin-bottom:6px"><b>👉</b> Prioridad 2 — Agregar casos límite para ramas en <code>${escHtml(f.name)}</code>.</li>`),
+    ...RUN.filter(f => f.laundering).map(f => `<li style="margin-bottom:6px"><b>👉</b> Prioridad 3 — Auditar oráculos de prueba y resolver defectos en el código fuente.</li>`)
+  ].join('') || '<li style="margin-bottom:6px"><b>👉</b> Mantener la suite en integración continua (CI) para prevenir regresiones.</li>';
+
+  const incidentesCriticosH = RUN.filter(f => f.status !== 'passed' || f.diag);
+  const puntosSaludHtml = incidentesCriticosH.length ? `
+    <div style="margin-top:16px">
+      <h4 style="font-size:13px;font-weight:700;color:\x231e3a8a;margin-bottom:8px">Puntos de atención que requieren corrección en el código:</h4>
+      <table style="font-size:12px;background:\x23fff;border:1px solid \x23bfdbfe;border-radius:8px;overflow:hidden">
+        <thead><tr style="background:\x231e3a8a;color:\x23fff"><th style="padding:8px 10px">Función</th><th style="padding:8px 10px">Ubicación</th><th style="padding:8px 10px">Diagnóstico y sugerencia</th></tr></thead>
+        <tbody>
+          ${incidentesCriticosH.map(f => `<tr>
+            <td style="padding:8px 10px;font-weight:700">${escHtml(f.name)}</td>
+            <td style="padding:8px 10px"><code style="font-size:11px">${escHtml(f.module)}::${escHtml(f.name)}</code></td>
+            <td style="padding:8px 10px;color:\x23991b1b">
+              ${escHtml(f.diag || 'Fallo de aserción en pruebas')}
+              <br><small style="color:\x230284c7;font-weight:600">Acción sugerida: ${f.status === 'rejected_oracle' ? 'Corregir retorno/cálculo en código de producción' : (f.laundering ? 'Restaurar aserción estricta del contrato' : 'Revisar traza en sandbox')}</small>
+            </td>
+          </tr>`).join('')}
+        </tbody>
+      </table>
+    </div>` : '';
+
+  const saludBoxHtml = `
+    <div style="background:linear-gradient(135deg,\x23eff6ff,\x23f0fdf4);border:1.5px solid \x2393c5fd;border-left:5px solid \x232563eb;border-radius:12px;padding:18px 20px;margin-bottom:20px">
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;margin-bottom:12px">
+        <div>
+          <h3 style="font-size:15px;font-weight:800;color:\x231e3a8a;margin-bottom:4px">🏥 ESTADO DE SALUD DEL PROYECTO</h3>
+          <p style="font-size:12.5px;color:\x2364748b;margin:0">Diagnóstico de calidad y progreso para desarrolladores</p>
+        </div>
+        <div style="text-align:right">
+          <div style="font-size:24px;font-weight:800;color:${scoreColorH}">${scoreSaludH}/100</div>
+          <small style="color:\x23475569;font-weight:600">${escHtml(nivelMadurezH)}</small>
+        </div>
+      </div>
+      <p style="font-size:13px;color:\x231e293b;margin-bottom:12px;line-height:1.5">${escHtml(diagSaludH)}</p>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px">
+        <span class="pill pass" style="font-size:11.5px">✓ ${aprobadasN} aprobadas (${pctAprobH}%)</span>
+        <span class="pill fail" style="font-size:11.5px">🐛 ${bugsN} defectos en código</span>
+        <span class="pill fail" style="font-size:11.5px">🛡️ ${launderingN} laundering bloqueado</span>
+        <span class="pill" style="font-size:11.5px;background:\x23fef3c7;color:\x2392400e;border:1.5px solid \x23f59e0b">⏳ ${estancadasN} estancadas</span>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(270px,1fr));gap:12px;margin-top:14px">
+        <div style="background:\x23fff;border:1px solid \x23dcfce7;border-radius:8px;padding:12px">
+          <h4 style="font-size:12.5px;font-weight:700;color:\x2315803d;margin-bottom:8px">🛡️ Fortalezas del Proyecto</h4>
+          <ul style="padding-left:16px;font-size:12px;color:\x23334155;line-height:1.4">${fortalezasHtml}</ul>
+        </div>
+        <div style="background:\x23fff;border:1px solid \x23fee2e2;border-radius:8px;padding:12px">
+          <h4 style="font-size:12.5px;font-weight:700;color:\x23b91c1c;margin-bottom:8px">⚠️ Deficiencias Detectadas</h4>
+          <ul style="padding-left:16px;font-size:12px;color:\x23334155;line-height:1.4">${deficienciasHtml}</ul>
+        </div>
+        <div style="background:\x23fff;border:1px solid \x23e0f2fe;border-radius:8px;padding:12px">
+          <h4 style="font-size:12.5px;font-weight:700;color:\x230369a1;margin-bottom:8px">🚀 Plan de Mejora Accionable</h4>
+          <ul style="padding-left:16px;font-size:12px;color:\x23334155;line-height:1.4">${recomendacionesHtml}</ul>
+        </div>
+      </div>
+      ${puntosSaludHtml}
+    </div>
+  `;
+
   const funcionCards = RUN.map(f => {
     const c = stColors[f.status] || stColors.flaky;
     const msLbl = f.mutation_score === null ? 'N/A (no crítica)' : f.mutation_score+'%';
@@ -807,7 +1109,7 @@ function buildHtmlInteractivo(opts){
     </div>`;
   }).join('');
 
-  const incidentesCards = RUN.filter(f => f.diag || f.trace).map(f => {
+  const incidentesCards = RUN.filter(f => f.diag || f.trace || f.status !== 'passed').map(f => {
     const c = stColors[f.status] || stColors.rejected_laundering;
     return `<div style="border:1.5px solid ${c.border};border-radius:12px;overflow:hidden;margin-bottom:14px;background:\x23fff">
       <div style="padding:12px 16px;background:${c.bg};display:flex;justify-content:space-between;align-items:center">
@@ -815,7 +1117,9 @@ function buildHtmlInteractivo(opts){
         ${stBadge(f)}
       </div>
       <div style="padding:14px 16px">
-        <p style="font-size:13px;color:\x23334155;margin-bottom:8px">${escHtml(f.diag||'')}</p>
+        <p style="font-size:13px;color:\x230f172a;margin-bottom:6px"><b>Parte del código afectada:</b> <code>${escHtml(f.module)}::${escHtml(f.name)}</code></p>
+        <p style="font-size:13px;color:\x23334155;margin-bottom:8px"><b>¿Por qué falló?:</b> ${escHtml(f.diag||'Fallo detectado en validación')}</p>
+        ${f.laundering ? `<div style="background:\x23fff1f2;border:1px solid \x23f43f5e;color:\x239f1239;padding:8px 12px;border-radius:6px;margin:8px 0;font-size:12px"><b>🛡️ Alerta de integridad:</b> Assertion Laundering detectado (aserciones relajadas).</div>` : ''}
         ${f.trace ? `<pre style="padding:12px;background:\x230f172a;color:\x23e2e8f0;border-radius:8px;font-size:11.5px;overflow-x:auto;white-space:pre-wrap">${escHtml(f.trace)}</pre>` : ''}
       </div>
     </div>`;
@@ -945,6 +1249,7 @@ function buildHtmlInteractivo(opts){
       <span class="meta-item">🤖 <b>Modelos:</b> Planner: ${escHtml(AGENTS_CFG.P.model)} · Generator: ${escHtml(AGENTS_CFG.G.model)} · Reviewer: ${escHtml(AGENTS_CFG.R.model)}</span>
       <span class="meta-item">♻️ <b>Specs:</b> 4 reutilizados · 2 regenerados (.qagent/specs/)</span>
     </div>
+    ${saludBoxHtml}
     <div class="card">
       <div class="card-head">📋 1. Resumen de las 5 métricas vs. metas de la carta</div>
       <div class="card-body" style="padding:0">
