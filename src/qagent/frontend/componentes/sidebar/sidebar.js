@@ -121,6 +121,12 @@ function desbloquearVista(v){
   });
 }
 
+function desbloquearTodasLasVistas(){
+  document.querySelectorAll('#views a').forEach(a => {
+    a.classList.remove('hide', 'off');
+  });
+}
+
 function reiniciarVistasProyecto(){
   document.querySelectorAll('#views a').forEach(a => {
     const v = a.dataset.v;

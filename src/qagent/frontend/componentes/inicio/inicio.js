@@ -54,9 +54,19 @@ function renderRecientes(){
   $('recList').innerHTML = RECIENTES.map((r,i) => {
     const ok = r.encontrada;
     const ini = r.nombre.split(/[-_ .]/).filter(Boolean).slice(0,2).map(x=>x[0]).join('').toUpperCase() || '··';
+    const esGit = r.origen === 'git';
+    const badgeOrigen = esGit
+      ? '<span class="pill p-purple" title="Repositorio Git / GitHub">GitHub</span>'
+      : '<span class="pill p-blue" title="Carpeta local del equipo">Carpeta</span>';
+    const infoRuta = esGit && r.url ? `${escHtml(r.ruta)} · <span class="mono" style="color:var(--dim)">${escHtml(r.url)}</span>` : escHtml(r.ruta);
     return `<div class="proj ${ok?'':'missing'}" ${ok?`onclick="abrirReciente(${i})"`:''}>
-      <div class="av rinfo" style="background:var(--blue-s)">${escHtml(ini)}</div>
-      <div class="rinfo" style="min-width:0"><div style="font-weight:600">${escHtml(r.nombre)}${ok?'':' <span class="pill p-red">no encontrada</span>'}</div><div class="pth">${escHtml(r.ruta)}</div></div>
+      <div class="av rinfo" style="background:${esGit?'var(--purple-s)':'var(--blue-s)'}">${escHtml(ini)}</div>
+      <div class="rinfo" style="min-width:0">
+        <div style="font-weight:600;display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+          ${escHtml(r.nombre)} ${badgeOrigen}${ok?'':' <span class="pill p-red">no encontrada</span>'}
+        </div>
+        <div class="pth">${infoRuta}</div>
+      </div>
       <div class="meta rinfo">${r.ultima_corrida ? 'Última corrida<br>'+fmtFecha(r.ultima_corrida) : 'sin corridas aún'}</div>
       ${ok ? '' : `<button class="btn rm" onclick="event.stopPropagation();quitarReciente(${i})">Quitar de la lista</button>`}</div>`;
   }).join('');
@@ -64,13 +74,18 @@ function renderRecientes(){
 async function abrirReciente(i){
   const r = RECIENTES[i]; if(!r) return;
   const api = apiRec();
-  let info = {ok:true, nombre:r.nombre, origen:r.origen, url:r.url, ruta:r.ruta, rama:'main'};
+  let info = {ok:true, nombre:r.nombre, origen:r.origen, url:r.url, ruta:r.ruta, rama:'main', ultima_corrida:r.ultima_corrida};
   if(api){
     try { info = await api.abrir_reciente(r.ruta); }
     catch (err) { console.error("Error al abrir el reciente:", err); info = {ok:false, error:'No se pudo abrir el proyecto. Inténtalo de nuevo.'}; }
   }
   if(!info.ok){ toast(escHtml(info.error || 'No se pudo abrir el proyecto.')); cargarRecientes(); return; }
-  loadProject(info.nombre, info.origen, info.origen==='git' && info.url ? info.url : info.ruta, info.rama || '—', info.ruta);
+  const yaCargoPrueba = !!(info.ya_cargo_prueba || info.tiene_corridas || info.tiene_pruebas || info.ultima_corrida || r.ultima_corrida);
+  loadProject(info.nombre, info.origen, info.origen==='git' && info.url ? info.url : info.ruta, info.rama || '—', info.ruta, {
+    esReciente: true,
+    yaCargoPrueba: yaCargoPrueba,
+    ultimaCorrida: info.ultima_corrida || r.ultima_corrida
+  });
 }
 async function quitarReciente(i){
   const r = RECIENTES[i]; if(!r) return;

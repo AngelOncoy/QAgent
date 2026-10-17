@@ -119,6 +119,7 @@ class DesktopAPI:
                         "El repositorio se clonó correctamente, pero no se pudo guardar "
                         "en Proyectos recientes."
                     )
+                _preparar_almacen(resultado.destino)
             self.emit_event("clonado_fin", datos)
 
         threading.Thread(target=trabajo, name="clonado-git", daemon=True).start()
@@ -154,7 +155,15 @@ class DesktopAPI:
                 f"({recientes.ruta_por_defecto()}).",
             }
         _preparar_almacen(proyecto["ruta"])
-        return proyecto
+        almacen = AlmacenProyecto(proyecto["ruta"])
+        tiene_pruebas = almacen.tiene_pruebas_aprobadas()
+        tiene_corridas = len(almacen.listar_runs()) > 0
+        return {
+            **proyecto,
+            "tiene_pruebas": tiene_pruebas,
+            "tiene_corridas": tiene_corridas,
+            "ya_cargo_prueba": tiene_corridas or tiene_pruebas,
+        }
 
     def listar_recientes(self) -> list[dict]:
         """Hasta 10 proyectos recientes para la Bienvenida (HU-03)."""
@@ -179,9 +188,24 @@ class DesktopAPI:
             return abierto
         reciente = abierto["proyecto"]
         proyecto = proyecto_local.inspeccionar_carpeta(reciente["ruta"])
+        tiene_pruebas = False
+        tiene_corridas = False
         if proyecto["ok"]:
             _preparar_almacen(proyecto["ruta"])
-        return {**proyecto, "origen": reciente["origen"], "url": reciente["url"]}
+            almacen = AlmacenProyecto(proyecto["ruta"])
+            tiene_pruebas = almacen.tiene_pruebas_aprobadas()
+            tiene_corridas = len(almacen.listar_runs()) > 0 or bool(
+                reciente.get("ultima_corrida")
+            )
+        return {
+            **proyecto,
+            "origen": reciente["origen"],
+            "url": reciente["url"],
+            "ultima_corrida": reciente.get("ultima_corrida"),
+            "tiene_pruebas": tiene_pruebas,
+            "tiene_corridas": tiene_corridas,
+            "ya_cargo_prueba": tiene_corridas or tiene_pruebas,
+        }
 
     def quitar_reciente(self, ruta: str) -> bool:
         """Quita un proyecto de la lista de recientes sin borrar su carpeta (HU-03)."""
@@ -652,6 +676,13 @@ class DesktopAPI:
             resumen.costo_usd,
             f" · {resumen.motivo}" if resumen.motivo else "",
         )
+        if ruta:
+            try:
+                recientes.registrar_corrida(ruta)
+            except OSError as exc:
+                bitacora.registro.warning(
+                    "No se pudo registrar la última corrida en recientes: %s", exc
+                )
         self.emit_event("corrida_fin", resumen.a_dict())
 
     def _reenviar_evento(self, evento: dict) -> None:
