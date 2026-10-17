@@ -254,10 +254,11 @@ def test_conserva_la_seleccion_ast() -> None:
     assert "filter(f => f.inc).map(f => f.n)" in VISTA_JS
 
 
-# 28. Conservación de la tabla de endpoints
+# 28. La vista previa sigue mostrando endpoints (reescrito por la issue #66, que cambia
+# esa tabla por una con Calidad, Estado, Respuesta, Errores y Simula, agrupada por archivo).
 def test_conserva_la_tabla_de_endpoints() -> None:
-    assert "endpointTable" in VISTA_JS
-    assert "Método y ruta" in VISTA_JS
+    assert 'id="endpointTable"' in VISTA_JS
+    assert "function renderEndpoints" in VISTA_JS
 
 
 # 29. Compatibilidad con las pruebas existentes de #63
