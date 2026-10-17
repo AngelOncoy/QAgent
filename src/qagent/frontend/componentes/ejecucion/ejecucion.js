@@ -214,13 +214,13 @@ function renderExecRealKpis(v){
   const agentes = Object.entries(cs.por_agente).map(([a, f]) => { const [l, c] = AGENTE_REAL[a] || [a, 'var(--mut)'];
     return `<div class="kscale"><span style="color:${c}" title="${escHtml(a)}">${l}</span><span>${f.tokens.toLocaleString('es-PE')} tok · ${usdReal(f.costo_usd)}</span></div>`; }).join('');
   $('kpis').innerHTML = `
-  <div class="kpi"><div class="kh"><span>PASS RATE</span>${I('checkc','var(--emerald-400)',15)}</div>
+  <div class="kpi"><div class="kh"><span>PASS RATE${v.es_humo ? ' · MÉTRICA PRINCIPAL (HUMO)' : ''}</span>${I('checkc','var(--emerald-400)',15)}</div>
     <div class="kmid"><div class="kv">${numReal(pr.valor)} <small>${pr.meta===null?'':'/ meta ≥ ' + numReal(pr.meta, 0)}</small></div>
     ${metaTexto(pr.cumple, `${pr.cumple?'Dentro de la meta':'Bajo la meta'} · ${pr.pasaron}/${pr.total} pruebas sin error`, 'Meta no registrada en esta corrida')}</div>
     <div><div class="kb"><i style="width:${barra(pr.valor)}%;background:linear-gradient(90deg,var(--emerald-500),var(--teal-400))"></i></div></div></div>
   <div class="kpi"><div class="kh"><span>COBERTURA CÓDIGO</span>${I('merge','var(--blue-400)',15)}</div>
     <div class="kmid"><div class="kv">${numReal(cv.lineas)} <small>líneas</small></div>
-    <div class="ks" style="color:var(--blue-400)">${numReal(cv.ramas)} de ramas</div>
+    <div class="ks" style="color:var(--blue-400)">${numReal(cv.ramas)} de ramas${cv.exige_ramas === false ? ' · no se exigen en Humo' : ''}</div>
     ${metaTexto(cv.cumple, `Meta ≥ ${numReal(cv.meta_lineas, 0)} de líneas ${cv.cumple?'alcanzada':'no alcanzada'}`, 'Meta no registrada en esta corrida')}</div>
     <div><div class="kb"><i style="width:${barra(cv.lineas)}%;background:var(--blue-500)"></i></div><div class="kb thin"><i style="width:${barra(cv.ramas)}%;background:var(--indigo-400)"></i></div></div></div>
   <div class="kpi"><div class="kh"><span>ITERACIONES PROMEDIO</span>${I('refresh','var(--purple-400)',15)}</div>
