@@ -23,8 +23,9 @@ from pathlib import Path
 from typing import Any
 
 from qagent import __version__
+from qagent.config import carga as config_carga
 from qagent.config.auditoria import PATRONES, Hallazgo
-from qagent.config.carga import RUTA_ENV, Claves, leer_env
+from qagent.config.carga import Claves, leer_env
 from qagent.storage.registro import CARPETA_RUNS
 from qagent.storage.vista_ejecucion import (
     AGENTES,
@@ -112,8 +113,9 @@ def sanitizar_secretos(texto: str, claves: Claves | None = None) -> str:
     if claves is not None:
         texto = claves.redactar(texto)
     try:
-        if RUTA_ENV.is_file():
-            texto = Claves(leer_env(RUTA_ENV)).redactar(texto)
+        ruta_env = Path(config_carga.RUTA_ENV)
+        if ruta_env.is_file():
+            texto = Claves(leer_env(ruta_env)).redactar(texto)
     except (OSError, UnicodeDecodeError):
         pass
 

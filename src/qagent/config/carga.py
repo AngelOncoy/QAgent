@@ -237,13 +237,14 @@ class ResultadoCarga:
         return self.config is not None and not self.avisos
 
 
-def leer_env(ruta: str | Path = RUTA_ENV) -> dict[str, str]:
+def leer_env(ruta: str | Path | None = None) -> dict[str, str]:
     """Lee un archivo `.env` (`NOMBRE=valor`, `#` comentarios, comillas opcionales).
 
     Raises:
         FileNotFoundError: si el archivo no existe.
     """
-    texto = Path(ruta).read_text(encoding="utf-8-sig")  # utf-8-sig: BOM de Windows
+    ruta_res = RUTA_ENV if ruta is None else Path(ruta)
+    texto = ruta_res.read_text(encoding="utf-8-sig")  # utf-8-sig: BOM de Windows
     valores: dict[str, str] = {}
     for linea in texto.splitlines():
         linea = linea.strip()
@@ -266,18 +267,19 @@ def _limpiar_valor(valor: str) -> str:
     return re.split(r"\s+#", valor, maxsplit=1)[0].strip()
 
 
-def simulado_desde_env(ruta_env: str | Path = RUTA_ENV) -> bool:
+def simulado_desde_env(ruta_env: str | Path | None = None) -> bool:
     """True si el `.env` activa la IA simulada con `QAGENT_FAKE_LLM=1` (EN-11).
 
     Si el archivo no existe o no se puede leer, la IA simulada no está activa.
     """
+    ruta_res = RUTA_ENV if ruta_env is None else Path(ruta_env)
     try:
-        return (valor_simulado(leer_env(ruta_env)) or "").strip() == "1"
+        return (valor_simulado(leer_env(ruta_res)) or "").strip() == "1"
     except (OSError, UnicodeDecodeError):
         return False
 
 
-def modo_simulado(ruta_env: str | Path = RUTA_ENV) -> bool:
+def modo_simulado(ruta_env: str | Path | None = None) -> bool:
     """¿Está activa la IA simulada? Lo definido en el sistema manda sobre el `.env`.
 
     `QAGENT_FAKE_LLM` puede ponerse en el entorno del sistema o en el `.env`, que es
@@ -289,7 +291,7 @@ def modo_simulado(ruta_env: str | Path = RUTA_ENV) -> bool:
     return simulado_desde_env(ruta_env)
 
 
-def aplicar_simulacion_desde_env(ruta_env: str | Path = RUTA_ENV) -> bool:
+def aplicar_simulacion_desde_env(ruta_env: str | Path | None = None) -> bool:
     """Si el `.env` activa la IA simulada, lo deja activo para todo el programa.
 
     El cliente de IA (`qagent.llm`) solo mira el entorno del sistema, así que al
@@ -306,8 +308,8 @@ def aplicar_simulacion_desde_env(ruta_env: str | Path = RUTA_ENV) -> bool:
 
 
 def cargar_configuracion(
-    ruta_config: str | Path = RUTA_CONFIG,
-    ruta_env: str | Path = RUTA_ENV,
+    ruta_config: str | Path | None = None,
+    ruta_env: str | Path | None = None,
     simulado: bool | None = None,
     ruta_local: str | Path | None = None,
 ) -> ResultadoCarga:
@@ -321,12 +323,14 @@ def cargar_configuracion(
         ruta_local: `config.local.toml` opcional; si existe, sus agentes reemplazan
             a los de `config.toml` y sus demás valores se superponen clave a clave.
     """
-    simulado = modo_simulado(ruta_env) if simulado is None else simulado
+    ruta_config_res = RUTA_CONFIG if ruta_config is None else Path(ruta_config)
+    ruta_env_res = RUTA_ENV if ruta_env is None else Path(ruta_env)
+    simulado = modo_simulado(ruta_env_res) if simulado is None else simulado
     avisos_config: list[str] = []
     avisos_claves: list[str] = []
     sin_configurar: list[str] = []
     config = _leer_config(
-        Path(ruta_config),
+        ruta_config_res,
         avisos_config,
         Path(ruta_local) if ruta_local else None,
         sin_configurar,
@@ -342,7 +346,7 @@ def cargar_configuracion(
 
     claves = Claves()
     if not simulado:
-        claves = _leer_claves(Path(ruta_env), config, avisos_claves)
+        claves = _leer_claves(ruta_env_res, config, avisos_claves)
     return ResultadoCarga(
         config, claves, avisos_config, avisos_claves, simulado, sin_configurar
     )
@@ -385,7 +389,12 @@ def variable_en_uso(agente: str, proveedor: str, obtener: LectorClaves) -> str |
 def _leer_claves(
     ruta_env: Path, config: Configuracion | None, avisos: list[str]
 ) -> Claves:
-    if not ruta_env.exists():
+    try:
+        existe = ruta_env.exists()
+    except OSError:
+        existe = False
+
+    if not existe:
         if not crear_env(ruta_env, config):
             avisos.append(
                 f"No existe el archivo .env ({ruta_env}) y no se pudo crear. "
