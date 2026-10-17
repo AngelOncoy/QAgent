@@ -136,6 +136,17 @@ def test_los_campos_del_contrato_salen_del_analisis_y_no_del_modelo() -> None:
     assert contrato["critical"] is False
 
 
+def test_la_marca_critica_sale_de_la_seleccion_y_no_del_modelo() -> None:
+    """HU-06: la marca Profundizar de la vista previa llega al contrato."""
+    marcada = {**MODULO, "funciones": [{**MODULO["funciones"][0], "critical": True}]}
+    planner = PlannerAgent(ClienteGrabado(json.dumps(PLAN)), TokenTracker())
+
+    [contrato] = planner.planificar(marcada)
+
+    assert contrato["critical"] is True
+    assert contracts.es_valido(contracts.PLANNER, contrato)
+
+
 def test_planner_acepta_la_respuesta_compacta() -> None:
     compacta = [{"objetivo": "duplicar", "casos": PLAN[0]["casos"]}]
     planner = PlannerAgent(ClienteGrabado(json.dumps(compacta)), TokenTracker())
