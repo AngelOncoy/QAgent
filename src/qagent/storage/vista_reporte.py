@@ -47,7 +47,7 @@ def vista_reporte(
         if isinstance(f, dict)
     }
     funciones = [
-        _funcion(o, textos.get((o["modulo"], o["funcion"])), metas)
+        _funcion(o, textos.get((o["modulo"], o["funcion"])), metas, results["perfil"])
         for o in results["objetivos"]
     ]
     verdes = sum(1 for f in funciones if f["verde"])
@@ -126,11 +126,14 @@ def vista_reporte(
 
 
 def _funcion(
-    objetivo: dict[str, Any], texto: dict[str, Any] | None, metas: dict[str, Any]
+    objetivo: dict[str, Any],
+    texto: dict[str, Any] | None,
+    metas: dict[str, Any],
+    perfil: str | None = None,
 ) -> dict[str, Any]:
     metricas = objetivo["metricas"]
     contrato = (texto or {}).get("contrato")
-    controles = _controles(objetivo, metas)
+    controles = _controles(objetivo, metas, perfil)
     intentos = _intentos((texto or {}).get("intentos"))
     verde = objetivo["decision"] == "accept" and all(
         c["estado"] in (OK, NO_APLICA, PENDIENTE) for c in controles
@@ -149,6 +152,7 @@ def _funcion(
         "cobertura_lineas": metricas["cobertura_lineas"],
         "cobertura_ramas": metricas["cobertura_ramas"],
         "mutation_score": metricas["mutation_score"],
+        "mutacion": objetivo.get("mutacion"),  # EN-09: estado y sobrevivientes
         "contrato": contrato,
         "contrato_http": _contrato_http(contrato),
         "codigo": (texto or {}).get("codigo"),
@@ -210,7 +214,9 @@ def _contrato_http(contrato: Any) -> dict[str, Any] | None:
     return {"casos": casos}
 
 
-def _controles(objetivo: dict[str, Any], metas: dict[str, Any]) -> list[dict[str, Any]]:
+def _controles(
+    objetivo: dict[str, Any], metas: dict[str, Any], perfil: str | None = None
+) -> list[dict[str, Any]]:
     """Los 5 controles en orden, con su texto; salen de `objetivo["controles"]`."""
     guardados = objetivo.get("controles") or {}
     metricas = objetivo["metricas"]
@@ -233,28 +239,7 @@ def _controles(objetivo: dict[str, Any], metas: dict[str, Any]) -> list[dict[str
         cumple = lineas >= minimo and (ramas is None or ramas >= minimo)
         cobertura["estado"] = OK if cumple else FALLA
 
-    if not objetivo["critical"]:
-        sujeto = "el endpoint" if tipo_de(objetivo) == "endpoint" else "la función"
-        mutation = {
-            "clave": "mutation",
-            "etiqueta": f"Mutation Score ≥ {MUTATION_SCORE_MIN} %",
-            "estado": NO_APLICA,
-            "nota": f"No aplica: {sujeto} no es crítico",
-        }
-    elif metricas["mutation_score"] is None:
-        mutation = {
-            "clave": "mutation",
-            "etiqueta": f"Mutation Score ≥ {MUTATION_SCORE_MIN} %",
-            "estado": PENDIENTE,
-            "nota": "Pendiente: mutmut llega en el Sprint 2 (EN-09)",
-        }
-    else:
-        score = metricas["mutation_score"]
-        mutation = {
-            "clave": "mutation",
-            "etiqueta": f"Mutation Score ≥ {MUTATION_SCORE_MIN} % (obtenido: {score:g} %)",
-            "estado": OK if score >= MUTATION_SCORE_MIN else FALLA,
-        }
+    mutation = _control_mutation(objetivo, perfil)
 
     return [
         control("sintaxis", "Sin errores de sintaxis"),
@@ -268,3 +253,38 @@ def _controles(objetivo: dict[str, Any], metas: dict[str, Any]) -> list[dict[str
         cobertura,
         mutation,
     ]
+
+
+def _control_mutation(objetivo: dict[str, Any], perfil: str | None) -> dict[str, Any]:
+    """Control de Mutation Score (EN-09), con la razón cuando no hay puntuación."""
+    etiqueta = f"Mutation Score ≥ {MUTATION_SCORE_MIN} %"
+    score = objetivo["metricas"]["mutation_score"]
+    mutacion = objetivo.get("mutacion")
+
+    def con(estado: str, nota: str | None = None, texto: str = etiqueta) -> dict:
+        control = {"clave": "mutation", "etiqueta": texto, "estado": estado}
+        if nota:
+            control["nota"] = nota
+        return control
+
+    if not objetivo["critical"]:
+        sujeto = "el endpoint" if tipo_de(objetivo) == "endpoint" else "la función"
+        return con(NO_APLICA, f"No aplica: {sujeto} no es crítico")
+    if score is not None:
+        vivos = len((mutacion or {}).get("sobrevivientes") or [])
+        return con(
+            OK if score >= MUTATION_SCORE_MIN else FALLA,
+            f"{vivos} mutante(s) sobreviviente(s)" if vivos else None,
+            f"{etiqueta} (obtenido: {score:g} %)",
+        )
+    if isinstance(mutacion, dict):
+        return con(
+            SIN_DATO, mutacion.get("mensaje") or "mutmut no dio un Mutation Score."
+        )
+    if perfil is not None and perfil != "deep":
+        return con(NO_APLICA, "No se pidió: la corrida no usó Profundizar")
+    if objetivo["decision"] != "accept":
+        return con(
+            NO_APLICA, "Sin prueba aprobada: mutmut necesita una prueba que pase"
+        )
+    return con(PENDIENTE, "Corrida anterior a EN-09: sin mutation testing")

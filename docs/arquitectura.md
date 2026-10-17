@@ -365,7 +365,6 @@ Deuda conocida: `config` y `llm` se importan mutuamente (`llm/fabrica.py` lo res
 | Tope de gasto: `tope_por_corrida_usd` se carga, pero el orquestador no lo consulta. | `config/carga.py` | Sección 6.3 |
 | Caché del plan por SHA-256 del módulo. | — | HU-24 |
 | Corte por causa común entre objetivos distintos. Hoy el hash repetido se detecta solo dentro de un mismo objetivo. | `decidir_corte()` | Sección 6.4, regla 4 |
-| Mutation testing de las funciones `critical: true`. | — | EN-09 |
 
 ---
 
@@ -717,7 +716,9 @@ Profundizar no es un perfil aparte sino una casilla dentro de Estándar, porque 
 ### 10.4 Por qué Profundizar solo en funciones prioritarias
 
 - **Regla del alcance:** mutmut solo se ejecuta sobre funciones `critical: true`, nunca sobre el repositorio completo (RN-04).
-- **Costo:** por cada función, mutmut crea decenas de versiones alteradas del código y ejecuta las pruebas contra cada una; aplicarlo a todo puede llevar horas.
+- **Costo:** por cada función, mutmut crea decenas de versiones alteradas del código y ejecuta las pruebas contra cada una; aplicarlo a todo puede llevar horas. El tiempo máximo por función se fija en `[mutacion]` de `config.toml`.
+- **Cálculo:** Mutation Score = mutantes detectados ÷ (detectados + sobrevivientes) × 100. Un mutante que agota el tiempo cuenta como detectado; uno sin pruebas que lo cubran, como sobreviviente. La meta es 60 % (ADR-001).
+- **Cómo se ejecuta (`sandbox/mutacion.py`):** las pruebas aprobadas se copian dentro de la copia del proyecto antes de llamar a mutmut. mutmut identifica las pruebas con rutas relativas; si quedan fuera del proyecto no las encuentra y cuenta cada mutante como «killed», lo que daría un 100 % falso. Si el proyecto ya tiene `[tool.mutmut]` en `pyproject.toml`, QAgent no la sobrescribe y no ejecuta la mutación.
 - **Pruebas basadas en riesgo:** el esfuerzo se concentra donde un fallo es más probable o más grave. Ninguna función se deja sin probar: todas reciben su prueba Estándar.
 
 QAgent propone como prioritaria toda función con al menos una decisión (`if`/`elif`, ternario, `for`, `while`, `except`, `case` o `if` de comprensión; `contar_ramas` en `analysis/analyzer.py`). Una función sin decisiones tiene un solo camino, así que profundizar aporta poco, pero el usuario puede marcarla igual si es importante (por ejemplo, un cálculo de dinero), porque la mutación también cambia operadores y constantes (HU-06).
@@ -729,8 +730,9 @@ QAgent propone como prioritaria toda función con al menos una decisión (`if`/`
 | Pruebas unitarias y de API, regresión sin IA | Implementado | HU-27 · HU-25 |
 | Pantalla de configuración como opciones | Implementado | #69 |
 | Humo con un solo caso por objetivo | Pendiente: hoy el backend trata `humo` igual que `std` | Issue «Feat: perfil Humo con un caso normal por objetivo» |
-| Marcas de función prioritaria hasta la corrida | Pendiente: la selección no envía las marcas y todas llegan como `critical: false` | HU-06 |
-| Mutación (Profundizar) | Pendiente: el campo `mutation` de `results.json` queda en `null` | EN-09 |
+| Marcas de función prioritaria hasta la corrida | Implementado: la selección envía las marcas y el spec reutilizado toma la marca actual | HU-06 |
+| Mutación (Profundizar) | Implementado en el perfil Profundo: mutmut en el sandbox solo sobre las funciones críticas aprobadas; Mutation Score y sobrevivientes en `results.json` y en el informe | EN-09 |
+| Mutación al repetir pruebas guardadas y en endpoints | Pendiente | #70 · issue de endpoints con caja blanca |
 | Categoría de cada caso (normal / límite / error) | Pendiente | Issue «Feat: categoría de cada caso de prueba» |
 
 ---

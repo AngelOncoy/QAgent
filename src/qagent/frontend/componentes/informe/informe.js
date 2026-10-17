@@ -221,6 +221,21 @@ function ejecucionRealHtml(f, id){
     <details class="rtraza" style="margin-top:12px"><summary>Salida completa de pytest (stdout y stderr)</summary><pre>${escHtml(ej.salida || '(sin salida)')}</pre></details>`;
 }
 
+/* Color del Mutation Score según el control que calculó el backend (meta de ADR-001). */
+function colorMutacion(f){
+  const control = (f.controles || []).find(c => c.clave === 'mutation');
+  if(f.mutation_score===null || !control) return 'var(--mut)';
+  return control.estado==='ok' ? 'var(--emerald-400)' : control.estado==='falla' ? 'var(--rose-400)' : 'var(--mut)';
+}
+
+/* Mutantes que las pruebas no detectaron (EN-09): línea del archivo y cambio de mutmut. */
+function sobrevivientesHtml(f){
+  const vivos = (f.mutacion && f.mutacion.sobrevivientes) || [];
+  if(!vivos.length) return '';
+  const filas = vivos.map(s => `<div class="rfr"><span class="rloc">${s.linea===null || s.linea===undefined ? 'línea —' : 'línea ' + Number(s.linea)}</span><code>${escHtml(s.cambio || s.mutante)}</code></div>`).join('');
+  return `<div class="rpila" style="margin-top:12px"><h5>Mutantes sobrevivientes (${vivos.length}): las pruebas no detectaron estos cambios</h5>${filas}</div>`;
+}
+
 function entornoRealHtml(v){
   const e = v.entorno, t = v.totales_casos;
   if(!e) return `<div class="rcard rent"><div class="rentbody" style="color:var(--mut)">${v.es_simulado ? 'Corrida con IA simulada: no se ejecutó nada en el sandbox, así que no hay datos de ejecución.' : 'Esta corrida no guardó los datos de ejecución (es anterior al informe detallado).'}</div></div>`;
@@ -268,7 +283,8 @@ function renderReportReal(v){
         + (f.traza ? `<div class="rerr"><b>${I('warn','var(--rose-400)',15)} Traza del último intento (pytest / Reviewer):</b><pre>${escHtml(f.traza)}</pre></div>` : '');
       if(tab==='checklist') cuerpo += `<div class="rhd"><span>Controles del último intento, calculados al cerrar la corrida:</span><span style="color:var(--emerald-400)">5 controles</span></div>
         <div class="cks">${f.controles.map((c, j) => { const [cls, ic, txt] = CONTROL_REP[c.estado];
-          return `<div class="ck ${cls}${j===4?' wide':''}" title="${escHtml(c.nota || '')}"><div class="cl">${I(ic,'currentColor',15)}<span>${escHtml(c.etiqueta)}</span></div><span class="ct">${c.nota ? escHtml(c.nota) : txt}</span></div>`; }).join('')}</div>`;
+          return `<div class="ck ${cls}${j===4?' wide':''}" title="${escHtml(c.nota || '')}"><div class="cl">${I(ic,'currentColor',15)}<span>${escHtml(c.etiqueta)}</span></div><span class="ct">${c.nota ? escHtml(c.nota) : txt}</span></div>`; }).join('')}</div>`
+        + sobrevivientesHtml(f);
       cuerpo += '</div>';
     }
     return `<div class="rcard" style="border-left-color:${st.c};${f.verde?'':`box-shadow:0 0 0 1px ${st.halo}`}">
@@ -276,7 +292,7 @@ function renderReportReal(v){
         <div class="l"><span class="mtag" style="${st.mb}">${f.verde?'OK':'ALERTA'}</span>
           <div style="min-width:0"><div class="rn">${f.tipo==='endpoint'?escHtml(f.identificador):escHtml(f.identificador)+'()'} <span class="rmod">${escHtml(f.modulo)}</span><span class="rkind">${f.tipo==='endpoint'?'Endpoint':'Función'}</span>${f.critical?'<span class="rcrit">★ crítica</span>':''}</div><div class="rsig">${f.tipo==='endpoint'&&f.manejador?`Manejador: ${escHtml(f.manejador)} · `:''}${escHtml(f.firma || '')}</div></div></div>
         <div class="r"><span class="rpill"><span style="color:var(--mut)">Cob:</span> <b style="color:var(--blue-400)">${numRep(f.cobertura_lineas)}</b></span>
-          <span class="rpill"><span style="color:var(--mut)">Mutantes:</span> <b style="color:var(--mut)">${f.mutation_score===null?'N/A':numRep(f.mutation_score,0)}</b></span>
+          <span class="rpill" title="${f.critical?'Mutation Score (mutmut) de la función crítica':'No aplica: mutmut solo corre sobre funciones críticas'}"><span style="color:var(--mut)">Mutantes:</span> <b style="color:${colorMutacion(f)}">${f.mutation_score===null?'N/A':numRep(f.mutation_score,0)}</b></span>
           <span class="rsb ${st.repCls}">${I(st.repIco,'currentColor',13)} ${escHtml(etiqueta)}</span>${I(abierto?'chevU':'chevD','var(--slate-300-c)',20)}</div>
       </div>${cuerpo}</div>`;
   }).join('') : '<div class="rcard" style="padding:18px;color:var(--mut)">No hay resultados para los filtros seleccionados.</div>';
