@@ -85,6 +85,7 @@ class DesktopAPI:
             )
             if resultado.ok and any(Path(resultado.destino).iterdir()):
                 import shutil
+
                 inspeccion = proyecto_local.inspeccionar_carpeta(resultado.destino)
                 if not inspeccion["ok"]:
                     shutil.rmtree(resultado.destino, ignore_errors=True)

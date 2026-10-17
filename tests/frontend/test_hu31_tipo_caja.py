@@ -1,4 +1,10 @@
-"""HU-31: cada perfil muestra su descripción y si es prueba de caja negra o blanca."""
+"""HU-31, ajustada por #69: cada perfil tiene descripción y solo Profundizar se etiqueta como caja blanca.
+
+Antes de #69 los cuatro perfiles mostraban su tipo de caja y una leyenda la explicaba.
+Con #69 la etiqueta solo aparece en Profundizar (la única capa de caja blanca) y la
+leyenda se quita: Estándar es de caja negra en funciones pero gris en endpoints, así
+que etiquetarlo como «caja negra» era inexacto.
+"""
 
 from __future__ import annotations
 
@@ -7,13 +13,6 @@ from pathlib import Path
 
 RAIZ = Path(__file__).resolve().parents[2]
 FRONTEND = RAIZ / "src" / "qagent" / "frontend"
-
-ESPERADO = {
-    "humo": "negra",
-    "std": "negra",
-    "deep": "blanca",
-    "reg": "negra",
-}
 
 
 def leer(ruta: str) -> str:
@@ -28,35 +27,44 @@ def perfiles() -> list[str]:
     return re.findall(r"\{k:'[^']+'.*?\},?\n", bloque)
 
 
-def test_los_cuatro_perfiles_declaran_descripcion_y_tipo_de_caja() -> None:
+def test_los_cuatro_perfiles_declaran_descripcion() -> None:
     filas = perfiles()
     assert len(filas) == 4
     for fila in filas:
-        clave = re.search(r"k:'([^']+)'", fila).group(1)
-        assert f"tipo_caja:'{ESPERADO[clave]}'" in fila
         descripcion = re.search(r"descripcion:'([^']+)'", fila)
         assert descripcion and len(descripcion.group(1)) > 40
 
 
-def test_los_cuadros_se_generan_desde_los_datos() -> None:
+def test_solo_profundizar_declara_tipo_de_caja_y_es_blanca() -> None:
+    for fila in perfiles():
+        clave = re.search(r"k:'([^']+)'", fila).group(1)
+        if clave == "deep":
+            assert "tipo_caja:'blanca'" in fila
+        else:
+            assert "tipo_caja:" not in fila
+
+
+def test_las_opciones_se_generan_desde_los_datos() -> None:
     js = leer("componentes/config-pruebas/config-pruebas.js")
     assert "${p.descripcion}" in js
-    assert "caja-${p.tipo_caja}" in js
-    assert "TIPO_CAJA[p.tipo_caja]" in js
+    assert "${deep.descripcion}" in js
+    assert "caja-${deep.tipo_caja}" in js
+    assert "TIPO_CAJA[deep.tipo_caja]" in js
 
 
-def test_la_leyenda_explica_ambos_terminos() -> None:
+def test_no_queda_la_leyenda_ni_la_etiqueta_de_caja_negra() -> None:
     js = leer("componentes/config-pruebas/config-pruebas.js")
-    assert 'class="leyenda-caja"' in js
-    assert "</span>: evalúa entradas y salidas sin mirar el código." in js
-    assert "</span>: evalúa el código por dentro (caminos, ramas, cobertura)." in js
-
-
-def test_cada_tipo_de_caja_tiene_su_color() -> None:
     css = leer("componentes/config-pruebas/config-pruebas.css")
-    assert "var(--caja-negra-s)" in css and "var(--caja-blanca-s)" in css
+    assert 'class="leyenda-caja"' not in js
+    assert "Caja negra" not in js and "caja-negra" not in js
+    assert ".leyenda-caja" not in css and ".caja-negra" not in css
+
+
+def test_la_caja_blanca_tiene_su_color() -> None:
+    css = leer("componentes/config-pruebas/config-pruebas.css")
+    assert "var(--caja-blanca-s)" in css
     tokens = leer("css/tokens.css")
-    assert "--caja-negra-s:" in tokens and "--caja-blanca-s:" in tokens
+    assert "--caja-blanca-s:" in tokens
 
 
 def test_configuracion_de_pruebas_no_muestra_costo_ni_iso() -> None:

@@ -237,8 +237,7 @@ async function loadProject(name, src, where, br='main', ruta=''){
   if (typeof reiniciarVistasProyecto === 'function') reiniciarVistasProyecto();
   else document.querySelectorAll('#views a[data-v=exec],#views a[data-v=report],#views a[data-v=monitor],#views a[data-v=history]').forEach(a=>a.classList.add('hide','off'));
 
-  renderTree();
-  renderProfiles();
+  renderTree();   // termina en calc(), que también dibuja la configuración de pruebas
   go('preview');
 }
 
