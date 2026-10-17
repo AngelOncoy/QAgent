@@ -14,7 +14,10 @@ from typing import Any
 
 from qagent.analysis.analyzer import listar_archivos_py
 
-SIN_ARCHIVOS_PY = "Esta carpeta no contiene archivos .py"
+SIN_ARCHIVOS_PY = (
+    "No es posible cargar/abrir el proyecto por incompatibilidad de lenguaje: "
+    "QAgent solo admite proyectos en Python 3.10+."
+)
 
 
 _PREFIJO_RAMA = "ref: refs/heads/"

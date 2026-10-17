@@ -80,6 +80,14 @@ function doClone(){
     return;
   }
   // Sin pywebview (HTML abierto en el navegador): clonado simulado del demo
+  if(url.toLowerCase().includes('security-audit-skill') || url.toLowerCase().includes('landing-web') || url.toLowerCase().includes('react') || url.toLowerCase().includes('vue')){
+    logClone(`Cloning into '${dir}'...`);
+    $('cloneBar').style.width = '30%';
+    setTimeout(() => {
+      finClonado({ok: false, error: 'No es posible cargar/abrir el proyecto por incompatibilidad de lenguaje: QAgent solo admite proyectos en Python 3.10+.'});
+    }, 400);
+    return;
+  }
   const steps = [`Cloning into '${dir}'...`, 'Receiving objects: 100% (212/212), 88.4 KiB, done.', 'Resolving deltas: 100% (31/31), done.'];
   let i = 0;
   cloneTimer = setInterval(() => {
@@ -97,9 +105,17 @@ function avanceClonado(d){
 async function finClonado(r){
   clonando = false; $('cloneCancel').disabled = false;
   if(!r.ok){
-    // Se muestra el motivo junto al formulario para corregir y reintentar
-    $('cloneErrTxt').textContent = r.error || 'Error desconocido al clonar.';
+    // Se interrumpe la barra de carga y se muestra el motivo de incompatibilidad o error
+    clearInterval(cloneTimer);
+    $('cloneBar').style.width = '0%';
+    const msg = r.error || 'No es posible cargar/abrir el proyecto por incompatibilidad de lenguaje: QAgent solo admite proyectos en Python 3.10+.';
+    $('cloneErrTxt').textContent = msg;
     $('cloneErr').classList.remove('hide'); $('cloneForm').classList.remove('hide'); $('cloneProg').classList.add('hide');
+    if (typeof toastError === 'function') {
+      toastError(msg);
+    } else if (typeof toast === 'function') {
+      toast(msg);
+    }
     vUrl(); return;
   }
   $('cloneTitle').textContent = 'Listo'; $('cloneBar').style.width = '100%';
