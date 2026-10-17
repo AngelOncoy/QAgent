@@ -54,6 +54,69 @@ def test_filtra_funciones_y_conserva_varios_endpoints_seleccionados(modulos) -> 
     ]
 
 
+def test_las_funciones_marcadas_llegan_como_criticas(modulos) -> None:
+    seleccion = [
+        {
+            "ruta": "funciones.py",
+            "funciones": ["sumar", "restar"],
+            "endpoints": [],
+            "criticas": ["restar"],
+        }
+    ]
+
+    resultado = filtrar_modulos(modulos, seleccion)
+
+    criticas = {f["nombre"]: f["critical"] for f in resultado[0]["funciones"]}
+    assert criticas == {"sumar": False, "restar": True}
+
+
+def test_sin_criticas_ninguna_funcion_es_critica(modulos) -> None:
+    seleccion = [{"ruta": "funciones.py", "funciones": ["sumar"], "endpoints": []}]
+
+    resultado = filtrar_modulos(modulos, seleccion)
+
+    assert resultado[0]["funciones"] == [{"nombre": "sumar", "critical": False}]
+
+
+def test_marcar_criticas_no_modifica_el_analisis_recibido(modulos) -> None:
+    seleccion = [
+        {
+            "ruta": "funciones.py",
+            "funciones": ["sumar"],
+            "endpoints": [],
+            "criticas": ["sumar"],
+        }
+    ]
+
+    filtrar_modulos(modulos, seleccion)
+
+    assert modulos[1]["funciones"] == [{"nombre": "sumar"}, {"nombre": "restar"}]
+
+
+@pytest.mark.parametrize(
+    "criticas, mensaje",
+    [
+        (["restar"], "no están seleccionadas en funciones.py: restar"),
+        (["inventada"], "no están seleccionadas en funciones.py: inventada"),
+        (["sumar", "sumar"], "no es válida"),
+        ("sumar", "no es válida"),
+        ([1], "no es válida"),
+    ],
+)
+def test_rechaza_criticas_invalidas(modulos, criticas, mensaje) -> None:
+    seleccion = [
+        {
+            "ruta": "funciones.py",
+            "funciones": ["sumar"],
+            "endpoints": [],
+            "criticas": criticas,
+        }
+    ]
+
+    with pytest.raises(SeleccionInvalida, match=mensaje):
+        filtrar_modulos(modulos, seleccion)
+
+
 @pytest.mark.parametrize(
     "seleccion, mensaje",
     [

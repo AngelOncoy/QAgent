@@ -450,7 +450,7 @@ function renderFns(){
         <td class="${f.typed ? 'ok' : 'no'}">${tipadoHtml}</td>
         <td class="${f.doc ? 'ok' : 'warn'}">${docHtml}</td>
         <td class="mono">${f.br}</td>
-        <td><button type="button" class="star ${f.crit ? 'on' : ''}" aria-label="Profundizar: ${escHtml(f.n)}" aria-pressed="${f.crit ? 'true' : 'false'}" title="Profundizar: solicita un análisis más exhaustivo de la función" onclick="toggle(${mi},${fi},'crit')">${f.crit ? '★' : '☆'}</button></td>
+        <td><button type="button" class="star ${f.crit ? 'on' : ''}" aria-label="Profundizar: ${escHtml(f.n)}" aria-pressed="${f.crit ? 'true' : 'false'}" title="Profundizar: solicita un análisis más exhaustivo de la función. Se aplica si activas Profundizar en la configuración de pruebas." onclick="toggle(${mi},${fi},'crit')">${f.crit ? '★' : '☆'}</button></td>
         <td><input type="checkbox" aria-label="Incluir función: ${escHtml(f.n)}" ${f.inc ? 'checked' : ''} onchange="toggle(${mi},${fi},'inc')"></td>
       </tr>`;
     });
@@ -523,11 +523,13 @@ function actualizarSeleccionTodos(){
   control.checked = habilitados.length > 0 && seleccionados === habilitados.length;
   control.indeterminate = seleccionados > 0 && seleccionados < habilitados.length;
 }
+// `criticas` (HU-06): funciones incluidas y marcadas en Profundizar; llegan al contrato como critical.
 function obtenerSeleccionObjetivos(){
   return MODULES.filter(m => m.sel && moduloTieneObjetivos(m)).map(m => ({
     ruta: m.path,
     funciones: (m.fns || []).filter(f => f.inc).map(f => f.n),
-    endpoints: (m.endpoints || []).map(e => e.objetivo)
+    endpoints: (m.endpoints || []).map(e => e.objetivo),
+    criticas: (m.fns || []).filter(f => f.inc && f.crit).map(f => f.n)
   })).filter(m => m.funciones.length || m.endpoints.length);
 }
 
