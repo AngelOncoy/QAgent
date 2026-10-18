@@ -1,4 +1,4 @@
-// pasos-proyecto.js — pasos de un proyecto abierto: Explorar → Preparar → En curso → Pruebas → Resultados
+// pasos-proyecto.js — pasos de un proyecto abierto: Explorar → Preparar → En curso → Resultados
 // HTML del componente (se monta en el marcador data-componente="pasos-proyecto/pasos-proyecto" de index.html)
 // Se muestra arriba de las pantallas del proyecto. Un paso bloqueado (clase off/hide) se ve, pero no se puede abrir:
 // los demás componentes lo desbloquean con desbloquearVista() a medida que avanza la corrida.
@@ -7,12 +7,11 @@ registrarComponente('pasos-proyecto/pasos-proyecto', `<!-- ===== Pasos del proye
   <a data-v="preview"><span class="paso-ico"></span><span>Explorar</span></a>
   <a data-v="tests"><span class="paso-ico"></span><span>Preparar</span></a>
   <a data-v="monitor" class="hide off"><span class="paso-ico"></span><span>En curso</span></a>
-  <a data-v="exec" class="hide off"><span class="paso-ico"></span><span>Pruebas</span></a>
-  <a data-v="report" class="hide off"><span class="paso-ico"></span><span>Resultados</span></a>
+  <a data-v="exec" class="hide off"><span class="paso-ico"></span><span>Resultados</span></a>
 </nav>
 `);
 
-const PASOS_PROYECTO = ['preview','tests','monitor','exec','report'];
+const PASOS_PROYECTO = ['preview','tests','monitor','exec'];
 // Íconos de estado: pendiente (círculo), actual (círculo con punto) y hecho (círculo con verificación).
 const ICO_PASO = {
   pendiente: '<circle cx="12" cy="12" r="8"/>',

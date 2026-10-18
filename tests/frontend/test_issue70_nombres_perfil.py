@@ -18,7 +18,3 @@ def test_el_historial_usa_el_nombre_del_backend() -> None:
 
     assert "const nomPerfil = h.perfil_nombre || h.perfil || '—';" in historial
     assert "Equilibrado" not in historial  # nombres anteriores a #69
-
-
-def test_el_informe_usa_el_nombre_del_backend() -> None:
-    assert "escHtml(v.perfil_nombre || v.perfil)" in leer("informe/informe.js")

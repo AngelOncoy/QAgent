@@ -39,7 +39,10 @@ def test_historial_envuelve_sus_tablas_en_contenedores_desplazables() -> None:
     historial = _leer("componentes/historial/historial.js")
     estilos = _leer("css/componentes.css")
 
-    assert historial.count('<div class="table-scroll"><table>') == 2
+    # Cada tabla (hoy solo la de corridas) va dentro de un contenedor desplazable.
+    tablas = historial.count("<table")
+    assert tablas >= 1
+    assert historial.count('<div class="table-scroll') == tablas
     assert ".table-scroll{max-width:100%;overflow-x:auto}" in estilos
 
 
@@ -65,20 +68,18 @@ def test_proyecto_actual_e_historial_empiezan_deshabilitados_sin_proyecto() -> N
 
 
 def test_monitor_envuelve_el_resumen_y_recorta_las_rutas_largas() -> None:
+    # Rediseño «En curso»: el contenido tiene un ancho máximo centrado y los textos largos
+    # (funciones y archivos de la actividad) se cortan dentro de su caja. La barra de corrida ya no existe.
     monitor = _leer("componentes/monitor/monitor.css")
     logica_monitor = _leer("componentes/monitor/monitor.js")
-    barra = _leer("componentes/barra-corrida/barra-corrida.css")
     ejecucion = _leer("componentes/ejecucion/ejecucion.css")
 
-    assert ".monwrap{width:100%;max-width:900px;min-width:0" in monitor
-    assert ".nextbox{display:flex;align-items:center;gap:12px;flex-wrap:wrap" in monitor
-    assert ".nextbox>span{flex:1 1 100%;min-width:0" in monitor
-    assert "overflow-wrap:anywhere" in monitor
-    assert ".mon-top{flex-wrap:wrap;min-width:0}" in barra
+    assert "#s-monitor .page.prg{width:100%;max-width:var(--contenido-max)" in monitor
     assert (
-        ".repoLbl{display:block;min-width:0;overflow:hidden;text-overflow:ellipsis}"
-        in barra
+        ".prg-actividad b{display:block;font-weight:var(--peso-medio);overflow-wrap:anywhere}"
+        in monitor
     )
+    assert ".prg-actual-nombre{" in monitor and "overflow-wrap:anywhere" in monitor
     assert 'style="margin-left:auto"' not in logica_monitor
     assert "style.marginLeft = 'auto'" not in logica_monitor
     assert ".nextbox{" not in ejecucion
@@ -95,7 +96,8 @@ def test_pasos_del_proyecto_se_desbloquean_secuencialmente() -> None:
     assert '<a data-v="tests">' in pasos
     assert '<a data-v="monitor" class="hide off">' in pasos
     assert '<a data-v="exec" class="hide off">' in pasos
-    assert '<a data-v="report" class="hide off">' in pasos
+    # El informe dejó de ser un paso: el recorrido termina en Resultados (exec).
+    assert 'data-v="report"' not in pasos
 
     # Funciones de control de la secuencia
     assert "function desbloquearVista(" in pasos

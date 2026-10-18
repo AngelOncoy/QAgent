@@ -52,7 +52,10 @@ def test_orden_exacto_de_las_columnas() -> None:
         "Desde la última vez",
         "Profundizar",
     ]
-    assert '<th class="col-incl"><span class="vh">Incluir</span></th>' in _bloque_funciones()
+    assert (
+        '<th class="col-incl"><span class="vh">Incluir</span></th>'
+        in _bloque_funciones()
+    )
 
 
 # 4-7. Cálculo de Calidad y su prioridad

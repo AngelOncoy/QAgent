@@ -136,7 +136,9 @@ def test_columnas_de_la_tabla_de_endpoints_en_orden() -> None:
 
 def test_cada_columna_de_endpoint_tiene_tooltip() -> None:
     tooltips = _columnas_tooltips()
-    assert len(tooltips) == 5  # una por columna con título (la casilla Incluir no lleva)
+    assert (
+        len(tooltips) == 5
+    )  # una por columna con título (la casilla Incluir no lleva)
     for texto in (
         "Método HTTP y ruta del endpoint, con la función que lo atiende.",
         "Si el endpoint declara su modelo de respuesta y su código de estado. Debajo: estado, respuesta, errores HTTP y dependencias que se simulan.",

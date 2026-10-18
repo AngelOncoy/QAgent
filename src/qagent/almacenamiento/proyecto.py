@@ -656,6 +656,17 @@ class AlmacenProyecto:
             key=_nombre,
         )
 
+    def crear_zip_pruebas(self) -> tuple[str, bytes]:
+        """Devuelve un ZIP con todas las pruebas aprobadas guardadas del proyecto."""
+        rutas = self.listar_pruebas_aprobadas()
+        if not rutas:
+            raise DatoNoEncontrado("El proyecto no tiene pruebas guardadas.")
+        salida = BytesIO()
+        with ZipFile(salida, "w", ZIP_DEFLATED) as archivo:
+            for ruta in rutas:
+                archivo.write(ruta, arcname=ruta.name)
+        return f"pruebas_{self.raiz.name}.zip", salida.getvalue()
+
     def _ruta_prueba(self, nombre_archivo: str) -> Path:
         if not isinstance(nombre_archivo, str) or not PATRON_PRUEBA.match(
             nombre_archivo

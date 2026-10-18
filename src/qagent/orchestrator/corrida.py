@@ -211,7 +211,11 @@ def ejecutar_corrida(
             for agente, precio in configuracion.agentes.items()
         }
         avisar("Preparando el entorno aislado (Docker) para ejecutar las pruebas")
-        imagen = (preparar_imagen or _preparar_imagen)(ruta)
+        if preparar_imagen is not None:
+            imagen = preparar_imagen(ruta)
+        else:
+            # Construir la imagen puede tardar minutos: su avance va al Monitor.
+            imagen = _preparar_imagen(ruta, avanzar=avance_limitado(avisar))
 
         bus = BusEventos()
         bus.suscribir(emitir)
@@ -399,8 +403,13 @@ class ErrorCorrida(RuntimeError):
 # --- Partes de la corrida ---------------------------------------------------------
 
 
-def _preparar_imagen(ruta: Path) -> str:
-    """Imagen del sandbox del proyecto; construye la imagen base si todavía no existe."""
+def _preparar_imagen(ruta: Path, avanzar: Callable[[str], None] | None = None) -> str:
+    """Imagen del sandbox del proyecto; construye la imagen base si todavía no existe.
+
+    Args:
+        ruta: carpeta del proyecto.
+        avanzar: recibe el avance de la construcción en textos para personas.
+    """
     from qagent.sandbox import (
         ImagenNoEncontrada,
         construir_imagen_base,
@@ -408,10 +417,45 @@ def _preparar_imagen(ruta: Path) -> str:
     )
 
     try:
-        return preparar_imagen(ruta)
+        return preparar_imagen(ruta, avanzar=avanzar)
     except ImagenNoEncontrada:
-        construir_imagen_base()  # una sola vez por PC; necesita internet
-        return preparar_imagen(ruta)
+        construir_imagen_base(avanzar=avanzar)  # una sola vez por PC; necesita internet
+        return preparar_imagen(ruta, avanzar=avanzar)
+
+
+#: Segundos mínimos entre dos avisos de avance de la construcción de la imagen.
+INTERVALO_AVANCE_S = 2.0
+
+
+def avance_limitado(
+    avisar: Callable[[str], None],
+    intervalo_s: float = INTERVALO_AVANCE_S,
+    reloj: Callable[[], float] = time.monotonic,
+) -> Callable[[str], None]:
+    """Reenvía el avance de la construcción a `avisar`, sin saturar el Monitor.
+
+    Las fases (empezar a instalar, terminar) siempre pasan; los pasos de pip
+    («Descargando torch…») como mucho uno cada `intervalo_s`. Un texto igual al
+    anterior no se repite.
+    """
+    from qagent.sandbox.imagen import AVISO_BASE, AVISO_DEPENDENCIAS, AVISO_LISTO
+
+    fases = {AVISO_BASE, AVISO_DEPENDENCIAS, AVISO_LISTO}
+    estado: dict[str, Any] = {"ultimo": None, "momento": None}
+
+    def avanzar(texto: str) -> None:
+        if texto == estado["ultimo"]:
+            return
+        ahora = reloj()
+        reciente = (
+            estado["momento"] is not None and ahora - estado["momento"] < intervalo_s
+        )
+        if reciente and texto not in fases:
+            return
+        estado["ultimo"], estado["momento"] = texto, ahora
+        avisar(texto)
+
+    return avanzar
 
 
 def _contar(

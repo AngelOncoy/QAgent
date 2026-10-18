@@ -1,6 +1,6 @@
 /* pasos-proyecto.css — pasos del proyecto abierto, arriba de cada pantalla del proyecto.
    Usa solo los tokens del sistema (css/tokens.css, sección 1). */
-.pasos{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:var(--esp-3);padding:var(--esp-4) var(--esp-6);border-bottom:var(--borde-ancho) solid var(--borde);background:var(--fondo);font-family:var(--fuente-ui)}
+.pasos{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:var(--esp-3);padding:var(--esp-4) var(--esp-6);border-bottom:var(--borde-ancho) solid var(--borde);background:var(--fondo);font-family:var(--fuente-ui)}
 /* Dentro de la pantalla (debajo del título): sin borde ni relleno propio, toma el espaciado de la página */
 .pasos.en-pantalla{padding:0;border-bottom:0;background:none}
 .pasos a{display:flex;align-items:center;gap:var(--esp-2);height:44px;padding:0 var(--esp-4);border-radius:var(--radio-control);background:var(--superficie);color:var(--texto-2);font-size:var(--texto-cuerpo);text-decoration:none;cursor:pointer;white-space:nowrap;overflow:hidden}

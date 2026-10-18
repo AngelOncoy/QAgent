@@ -133,6 +133,10 @@ def test_criterio1_y_criterio2_corridas_guardadas_en_runs_y_tabla_con_todos_los_
     assert fila["total_tokens"] > 0
     assert fila["tokens_planner"] >= 0
     assert fila["costo_usd"] > 0.0
+    # 8. resultado para la tabla y la comparación con la corrida anterior (rediseño)
+    assert fila["total_objetivos"] >= 1
+    assert fila["pasaron"] == fila["total_objetivos"]
+    assert fila["posibles_bugs"] == 0
 
 
 def test_criterio3_desde_cada_fila_se_abre_el_reporte_de_esa_corrida(
@@ -235,33 +239,31 @@ def test_frontend_historial_conecta_tabla_y_apertura_de_reportes() -> None:
         / "historial"
         / "historial.js"
     ).read_text(encoding="utf-8")
-    contenido_informe = (
+    # El informe dejó de ser una pantalla: abrir una corrida lleva a Resultados (ejecucion.js).
+    contenido_resultados = (
         Path(__file__).resolve().parents[2]
         / "src"
         / "qagent"
         / "frontend"
         / "componentes"
-        / "informe"
-        / "informe.js"
+        / "ejecucion"
+        / "ejecucion.js"
     ).read_text(encoding="utf-8")
 
-    # Columnas de la tabla (Criterio 1)
-    assert "<th>Corrida</th>" in contenido_historial
-    assert "<th>Fecha</th>" in contenido_historial
-    assert "<th>Perfil</th>" in contenido_historial
-    assert "<th>Modelos</th>" in contenido_historial
-    assert "<th>Specs</th>" in contenido_historial
-    assert "<th>Pass Rate</th>" in contenido_historial
-    assert "<th>Tokens</th>" in contenido_historial
-    assert "<th>Costo</th>" in contenido_historial
+    # Columnas de la tabla (Criterio 1). El rediseño muestra tokens, nunca costos.
+    for columna in ("Fecha", "Tipo", "Resultado", "Pasan", "Tokens", "Resultados"):
+        assert f"<th>{columna}</th>" in contenido_historial
+    assert "<th>Costo</th>" not in contenido_historial
+    assert "costo_usd" not in contenido_historial
 
     # Conexión con api.obtener_historial
     assert "api.obtener_historial(projectPath)" in contenido_historial
 
-    # Desde cada fila se abre el reporte (Criterio 3)
-    assert "cargarReporteReal('${escHtml(h.run_id)}')" in contenido_historial
+    # Desde cada fila se abren los resultados de esa corrida (Criterio 3)
+    assert "cargarEjecucionReal('${escHtml(h.run_id)}')" in contenido_historial
 
-    # cargarReporteReal pide a Python el reporte específico por runId y navega a report
-    assert "api.obtener_reporte(projectPath, runId || null)" in contenido_informe
-    assert "reporteReal = r;" in contenido_informe
-    assert "go('report');" in contenido_informe
+    # Resultados pide a Python esa corrida por runId, su evidencia, y navega a la bandeja
+    assert "api.obtener_ejecucion(projectPath, runId || null)" in contenido_resultados
+    assert "api.obtener_reporte(projectPath, runId)" in contenido_resultados
+    assert "reporteReal = r;" in contenido_resultados
+    assert "go('exec')" in contenido_resultados

@@ -1,10 +1,9 @@
 // navegacion.js — navegación entre pantallas y apertura/cierre de modales
 /* ---------------- Navegación ---------------- */
 function go(v){
-  ['welcome','open','clone','preview','tests','monitor','exec','report','history','config'].forEach(s => $('s-'+s).classList.toggle('hide', s!==v));
-  $('runTop').classList.toggle('hide', !['monitor','exec','report'].includes(v));
+  ['welcome','open','clone','preview','tests','monitor','exec','export','history','config'].forEach(s => $('s-'+s).classList.toggle('hide', s!==v));
   if(v==='exec') renderExec();
-  if(v==='report') renderReport();
+  if(v==='export') renderExport();
   if(v==='history') renderHistory();
   if(v==='welcome') cargarRecientes();
   if(v==='config') renderConfig();

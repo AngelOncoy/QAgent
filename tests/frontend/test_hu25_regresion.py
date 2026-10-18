@@ -18,14 +18,11 @@ def test_configuracion_habilita_regresion_por_pruebas_aprobadas():
     assert "sin IA" in config
 
 
-def test_ejecucion_y_reporte_muestran_requiere_corrida_nueva():
-    for archivo in (
-        "componentes/ejecucion/ejecucion.js",
-        "componentes/informe/informe.js",
-    ):
-        contenido = leer(archivo)
-        assert "requiere_corrida_nueva" in contenido
-        assert "REQUIERE CORRIDA NUEVA" in contenido
+def test_resultados_muestran_requiere_corrida_nueva():
+    # El informe dejó de ser una pantalla: Resultados (bandeja) muestra el estado.
+    contenido = leer("componentes/ejecucion/ejecucion.js")
+    assert "requiere_corrida_nueva" in contenido
+    assert "Requiere corrida nueva" in contenido
 
 
 def test_historial_distingue_regresion_sin_ia():

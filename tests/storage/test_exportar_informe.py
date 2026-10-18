@@ -16,6 +16,7 @@ from qagent.storage.exportar_informe import (
     extraer_texto_pdf,
     verificar_archivo_sin_claves,
 )
+from qagent.storage.informe_pdf import METRICA
 from qagent.storage.registro import escribir_corrida
 from qagent.storage.vista_ejecucion import leer_results, vista_ejecucion
 from qagent.storage.vista_reporte import leer_detalle, vista_reporte
@@ -197,7 +198,10 @@ def test_criterio3_y_4_incluye_5_metricas_modelos_costo_por_agente_specs_y_coinc
         assert m["meta"]
         assert m["estado"].startswith(("Cumple", "No cumple"))
         assert m["nombre"] in texto_md
-        assert m["nombre"] in texto_pdf
+        # El PDF usa el diseño nuevo: cada métrica con su nombre para personas.
+        assert METRICA[m["clave"]] in texto_pdf
+    # El PDF no muestra costos (solo tokens).
+    assert "US$" not in texto_pdf
 
     # Modelos usados y costo por agente en los 3 formatos
     for agente in ("planner", "generator", "reviewer"):
@@ -288,13 +292,7 @@ def test_criterio5_y_6_evidencia_aceptacion_sin_claves_rn07_y_pdf_valido(
     assert bytes_pdf.startswith(b"%PDF-1.4")
     assert b"%%EOF" in bytes_pdf
     texto_pdf = extraer_texto_pdf(bytes_pdf)
-    for nombre in (
-        "Pass Rate",
-        "Cobertura de líneas / ramas",
-        "Iteraciones promedio",
-        "Tokens y costo de la corrida",
-        "Mutation Score",
-    ):
+    for nombre in METRICA.values():
         assert nombre in texto_pdf
 
 

@@ -40,12 +40,11 @@ src/qagent/frontend/
     ├── inicio/           Inicio y recientes · pantallas «Abrir proyecto» (modal-abrir.js) y «Clonar proyecto» (modal-clonar.js); los archivos conservan el nombre de cuando eran modales
     ├── vista-previa/     Pantalla «Explorar»: cifras, carpetas incluidas, tabla compacta de funciones y endpoints con buscador y avisos
     ├── config-pruebas/   Pantalla «Preparar»: qué hacer (nuevas, volver a correr, análisis a fondo), tipos de prueba, críticas y comprobaciones previas
-    ├── barra-corrida/    Barra superior de Monitor, Ejecución e Informe
-    ├── monitor/          Línea de tiempo de la corrida
-    ├── ejecucion/        KPIs, filtros y detalle por función
-    ├── informe/          Informe final · modal-exportar
+    ├── monitor/          Pantalla «En curso»: progreso en vivo (etapas, avance, función actual y actividad reciente)
+    ├── ejecucion/        Pantalla «Resultados»: bandeja de problemas con la evidencia de auditoría de cada función
+    ├── exportar/         Pantalla «Exportar informe»: formato, qué incluir y dónde guardarlo (el archivo lo genera Python)
     ├── configuracion/    Pantalla «Configuración»: conexión de IA por etapa (modal-api), motor de ejecución, límites y apariencia
-    └── historial/        Corridas y specs del proyecto
+    └── historial/        Pantalla «Historial»: corridas del proyecto, comparación con la anterior y pruebas guardadas
 ```
 
 ## Cómo arranca
