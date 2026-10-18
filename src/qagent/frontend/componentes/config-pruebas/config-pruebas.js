@@ -126,7 +126,7 @@ function renderTiposPrueba(){
   const nFns = mods.flatMap(m=>m.fns).filter(f=>f.inc).length;
   const nEps = mods.flatMap(m=>(m.endpoints || []).filter(e=>endpointElegible(e) && e.inc)).length;
   const fila = (clave, titulo, n, singular, plural) => `<label class="prep-casilla ${n ? '' : 'dis'}">
-      <input type="checkbox" class="exp-caja" ${eleccionPruebas[clave] !== false && n ? 'checked' : ''} ${n ? '' : 'disabled'} onchange="elegirPruebas({${clave}:this.checked})">
+      <input type="checkbox" class="exp-caja" ${eleccionPruebas[clave] === true && n ? 'checked' : ''} ${n ? '' : 'disabled'} onchange="elegirPruebas({${clave}:this.checked})">
       <span><b>${titulo}</b><span class="prep-desc">${n} ${n === 1 ? singular : plural}</span></span>
     </label>`;
   $('prepTipos').innerHTML = fila('unitarias', 'Unitarias', nFns, 'función seleccionada', 'funciones seleccionadas')
@@ -159,6 +159,16 @@ function irACriticas(){
 /* ---------- Comprobaciones previas ----------
    Salen de la verificación real del entorno (EN-06: configuración, claves, Docker y Git) y de la
    selección. Sin pywebview es una demostración: todo se muestra como listo. */
+// Lo incluido en Explorar, sin aplicar los tipos de prueba (lo usan el pie de Explorar y las comprobaciones).
+function seleccionExplorar(){
+  const mods = MODULES.filter(m=>m.sel && !m.error && moduloTieneObjetivos(m));
+  return {
+    fns: mods.flatMap(m=>m.fns).filter(f=>f.inc),
+    endpoints: mods.flatMap(m=>(m.endpoints || []).filter(e=>endpointElegible(e) && e.inc)),
+  };
+}
+const algunTipoElegido = () => eleccionPruebas.unitarias === true || eleccionPruebas.endpoints === true;
+
 function comprobacionesPrevias(total, reused){
   const lista = [];
   const r = typeof ENTORNO_VERIFICADO !== 'undefined' ? ENTORNO_VERIFICADO : null;
@@ -179,8 +189,11 @@ function comprobacionesPrevias(total, reused){
     if (conf && !conf.ok) lista.push({ok:false, t:'Revisa la configuración', d:conf.mensaje, a:'Abrir Configuración'});
     if (git && !git.ok) lista.push({ok:false, t:'Git no disponible', d:git.mensaje, a:'Abrir Configuración'});
   }
-  lista.push(total ? {ok:true, t:'Selección válida', d:`${total} ${total === 1 ? 'función o endpoint' : 'funciones y endpoints'}`}
-                   : {ok:false, t:'Elige qué probar', d:'No hay funciones ni endpoints seleccionados.', a:'Ir a Explorar', explorar:true});
+  const exp = seleccionExplorar(), enExplorar = exp.fns.length + exp.endpoints.length;
+  if (!enExplorar) lista.push({ok:false, t:'Elige qué probar', d:'No hay funciones ni endpoints seleccionados.', a:'Ir a Explorar', explorar:true});
+  else if (!algunTipoElegido()) lista.push({ok:false, t:'Elige un tipo de prueba', d:'Marca Unitarias, Endpoints API o ambas.', tipos:true});
+  else if (!total) lista.push({ok:false, t:'Elige qué probar', d:'El tipo de prueba elegido no tiene nada seleccionado.', a:'Ir a Explorar', explorar:true});
+  else lista.push({ok:true, t:'Selección válida', d:`${total} ${total === 1 ? 'función o endpoint' : 'funciones y endpoints'}`});
   if (reused) lista.push({ok:true, t:'Trabajo reutilizable', d:`${reused} sin cambios desde la última vez`});
   return lista;
 }
@@ -223,7 +236,13 @@ function renderDetallesCorrida(e, bloqueado, prioritarias, epsPrioritarios = 0){
 
 // Botón principal: inicia la corrida si todo está listo; si no, lleva a resolver lo pendiente.
 let destinoBloqueo = null;
+const NUMEROS = ['', 'una', 'dos', 'tres', 'cuatro', 'cinco', 'seis'];
 function accionPrincipalPreparar(){
+  if (destinoBloqueo === 'tipos') {
+    const primera = document.querySelector('#prepTipos input:not(:disabled)');
+    if (primera) { primera.scrollIntoView({block:'center', behavior:'smooth'}); primera.focus(); }
+    return;
+  }
   if (destinoBloqueo) { go(destinoBloqueo); return; }
   startMonitor();
 }
@@ -239,8 +258,8 @@ function calc(){
   profile = perfilDeEleccion(eleccionPruebas, prioritarias);
   const e = estFor(profile), {fns, endpoints, total, tok, reused} = e;
   runEstimate = {tok};
-  const noDoc = fns.filter(f=>!f.doc).length;
-  renderPieVistaPrevia(fns, noDoc, endpoints);
+  const exp = seleccionExplorar();   // el pie de Explorar cuenta su selección, sin los tipos de Preparar
+  renderPieVistaPrevia(exp.fns, exp.fns.filter(f=>!f.doc).length, exp.endpoints);
 
   renderModosPreparar();
   renderTiposPrueba();
@@ -255,11 +274,16 @@ function calc(){
   $('prepSub').textContent = bloqueado ? 'Tu selección está guardada. Resuelve estos puntos antes de empezar.' : resumen;
   $('prepTitulo').textContent = verificando ? 'Comprobando tu entorno…'
     : !bloqueado ? 'Prepara una corrida fiable'
-    : pendientes <= 1 ? 'Falta una comprobación' : `Faltan ${pendientes} comprobaciones`;
-  const soloSeleccion = !total && pendientes === 1;
-  destinoBloqueo = bloqueado ? (soloSeleccion ? 'preview' : 'config') : null;
+    : pendientes <= 1 ? 'Falta una comprobación' : `Faltan ${NUMEROS[pendientes] || pendientes} comprobaciones`;
+  // El botón principal lleva a resolver lo pendiente: Explorar, los tipos de esta pantalla o Configuración.
+  const pend = lista.filter(c => c.ok === false);
+  destinoBloqueo = !bloqueado ? null
+    : pend.length && pend.every(c => c.explorar) ? 'preview'
+    : pend.length && pend.every(c => c.tipos) ? 'tipos'
+    : 'config';
   $('toPlanIco').innerHTML = bloqueado ? ICO_AJUSTES : ICO_INICIAR;
-  $('toPlanTxt').textContent = bloqueado ? (soloSeleccion ? 'Volver a Explorar' : 'Resolver en Configuración') : 'Iniciar prueba';
+  $('toPlanTxt').textContent = !bloqueado ? 'Iniciar prueba'
+    : {preview:'Volver a Explorar', tipos:'Elegir tipo de prueba', config:'Resolver en Configuración'}[destinoBloqueo];
   $('toPlan').disabled = verificando;
   const problemas = lista.filter(c => c.ok === false).map(c => c.t.toLowerCase());
   $('prepBloqueo').classList.toggle('hide', !bloqueado);

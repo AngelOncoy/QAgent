@@ -2,7 +2,7 @@
    Usa solo los tokens del sistema (css/tokens.css, sección 1). La barra, la cabecera, las tarjetas, los
    avisos y los chips se comparten con Inicio (inicio.css); la casilla .exp-caja, con Explorar. */
 #s-tests{font-family:var(--fuente-ui);font-size:var(--texto-cuerpo);line-height:var(--interlineado);color:var(--texto);background:var(--fondo)}
-#s-tests .page.prep{max-width:1280px;padding:var(--esp-6);gap:var(--esp-5)}
+#s-tests .page.prep{width:100%;max-width:var(--contenido-max);margin:0 auto;padding:var(--esp-6);gap:var(--esp-5)}
 
 .prep-rejilla{display:grid;grid-template-columns:minmax(0,1fr) minmax(280px,340px);gap:var(--esp-5);align-items:start}
 .prep-fila{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--esp-5);align-items:start}
