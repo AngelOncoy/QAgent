@@ -332,6 +332,31 @@ class DesktopAPI:
             bitacora.registro.info("API del %s eliminada: sin configurar.", agente)
         return {**resultado, "roles": self.obtener_roles()}
 
+    def obtener_limites(self) -> dict:
+        """Límites de verificación vigentes para la pantalla Configuración.
+
+        Returns:
+            dict: ver `qagent.config.limites.leer_limites`.
+        """
+        from qagent.config.limites import leer_limites
+
+        return leer_limites()
+
+    def guardar_limites(self, max_intentos: int) -> dict:
+        """Guarda los intentos por función en el `config.local.toml` del usuario.
+
+        El tiempo máximo por prueba no se guarda: `[sandbox]` lo define solo el equipo.
+
+        Returns:
+            dict: ``{"ok", "mensaje", "limites"}``.
+        """
+        from qagent.config.limites import guardar_max_intentos, leer_limites
+
+        resultado = guardar_max_intentos(max_intentos)
+        if resultado["ok"]:
+            bitacora.registro.info("Intentos por función: %s", max_intentos)
+        return {**resultado, "limites": leer_limites()}
+
     def obtener_ejecucion(self, ruta: str, run_id: str | None = None) -> dict:
         """Datos de la vista Ejecución de una corrida (HU-18).
 

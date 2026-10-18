@@ -9,7 +9,7 @@ registrarComponente('configuracion/modal-api', `<!-- Agregar o editar la API de 
     <div class="hint warn hide" id="apiTipo" style="margin:0"></div>
     <label class="chk hide" id="apiReusarFila"><input type="checkbox" id="apiReusar" onchange="apiCambioReusar()"> <span id="apiReusarTexto">Mantener la key actual de este agente</span> <span class="mono" id="apiReusarMascara"></span></label>
     <div class="frow" id="apiClaveFila"><label for="apiClave">API key</label><input class="inp" id="apiClave" type="password" autocomplete="off" spellcheck="false" placeholder="Pega aquí tu API key"></div>
-    <div class="hint" style="margin:0">Conviene una API key por agente: se puede repetir, pero los agentes que la comparten comparten su límite de uso. Se guarda solo en <span class="mono">.env</span> (<span class="mono" id="apiVariable"></span>) y nunca se muestra completa.</div>
+    <div class="hint" style="margin:0">Conviene una clave por etapa: se puede repetir, pero las etapas que la comparten comparten su límite de uso. Se guarda solo en tu equipo y nunca se muestra completa.<span id="apiVariable" hidden></span></div>
     <div class="api-estado" id="apiEstado" role="status" aria-live="polite"></div>
   </div>
   <div class="mfoot"><button class="btn" id="apiCancelar" onclick="cerrarModalApi()">Cancelar</button><button class="btn primary" id="apiGuardar" onclick="guardarApi()">Probar y guardar</button></div>
@@ -33,7 +33,8 @@ async function abrirModalApi(agente){
   }
   agenteApi = agente;
   const rol = rolesApi.find(r => r.agente === agente) || {nombre: agente};
-  $('apiTitulo').textContent = `${rol.configurado ? 'Editar' : 'Agregar'} API · ${rol.nombre}`;
+  const etapa = (typeof ETAPA !== 'undefined' && ETAPA[agente]) ? ETAPA[agente].t : rol.nombre;
+  $('apiTitulo').textContent = `${rol.configurado ? 'Editar' : 'Agregar'} conexión · ${etapa}`;
   $('apiProveedor').innerHTML = proveedoresApi.map(p => `<option value="${escHtml(p.id)}">${escHtml(p.nombre)}${p.genera_texto ? '' : ' — ' + escHtml(p.tipo_nombre)}</option>`).join('');
   // Se parte de la API guardada; si no hay, de la última selección; si no, de la primera de la lista.
   const base = rol.configurado && rol.tiene_clave ? rol : (seleccionApi[agente] || (rol.configurado ? rol : null));

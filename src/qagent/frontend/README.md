@@ -44,7 +44,7 @@ src/qagent/frontend/
     ├── monitor/          Línea de tiempo de la corrida
     ├── ejecucion/        KPIs, filtros y detalle por función
     ├── informe/          Informe final · modal-exportar
-    ├── configuracion/    Configuración del sistema (solo lectura)
+    ├── configuracion/    Pantalla «Configuración»: conexión de IA por etapa (modal-api), motor de ejecución, límites y apariencia
     └── historial/        Corridas y specs del proyecto
 ```
 

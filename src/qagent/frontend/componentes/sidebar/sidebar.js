@@ -70,6 +70,8 @@ function pintarMotor(ui){
   $('sbDetalle').textContent = ui.detalle;
 }
 let sandboxConsultando = false;
+// Último estado del motor ({clave, mensaje}); también lo muestra la pantalla Configuración.
+let ESTADO_MOTOR = null;
 async function actualizarSandbox() {
   // Sin pywebview (HTML abierto en el navegador) se mantiene el estado verde del demo
   if (!(window.pywebview && window.pywebview.api && window.pywebview.api.estado_sandbox)) return;
@@ -80,6 +82,8 @@ async function actualizarSandbox() {
     // IA simulada y Docker sin responder (o sin imagen): se muestra como opcional, no como error.
     const clave = r && r.simulado && r.estado !== 'ok' ? 'opcional' : r && r.estado;
     const ui = SANDBOX_UI[clave] || SANDBOX_UI.no_iniciado;
+    ESTADO_MOTOR = {clave: SANDBOX_UI[clave] ? clave : 'no_iniciado', mensaje: r && r.mensaje};
+    if (typeof renderMotorConfig === 'function') renderMotorConfig();
     pintarMotor(ui);
     $('sbRow').title = ui.label + ' · ' + ((r && r.mensaje) || ui.detalle);
     $('sbAyudaTxt').textContent = ui.ayuda;
