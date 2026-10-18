@@ -81,7 +81,8 @@ const SPEC_STATUS = {'services/pricing.py':'reuse','services/inventory.py':'reus
 let profile = 'deep';
 // Elección de la configuración de pruebas (#69): qué hacer, tipo de prueba y si se profundiza.
 // `profile` se deriva de ella con perfilDeEleccion() (config-pruebas.js).
-let eleccionPruebas = {modo:'nuevas', tipo:'std', profundizar:true};
+// Preparar: modo = 'nuevas' | 'repetir' | 'fondo' (análisis a fondo de críticas) y los tipos de prueba incluidos.
+let eleccionPruebas = {modo:'nuevas', unitarias:true, endpoints:true};
 let runEstimate = {tok:0}, projectPath = 'E:\\Proyectos\\ecommerce-core';
 
 

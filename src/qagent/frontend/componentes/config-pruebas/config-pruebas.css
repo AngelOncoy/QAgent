@@ -1,36 +1,57 @@
-/* #69: configuración de las pruebas como opciones */
-.cfg-pregunta{font-size:12.5px;font-weight:600;color:var(--txt);margin-bottom:8px}
-.cfg-modo{display:inline-flex;border:1px solid var(--line2);border-radius:8px;overflow:hidden;margin-bottom:18px}
-.cfg-modo button{font-size:12px;padding:8px 14px;border:0;background:transparent;color:var(--mut);cursor:pointer}
-.cfg-modo button+button{border-left:1px solid var(--line2)}
-.cfg-modo button.on{background:var(--blue-s);color:var(--blue-t);font-weight:600}
-.cfg-modo button:disabled{opacity:.4;cursor:not-allowed}
-.cfg-opcion,.cfg-profundizar,.cfg-repetir{display:flex;gap:10px;align-items:flex-start;padding:10px 12px;border:1px solid var(--line2);border-radius:8px;background:var(--panel2);margin-bottom:8px;font-size:12.5px}
-.cfg-opcion,.cfg-profundizar{cursor:pointer}
-.cfg-opcion:hover{border-color:var(--blue)}
-.cfg-opcion.on{border-color:var(--blue);box-shadow:inset 0 0 0 1px var(--blue)}
-.cfg-opcion input,.cfg-profundizar input{margin-top:2px}
-.cfg-profundizar{margin-left:26px;border-style:dashed}
-.cfg-profundizar.dis{opacity:.5;cursor:not-allowed}
-.cfg-profundizar a{color:var(--blue-t)}
-.cfg-repetir{flex-direction:column;gap:2px}
-.cfg-titulo{display:flex;align-items:center;gap:8px;font-weight:600}
-.cfg-desc{display:block;font-size:11.5px;color:var(--mut);line-height:1.5;margin-top:3px}
-.cfg-detalles{margin-top:14px;font-size:11.5px;color:var(--mut)}
-.cfg-detalles summary{cursor:pointer;color:var(--blue-t)}
-.cfg-detalles-cuerpo{margin-top:8px;line-height:1.8}
-/* HU-31: insignia del tipo de caja (solo en Profundizar, #69) */
-.caja{font-family:var(--mono);font-size:9.5px;font-weight:600;padding:2px 7px;border-radius:4px;border:1px solid;white-space:nowrap;line-height:1.3}
-.caja-blanca{background:var(--caja-blanca-s);color:var(--caja-blanca-t);border-color:var(--caja-blanca-b)}
+/* config-pruebas.css — pantalla «Preparar»: qué hacer, tipos de prueba, críticas y comprobaciones previas.
+   Usa solo los tokens del sistema (css/tokens.css, sección 1). La barra, la cabecera, las tarjetas, los
+   avisos y los chips se comparten con Inicio (inicio.css); la casilla .exp-caja, con Explorar. */
+#s-tests{font-family:var(--fuente-ui);font-size:var(--texto-cuerpo);line-height:var(--interlineado);color:var(--texto);background:var(--fondo)}
+#s-tests .page.prep{max-width:1280px;padding:var(--esp-6);gap:var(--esp-5)}
+
+.prep-rejilla{display:grid;grid-template-columns:minmax(0,1fr) minmax(280px,340px);gap:var(--esp-5);align-items:start}
+.prep-fila{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--esp-5);align-items:start}
+.prep-desc{display:block;color:var(--texto-2);font-size:var(--texto-meta);font-weight:var(--peso-normal);margin-top:2px}
+
+/* ¿Qué quieres hacer?: tres opciones tipo radio, la elegida resaltada */
+.prep-modo-tarjeta{gap:var(--esp-4)}
+.prep-modos{display:flex;flex-direction:column;gap:var(--esp-3);width:100%}
+.prep-modo{display:flex;align-items:flex-start;gap:var(--esp-3);width:100%;padding:var(--esp-4);border:var(--borde-ancho) solid var(--borde);border-radius:var(--radio-control);background:var(--hundido);color:var(--texto);font:inherit;text-align:left;cursor:pointer}
+.prep-modo b{font-weight:var(--peso-medio)}
+.prep-modo:hover{border-color:var(--borde-fuerte)}
+.prep-modo.on{border-color:var(--accion-borde);background:var(--accion-suave)}
+.prep-modo:disabled{opacity:.5;cursor:not-allowed}
+.prep-modo:focus-visible{outline:2px solid var(--foco-anillo);outline-offset:2px}
+.prep-radio{flex-shrink:0;display:grid;place-items:center;width:16px;height:16px;margin-top:3px;border:1.5px solid var(--texto-3);border-radius:50%}
+.prep-modo.on .prep-radio{border-color:var(--enlace)}
+.prep-modo.on .prep-radio::after{content:"";width:6px;height:6px;border-radius:50%;background:var(--enlace)}
+
+/* Tipos de prueba y funciones críticas: filas con la casilla de la demo */
+.prep-lista{display:flex;flex-direction:column;gap:var(--esp-3);width:100%}
+.prep-casilla{display:flex;align-items:flex-start;gap:var(--esp-3);cursor:pointer}
+.prep-casilla .exp-caja{margin-top:3px}
+.prep-casilla b{font-weight:var(--peso-normal)}
+.prep-casilla.dis{opacity:.5;cursor:not-allowed}
+.prep-enlace{align-self:flex-start;padding:0;font-size:var(--texto-meta)}
+
+/* Comprobaciones previas */
+.prep-checks{list-style:none;display:flex;flex-direction:column;gap:var(--esp-4);width:100%}
+.prep-checks li{display:flex;gap:var(--esp-3);align-items:flex-start}
+.prep-checks b{display:block;font-weight:var(--peso-medio)}
+.prep-checks .prep-enlace{margin-top:var(--esp-2)}
+.prep-check-ico{display:grid;place-items:center;flex-shrink:0;margin-top:2px}
+.prep-check-exito .prep-check-ico{color:var(--exito-t)}
+.prep-check-aviso .prep-check-ico{color:var(--aviso-t)}
+.prep-check-bug .prep-check-ico{color:var(--bug-t)}
+.prep-check-progreso .prep-check-ico{color:var(--progreso-t)}
+
+/* Límites de la corrida */
+.prep-limites{display:flex;flex-direction:column;gap:var(--esp-2);color:var(--texto-2)}
+.prep-limites b{color:var(--texto);font-weight:var(--peso-medio)}
+
+@media(max-width:1100px){.prep-rejilla{grid-template-columns:minmax(0,1fr)}}
+@media(max-width:760px){
+  .prep-fila{grid-template-columns:minmax(0,1fr)}
+  #s-tests .page.prep{padding-left:var(--esp-4);padding-right:var(--esp-4)}
+}
+
+/* ---- Reglas compartidas que aún usan otras pantallas (sin migrar) ----
+   .checks: lista de comprobaciones de Configuración del sistema. .opts: rejilla de Exportar informe. */
 .opts{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-top:16px}
 .checks .c{display:flex;gap:10px;align-items:flex-start;padding:7px 0;font-size:12.5px}
 .checks .c .i{width:18px;flex-shrink:0;text-align:center}
-/* Plan */
-.fnblock{margin-bottom:14px}
-.fnblock .fh{display:flex;align-items:center;gap:10px;padding:10px 16px;border-bottom:1px solid var(--line);font-family:var(--mono);font-size:12.5px}
-.doc{font-family:var(--mono);font-size:11px;color:var(--mut);background:var(--inset);border-left:2px solid var(--blue);padding:8px 12px;margin:10px 16px;border-radius:0 6px 6px 0;white-space:pre-wrap}
-.draft{font-size:11px;color:var(--amber-t);background:var(--amber-s);border:1px solid var(--amber-b);border-radius:7px;padding:8px 12px}
-
-
-.envok{display:flex;gap:12px;align-items:center}
-.envdet{margin-top:10px;font-size:12px}.envdet summary{cursor:pointer;color:var(--blue-t);font-size:11.5px}
