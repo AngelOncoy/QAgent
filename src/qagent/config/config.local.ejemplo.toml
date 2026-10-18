@@ -30,6 +30,6 @@ precio_salida_usd_m = 0
 
 [agentes.reviewer]
 proveedor = "openrouter"
-modelo = "google/gemma-4-31b-it:free"   # el catálogo :free cambia: python -m qagent.llm.validar --gratis
+modelo = "nvidia/nemotron-3-super-120b-a12b:free"   # el catálogo :free cambia: python -m qagent.llm.validar --gratis
 precio_entrada_usd_m = 0
 precio_salida_usd_m = 0
