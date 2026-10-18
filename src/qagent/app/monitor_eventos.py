@@ -42,15 +42,7 @@ def a_fila_monitor(evento: dict[str, Any]) -> dict[str, Any] | None:
     progreso = evento.get("progreso") or {}
     hechos = int(progreso.get("hechos", 0))
     total = int(progreso.get("total", 0))
-    identidad = identidad_de(
-        {
-            "funcion": evento.get("funcion") or "",
-            "tipo": "endpoint"
-            if _parece_endpoint(evento.get("funcion"))
-            else "funcion",
-        }
-    )
-    identidad["tipo_objetivo"] = identidad.pop("tipo")
+    identidad = _identidad(evento.get("funcion"))
     return {
         "a": tipo_fila,
         "f": evento.get("archivo") or "",
@@ -63,6 +55,30 @@ def a_fila_monitor(evento: dict[str, Any]) -> dict[str, Any] | None:
         "porcentaje": round(hechos / total * 100) if total else None,
         "tipo": evento.get("tipo"),
     }
+
+
+def _identidad(objetivo: Any) -> dict[str, Any]:
+    """Identidad del objetivo del evento; vacía si el evento es de todo el módulo.
+
+    Un evento sin función (planificar el módulo, un fallo controlado) no debe mostrar
+    «Función sin nombre»: no habla de ninguna función.
+    """
+    if not objetivo:
+        return {
+            "tipo_objetivo": None,
+            "identificador": None,
+            "metodo": None,
+            "ruta": None,
+            "identidad_completa": False,
+        }
+    identidad = identidad_de(
+        {
+            "funcion": objetivo,
+            "tipo": "endpoint" if _parece_endpoint(objetivo) else "funcion",
+        }
+    )
+    identidad["tipo_objetivo"] = identidad.pop("tipo")
+    return identidad
 
 
 def _parece_endpoint(objetivo: Any) -> bool:
@@ -109,9 +125,12 @@ def _clasificar(
                 "RECHAZADA",
             )
         return "reviewer", None
-    # Orquestador: preparación, avisos, fallos y fin.
+    # Orquestador: preparación, avisos, fallos y fin. Un fallo no es un límite de
+    # reintentos del Reviewer: tiene su propia fila.
     if tipo == "fallo":
-        return "stuck", ("Corrida", "DETENIDA")
+        if evento.get("archivo"):  # falló un módulo; los demás siguen
+            return "fallo", ("Fallo controlado del módulo", "MÓDULO DETENIDO")
+        return "fallo", ("Fallo controlado", "CORRIDA DETENIDA")
     return "sistema", None
 
 

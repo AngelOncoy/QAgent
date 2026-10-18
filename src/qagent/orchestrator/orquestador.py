@@ -245,6 +245,15 @@ class Orquestador:
             self._emitir("planner", None, f"Aviso: {aviso}")
         for descarte in getattr(self.planner, "descartados", None) or []:
             self._emitir("planner", None, f"Caso descartado: {descarte}")
+        # Funciones sin valor esperado deducible: se avisan y la corrida sigue.
+        omitidas = getattr(self.planner, "omitidas", None) or {}
+        for nombre, motivo in omitidas.items():
+            self._emitir(
+                "planner",
+                nombre,
+                f"Función omitida: {motivo}",
+                datos={"omitida": True},
+            )
         plan_endpoints = self._planificar_endpoints(modulo)
         plan = [*plan, *plan_endpoints]
         for contrato in plan:

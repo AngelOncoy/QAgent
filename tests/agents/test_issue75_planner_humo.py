@@ -96,12 +96,13 @@ def test_los_casos_de_mas_se_dejan_fuera_con_un_aviso() -> None:
     assert "division_cero" in aviso and "division_negativa" in aviso
 
 
-def test_sin_caso_normal_deducible_el_objetivo_queda_informado() -> None:
+def test_sin_caso_normal_deducible_el_objetivo_queda_omitido() -> None:
     agente = planner("humo")
 
     agente.planificar(MODULO)
 
-    assert any("validar" in d and "sin un caso normal" in d for d in agente.descartados)
+    assert "no hay un caso normal deducible" in agente.omitidas["validar"]
+    assert not any("validar" in d for d in agente.descartados)
 
 
 def test_fuera_de_humo_se_conservan_todos_los_casos() -> None:

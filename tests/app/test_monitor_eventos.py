@@ -78,7 +78,34 @@ def test_avisos_del_orquestador_y_fallos() -> None:
     fallo = a_fila_monitor(evento(agente="orquestador", tipo="fallo"))
 
     assert aviso["a"] == "sistema"
-    assert fallo["a"] == "stuck"
+    # Un fallo controlado no es el límite de reintentos del Reviewer («stuck»).
+    assert fallo["a"] == "fallo"
+    assert fallo["guard"] == ["Fallo controlado del módulo", "MÓDULO DETENIDO"]
+
+
+def test_fallo_de_toda_la_corrida_se_distingue_del_de_un_modulo() -> None:
+    fila = a_fila_monitor(
+        evento(agente="orquestador", tipo="fallo", archivo=None, funcion=None)
+    )
+
+    assert fila["a"] == "fallo"
+    assert fila["guard"] == ["Fallo controlado", "CORRIDA DETENIDA"]
+
+
+def test_evento_del_modulo_no_muestra_funcion_sin_nombre() -> None:
+    fila = a_fila_monitor(evento(agente="orquestador", tipo="fallo", funcion=None))
+
+    assert fila["fn"] == ""
+    assert fila["identificador"] is None
+    assert fila["tipo_objetivo"] is None
+
+
+def test_el_fallo_sale_como_alerta_en_la_consola() -> None:
+    from qagent.app.bitacora import TIPOS_DE_ALERTA
+
+    fila = a_fila_monitor(evento(agente="orquestador", tipo="fallo"))
+
+    assert a_evento_bitacora(fila)["tipo"] in TIPOS_DE_ALERTA
 
 
 def test_formato_para_la_consola() -> None:

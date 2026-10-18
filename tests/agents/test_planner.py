@@ -211,3 +211,94 @@ def test_prompt_explica_el_formato_del_caso_sin_enviar_datos_de_mas() -> None:
     assert "ejecucion" not in prompt
     assert '"linea"' not in prompt
     assert '"huella"' not in prompt
+
+
+# --- Funciones sin valor esperado deducible: se omiten, no detienen la corrida ---
+
+MODULO_SIN_ORACULO = {
+    "ruta": "jwt_auth.py",
+    "huella": "b" * 64,
+    "funciones": [
+        {
+            "nombre": "create_access_token",
+            "firma": "(identity, roles=None, email=None)",
+            "docstring": "Genera un access token de corta duración.",
+        },
+        {
+            "nombre": "create_refresh_token",
+            "firma": "(identity)",
+            "docstring": "Genera un refresh token de larga duración.",
+        },
+    ],
+}
+
+
+@pytest.mark.parametrize("perfil", [None, "humo"])
+def test_sin_casos_las_funciones_quedan_omitidas_sin_error(perfil) -> None:
+    respuesta = [
+        {"objetivo": "create_access_token", "casos": []},
+        {"objetivo": "create_refresh_token"},
+    ]
+    planner = PlannerAgent(
+        ClienteGrabado(json.dumps(respuesta)), TokenTracker(), perfil=perfil
+    )
+
+    assert planner.planificar(MODULO_SIN_ORACULO) == []
+    assert set(planner.omitidas) == {"create_access_token", "create_refresh_token"}
+    assert all(
+        "deduc" in motivo and "docstring" in motivo
+        for motivo in planner.omitidas.values()
+    )
+    assert planner.descartados == []
+
+
+def test_la_funcion_que_el_modelo_no_menciona_queda_omitida() -> None:
+    planner = PlannerAgent(ClienteGrabado("[]"), TokenTracker())
+
+    assert planner.planificar(MODULO_SIN_ORACULO) == []
+    assert set(planner.omitidas) == {"create_access_token", "create_refresh_token"}
+
+
+def test_se_omite_una_y_se_planifican_las_demas() -> None:
+    modulo = {
+        **MODULO,
+        "funciones": [*MODULO["funciones"], MODULO_SIN_ORACULO["funciones"][0]],
+    }
+    respuesta = [{"objetivo": "duplicar", "casos": PLAN[0]["casos"]}]
+    planner = PlannerAgent(ClienteGrabado(json.dumps(respuesta)), TokenTracker())
+
+    [contrato] = planner.planificar(modulo)
+
+    assert contrato["objetivo"] == "duplicar"
+    assert list(planner.omitidas) == ["create_access_token"]
+
+
+def test_solo_casos_limite_sin_especificacion_tambien_es_omitir() -> None:
+    respuesta = [
+        {
+            "objetivo": "duplicar",
+            "casos": [
+                {
+                    "id": "maximo_entero",
+                    "entrada": {"x": 2**31},
+                    "valor_esperado": 2**32,
+                    "origen": "tipo",
+                    "categoria": "limite",
+                }
+            ],
+        }
+    ]
+    planner = PlannerAgent(ClienteGrabado(json.dumps(respuesta)), TokenTracker())
+
+    assert planner.planificar(MODULO) == []
+    assert "duplicar" in planner.omitidas
+
+
+def test_casos_con_formato_invalido_siguen_siendo_un_error_del_modelo() -> None:
+    """Omitir no tapa los errores del modelo: un caso mal formado no es «sin oráculo»."""
+    respuesta = [{"objetivo": "duplicar", "casos": [{"id": "x"}]}]
+    planner = PlannerAgent(ClienteGrabado(json.dumps(respuesta)), TokenTracker())
+
+    with pytest.raises(ErrorRespuestaPlanner, match="ningún contrato"):
+        planner.planificar(MODULO)
+    assert planner.omitidas == {}

@@ -140,6 +140,8 @@ function skipRun(){
 // en lugar de EVENTS. Todo texto que viene del proyecto o de la IA se escapa con escHtml.
 let modoReal = false;
 TAG.sistema = ['QAgent · Orquestador', 'p-blue'];
+// Fallo controlado de un módulo o de la corrida (no es el límite de reintentos).
+TAG.fallo = ['QAgent · Fallo controlado', 'p-amber'];
 ICON.sistema = '<svg class="lg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 2v4M12 18v4M2 12h4M18 12h4"/></svg>';
 const ICONO_ARCHIVO = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 3h9l4 4v14H6z"/></svg>';
 function iniciarMonitorReal(){
@@ -170,10 +172,11 @@ function monitorEventoReal(d){
   const e = {born: Date.now()}; shown.push(e);
   $('evCount').textContent = shown.length;
   const div = document.createElement('div');
-  div.className = 'ev' + ({guard:' alert', watch:' alert watch', oracle:' alert oracle', stuck:' alert watch'}[d.a] || '');
+  div.className = 'ev' + ({guard:' alert', watch:' alert watch', oracle:' alert oracle', stuck:' alert watch', fallo:' alert watch'}[d.a] || '');
   div.innerHTML = `<div class="node">${icono}</div><div class="box">
     <div class="hd"><span class="pill ${cls}" style="font-size:10.5px;padding:3px 8px">${escHtml(tag)}</span>
-    ${lugar ? `<span class="file">${ICONO_ARCHIVO}${escHtml(lugar)}</span><span class="bdg ${d.tipo_objetivo==='endpoint'?'b-blue':'b-grey'}">${d.tipo_objetivo==='endpoint'?'Endpoint':'Función'}</span>` : ''}
+    ${lugar ? `<span class="file">${ICONO_ARCHIVO}${escHtml(lugar)}</span>` : ''}
+    ${identidad ? `<span class="bdg ${d.tipo_objetivo==='endpoint'?'b-blue':'b-grey'}">${d.tipo_objetivo==='endpoint'?'Endpoint':'Función'}</span>` : ''}
     <span class="ago">◷ <span class="agoTxt">hace 0s</span></span></div>
     <div class="tx">${escHtml(d.t || '')}</div>
     ${d.guard ? `<div class="guard ${escHtml(d.a)}"><span>⛉ ${escHtml(d.guard[0])}</span><b>${escHtml(d.guard[1])}</b></div>` : ''}

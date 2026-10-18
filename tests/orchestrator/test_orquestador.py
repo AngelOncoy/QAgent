@@ -317,3 +317,18 @@ def test_el_paso_crece_si_el_sandbox_se_alarga():
     assert timeout_paso_para(30) == TIMEOUT_PASO_POR_DEFECTO_S
     assert timeout_paso_para(600) > 600
 
+
+def test_funciones_omitidas_se_avisan_y_el_modulo_termina_en_fin() -> None:
+    orquestador, planner, _, _ = armar([], plan=[])
+    planner.omitidas = {"obtener_modelos": "su valor esperado no se puede deducir"}
+
+    resultado = orquestador.ejecutar(MODULO)
+
+    assert resultado.estado_final == E.FIN
+    assert resultado.motivo_fallo is None
+    assert resultado.objetivos == []
+    [aviso] = [e for e in orquestador.bus.historial if (e.datos or {}).get("omitida")]
+    assert aviso.agente == "planner"
+    assert aviso.funcion == "obtener_modelos"
+    assert "Función omitida" in aviso.mensaje
+    assert not any(e.tipo == "fallo" for e in orquestador.bus.historial)
