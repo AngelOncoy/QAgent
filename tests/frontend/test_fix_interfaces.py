@@ -39,7 +39,10 @@ def test_historial_envuelve_sus_tablas_en_contenedores_desplazables() -> None:
     historial = _leer("componentes/historial/historial.js")
     estilos = _leer("css/componentes.css")
 
-    assert historial.count('<div class="table-scroll"><table>') == 2
+    # Cada tabla (hoy solo la de corridas) va dentro de un contenedor desplazable.
+    tablas = historial.count("<table")
+    assert tablas >= 1
+    assert historial.count('<div class="table-scroll') == tablas
     assert ".table-scroll{max-width:100%;overflow-x:auto}" in estilos
 
 

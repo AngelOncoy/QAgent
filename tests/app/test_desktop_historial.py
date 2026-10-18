@@ -69,3 +69,37 @@ def test_historial_consulta_spec_y_la_descarga_como_zip(tmp_path) -> None:
     assert ventana.nombre_propuesto.endswith(".spec.zip")
     with ZipFile(destino) as archivo:
         assert archivo.namelist() == [historial["specs"][0]["archivo"]]
+
+
+def test_historial_lista_pruebas_guardadas_y_las_descarga_como_zip(tmp_path) -> None:
+    almacen = AlmacenProyecto(tmp_path)
+    almacen.guardar_prueba_aprobada(
+        "test_total.py", "def test_uno():\n    pass\n\n\ndef test_dos():\n    pass\n"
+    )
+    almacen.guardar_prueba_aprobada("test_tax.py", "async def test_tres():\n    pass\n")
+    api = DesktopAPI()
+    destino = tmp_path / "pruebas.zip"
+    ventana = VentanaFalsa(destino)
+    api.set_window(ventana)
+
+    historial = api.obtener_historial(str(tmp_path))
+    descarga = api.descargar_pruebas_zip(str(tmp_path))
+
+    assert historial["pruebas_guardadas"] == [
+        {"archivo": "test_tax.py", "pruebas": 1},
+        {"archivo": "test_total.py", "pruebas": 2},
+    ]
+    assert descarga["ok"] is True
+    assert ventana.nombre_propuesto == f"pruebas_{tmp_path.name}.zip"
+    with ZipFile(destino) as archivo:
+        assert archivo.namelist() == ["test_tax.py", "test_total.py"]
+
+
+def test_descargar_pruebas_sin_pruebas_guardadas_explica_el_motivo(tmp_path) -> None:
+    api = DesktopAPI()
+    api.set_window(VentanaFalsa(tmp_path / "nada.zip"))
+
+    resultado = api.descargar_pruebas_zip(str(tmp_path))
+
+    assert resultado["ok"] is False
+    assert "no tiene pruebas guardadas" in resultado["motivo"]

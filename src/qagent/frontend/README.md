@@ -44,7 +44,7 @@ src/qagent/frontend/
     ├── ejecucion/        Pantalla «Resultados»: bandeja de problemas con la evidencia de auditoría de cada función
     ├── exportar/         Pantalla «Exportar informe»: formato, qué incluir y dónde guardarlo (el archivo lo genera Python)
     ├── configuracion/    Pantalla «Configuración»: conexión de IA por etapa (modal-api), motor de ejecución, límites y apariencia
-    └── historial/        Corridas y specs del proyecto
+    └── historial/        Pantalla «Historial»: corridas del proyecto, comparación con la anterior y pruebas guardadas
 ```
 
 ## Cómo arranca

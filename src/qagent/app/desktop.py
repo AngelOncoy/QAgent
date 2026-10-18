@@ -496,6 +496,20 @@ class DesktopAPI:
             nombre, contenido = AlmacenProyecto(ruta).crear_zip_specs(modulo)
         except ErrorAlmacen as error:
             return {"ok": False, "motivo": str(error)}
+        return self._guardar_zip(nombre, contenido)
+
+    def descargar_pruebas_zip(self, ruta: str) -> dict:
+        """Crea un ZIP con las pruebas guardadas y abre el diálogo para guardarlo."""
+        from qagent.almacenamiento import ErrorAlmacen
+
+        try:
+            nombre, contenido = AlmacenProyecto(ruta).crear_zip_pruebas()
+        except ErrorAlmacen as error:
+            return {"ok": False, "motivo": str(error)}
+        return self._guardar_zip(nombre, contenido)
+
+    def _guardar_zip(self, nombre: str, contenido: bytes) -> dict:
+        """Pide dónde guardar un ZIP con el diálogo nativo y lo escribe."""
         if self._window is None:
             return {"ok": False, "motivo": "La ventana de QAgent no está disponible."}
 

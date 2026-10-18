@@ -133,6 +133,10 @@ def test_criterio1_y_criterio2_corridas_guardadas_en_runs_y_tabla_con_todos_los_
     assert fila["total_tokens"] > 0
     assert fila["tokens_planner"] >= 0
     assert fila["costo_usd"] > 0.0
+    # 8. resultado para la tabla y la comparación con la corrida anterior (rediseño)
+    assert fila["total_objetivos"] >= 1
+    assert fila["pasaron"] == fila["total_objetivos"]
+    assert fila["posibles_bugs"] == 0
 
 
 def test_criterio3_desde_cada_fila_se_abre_el_reporte_de_esa_corrida(
@@ -246,15 +250,11 @@ def test_frontend_historial_conecta_tabla_y_apertura_de_reportes() -> None:
         / "ejecucion.js"
     ).read_text(encoding="utf-8")
 
-    # Columnas de la tabla (Criterio 1)
-    assert "<th>Corrida</th>" in contenido_historial
-    assert "<th>Fecha</th>" in contenido_historial
-    assert "<th>Perfil</th>" in contenido_historial
-    assert "<th>Modelos</th>" in contenido_historial
-    assert "<th>Specs</th>" in contenido_historial
-    assert "<th>Pass Rate</th>" in contenido_historial
-    assert "<th>Tokens</th>" in contenido_historial
-    assert "<th>Costo</th>" in contenido_historial
+    # Columnas de la tabla (Criterio 1). El rediseño muestra tokens, nunca costos.
+    for columna in ("Fecha", "Tipo", "Resultado", "Pasan", "Tokens", "Resultados"):
+        assert f"<th>{columna}</th>" in contenido_historial
+    assert "<th>Costo</th>" not in contenido_historial
+    assert "costo_usd" not in contenido_historial
 
     # Conexión con api.obtener_historial
     assert "api.obtener_historial(projectPath)" in contenido_historial
