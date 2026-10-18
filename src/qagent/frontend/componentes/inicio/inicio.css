@@ -78,3 +78,126 @@
   .ini-proyecto{grid-template-columns:36px minmax(0,1fr)}
   .ini-estado,.ini-proyecto-acciones{grid-column:2}
 }
+
+/* ===== Abrir proyecto y Clonar proyecto (modal-abrir.js, modal-clonar.js) =====
+   Pantallas hermanas de Inicio: comparten barra, cabecera, pestañas, tarjetas y pie. */
+.np-miga{background:none;border:0;padding:0;color:var(--texto-2);font:inherit;cursor:pointer}
+.np-miga:hover{color:var(--texto);text-decoration:underline}
+.np-cabecera{display:flex;align-items:flex-start;justify-content:space-between;gap:var(--esp-4);flex-wrap:wrap}
+.np-subtitulo{color:var(--texto-2);margin-top:var(--esp-2)}
+.np-cabecera .ini-btn-principal{height:44px;padding:0 var(--esp-5)}
+.ini-btn:disabled{opacity:.45;cursor:not-allowed}
+.ini-btn-principal:disabled:hover{background:var(--accion);border-color:var(--accion)}
+
+/* Pestañas: Carpeta local / Clonar URL Git */
+.np-pestanas{display:flex;gap:var(--esp-3);flex-wrap:wrap}
+.np-pestanas button{display:inline-flex;align-items:center;gap:var(--esp-2);height:var(--control-alto);padding:0 var(--esp-4);border-radius:var(--radio-control);border:var(--borde-ancho) solid transparent;background:transparent;color:var(--enlace);font:var(--texto-cuerpo)/1 var(--fuente-ui);cursor:pointer}
+.np-pestanas button:hover{background:var(--superficie)}
+.np-pestanas button.on{border-color:var(--borde-fuerte);background:var(--superficie);color:var(--texto)}
+
+/* Rejilla: columna principal y columna lateral */
+.np-rejilla{display:grid;grid-template-columns:minmax(0,1fr) minmax(280px,350px);gap:var(--esp-5);align-items:start}
+.np-columna{display:flex;flex-direction:column;gap:var(--esp-5);min-width:0}
+.np-tarjeta{display:flex;flex-direction:column;align-items:flex-start;gap:var(--esp-3);padding:var(--esp-5);background:var(--superficie);border:var(--borde-ancho) solid var(--borde);border-radius:var(--radio-tarjeta)}
+.np-tarjeta>*{max-width:100%}
+.np-tarjeta h2{font-size:var(--texto-cuerpo-l);font-weight:var(--peso-fuerte)}
+.np-texto{color:var(--texto-2)}
+.np-meta{color:var(--texto-2);font-size:var(--texto-meta)}
+.np-mono{font-family:var(--fuente-mono)}
+
+/* Carpeta seleccionada */
+.np-carpeta{display:flex;align-items:center;gap:var(--esp-4);width:100%}
+.np-icono-carpeta{display:grid;place-items:center;width:40px;height:40px;flex-shrink:0;border:var(--borde-ancho) solid var(--accion-borde);border-radius:var(--radio-control);color:var(--enlace)}
+.np-carpeta-texto{flex:1;min-width:0;display:flex;flex-direction:column}
+.np-carpeta-texto b{font-size:var(--texto-cuerpo-l);font-weight:var(--peso-fuerte)}
+.np-carpeta-texto span{color:var(--texto-2);font-size:var(--texto-meta);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.np-sin-carpeta{display:flex;align-items:center;justify-content:space-between;gap:var(--esp-4);width:100%;flex-wrap:wrap}
+.np-sin-carpeta p{color:var(--texto-2)}
+.np-demo{width:100%;border:var(--borde-ancho) solid var(--borde);border-radius:var(--radio-control);overflow:hidden}
+.np-demo div{display:flex;align-items:center;gap:var(--esp-3);padding:var(--esp-3) var(--esp-4);font-family:var(--fuente-mono);font-size:13px;color:var(--texto);cursor:pointer}
+.np-demo div+div{border-top:var(--borde-ancho) solid var(--borde)}
+.np-demo div:hover{background:var(--superficie-2)}
+.np-demo div.sel{background:var(--accion-suave);color:var(--enlace)}
+.np-demo div:focus-visible{outline:2px solid var(--foco-anillo);outline-offset:-2px}
+
+/* Contenido de la carpeta */
+.np-datos{display:flex;flex-direction:column;width:100%}
+.np-datos div{display:grid;grid-template-columns:minmax(140px,200px) minmax(0,1fr);gap:var(--esp-4);padding:var(--esp-3) 0}
+.np-datos div+div{border-top:var(--borde-ancho) solid var(--borde)}
+.np-datos dt{color:var(--texto-2)}
+.np-datos dd{color:var(--texto)}
+
+/* Proyecto reconocido */
+.np-chip{display:inline-flex;align-items:center;gap:6px;padding:4px var(--esp-2);border-radius:var(--radio-chip);border:var(--borde-ancho) solid;font-size:var(--texto-meta);white-space:nowrap}
+.np-chip-exito{background:var(--exito-s);border-color:var(--exito-b);color:var(--exito-t)}
+.np-chip-bug{background:var(--bug-s);border-color:var(--bug-b);color:var(--bug-t)}
+.np-chip-aviso{background:var(--aviso-s);border-color:var(--aviso-b);color:var(--aviso-t)}
+.np-chip-progreso{background:var(--progreso-s);border-color:var(--progreso-b);color:var(--progreso-t)}
+.np-proyecto{font-size:22px;font-weight:var(--peso-fuerte);overflow-wrap:anywhere}
+.np-lenguaje{display:flex;align-items:center;gap:var(--esp-2);color:var(--texto)}
+.np-lenguaje svg{color:var(--enlace)}
+.np-confirmacion{display:flex;align-items:center;gap:var(--esp-2);color:var(--exito-t);font-size:var(--texto-meta)}
+
+/* Avisos */
+.np-aviso{display:flex;gap:var(--esp-3);align-items:flex-start;width:100%;padding:var(--esp-4) var(--esp-5);border-radius:var(--radio-tarjeta);border:var(--borde-ancho) solid}
+.np-aviso svg{flex-shrink:0;margin-top:2px}
+.np-aviso b{display:block;font-weight:var(--peso-fuerte)}
+.np-aviso span{display:block;color:var(--texto-2);margin-top:2px}
+.np-aviso-info{background:var(--info-s);border-color:var(--info-b);color:var(--info-t)}
+.np-aviso-aviso{background:var(--aviso-s);border-color:var(--aviso-b);color:var(--aviso-t)}
+
+/* Formulario de clonado */
+.np-etiqueta{font-weight:var(--peso-medio);margin-top:var(--esp-1)}
+.np-campo{position:relative;display:flex;align-items:center;width:100%}
+.np-campo svg{position:absolute;right:var(--esp-3);color:var(--texto-3);pointer-events:none}
+.np-input{width:100%;height:44px;padding:0 var(--esp-6) 0 var(--esp-3);border:var(--borde-ancho) solid var(--borde);border-radius:var(--radio-control);background:var(--hundido);color:var(--texto);font:var(--texto-cuerpo)/1 var(--fuente-ui)}
+.np-input::placeholder{color:var(--texto-3)}
+.np-input:focus{outline:none;border-color:var(--enlace);box-shadow:0 0 0 3px var(--foco-anillo)}
+.np-input:disabled{opacity:.6}
+.np-campo-accion{display:flex;gap:var(--esp-2);width:100%}
+.np-campo-accion .np-campo{flex:1;min-width:0}
+.np-campo-accion .ini-btn{height:44px;flex-shrink:0}
+.np-campo-corto{max-width:240px}
+.np-ayuda{color:var(--texto-2);font-size:var(--texto-meta);margin-top:calc(var(--esp-2) * -1)}
+.np-ayuda-error{color:var(--bug-t)}
+.np-opciones{width:100%;border-top:var(--borde-ancho) solid var(--borde);padding-top:var(--esp-3)}
+.np-opciones[open]{display:flex;flex-direction:column;gap:var(--esp-3)}
+.np-opciones summary,.np-detalle summary{color:var(--enlace);cursor:pointer;width:max-content}
+.np-casilla{display:flex;align-items:center;gap:var(--esp-2);color:var(--texto-2)}
+.np-casilla input{width:16px;height:16px;accent-color:var(--accion)}
+
+/* Progreso del clonado: la barra toma el color del estado (descargando, interrumpida o completa) */
+.np-progreso-cab{display:flex;align-items:center;justify-content:space-between;width:100%}
+.np-pct{color:var(--texto-2);font-family:var(--fuente-mono)}
+.np-barra{width:100%;height:6px;border-radius:var(--radio-pildora);background:var(--superficie-2);overflow:hidden}
+.np-barra i{display:block;height:100%;width:0;border-radius:inherit;background:var(--aviso);transition:width .3s ease}
+#cloneProg:has(.np-chip-progreso) .np-barra i{background:var(--progreso)}
+#cloneProg:has(.np-chip-exito) .np-barra i{background:var(--exito)}
+.np-detalle{width:100%}
+.np-log{margin-top:var(--esp-2);max-height:160px;overflow:auto;padding:var(--esp-3);border-radius:var(--radio-control);background:var(--codigo-fondo);color:var(--codigo-texto);font:12px/1.6 var(--fuente-mono);white-space:pre-wrap;overflow-wrap:anywhere}
+.np-girando{animation:np-girar 1s linear infinite}
+@keyframes np-girar{to{transform:rotate(360deg)}}
+
+/* Pasos de la clonación */
+.np-pasos{list-style:none;display:flex;flex-direction:column;gap:var(--esp-4);width:100%}
+.np-pasos li{display:flex;gap:var(--esp-3);align-items:flex-start}
+.np-paso-ico{display:grid;place-items:center;flex-shrink:0;margin-top:2px;color:var(--texto-3)}
+.np-pasos b{display:block;font-weight:var(--peso-medio)}
+.np-paso-det{display:block;color:var(--texto-2);font-size:var(--texto-meta)}
+.np-paso-hecho .np-paso-ico{color:var(--exito-t)}
+.np-paso-actual .np-paso-ico{color:var(--progreso-t)}
+.np-paso-error .np-paso-ico{color:var(--aviso-t)}
+.np-paso-pendiente b{color:var(--texto-2)}
+
+/* Pie y enlaces */
+.np-pie{display:flex;align-items:center;justify-content:space-between;gap:var(--esp-4);flex-wrap:wrap;color:var(--texto-2);font-size:var(--texto-meta)}
+.np-volver,.np-enlace-icono{display:inline-flex;align-items:center;gap:var(--esp-2)}
+.ini-enlace:disabled{opacity:.45;cursor:not-allowed;text-decoration:none}
+
+@media(max-width:1000px){
+  .np-rejilla{grid-template-columns:minmax(0,1fr)}
+}
+@media (prefers-reduced-motion:reduce){
+  .np-girando{animation:none}
+  .np-barra i{transition:none}
+}

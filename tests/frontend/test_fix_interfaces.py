@@ -50,15 +50,18 @@ def test_vista_previa_se_compacta_en_ventanas_de_poca_altura() -> None:
     assert "#s-preview .page" in estilos
 
 
-def test_guia_de_uso_se_muestra_como_no_disponible() -> None:
+def test_proyecto_actual_e_historial_empiezan_deshabilitados_sin_proyecto() -> None:
+    """Sin proyecto abierto, Proyecto actual e Historial se ven pero no se pueden abrir."""
     sidebar = _leer("componentes/sidebar/sidebar.js")
-    opcion = sidebar[sidebar.index('title="No disponible en esta versión"') :]
-    opcion = opcion[: opcion.index("</a>")]
 
-    assert 'aria-disabled="true"' in sidebar
-    assert 'class="off"' in sidebar
-    assert "No disponible" in opcion
-    assert "onclick=" not in opcion
+    for destino in ("proyecto", "history"):
+        posicion = sidebar.index(f'data-h="{destino}"')
+        enlace = sidebar[sidebar.rindex("<a ", 0, posicion) :]
+        enlace = enlace[: enlace.index("</a>")]
+        assert 'class="off"' in enlace
+        assert 'aria-disabled="true"' in enlace
+    # Solo se habilitan cuando hay un proyecto abierto
+    assert "habilitarEnlace(a, !!vistaProyecto)" in sidebar
 
 
 def test_monitor_envuelve_el_resumen_y_recorta_las_rutas_largas() -> None:
@@ -81,23 +84,22 @@ def test_monitor_envuelve_el_resumen_y_recorta_las_rutas_largas() -> None:
     assert ".nextbox{" not in ejecucion
 
 
-def test_vistas_sidebar_se_desbloquean_secuencialmente() -> None:
-    sidebar = _leer("componentes/sidebar/sidebar.js")
+def test_pasos_del_proyecto_se_desbloquean_secuencialmente() -> None:
+    pasos = _leer("componentes/pasos-proyecto/pasos-proyecto.js")
     vista_previa = _leer("componentes/vista-previa/vista-previa.js")
     config_pruebas = _leer("componentes/config-pruebas/config-pruebas.js")
     monitor = _leer("componentes/monitor/monitor.js")
 
-    # Al inicio, solo Vista previa y Configuración de pruebas son visibles
-    assert '<a data-v="preview">' in sidebar
-    assert '<a data-v="tests">' in sidebar
-    assert '<a data-v="monitor" class="hide off">' in sidebar
-    assert '<a data-v="exec" class="hide off">' in sidebar
-    assert '<a data-v="report" class="hide off">' in sidebar
-    assert '<a data-v="history" class="hide off">' in sidebar
+    # Al inicio, solo Explorar (Vista previa) y Preparar (Configuración de pruebas) están disponibles
+    assert '<a data-v="preview">' in pasos
+    assert '<a data-v="tests">' in pasos
+    assert '<a data-v="monitor" class="hide off">' in pasos
+    assert '<a data-v="exec" class="hide off">' in pasos
+    assert '<a data-v="report" class="hide off">' in pasos
 
-    # Funciones de control de secuencia en la barra lateral
-    assert "function desbloquearVista(" in sidebar
-    assert "function reiniciarVistasProyecto(" in sidebar
+    # Funciones de control de la secuencia
+    assert "function desbloquearVista(" in pasos
+    assert "function reiniciarVistasProyecto(" in pasos
 
     # Al cargar un proyecto (local o git), se reinicia el flujo
     assert "reiniciarVistasProyecto()" in vista_previa

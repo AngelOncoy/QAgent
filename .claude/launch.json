@@ -4,8 +4,8 @@
     {
       "name": "frontend-demo",
       "runtimeExecutable": ".venv/Scripts/python.exe",
-      "runtimeArgs": ["-m", "http.server", "8767", "--directory", "src/qagent/frontend"],
-      "port": 8767
+      "runtimeArgs": ["-m", "http.server", "8768", "--directory", "src/qagent/frontend"],
+      "port": 8768
     }
   ]
 }

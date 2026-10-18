@@ -9,7 +9,7 @@ INICIO = (FRONTEND / "componentes" / "inicio" / "inicio.js").read_text(encoding=
 MODAL_ABRIR = (FRONTEND / "componentes" / "inicio" / "modal-abrir.js").read_text(
     encoding="utf-8"
 )
-SIDEBAR = (FRONTEND / "componentes" / "sidebar" / "sidebar.js").read_text(
+PASOS = (FRONTEND / "componentes" / "pasos-proyecto" / "pasos-proyecto.js").read_text(
     encoding="utf-8"
 )
 VISTA_PREVIA = (
@@ -33,12 +33,12 @@ def test_abrir_reciente_transmite_opciones_de_prueba_previa() -> None:
     assert "loadProject(info.nombre" in INICIO
 
 
-def test_sidebar_define_desbloquear_todas_las_vistas() -> None:
-    """sidebar.js ofrece una funcion para habilitar todos los modulos a la vez."""
-    assert "function desbloquearTodasLasVistas()" in SIDEBAR
+def test_pasos_definen_desbloquear_todas_las_vistas() -> None:
+    """pasos-proyecto.js ofrece una funcion para habilitar todos los modulos a la vez."""
+    assert "function desbloquearTodasLasVistas()" in PASOS
     assert (
         "document.querySelectorAll('#views a').forEach(a => {\n    a.classList.remove('hide', 'off');\n  });"
-        in SIDEBAR
+        in PASOS
     )
 
 

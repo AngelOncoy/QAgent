@@ -1,0 +1,21 @@
+/* pasos-proyecto.css — pasos del proyecto abierto, arriba de cada pantalla del proyecto.
+   Usa solo los tokens del sistema (css/tokens.css, sección 1). */
+.pasos{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:var(--esp-3);padding:var(--esp-4) var(--esp-6);border-bottom:var(--borde-ancho) solid var(--borde);background:var(--fondo);font-family:var(--fuente-ui)}
+.pasos a{display:flex;align-items:center;gap:var(--esp-2);height:44px;padding:0 var(--esp-4);border-radius:var(--radio-control);background:var(--superficie);color:var(--texto-2);font-size:var(--texto-cuerpo);text-decoration:none;cursor:pointer;white-space:nowrap;overflow:hidden}
+.pasos a span:last-child{overflow:hidden;text-overflow:ellipsis}
+.paso-ico{display:grid;place-items:center;flex-shrink:0}
+.pasos a:hover{background:var(--superficie-2);color:var(--texto)}
+.pasos a.on{background:var(--accion-suave);color:var(--enlace);font-weight:var(--peso-medio)}
+.pasos a.hecho .paso-ico{color:var(--exito-t)}
+/* Un paso bloqueado se ve (para que se entienda el recorrido) pero no se puede abrir.
+   .pasos a.hide gana a la regla global .hide porque es más específica. */
+.pasos a.hide{display:flex!important}
+.pasos a.off{opacity:.5;cursor:not-allowed}
+.pasos a.off:hover{background:var(--superficie);color:var(--texto-2)}
+.pasos a:focus-visible{outline:2px solid var(--foco-anillo);outline-offset:1px}
+
+@media(max-width:900px){
+  .pasos{padding:var(--esp-3) var(--esp-4);gap:var(--esp-2)}
+  .pasos a{justify-content:center;padding:0 var(--esp-2)}
+  .pasos a span:last-child{display:none}
+}

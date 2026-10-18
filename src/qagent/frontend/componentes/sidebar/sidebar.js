@@ -1,7 +1,8 @@
-// sidebar.js — barra lateral retráctil (drawer): navegación, espacio de trabajo y estado del motor
+// sidebar.js — barra lateral retráctil (drawer): navegación principal, espacio de trabajo y estado del motor
 // HTML del componente (se monta en el marcador data-componente="sidebar/sidebar" de index.html)
+// Cuatro destinos siempre visibles: Inicio, Proyecto actual, Historial y Configuración. Los pasos de un
+// proyecto (Explorar → Resultados) viven en componentes/pasos-proyecto/, arriba de cada pantalla.
 // Plegada queda como un riel de íconos; cada enlace lleva title para verse como descripción emergente.
-// Íconos en línea con stroke="currentColor": toman el color del texto, que viene de los tokens.
 registrarComponente('sidebar/sidebar', `<!-- ======================= BARRA LATERAL ======================= -->
 <aside id="lateral" class="lateral" aria-label="Navegación principal">
   <div class="lat-cabecera">
@@ -12,63 +13,62 @@ registrarComponente('sidebar/sidebar', `<!-- ======================= BARRA LATER
     </button>
   </div>
 
-  <!-- Menú general: sin proyecto abierto -->
-  <div id="sideHome">
-    <nav class="lat-nav" aria-label="General">
-      <a class="on" data-h="welcome" onclick="go('welcome')"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M4 11 12 4l8 7v9H4z"/><path d="M10 20v-5h4v5"/></svg><span class="lat-txt">Inicio</span></a>
-      <a data-h="config" onclick="go('config')"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/></svg><span class="lat-txt">Configuración</span></a>
-      <a class="off" aria-disabled="true" title="No disponible en esta versión"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M4 5h7v14H4zM13 5h7v14h-7z"/></svg><span class="lat-txt">Guía de uso</span><span class="lat-insignia lat-txt">No disponible</span></a>
-    </nav>
-  </div>
+  <nav class="lat-nav" id="latNav" aria-label="Principal">
+    <a class="on" data-h="welcome" onclick="volverAInicio()"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M4 11 12 4l8 7v9H4z"/><path d="M10 20v-5h4v5"/></svg><span class="lat-txt">Inicio</span></a>
+    <a class="off" data-h="proyecto" aria-disabled="true" onclick="irAProyectoActual()"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M3 7h6l2 2h10v10H3z"/><path d="m10.5 12.5-1.5 1.5 1.5 1.5M13.5 12.5l1.5 1.5-1.5 1.5"/></svg><span class="lat-txt">Proyecto actual</span></a>
+    <a class="off" data-h="history" aria-disabled="true" onclick="irAHistorial()"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5M12 7v5l3 2"/></svg><span class="lat-txt">Historial</span></a>
+    <a data-h="config" onclick="go('config')"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/></svg><span class="lat-txt">Configuración</span></a>
+  </nav>
 
-  <!-- Menú del proyecto abierto -->
-  <div id="sideProj" class="hide">
-    <div class="side-back-wrap">
-      <button type="button" class="btn-side-back" id="btnVolverInicio" onclick="volverAInicio()" title="Volver a Inicio">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg>
-        <span class="lat-txt">Volver a Inicio</span>
-      </button>
-    </div>
-    <div class="lat-espacio lat-txt">
-      <span class="lat-etiqueta">Espacio de trabajo</span>
-      <b class="repoName"></b>
-      <span class="lat-rama" id="sideBranch">Rama <span id="branchLbl">main</span></span>
-    </div>
-    <nav id="views" class="lat-nav" aria-label="Proyecto">
-      <a data-v="preview"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="11" cy="11" r="6"/><path d="m20 20-4.5-4.5"/></svg><span class="lat-txt">Explorar</span></a>
-      <a data-v="tests"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/></svg><span class="lat-txt">Preparar</span></a>
-      <a data-v="monitor" class="hide off"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M3 12h4l3-7 4 14 3-7h4"/></svg><span class="lat-txt">En curso</span></a>
-      <a data-v="exec" class="hide off"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="m8 12 3 3 5-6"/></svg><span class="lat-txt">Pruebas</span></a>
-      <a data-v="report" class="hide off"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M6 3h9l4 4v14H6z"/><path d="M9 12h7M9 16h7"/></svg><span class="lat-txt">Resultados</span></a>
-      <a data-v="history" class="hide off"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5M12 7v5l3 2"/></svg><span class="lat-txt">Historial</span></a>
-    </nav>
+  <!-- Espacio de trabajo: solo con un proyecto abierto. La rama (#branchLbl) la leen el informe y la exportación. -->
+  <div class="lat-espacio lat-txt hide" id="latEspacio">
+    <span class="lat-etiqueta">Espacio de trabajo</span>
+    <b class="repoName"></b>
+    <span class="lat-detalle">Python · pytest<span id="sideBranch"> · rama <span id="branchLbl">main</span></span></span>
   </div>
 
   <!-- Estado del motor de ejecución (entorno aislado) -->
   <div class="sidefoot">
     <div class="lat-motor" id="sbRow">
-      <span class="dot" id="sbDot" aria-hidden="true"></span>
+      <span class="lat-motor-ico ok" id="sbDot" aria-hidden="true"></span>
       <div class="lat-motor-texto lat-txt">
         <b id="sbTxt">Motor activo</b>
         <small id="sbDetalle">Entorno aislado · sin internet</small>
         <button type="button" class="lat-motor-ayuda" id="sbAyuda" style="display:none" onclick="go('config')"><span id="sbAyudaTxt"></span></button>
       </div>
     </div>
-    <div class="lat-pie lat-txt">QAgent · Escritorio</div>
+    <div class="lat-pie">
+      <span class="lat-txt">QAgent · Escritorio</span>
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M12 3 5 6v6c0 4 3 7 7 9 4-2 7-5 7-9V6z"/><path d="m9 12 2 2 4-4"/></svg>
+    </div>
   </div>
 </aside>
 `);
 
 /* Indicador de estado del motor: consulta a Python al abrir y cada 15 s.
-   Los textos hablan del «motor» (el entorno aislado); Docker solo se nombra cuando hay que actuar. */
-const SANDBOX_UI = {
-  ok:           {dot:'dot',       txt:'ok',     label:'Motor activo',         detalle:'Entorno aislado · sin internet', ayuda:''},
-  sin_imagen:   {dot:'dot amber', txt:'warn',   label:'Motor sin preparar',   detalle:'Falta la imagen del entorno aislado', ayuda:''},
-  no_iniciado:  {dot:'dot red',   txt:'no',     label:'Motor inactivo',       detalle:'El entorno aislado está detenido', ayuda:'Abre Docker Desktop'},
-  no_instalado: {dot:'dot red',   txt:'no',     label:'Motor no instalado',   detalle:'Se necesita para verificar pruebas', ayuda:'Instala Docker Desktop'},
-  // Con la IA simulada no se ejecuta nada en el sandbox: que Docker falte no es un fallo.
-  opcional:     {dot:'dot grey',  txt:'neutro', label:'Motor opcional',       detalle:'No se usa con la IA simulada', ayuda:''},
+   Los textos hablan del «motor» (el entorno aislado); Docker solo se nombra cuando hay que actuar.
+   Cada estado lleva ícono, color y texto: se entiende sin depender del color. */
+const ICO_MOTOR = {
+  ok:      '<path d="M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18z"/><path d="m8 12 3 3 5-6"/>',
+  pausa:   '<path d="M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18z"/><path d="M10 9v6M14 9v6"/>',
+  aviso:   '<path d="M12 3 2 20h20z"/><path d="M12 10v4M12 17h.01"/>',
+  error:   '<path d="M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18z"/><path d="M12 8v5M12 16h.01"/>',
+  neutro:  '<path d="M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18z"/><path d="M8 12h8"/>',
 };
+const SANDBOX_UI = {
+  ok:           {ico:'ok',     txt:'ok',     label:'Motor activo',       detalle:'Entorno aislado · sin internet',      ayuda:''},
+  sin_imagen:   {ico:'aviso',  txt:'warn',   label:'Motor sin preparar', detalle:'Falta la imagen del entorno aislado', ayuda:''},
+  no_iniciado:  {ico:'pausa',  txt:'warn',   label:'Motor inactivo',     detalle:'Inícialo en Configuración',           ayuda:'Abre Docker Desktop'},
+  no_instalado: {ico:'error',  txt:'no',     label:'Motor no instalado', detalle:'Se necesita para verificar pruebas',  ayuda:'Instala Docker Desktop'},
+  // Con la IA simulada no se ejecuta nada en el sandbox: que Docker falte no es un fallo.
+  opcional:     {ico:'neutro', txt:'neutro', label:'Motor opcional',     detalle:'No se usa con la IA simulada',        ayuda:''},
+};
+function pintarMotor(ui){
+  $('sbDot').className = 'lat-motor-ico ' + ui.txt;
+  $('sbDot').innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">${ICO_MOTOR[ui.ico]}</svg>`;
+  $('sbTxt').textContent = ui.label;
+  $('sbDetalle').textContent = ui.detalle;
+}
 let sandboxConsultando = false;
 async function actualizarSandbox() {
   // Sin pywebview (HTML abierto en el navegador) se mantiene el estado verde del demo
@@ -80,15 +80,11 @@ async function actualizarSandbox() {
     // IA simulada y Docker sin responder (o sin imagen): se muestra como opcional, no como error.
     const clave = r && r.simulado && r.estado !== 'ok' ? 'opcional' : r && r.estado;
     const ui = SANDBOX_UI[clave] || SANDBOX_UI.no_iniciado;
-    if ($('sbDot')) $('sbDot').className = ui.dot;
-    if ($('sbTxt')) { $('sbTxt').textContent = ui.label; $('sbTxt').className = ui.txt; }
-    if ($('sbDetalle')) $('sbDetalle').textContent = ui.detalle;
-    if ($('sbRow')) $('sbRow').title = ui.label + ' · ' + ((r && r.mensaje) || ui.detalle);
-    if ($('sbAyudaTxt')) $('sbAyudaTxt').textContent = ui.ayuda;
-    if ($('sbAyuda')) {
-      $('sbAyuda').title = (r && r.mensaje) || '';
-      $('sbAyuda').style.display = ui.ayuda ? '' : 'none';
-    }
+    pintarMotor(ui);
+    $('sbRow').title = ui.label + ' · ' + ((r && r.mensaje) || ui.detalle);
+    $('sbAyudaTxt').textContent = ui.ayuda;
+    $('sbAyuda').title = (r && r.mensaje) || '';
+    $('sbAyuda').style.display = ui.ayuda ? '' : 'none';
   } catch (err) {
     console.error("Error al consultar el estado del sandbox:", err);
   } finally {
@@ -121,12 +117,11 @@ function iniciarLateral(){
   $('lateral').classList.toggle('plegada', plegada);
   $('btnPlegar').setAttribute('aria-expanded', String(!plegada));
   $('btnPlegar').setAttribute('aria-label', plegada ? 'Expandir la barra lateral' : 'Plegar la barra lateral');
-  // Plegada solo se ven los íconos: el nombre de cada destino queda como descripción emergente.
   // Los enlaces no tienen href: se hacen alcanzables con Tab y se activan con Enter o Espacio.
-  document.querySelectorAll('#lateral .lat-nav a').forEach(a => {
-    if(!a.title) a.title = a.textContent.trim();
+  // Plegada solo se ven los íconos: el nombre de cada destino queda como descripción emergente.
+  document.querySelectorAll('#latNav a').forEach(a => {
+    a.title = a.textContent.trim();
     a.setAttribute('role', 'link');
-    if(!a.classList.contains('off')) a.tabIndex = 0;
     a.addEventListener('keydown', e => {
       if(e.key === 'Enter' || e.key === ' '){ e.preventDefault(); a.click(); }
     });
@@ -139,6 +134,17 @@ function iniciarLateral(){
   });
 }
 
+/* Proyecto actual: recuerda en qué paso del proyecto estaba la persona para volver ahí. */
+const VISTAS_PROYECTO = ['preview','tests','monitor','exec','report'];
+let vistaProyecto = null;   // null hasta que se abre un proyecto
+function irAProyectoActual(){ if(vistaProyecto) go(vistaProyecto); }
+function irAHistorial(){ if(vistaProyecto) go('history'); }
+function habilitarEnlace(a, si){
+  a.classList.toggle('off', !si);
+  if(si){ a.removeAttribute('aria-disabled'); a.tabIndex = 0; }
+  else { a.setAttribute('aria-disabled', 'true'); a.tabIndex = -1; }
+}
+
 function volverAInicio(){
   if (typeof monitorStarted !== 'undefined' && monitorStarted && typeof runDone !== 'undefined' && !runDone) {
     if (!confirm('Hay una corrida de pruebas en ejecución activa. ¿Deseas volver a la pantalla principal?')) {
@@ -148,54 +154,30 @@ function volverAInicio(){
   go('welcome');
 }
 
-// Resalta la pantalla activa y alterna el menú de inicio / el menú del proyecto. Lo invoca go(v).
+// Resalta el destino activo y habilita Proyecto actual e Historial cuando hay un proyecto. Lo invoca go(v).
 function actualizarSidebar(v){
-  const home = v==='welcome' || v==='config';
-  $('sideHome').classList.toggle('hide', !home);
-  $('sideProj').classList.toggle('hide', home);
-  $('sideBranch').classList.toggle('hide', home);   // la rama solo tiene sentido con un proyecto abierto
-  document.querySelectorAll('#sideHome nav a').forEach(a => {
-    a.classList.toggle('on', a.dataset.h===v);
-    if(a.dataset.h===v) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current');
+  if(VISTAS_PROYECTO.includes(v)) vistaProyecto = v;
+  const activo = VISTAS_PROYECTO.includes(v) ? 'proyecto' : (v === 'open' || v === 'clone' ? 'welcome' : v);
+  document.querySelectorAll('#latNav a').forEach(a => {
+    if(a.dataset.h === 'proyecto' || a.dataset.h === 'history') habilitarEnlace(a, !!vistaProyecto);
+    a.classList.toggle('on', a.dataset.h === activo);
+    if(a.dataset.h === activo) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current');
   });
-  document.querySelectorAll('#views a').forEach(a => {
-    a.classList.toggle('on', a.dataset.v===v);
-    if(a.dataset.v===v) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current');
-  });
-}
-
-function desbloquearVista(v){
-  document.querySelectorAll(`#views a[data-v="${v}"]`).forEach(a => {
-    a.classList.remove('hide', 'off');
-  });
-}
-
-function desbloquearTodasLasVistas(){
-  document.querySelectorAll('#views a').forEach(a => {
-    a.classList.remove('hide', 'off');
-  });
-}
-
-function reiniciarVistasProyecto(){
-  document.querySelectorAll('#views a').forEach(a => {
-    const v = a.dataset.v;
-    if(v === 'preview' || v === 'tests'){
-      a.classList.remove('hide', 'off');
-    } else {
-      a.classList.add('hide', 'off');
-    }
-  });
+  $('latEspacio').classList.toggle('hide', !vistaProyecto);
+  $('sideBranch').classList.toggle('hide', !$('branchLbl').textContent || $('branchLbl').textContent === '—');
+  if(vistaProyecto){
+    $('latNav').querySelector('[data-h="proyecto"]').title = 'Proyecto actual';
+    $('latNav').querySelector('[data-h="history"]').title = 'Historial';
+  } else {
+    $('latNav').querySelector('[data-h="proyecto"]').title = 'Abre un proyecto para continuar';
+    $('latNav').querySelector('[data-h="history"]').title = 'Abre un proyecto para ver su historial';
+  }
 }
 
 // Se llama desde main.js cuando el HTML de la barra lateral ya está montado.
 function iniciarSidebar(){
-  reiniciarVistasProyecto();
   iniciarLateral();
-  document.querySelectorAll('#views a').forEach(a => a.onclick = () => {
-    if(a.classList.contains('off') || a.classList.contains('hide')) return;
-    if(a.dataset.v==='monitor' && !monitorStarted) { startMonitor(); return; }
-    go(a.dataset.v);
-  });
+  pintarMotor(SANDBOX_UI.ok);   // estado del demo; la app real lo reemplaza al consultar a Python
   if (window.pywebview && window.pywebview.api) iniciarEstadoSandbox();
   else window.addEventListener('pywebviewready', iniciarEstadoSandbox, {once:true});
 }
