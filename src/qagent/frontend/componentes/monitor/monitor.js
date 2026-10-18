@@ -30,6 +30,8 @@ registrarComponente('monitor/monitor', `<!-- ===== 4. EN CURSO: PROGRESO EN VIVO
       <div class="np-barra prg-barra"><i id="prgBarra"></i></div>
     </div>
 
+    <div class="np-aviso np-aviso-info hide" id="prgEntorno">${ICO_GIRANDO}<div><b>Instalando las dependencias del proyecto en el entorno aislado</b><span>La primera corrida con este requirements.txt instala sus librerías (por ejemplo torch u opencv) y puede tardar varios minutos según tu conexión. Las siguientes corridas reutilizan lo instalado.</span><span class="prg-entorno-paso" id="prgEntornoPaso"></span></div></div>
+
     <div class="np-aviso np-aviso-aviso hide" id="prgAlerta">${ICO_AVISO_CLON}<div><b id="prgAlertaTitulo"></b><span id="prgAlertaTxt"></span></div></div>
 
     <div class="prg-rejilla">
@@ -114,7 +116,14 @@ function registrarPaso({a, f, fn, t, guard, hechos, total, tipo_objetivo}){
   if (a === 'reuse' && clave) PRG.reuso.add(clave);
   if (typeof hechos === 'number' && total) { PRG.hechos = hechos; PRG.total = total; }
   if (fn) PRG.actual = {fn, f, tipo: tipo_objetivo, etapa: etapa || PRG.etapa, texto: t, pasos: (PRG.actual && PRG.actual.fn === fn ? PRG.actual.pasos : 0) + 1};
-  if (a === 'guard') PRG.alerta = {titulo:'Se bloqueó un intento de debilitar una prueba', texto:`En ${fn || 'una función'} la prueba generada relajaba la comprobación. Se mantiene el criterio original: el posible bug no se esconde.`};
+  // Al preparar el entorno aislado se instalan las dependencias del proyecto (solo la primera vez
+  // con ese requirements.txt). El backend no informa avance en ese paso: se explica la espera.
+  // El backend informa cada paso de la instalación («Descargando torch (821.0 MB)»): el aviso sigue
+  // visible con el último paso hasta que llega la primera etapa de la corrida.
+  if (etapa) PRG.preparandoEntorno = false;
+  else if (/entorno aislado/i.test(String(t || ''))) PRG.preparandoEntorno = true;
+  if (PRG.preparandoEntorno && !etapa) PRG.pasoEntorno = textoPlano(t || '');
+  if (a === 'guard') PRG.alerta ={titulo:'Se bloqueó un intento de debilitar una prueba', texto:`En ${fn || 'una función'} la prueba generada relajaba la comprobación. Se mantiene el criterio original: el posible bug no se esconde.`};
   if (a === 'oracle') PRG.alerta = {titulo:'Posible bug detectado', texto:`En ${fn || 'una función'} el resultado no coincide con lo que dice el contrato. Se conserva la prueba para que lo revises.`};
   PRG.pasos.unshift({hora: Date.now(), a, fn, t, guard});
   PRG.pasos = PRG.pasos.slice(0, 8);
@@ -127,7 +136,10 @@ function pintarProgreso(){
   if (!PRG) return;
   const etapaActual = ETAPAS_PRG.find(e => e.k === PRG.etapa);
   $('prgTitulo').textContent = PRG.fin ? (PRG.fin.ok ? 'Corrida completada' : 'Corrida detenida')
+    : PRG.preparandoEntorno ? 'Preparando el entorno aislado'
     : etapaActual ? etapaActual.titulo : 'Preparando la corrida';
+  $('prgEntorno').classList.toggle('hide', !(PRG.preparandoEntorno && !PRG.fin));
+  $('prgEntornoPaso').textContent = PRG.pasoEntorno && !/^Preparando el entorno aislado/i.test(PRG.pasoEntorno) ? PRG.pasoEntorno : '';
   const proyecto = (document.querySelector('.ini-migas .repoName') || {}).textContent || '';
   $('prgSub').textContent = [proyecto, `Corrida iniciada a las ${new Date(PRG.inicio).toLocaleTimeString('es-PE', {hour:'2-digit', minute:'2-digit'})}`, transcurrido()].filter(Boolean).join(' · ');
 

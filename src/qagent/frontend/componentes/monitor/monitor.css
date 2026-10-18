@@ -43,3 +43,5 @@
   .prg-hora{display:none}
   #s-monitor .page.prg{padding-left:var(--esp-4);padding-right:var(--esp-4)}
 }
+.prg-entorno-paso{margin-top:var(--esp-2);font-family:var(--fuente-mono);font-size:var(--texto-meta);color:var(--texto)}
+.prg-entorno-paso:empty{display:none}
