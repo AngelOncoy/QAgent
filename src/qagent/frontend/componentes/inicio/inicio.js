@@ -26,7 +26,7 @@ registrarComponente('inicio/inicio', `<!-- ===== 1. INICIO ===== -->
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M3 7h6l2 2h10v10H3z"/></svg>
               Abrir carpeta
             </button>
-            <button type="button" class="ini-btn" onclick="openModal('m-clone')">
+            <button type="button" class="ini-btn" onclick="irAClonar()">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="6" cy="6" r="2.5"/><circle cx="6" cy="18" r="2.5"/><circle cx="18" cy="9" r="2.5"/><path d="M6 8.5v7M18 11.5c0 3-4 3-10 5.5"/></svg>
               Clonar URL Git
             </button>

@@ -157,7 +157,7 @@ function volverAInicio(){
 // Resalta el destino activo y habilita Proyecto actual e Historial cuando hay un proyecto. Lo invoca go(v).
 function actualizarSidebar(v){
   if(VISTAS_PROYECTO.includes(v)) vistaProyecto = v;
-  const activo = VISTAS_PROYECTO.includes(v) ? 'proyecto' : v;
+  const activo = VISTAS_PROYECTO.includes(v) ? 'proyecto' : (v === 'open' || v === 'clone' ? 'welcome' : v);
   document.querySelectorAll('#latNav a').forEach(a => {
     if(a.dataset.h === 'proyecto' || a.dataset.h === 'history') habilitarEnlace(a, !!vistaProyecto);
     a.classList.toggle('on', a.dataset.h === activo);
