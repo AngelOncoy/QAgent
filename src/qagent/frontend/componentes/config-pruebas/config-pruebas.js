@@ -213,6 +213,12 @@ function renderComprobaciones(lista){
 }
 
 /* ---------- Límites de la corrida / Inicio no disponible ---------- */
+// Intentos y tiempo máximo vigentes (los carga Configuración con obtener_limites).
+function textoLimites(){
+  const lim = typeof LIMITES !== 'undefined' ? LIMITES : {max_intentos: 3, timeout_s: 120};
+  const n = lim.max_intentos;
+  return `Hasta ${n} ${n === 1 ? 'intento' : 'intentos'} por función · tiempo máximo ${lim.timeout_s} s por prueba`;
+}
 function renderDetallesCorrida(e, bloqueado, prioritarias, epsPrioritarios = 0){
   const {p, reused, tok} = e;
   if (bloqueado) {
@@ -222,7 +228,7 @@ function renderDetallesCorrida(e, bloqueado, prioritarias, epsPrioritarios = 0){
     return;
   }
   const filas = [
-    'Hasta 3 reintentos por función',
+    textoLimites(),
     `Uso de IA estimado: <b>${usoIA(tok)}</b>${tok ? ` · ~${tok.toLocaleString('es-PE')} tokens` : ''}`,
     `Duración aproximada: <b>${p.duracion}</b> · ~${e.time} min`,
     reused ? `${reused} sin cambios: se reutiliza el trabajo anterior.` : '',
