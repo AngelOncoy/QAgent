@@ -35,7 +35,8 @@ src/qagent/frontend/
 │   ├── puente-python.js  Recibe eventos de Python (window.onQAgentEvent)
 │   └── main.js           Arranque
 └── componentes/          Un componente por pantalla o modal
-    ├── sidebar/          Barra lateral y estado del sandbox
+    ├── sidebar/          Barra lateral retráctil (Ctrl+B): Inicio, Proyecto actual, Historial, Configuración y estado del motor
+    ├── pasos-proyecto/   Pasos del proyecto abierto (Explorar → Preparar → En curso → Pruebas → Resultados) y su desbloqueo
     ├── inicio/           Bienvenida y recientes · modal-abrir · modal-clonar
     ├── vista-previa/     Árbol de módulos y tabla de funciones
     ├── config-pruebas/   Qué hacer, tipo de prueba, Profundizar (caja blanca) y detalles de la corrida

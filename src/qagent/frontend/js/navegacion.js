@@ -9,6 +9,7 @@ function go(v){
   if(v==='welcome') cargarRecientes();
   if(v==='config') renderConfig();
   actualizarSidebar(v);
+  actualizarPasos(v);
 }
 
 /* ---------------- Modales ---------------- */
