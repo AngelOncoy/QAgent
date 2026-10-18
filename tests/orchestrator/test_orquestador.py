@@ -272,8 +272,17 @@ def test_agente_colgado_no_cuelga_la_corrida() -> None:
     resultado = orquestador.ejecutar(MODULO)
 
     assert time.monotonic() - inicio < 2
-    assert resultado.estado_final is E.FALLO_CONTROLADO
-    assert "no respondió" in resultado.motivo_fallo
+    # A2: un agente que no responde deja esa función sin veredicto y el módulo
+    # termina; ya no lo detiene (ver test_tiempo_agotado.py).
+    assert resultado.estado_final is E.FIN
+    [objetivo] = resultado.objetivos
+    assert objetivo.decision is None
+    assert objetivo.motivo_sin_veredicto == "tiempo_agotado"
+    assert any(
+        "no respondió" in e.mensaje
+        for e in orquestador.bus.historial
+        if e.tipo == "veredicto"
+    )
 
 
 # --- Métricas y configuración ---------------------------------------------------

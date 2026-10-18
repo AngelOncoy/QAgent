@@ -226,7 +226,9 @@ def ejecutar_corrida(
             PlannerAgent(
                 clientes["planner"], tracker, es_simulado=simulado, perfil=perfil
             ),
-            GeneratorAgent(clientes["generator"], tracker, es_simulado=simulado),
+            GeneratorAgent(
+                clientes["generator"], tracker, es_simulado=simulado, ruta_proyecto=ruta
+            ),
             ReviewerAgent(
                 tracker,
                 ruta,

@@ -109,6 +109,9 @@ def a_evento_bitacora(fila: dict[str, Any]) -> dict[str, Any]:
 def _clasificar(
     agente: str, tipo: Any, mensaje: str, evento: dict[str, Any]
 ) -> tuple[str, tuple[str, str] | None]:
+    datos = evento.get("datos") or {}
+    if tipo == "veredicto" and datos.get("motivo") == "tiempo_agotado":
+        return "watch", ("Tiempo agotado: el agente no respondió", "SIN VEREDICTO")
     if agente in ("planner", "generator"):
         return agente, None
     if agente == "reviewer":

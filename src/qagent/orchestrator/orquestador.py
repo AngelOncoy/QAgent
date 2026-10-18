@@ -1,8 +1,10 @@
 """Orquestador de la corrida: máquina de estados que coordina a los 3 agentes (EN-04).
 
 planificar -> generar -> ejecutar y revisar -> [reintentar -> generar ...] -> fin
-Cualquier timeout o error del sandbox (o de un agente) termina en fallo controlado,
-sin colgar la corrida y devolviendo lo que se alcanzó a procesar.
+Un error del sandbox o de un agente termina en fallo controlado, sin colgar la corrida
+y devolviendo lo que se alcanzó a procesar. Si el problema es solo de tiempo o de red
+(el agente no respondió a tiempo o el proveedor de IA está saturado), afecta a esa
+función: queda sin veredicto y se sigue con la siguiente.
 """
 
 from __future__ import annotations
@@ -17,6 +19,7 @@ from typing import Any, TypeVar
 from qagent import contracts
 from qagent.agents.generator import ErrorRespuestaGenerator
 from qagent.contracts import ContratoInvalido
+from qagent.llm.cliente import LimiteProveedor, SinConexion
 from qagent.llm.tracker import TokenTracker
 from qagent.orchestrator.estados import Estado, validar_transicion
 from qagent.orchestrator.eventos import BusEventos, Evento
@@ -57,6 +60,26 @@ class TimeoutPaso(FalloControlado):
     """Un agente no respondió dentro de `timeout_paso_s`."""
 
 
+#: Motivo de un objetivo sin veredicto porque un agente no respondió a tiempo.
+TIEMPO_AGOTADO = "tiempo_agotado"
+
+
+def es_falla_pasajera(error: BaseException) -> bool:
+    """True si el error es de tiempo o de red y no del código, el test o la cuenta.
+
+    El cliente de IA envuelve sus errores, así que se recorre la cadena de causas:
+    sirven un `TimeoutPaso`, un `SinConexion` (incluye no responder en el plazo) o un
+    `LimiteProveedor` que siguió tras los reintentos. No sirven, por ejemplo, la
+    falta de crédito o una clave inválida: fallarían igual en todas las funciones.
+    """
+    actual: BaseException | None = error
+    while actual is not None:
+        if isinstance(actual, (TimeoutPaso, SinConexion, LimiteProveedor)):
+            return True
+        actual = actual.__cause__
+    return False
+
+
 @dataclass
 class ResultadoObjetivo:
     """Resultado de una función o endpoint del plan."""
@@ -80,6 +103,9 @@ class ResultadoObjetivo:
     #: Mutation testing de una función crítica aprobada (EN-09): estado, puntuacion,
     #: detectados, sobrevivientes y mensaje. None si no se ejecutó mutmut.
     mutacion: dict[str, Any] | None = None
+    #: Por qué quedó sin veredicto (decision None) sin detener el módulo: hoy solo
+    #: `TIEMPO_AGOTADO`. El detalle del error va en el Monitor y la bitácora.
+    motivo_sin_veredicto: str | None = None
 
 
 @dataclass
@@ -348,6 +374,9 @@ class Orquestador:
             try:
                 test = self._generar(copy.deepcopy(contrato), intento, feedback)
             except FalloControlado as error:
+                if es_falla_pasajera(error):
+                    self._sin_veredicto(resultado, intento, inicio, "generator", error)
+                    return
                 causa = error.__cause__
                 if not isinstance(causa, ErrorRespuestaGenerator) or not causa.codigo:
                     raise
@@ -363,7 +392,15 @@ class Orquestador:
                 }
             resultado.codigo = test["codigo"]
             self._transicionar(Estado.EJECUTAR_REVISAR, objetivo)
-            revision = self._revisar(copy.deepcopy(contrato), test, test_anterior, tope)
+            try:
+                revision = self._revisar(
+                    copy.deepcopy(contrato), test, test_anterior, tope
+                )
+            except FalloControlado as error:
+                if not es_falla_pasajera(error):
+                    raise
+                self._sin_veredicto(resultado, intento, inicio, "reviewer", error)
+                return
 
             resultado.intentos = intento
             resultado.duracion_s = round(time.monotonic() - inicio, 3)
@@ -389,6 +426,30 @@ class Orquestador:
             # Solo el último error: el feedback anterior se reemplaza, no se acumula.
             intento, feedback, test_anterior = intento + 1, revision["feedback"], test
             hash_anterior = revision["hash_error"]
+
+    def _sin_veredicto(
+        self,
+        resultado: ResultadoObjetivo,
+        intento: int,
+        inicio: float,
+        agente: str,
+        error: BaseException,
+    ) -> None:
+        """Cierra el objetivo sin veredicto por tiempo o red; el módulo sigue.
+
+        Reintentar con el mismo proveedor lento casi nunca sirve y gastaría el
+        tiempo de las demás funciones, así que se pasa a la siguiente.
+        """
+        resultado.intentos = intento
+        resultado.duracion_s = round(time.monotonic() - inicio, 3)
+        resultado.motivo_sin_veredicto = TIEMPO_AGOTADO
+        self._emitir(
+            agente,
+            resultado.objetivo,
+            f"Sin veredicto: {error}. Se sigue con la siguiente función.",
+            "veredicto",
+            {"decision": None, "intento": intento, "motivo": TIEMPO_AGOTADO},
+        )
 
     def _emitir_veredicto(
         self, objetivo: str, decision: str, intento: int, motivo: str | None
@@ -461,8 +522,11 @@ class Orquestador:
         impide que el proceso termine.
         """
         salida: dict[str, Any] = {}
+        # El hilo registra sus tokens con el contexto de ahora, aunque termine tarde.
+        contexto = self.tracker.contexto_actual()
 
         def objetivo_hilo() -> None:
+            self.tracker.fijar_contexto_hilo(*contexto)
             try:
                 salida["valor"] = funcion(*args)
             except BaseException as error:  # noqa: BLE001 — se reporta como fallo controlado

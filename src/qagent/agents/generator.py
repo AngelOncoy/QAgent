@@ -1,13 +1,25 @@
-"""Agente Generator: convierte un contrato del Planner en código pytest."""
+"""Agente Generator: convierte un contrato del Planner en código pytest.
+
+Si conoce la carpeta del proyecto, agrega al prompt el contexto estático del módulo de
+la función (imports, nombres globales que usa, su código y los paquetes del sandbox;
+ver `qagent.analysis.contexto`). Sirve para importar y simular bien, no para decidir el
+valor esperado: ese sale del contrato y el Reviewer rechaza cualquier aserción que se
+aparte de él.
+"""
 
 from __future__ import annotations
 
 import ast
 import json
-from pathlib import PurePosixPath
+from pathlib import Path, PurePosixPath
 from typing import Any
 
 from qagent import contracts
+from qagent.analysis.contexto import (
+    PAQUETES_BASE,
+    ContextoFuncion,
+    contexto_de_funcion,
+)
 from qagent.llm import ClienteLLM, TokenTracker
 from qagent.llm.fake import MARCA_CONTRATO
 
@@ -32,11 +44,18 @@ class GeneratorAgent:
         tracker: TokenTracker,
         *,
         es_simulado: bool = False,
+        ruta_proyecto: str | Path | None = None,
     ) -> None:
-        """Inicializa el Generator con su cliente y registro de tokens."""
+        """Inicializa el Generator con su cliente y registro de tokens.
+
+        Args:
+            ruta_proyecto: carpeta del proyecto; si se da, el prompt de cada función
+                lleva el contexto estático de su módulo. Si es None, solo el contrato.
+        """
         self.cliente = cliente
         self.tracker = tracker
         self.es_simulado = es_simulado
+        self.ruta_proyecto = Path(ruta_proyecto) if ruta_proyecto else None
 
     def generar(
         self,
@@ -45,7 +64,9 @@ class GeneratorAgent:
         feedback: str | None,
     ) -> dict[str, Any]:
         """Genera o corrige un test pytest."""
-        prompt = self._crear_prompt(contrato, intento, feedback)
+        prompt = self._crear_prompt(
+            contrato, intento, feedback, self._contexto(contrato)
+        )
         respuesta = self.cliente.generar(prompt, rol="generator")
 
         self.tracker.registrar(
@@ -78,11 +99,20 @@ class GeneratorAgent:
         contracts.validar(contracts.GENERATED_TEST, generado)
         return generado
 
+    def _contexto(self, contrato: dict[str, Any]) -> ContextoFuncion | None:
+        """Contexto del módulo de una función (los endpoints ya traen su declaración)."""
+        if self.ruta_proyecto is None or contrato.get("tipo") == "endpoint":
+            return None
+        return contexto_de_funcion(
+            self.ruta_proyecto, contrato["modulo"], contrato["objetivo"]
+        )
+
     @staticmethod
     def _crear_prompt(
         contrato: dict[str, Any],
         intento: int,
         feedback: str | None,
+        contexto: ContextoFuncion | None = None,
     ) -> str:
         # Una sola línea: más corto (menos tokens) y la IA simulada lo puede leer.
         contrato_json = json.dumps(contrato, ensure_ascii=False)
@@ -103,6 +133,8 @@ class GeneratorAgent:
 - Llama directamente a la función con la entrada de cada caso.
 - Para un caso con "excepcion" usa: with pytest.raises(<Excepcion>).
 """.strip()
+            if contexto is not None:
+                reglas_objetivo += "\n" + _reglas_contexto(contrato)
         return f"""
 Escribe un archivo pytest completo para el contrato indicado.
 
@@ -118,9 +150,38 @@ REGLAS OBLIGATORIAS:
 
 FEEDBACK DEL INTENTO ANTERIOR:
 {correccion}
-
+{_texto_contexto(contexto)}
 {MARCA_CONTRATO} {contrato_json}
 """.strip()
+
+
+def _reglas_contexto(contrato: dict[str, Any]) -> str:
+    """Reglas para usar el contexto del módulo sin tocar el oráculo del contrato."""
+    modulo = modulo_importable(contrato["modulo"])
+    return f"""
+- Usa el CONTEXTO DEL MÓDULO solo para saber qué importar y qué simular. El valor
+  esperado de cada caso sale SIEMPRE del contrato, nunca del código de la función.
+- Si la función usa nombres globales del módulo (configuración, clientes, objetos
+  de un framework como request o g, bibliotecas opcionales), simúlalos con
+  unittest.mock.patch("{modulo}.<nombre>").
+- No importes paquetes que no estén instalados en el sandbox: simúlalos.
+""".strip()
+
+
+def _texto_contexto(contexto: ContextoFuncion | None) -> str:
+    """Bloque CONTEXTO DEL MÓDULO del prompt (vacío si no hay contexto)."""
+    if contexto is None:
+        return ""
+    instalados = ", ".join([*PAQUETES_BASE, *contexto.paquetes])
+    return f"""
+CONTEXTO DEL MÓDULO (para importar y simular; no para decidir valores esperados):
+Imports del módulo:
+{chr(10).join(contexto.imports) or "(ninguno)"}
+Nombres globales del módulo que usa la función: {", ".join(contexto.globales_usados) or "(ninguno)"}
+Paquetes instalados en el sandbox: {instalados}
+Código de la función:
+{contexto.codigo}
+"""
 
 
 def _reglas_endpoint(contrato: dict[str, Any]) -> str:

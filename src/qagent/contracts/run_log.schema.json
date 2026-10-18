@@ -206,6 +206,10 @@
           "$ref": "#/$defs/casos_por_categoria",
           "description": "#76. Casos del contrato del objetivo por categoría. Opcional: las corridas anteriores no lo tienen."
         },
+        "motivo_sin_veredicto": {
+          "enum": ["tiempo_agotado", null],
+          "description": "Por qué un objetivo quedó sin veredicto (decision null) sin detener el módulo: tiempo_agotado (un agente o el proveedor de IA no respondió a tiempo). Opcional: las corridas anteriores no lo tienen."
+        },
         "motivo_estancado": {
           "enum": ["limite_intentos", "error_repetido", null],
           "description": "Por qué se cortó una prueba stalled: limite_intentos (3 intentos) o error_repetido (mismo hash de error dos veces seguidas). El intento del corte es metricas.iteraciones."

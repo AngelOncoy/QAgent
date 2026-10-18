@@ -21,7 +21,11 @@ TERMINALES = frozenset({Estado.FIN, Estado.FALLO_CONTROLADO})
 TRANSICIONES: dict[Estado, frozenset[Estado]] = {
     # Un plan vacío (módulo sin funciones públicas) termina directo en FIN.
     Estado.PLANIFICAR: frozenset({Estado.GENERAR, Estado.FIN, Estado.FALLO_CONTROLADO}),
-    Estado.GENERAR: frozenset({Estado.EJECUTAR_REVISAR, Estado.FALLO_CONTROLADO}),
+    # Si el Generator no responde (tiempo agotado), el objetivo queda sin veredicto y
+    # se pasa al siguiente (GENERAR) o a FIN.
+    Estado.GENERAR: frozenset(
+        {Estado.EJECUTAR_REVISAR, Estado.GENERAR, Estado.FIN, Estado.FALLO_CONTROLADO}
+    ),
     # Tras un veredicto final se pasa al siguiente objetivo del plan (GENERAR) o a FIN.
     Estado.EJECUTAR_REVISAR: frozenset(
         {Estado.REINTENTAR, Estado.GENERAR, Estado.FIN, Estado.FALLO_CONTROLADO}
