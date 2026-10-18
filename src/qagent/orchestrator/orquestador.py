@@ -25,7 +25,9 @@ from qagent.orchestrator.puertos import Contrato, Generator, Planner, Reviewer
 T = TypeVar("T")
 
 MAX_INTENTOS_CONTRATO = 3  # tope de generated_test/review_result (EN-01)
-TIMEOUT_PASO_POR_DEFECTO_S = 120.0  # mayor que el timeout del sandbox (60 s)
+TIMEOUT_PASO_POR_DEFECTO_S = 240.0  # mayor que el timeout del sandbox (120 s)
+#: Lo que el paso del Reviewer espera además del sandbox: su llamada al LLM (90 s) y holgura.
+MARGEN_PASO_SOBRE_SANDBOX_S = 120.0
 SANDBOX_FALLIDO = frozenset({"timeout", "error"})
 DECISIONES_FINALES = frozenset({"accept", "bug_detectado", "stalled"})
 LIMITE_INTENTOS = "limite_intentos"  # motivos del corte (HU-14)
@@ -34,6 +36,17 @@ _TEXTO_MOTIVO = {
     LIMITE_INTENTOS: "límite de intentos",
     ERROR_REPETIDO: "mismo error repetido",
 }
+
+
+def timeout_paso_para(timeout_sandbox_s: float) -> float:
+    """Tiempo máximo por paso para un sandbox con `timeout_sandbox_s` (`[sandbox]`).
+
+    El paso del Reviewer incluye la ejecución en el sandbox, así que siempre debe durar
+    más: nunca baja de `TIMEOUT_PASO_POR_DEFECTO_S` y crece si el sandbox se alarga.
+    """
+    return max(
+        TIMEOUT_PASO_POR_DEFECTO_S, timeout_sandbox_s + MARGEN_PASO_SOBRE_SANDBOX_S
+    )
 
 
 class FalloControlado(Exception):

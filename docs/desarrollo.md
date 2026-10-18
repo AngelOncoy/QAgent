@@ -48,7 +48,7 @@ Para abrir la aplicación con la IA simulada (sin claves ni gasto), agrega `QAGE
 
 ## Sandbox Docker
 
-Las pruebas generadas se ejecutan solo dentro de un contenedor efímero: sin red, 1 CPU, 256 MB y 60 s como máximo (EN-03). La imagen base `qagent-sandbox:base` se construye sola en la primera corrida real (necesita internet). Para construirla antes, con Docker Desktop abierto:
+Las pruebas generadas se ejecutan solo dentro de un contenedor efímero: sin red, con 4 CPU (o los que tenga Docker, si son menos), 3 GB de memoria y 120 s como máximo (EN-03). Esos límites los define el equipo en `[sandbox]` de `src/qagent/config/config.toml`; no son un ajuste del usuario final, así que `~/.qagent/config.local.toml` no los cambia. La imagen base `qagent-sandbox:base` se construye sola en la primera corrida real (necesita internet). Para construirla antes, con Docker Desktop abierto:
 
 ```bash
 python -c "from qagent.sandbox import construir_imagen_base; construir_imagen_base()"

@@ -7,6 +7,7 @@ import json
 import re
 import tempfile
 from collections.abc import Callable
+from functools import partial
 from pathlib import Path
 from typing import Any
 
@@ -15,6 +16,7 @@ from qagent.analysis import comparar_aserciones
 from qagent.llm import ClienteLLM, TokenTracker
 from qagent.sandbox import (
     LIMITES_POR_DEFECTO,
+    LimitesSandbox,
     ResultadoSandbox,
     clasificar_resultado,
     comando_pytest,
@@ -71,13 +73,21 @@ class ReviewerAgent:
         modulo_cov: str | None = None,
         ejecutor: Ejecutor = ejecutar_pruebas,
         es_simulado: bool = False,
+        limites: LimitesSandbox = LIMITES_POR_DEFECTO,
     ) -> None:
-        """Inicializa el Reviewer con el sandbox y cliente opcional."""
+        """Inicializa el Reviewer con el sandbox y cliente opcional.
+
+        `limites` son los de `[sandbox]` en config.toml; se aplican al ejecutor real
+        (`ejecutar_pruebas`). Un ejecutor de pruebas conserva su firma de 4 argumentos.
+        """
         self.tracker = tracker
         self.ruta_proyecto = Path(ruta_proyecto)
         self.imagen = imagen
         self.cliente = cliente
         self.modulo_cov = modulo_cov
+        self.limites = limites
+        if ejecutor is ejecutar_pruebas:
+            ejecutor = partial(ejecutar_pruebas, limites=limites)
         self.ejecutor = ejecutor
         self.es_simulado = es_simulado
         # Último test NO debilitado de cada objetivo: la referencia contra la que se
@@ -164,7 +174,7 @@ class ReviewerAgent:
             resultado,
             imagen=self.imagen,
             comando=comando_pytest(modulo_cov),
-            limites=LIMITES_POR_DEFECTO,
+            limites=resultado.limites or self.limites,
             lineas_sin_cubrir=self._lineas_sin_cubrir(resultado.coverage, contrato),
             codigo_test=codigo,
         )

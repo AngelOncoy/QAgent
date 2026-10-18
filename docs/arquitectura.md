@@ -116,7 +116,7 @@ flowchart TB
 | **Backend** | Python 3.10+ | Análisis, orquestación, agentes, cálculo de métricas y costo | EN-02 a EN-07, EN-14, EN-15 |
 | **Configuración** | TOML + variables de entorno | Modelos, precios, topes y reintentos (`config.toml`, se versiona); claves de API (`.env`, no se versiona) | EN-06 |
 | **Almacenamiento** | Archivos JSON | `.qagent/` dentro del proyecto analizado: corridas, specs, pruebas aprobadas. `~/.qagent/recientes.json`: proyectos recientes | EN-07, HU-01, HU-03 |
-| **Sandbox** | Docker (Python 3.11, pytest, coverage, mutmut, fastapi, httpx) | Ejecutar cada prueba aislada: `--network none`, `--rm`, 1 CPU, 256 MB, 60 s | EN-03, EN-09, EN-15 |
+| **Sandbox** | Docker (Python 3.11, pytest, coverage, mutmut, fastapi, httpx) | Ejecutar cada prueba aislada: `--network none`, `--rm`, 4 CPU (recortados a los de Docker), 3 GB, 120 s; configurables en `[sandbox]` | EN-03, EN-09, EN-15 |
 
 ---
 

@@ -46,10 +46,14 @@ from qagent.llm import TokenTracker, crear_cliente
 from qagent.llm.fabrica import FuenteClaves
 from qagent.orchestrator.eventos import BusEventos, Evento
 from qagent.orchestrator.mutacion import PERFIL_PROFUNDO, Mutador, mutar_modulo
-from qagent.orchestrator.orquestador import Orquestador, ResultadoCorrida
+from qagent.orchestrator.orquestador import (
+    Orquestador,
+    ResultadoCorrida,
+    timeout_paso_para,
+)
 from qagent.orchestrator.regresion import huellas_de_objetivos
 from qagent.proyectos.proyecto_local import detectar_rama
-from qagent.sandbox import ejecutar_mutacion, ejecutar_pruebas
+from qagent.sandbox import LIMITES_POR_DEFECTO, ejecutar_mutacion, ejecutar_pruebas
 from qagent.storage import escribir_corrida
 from qagent.storage.registro import PERFIL_HUMO, PERFILES_REGRESION
 
@@ -115,8 +119,8 @@ def ejecutar_corrida(
         preparar_imagen: devuelve la imagen Docker del sandbox para el proyecto; por
             defecto `sandbox.preparar_imagen` (construye la base si falta).
         ejecutor: cómo ejecuta el Reviewer las pruebas (Docker; reemplazable en pruebas).
-        timeout_paso_s: tiempo máximo por paso de un agente (por defecto el del
-            orquestador).
+        timeout_paso_s: tiempo máximo por paso de un agente; por defecto el del
+            orquestador, alargado si `[sandbox] timeout_s` lo pide.
         seleccion: módulos, funciones y endpoints elegidos en la Vista previa. Si es
             ``None``, se conservan todos los objetivos analizables.
         mutador: cómo se ejecuta mutmut en el perfil Profundo (EN-09; Docker,
@@ -211,9 +215,13 @@ def ejecutar_corrida(
 
         bus = BusEventos()
         bus.suscribir(emitir)
-        opciones: dict[str, Any] = {"max_intentos": configuracion.max_intentos}
-        if timeout_paso_s is not None:
-            opciones["timeout_paso_s"] = timeout_paso_s
+        limites = getattr(configuracion, "sandbox", LIMITES_POR_DEFECTO)
+        opciones: dict[str, Any] = {
+            "max_intentos": configuracion.max_intentos,
+            "timeout_paso_s": timeout_paso_s
+            if timeout_paso_s is not None
+            else timeout_paso_para(limites.timeout_s),
+        }
         orquestador = Orquestador(
             PlannerAgent(
                 clientes["planner"], tracker, es_simulado=simulado, perfil=perfil
@@ -226,6 +234,7 @@ def ejecutar_corrida(
                 cliente=clientes["reviewer"],
                 ejecutor=ejecutor,
                 es_simulado=simulado,
+                limites=limites,
             ),
             bus=bus,
             tracker=tracker,
@@ -319,6 +328,7 @@ def ejecutar_corrida(
                     almacen=almacen if almacen.existe() else None,
                     run_id=resumen.run_id,
                     huellas=huellas,
+                    limites=limites,
                 )
             resultados.append(resultado)
             contratos = resultado.plan_completo

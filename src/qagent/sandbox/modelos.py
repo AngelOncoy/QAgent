@@ -33,14 +33,17 @@ class LimitesSandbox:
     """Límites de recursos de un contenedor del sandbox.
 
     Atributos:
-        cpus: número de CPU disponibles para el contenedor.
-        memoria: memoria máxima en formato Docker (ej. "256m"); también es el tope de swap.
+        cpus: número de CPU disponibles para el contenedor. Antes de crearlo se
+            recorta a los CPU que tiene Docker (`NCPU`).
+        memoria: memoria máxima en formato Docker (ej. "3g"); también es el tope de swap.
         timeout_s: segundos máximos de ejecución antes de matar el contenedor.
+
+    Los valores por defecto se pueden cambiar en `[sandbox]` de config.toml.
     """
 
-    cpus: float = 1.0
-    memoria: str = "256m"
-    timeout_s: int = 60
+    cpus: float = 4.0
+    memoria: str = "3g"
+    timeout_s: int = 120
 
 
 LIMITES_POR_DEFECTO = LimitesSandbox()
@@ -60,6 +63,8 @@ class ResultadoSandbox:
         duracion_s: duración de la ejecución en segundos.
         junit_xml: contenido de junit.xml (un registro por caso), o None si no se generó.
         comando: el comando que de verdad se ejecutó, para el informe (EN-17).
+        limites: los límites que de verdad se aplicaron (con los CPU ya recortados a
+            los de Docker), o None si no se llegó a crear el contenedor.
     """
 
     exit_code: int
@@ -71,6 +76,7 @@ class ResultadoSandbox:
     duracion_s: float = 0.0
     junit_xml: str | None = None
     comando: list[str] | None = None
+    limites: LimitesSandbox | None = None
 
 
 class ErrorSandbox(Exception):

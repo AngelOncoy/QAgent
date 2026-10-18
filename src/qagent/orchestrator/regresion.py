@@ -9,6 +9,7 @@ import re
 import shutil
 import tempfile
 import time
+from functools import partial
 from pathlib import Path
 from typing import Any
 
@@ -20,7 +21,7 @@ from qagent.orchestrator.eventos import Evento
 from qagent.orchestrator.mutacion import mutar_modulo
 from qagent.orchestrator.orquestador import ResultadoCorrida, ResultadoObjetivo
 from qagent.proyectos.proyecto_local import detectar_rama
-from qagent.sandbox import clasificar_resultado, ejecutar_pruebas
+from qagent.sandbox import LIMITES_POR_DEFECTO, clasificar_resultado, ejecutar_pruebas
 from qagent.storage import escribir_corrida
 from qagent.storage.registro import PERFIL_REGRESION_PROFUNDA
 
@@ -160,6 +161,11 @@ def ejecutar_regresion(
 
     inicio = time.monotonic()
     raiz = Path(ruta_proyecto)
+    if ejecutor is ejecutar_pruebas:  # límites de `[sandbox]`; los dobles de prueba no
+        ejecutor = partial(
+            ejecutar_pruebas,
+            limites=getattr(configuracion, "sandbox", LIMITES_POR_DEFECTO),
+        )
     almacen = AlmacenProyecto(raiz)
     resumen = ResumenCorrida(run_id, "fin", None, 0)
     tracker = TokenTracker(configuracion.agentes)
@@ -415,6 +421,7 @@ def _mutar_criticas(
             run_id=run_id,
             huellas=huellas,
             con_endpoints=False,
+            limites=getattr(configuracion, "sandbox", LIMITES_POR_DEFECTO),
         )
 
 

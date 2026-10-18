@@ -33,7 +33,7 @@ from qagent.almacenamiento import (
     nombre_prueba,
 )
 from qagent.orchestrator.orquestador import ResultadoCorrida, ResultadoObjetivo
-from qagent.sandbox import LIMITES_POR_DEFECTO, ejecutar_mutacion
+from qagent.sandbox import LIMITES_POR_DEFECTO, LimitesSandbox, ejecutar_mutacion
 from qagent.sandbox.mutacion import ERROR, OK, MutacionFuncion, ResultadoMutacion
 from qagent.storage.registro import PERFIL_PROFUNDO
 
@@ -69,6 +69,7 @@ def mutar_modulo(
     run_id: str | None = None,
     huellas: dict[tuple[str, str], str] | None = None,
     con_endpoints: bool = True,
+    limites: LimitesSandbox = LIMITES_POR_DEFECTO,
 ) -> None:
     """Ejecuta mutmut sobre las funciones críticas aprobadas y anota el resultado.
 
@@ -90,6 +91,8 @@ def mutar_modulo(
         huellas: huella AST de cada `(modulo, objetivo)` (`huellas_de_objetivos`).
         con_endpoints: si también se mutan los manejadores de los endpoints
             prioritarios (#74). La regresión (`reg_deep`) no los muta.
+        limites: CPU y memoria de `[sandbox]` en config.toml; el tiempo máximo se
+            reemplaza por el de la mutación.
     """
     objetivos = criticas_aprobadas(resultado, con_endpoints)
     if not objetivos:
@@ -134,7 +137,7 @@ def mutar_modulo(
         if isinstance(f.get("linea"), int)
     }
     limites = replace(
-        LIMITES_POR_DEFECTO,
+        limites,
         timeout_s=tiempo_por_funcion_s * (len(nombres) + len(manejadores)),
     )
     avisar(_texto_inicio(pendientes, len(nombres)))

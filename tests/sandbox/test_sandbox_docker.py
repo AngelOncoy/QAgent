@@ -11,6 +11,7 @@ from pathlib import Path
 import pytest
 
 from qagent.sandbox import (
+    LimitesSandbox,
     ejecutar_en_sandbox,
     ejecutar_pruebas,
     preparar_imagen,
@@ -106,7 +107,11 @@ def test_reservar_512mb_termina_por_memoria(imagen_base, proyecto_calc, tmp_path
         "def test_memoria():\n    bloque = b'x' * (512 * 1024 * 1024)\n    assert bloque\n",
     )
 
-    resultado = ejecutar_pruebas(imagen_base, proyecto_calc, tests, "calc")
+    # Límite explícito menor que lo reservado: se prueba el corte por memoria, no
+    # el valor por defecto (3g), que reservar en una prueba sería muy pesado.
+    resultado = ejecutar_pruebas(
+        imagen_base, proyecto_calc, tests, "calc", LimitesSandbox(memoria="256m")
+    )
 
     assert resultado.oom_killed is True
     assert resultado.exit_code != 0

@@ -3,10 +3,12 @@
 from __future__ import annotations
 
 import json
+import logging
 import shutil
 import tempfile
 import time
 from collections.abc import Callable
+from dataclasses import replace
 from pathlib import Path
 from typing import Any
 
@@ -55,6 +57,9 @@ TMP_TAMANO = "64m"
 CODIGO_SIGKILL = 137
 
 AlTerminar = Callable[[Path, Path], None]
+
+#: Hijo del logger de la bitácora (`qagent`): sus mensajes salen en la consola.
+_registro = logging.getLogger("qagent.sandbox")
 
 
 def copiar_proyecto(ruta_proyecto: str | Path, destino: str | Path) -> Path:
@@ -133,6 +138,7 @@ def ejecutar_en_sandbox(
         salida.chmod(0o777)  # el usuario del contenedor (uid 1000) debe poder escribir
 
         variables = {"PYTHONPATH": DIR_PROYECTO, "HOME": "/tmp", **(entorno or {})}
+        limites = ajustar_cpus_a_docker(limites, cliente)
         inicio = time.monotonic()
         contenedor = _crear_contenedor(
             cliente, imagen, comando, copia, tests, salida, limites, variables
@@ -149,6 +155,7 @@ def ejecutar_en_sandbox(
             coverage=_leer_coverage(salida / "coverage.json"),
             junit_xml=_leer_texto(salida / ARCHIVO_JUNIT, LIMITE_JUNIT_BYTES),
             comando=list(comando),
+            limites=limites,
             timed_out=timed_out,
             oom_killed=oom or (exit_code == CODIGO_SIGKILL and not timed_out),
             duracion_s=round(duracion, 3),
@@ -160,6 +167,38 @@ def ejecutar_en_sandbox(
         if contenedor is not None:
             _eliminar(contenedor)
         shutil.rmtree(temporal, ignore_errors=True)
+
+
+def cpus_de_docker(cliente: docker.DockerClient) -> int | None:
+    """CPU que tiene asignados Docker (`NCPU` de `docker info`), o None si no se sabe."""
+    try:
+        ncpu = cliente.info().get("NCPU")
+    except (APIError, RequestException, AttributeError, TypeError):
+        return None
+    if isinstance(ncpu, bool) or not isinstance(ncpu, int) or ncpu <= 0:
+        return None
+    return ncpu
+
+
+def ajustar_cpus_a_docker(
+    limites: LimitesSandbox, cliente: docker.DockerClient
+) -> LimitesSandbox:
+    """Recorta `limites.cpus` a los CPU de Docker: `min(cpus configurados, NCPU)`.
+
+    Docker rechaza crear un contenedor con más CPU de los que tiene (p. ej. Docker
+    Desktop con 2 CPU asignados y 4 configurados). Si no se puede consultar `NCPU`, se
+    deja el valor configurado. Cuando se recorta, queda anotado en la bitácora.
+    """
+    ncpu = cpus_de_docker(cliente)
+    if ncpu is None or limites.cpus <= ncpu:
+        return limites
+    _registro.info(
+        "Sandbox: se configuraron %g CPU, pero Docker solo tiene %d; se usan %d.",
+        limites.cpus,
+        ncpu,
+        ncpu,
+    )
+    return replace(limites, cpus=float(ncpu))
 
 
 def comando_pytest(modulo_cov: str) -> list[str]:

@@ -17,6 +17,11 @@ from qagent.orchestrator import (
     TransicionInvalida,
     validar_transicion,
 )
+from qagent.orchestrator.orquestador import (
+    TIMEOUT_PASO_POR_DEFECTO_S,
+    timeout_paso_para,
+)
+from qagent.sandbox import LIMITES_POR_DEFECTO
 from tests.orchestrator.fakes import (
     MODULO,
     GeneratorSimulado,
@@ -296,3 +301,19 @@ def test_tokens_por_agente_con_ia_simulada_son_cero() -> None:
 def test_configuracion_invalida(opciones) -> None:
     with pytest.raises(ValueError):
         armar(["accept"], **opciones)
+
+
+def test_el_paso_espera_mas_que_el_sandbox_y_que_el_llm():
+    from qagent.llm.fabrica import crear_cliente
+
+    timeout_llm = crear_cliente.__kwdefaults__["timeout_s"]
+    assert TIMEOUT_PASO_POR_DEFECTO_S == 240.0
+    # El paso del Reviewer = sandbox + su llamada al LLM.
+    assert TIMEOUT_PASO_POR_DEFECTO_S > LIMITES_POR_DEFECTO.timeout_s + timeout_llm
+    assert timeout_paso_para(LIMITES_POR_DEFECTO.timeout_s) == 240.0
+
+
+def test_el_paso_crece_si_el_sandbox_se_alarga():
+    assert timeout_paso_para(30) == TIMEOUT_PASO_POR_DEFECTO_S
+    assert timeout_paso_para(600) > 600
+

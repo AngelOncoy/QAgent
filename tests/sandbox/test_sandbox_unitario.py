@@ -91,9 +91,9 @@ def test_contenedor_sin_red_con_limites_y_sin_privilegios(proyecto, carpeta_test
 
     argumentos = _argumentos_run(cliente)
     assert argumentos["network_mode"] == "none"
-    assert argumentos["nano_cpus"] == 1_000_000_000
-    assert argumentos["mem_limit"] == "256m"
-    assert argumentos["memswap_limit"] == "256m"
+    assert argumentos["nano_cpus"] == 4_000_000_000
+    assert argumentos["mem_limit"] == "3g"
+    assert argumentos["memswap_limit"] == "3g"
     assert argumentos["pids_limit"] > 0
     assert argumentos["cap_drop"] == ["ALL"]
     assert argumentos["security_opt"] == ["no-new-privileges"]
@@ -119,6 +119,73 @@ def test_limites_personalizados(proyecto, carpeta_tests):
     assert argumentos["nano_cpus"] == 500_000_000
     assert argumentos["mem_limit"] == "128m"
     assert argumentos["memswap_limit"] == "128m"
+
+
+def test_limites_por_defecto_del_sandbox():
+    assert modelos.LIMITES_POR_DEFECTO == LimitesSandbox(
+        cpus=4.0, memoria="3g", timeout_s=120
+    )
+
+
+def test_cpus_se_recortan_a_los_de_docker(proyecto, carpeta_tests, caplog):
+    cliente = _cliente_simulado()
+    cliente.info.return_value = {"NCPU": 2}
+
+    with caplog.at_level("INFO", logger="qagent.sandbox"):
+        resultado = ejecutar_en_sandbox(
+            "img", ["pytest"], proyecto, carpeta_tests, cliente=cliente
+        )
+
+    argumentos = _argumentos_run(cliente)
+    assert argumentos["nano_cpus"] == 2_000_000_000
+    assert argumentos["mem_limit"] == "3g"  # la memoria no se toca
+    assert resultado.limites == LimitesSandbox(cpus=2.0, memoria="3g", timeout_s=120)
+    assert any("Docker solo tiene 2" in r.getMessage() for r in caplog.records)
+
+
+def test_cpus_no_se_recortan_si_docker_tiene_suficientes(
+    proyecto, carpeta_tests, caplog
+):
+    cliente = _cliente_simulado()
+    cliente.info.return_value = {"NCPU": 8}
+
+    with caplog.at_level("INFO", logger="qagent.sandbox"):
+        resultado = ejecutar_en_sandbox(
+            "img", ["pytest"], proyecto, carpeta_tests, cliente=cliente
+        )
+
+    assert _argumentos_run(cliente)["nano_cpus"] == 4_000_000_000
+    assert resultado.limites.cpus == 4.0
+    assert not caplog.records
+
+
+@pytest.mark.parametrize(
+    "info",
+    [
+        APIError("docker info falló"),
+        ReadTimeout("sin respuesta"),
+        {},
+        {"NCPU": 0},
+        {"NCPU": "cuatro"},
+    ],
+)
+def test_sin_ncpu_valido_se_usa_el_valor_configurado(proyecto, carpeta_tests, info):
+    cliente = _cliente_simulado()
+    if isinstance(info, Exception):
+        cliente.info.side_effect = info
+    else:
+        cliente.info.return_value = info
+
+    ejecutar_en_sandbox(
+        "img",
+        ["pytest"],
+        proyecto,
+        carpeta_tests,
+        LimitesSandbox(cpus=3.0),
+        cliente=cliente,
+    )
+
+    assert _argumentos_run(cliente)["nano_cpus"] == 3_000_000_000
 
 
 def test_no_pasa_variables_de_entorno_del_host(proyecto, carpeta_tests, monkeypatch):
