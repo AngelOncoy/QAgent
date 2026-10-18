@@ -38,8 +38,8 @@ src/qagent/frontend/
     ├── sidebar/          Barra lateral retráctil (Ctrl+B): Inicio, Proyecto actual, Historial, Configuración y estado del motor
     ├── pasos-proyecto/   Pasos del proyecto abierto (Explorar → Preparar → En curso → Pruebas → Resultados) y su desbloqueo
     ├── inicio/           Inicio y recientes · pantallas «Abrir proyecto» (modal-abrir.js) y «Clonar proyecto» (modal-clonar.js); los archivos conservan el nombre de cuando eran modales
-    ├── vista-previa/     Árbol de módulos y tabla de funciones
-    ├── config-pruebas/   Qué hacer, tipo de prueba, Profundizar (caja blanca) y detalles de la corrida
+    ├── vista-previa/     Pantalla «Explorar»: cifras, carpetas incluidas, tabla compacta de funciones y endpoints con buscador y avisos
+    ├── config-pruebas/   Pantalla «Preparar»: qué hacer (nuevas, volver a correr, análisis a fondo), tipos de prueba, críticas y comprobaciones previas
     ├── barra-corrida/    Barra superior de Monitor, Ejecución e Informe
     ├── monitor/          Línea de tiempo de la corrida
     ├── ejecucion/        KPIs, filtros y detalle por función

@@ -1,77 +1,111 @@
-/* vista-previa.css — pantalla de vista previa del proyecto */
-.projhead{display:flex;flex-wrap:wrap;gap:10px;align-items:center;padding:14px 16px}
-.projhead .t{font-size:16px;font-weight:600;margin-right:6px}
-.grid2{display:grid;grid-template-columns:minmax(260px,300px) minmax(0,1fr);gap:16px;min-width:0}
-.grid2>.card{min-width:0}
-.obj-vista{min-width:0}
-.objs-head{min-width:0}
-.grid2 .table-scroll{max-width:100%;min-width:0;overflow-x:auto;overscroll-behavior-inline:contain}
-@media(max-width:1180px){.grid2{grid-template-columns:1fr}}
-.tree .row{display:flex;align-items:center;gap:8px;padding:6px 4px;font-family:var(--mono);font-size:12px;border-radius:6px}
-.tree .row:hover{background:var(--panel2)}
-.tree .row.dir{color:var(--mut)}
-.tree .row .n{margin-left:auto;color:var(--dim);font-size:11px}
-.tree .row.ign{opacity:.45}
-.tree .row.no-targets{opacity:.5}
-.tree .row.no-targets:hover{background:transparent}
-.tree .no-targets-note{font-family:var(--sans);font-size:10px;color:var(--mut)}
-.tree .ind{padding-left:22px}
-.tree-head{flex-wrap:wrap;justify-content:space-between}
-.tree-head-title{display:flex;align-items:center;gap:8px;flex:1 1 auto;min-width:0;flex-wrap:wrap}
-.select-all{margin-left:0;display:flex;align-items:center;gap:6px;flex:0 0 auto;font-size:11px;color:var(--mut);font-weight:400;letter-spacing:0;text-transform:none;white-space:nowrap}
-.star{cursor:pointer;font-size:15px;color:var(--dim);background:none;border:0}
-.star.on{color:var(--amber)}
-.legend{display:flex;gap:16px;flex-wrap:wrap;font-size:11px;color:var(--dim);padding:10px 16px}
-.scope{display:flex;gap:8px;flex-wrap:wrap;align-items:center;padding:12px 16px}
-.scope .btn{margin-left:auto}
-.endpoint-method{display:inline-block;font-family:var(--mono);font-size:10px;font-weight:700;color:var(--blue-300);border:1px solid var(--blue-800-a60);border-radius:4px;padding:2px 6px}
-.endpoint-route{font-family:var(--mono);font-weight:700;overflow-wrap:anywhere}
+/* vista-previa.css — pantalla «Explorar»: cifras, carpetas incluidas y tabla de funciones y endpoints.
+   Usa solo los tokens del sistema (css/tokens.css, sección 1). La barra, la cabecera, los avisos y
+   el campo de texto se comparten con Inicio (componentes/inicio/inicio.css). */
+#s-preview{font-family:var(--fuente-ui);font-size:var(--texto-cuerpo);line-height:var(--interlineado);color:var(--texto);background:var(--fondo)}
+#s-preview .page.exp{max-width:1280px;padding:var(--esp-6);gap:var(--esp-5)}
+#s-preview .mono{font-family:var(--fuente-mono)}
+.vh{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
 
-/* ---- Issue #66: selector Funciones/Endpoints y tabla de endpoints ---- */
-.objs-head{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:0 0 8px}
-.objs-head h4{margin:0}
-.obj-switch{margin-left:auto;display:inline-flex;gap:4px;background:var(--inset);border:1px solid var(--line);border-radius:8px;padding:3px}
-.obj-tab{background:none;border:0;color:var(--mut);font-family:var(--sans);font-size:12px;padding:5px 10px;border-radius:6px;cursor:pointer}
-.obj-tab.on{background:var(--blue-s);color:var(--blue-t)}
+/* Casilla de la demo: cuadrada, borde fino y marca de verificación azul, sin relleno.
+   Indeterminada = una raya. Se usa en el árbol, la tabla y «Seleccionar todo». */
+.exp-caja{appearance:none;-webkit-appearance:none;display:inline-grid;place-content:center;flex-shrink:0;width:16px;height:16px;margin:0;border:1.5px solid var(--texto-3);border-radius:3px;background:transparent;cursor:pointer}
+.exp-caja::before{content:"";width:8px;height:4px;margin-top:-2px;border:2px solid var(--enlace);border-top:0;border-right:0;transform:rotate(-45deg) scale(0);transition:transform .1s ease}
+.exp-caja:checked,.exp-caja:indeterminate{border-color:var(--enlace)}
+.exp-caja:checked::before{transform:rotate(-45deg) scale(1)}
+.exp-caja:indeterminate::before{width:8px;height:0;margin-top:0;border-width:0 0 2px 0;transform:none}
+.exp-caja:disabled{opacity:.45;cursor:not-allowed}
+.exp-caja:focus-visible{outline:2px solid var(--foco-anillo);outline-offset:2px}
+
+/* Cifras del proyecto */
+.exp-cifras{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:var(--esp-4)}
+.exp-cifra{display:flex;flex-direction:column;gap:var(--esp-1);padding:var(--esp-5);background:var(--superficie);border:var(--borde-ancho) solid var(--borde);border-radius:var(--radio-tarjeta)}
+.exp-cifra-etq{color:var(--texto-2);font-size:var(--texto-meta)}
+.exp-cifra b{font-size:var(--texto-titulo);font-weight:var(--peso-fuerte);line-height:1.2}
+.exp-cifra-sub{color:var(--texto-2);font-size:var(--texto-meta)}
+
+/* Rejilla: carpetas a la izquierda, objetivos a la derecha */
+.exp-rejilla{display:grid;grid-template-columns:minmax(220px,250px) minmax(0,1fr);gap:var(--esp-5);align-items:start;min-width:0}
+@media(max-width:1100px){.exp-rejilla{grid-template-columns:minmax(0,1fr)}}
+
+/* Carpetas incluidas (como la demo): árbol con casilla y carpeta por fila */
+.exp-carpetas{gap:var(--esp-3)}
+.tree{display:flex;flex-direction:column;gap:var(--esp-1);width:100%}
+.tree .row{display:flex;align-items:center;gap:var(--esp-2);min-height:32px;padding-left:calc(var(--nivel, 0) * 14px);color:var(--texto);font-size:13px}
+.tree label.row{cursor:pointer}
+.tree .row svg{flex-shrink:0;color:var(--texto-2)}
+.tree .row.raiz{font-weight:var(--peso-medio)}
+.tree .row.raiz .mono{font-family:var(--fuente-ui)}
+.tree .row .mono{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tree .row.ign,.tree .row.no-targets{color:var(--texto-2)}
+.tree .row.no-targets{cursor:default}
+.exp-nota{color:var(--texto-3);font-size:var(--texto-meta);line-height:1.5}
+
+/* Barra de la tabla: Seleccionar todo (izquierda) y seleccionadas (derecha);
+   debajo, el buscador y el cambio Funciones / Endpoints a su lado */
+.exp-objetivos{display:flex;flex-direction:column;gap:var(--esp-3);min-width:0}
+.exp-herramientas{display:flex;align-items:center;justify-content:space-between;gap:var(--esp-3);flex-wrap:wrap}
+.exp-todo{display:inline-flex;align-items:center;gap:var(--esp-3);cursor:pointer}
+.exp-contador{color:var(--enlace);font-size:var(--texto-meta)}
+.exp-filtros{display:flex;align-items:center;gap:var(--esp-3)}
+.exp-buscar{flex:1;min-width:0}
+.exp-buscar .np-input{padding-left:40px}
+.exp-buscar .exp-buscar-ico{position:absolute;left:var(--esp-3);display:grid;place-items:center;color:var(--texto-3);pointer-events:none}
+.exp-buscar .exp-buscar-ico svg{position:static}
+.obj-switch{display:inline-flex;flex-shrink:0;gap:var(--esp-1);height:44px;padding:4px;background:var(--hundido);border:var(--borde-ancho) solid var(--borde);border-radius:var(--radio-control)}
+.obj-tab{display:inline-flex;align-items:center;height:100%;padding:0 var(--esp-3);border:0;border-radius:4px;background:none;color:var(--texto-2);font:var(--texto-cuerpo)/1 var(--fuente-ui);white-space:nowrap;cursor:pointer}
+.obj-tab:hover{color:var(--texto)}
+.obj-tab.on{background:var(--accion-suave);color:var(--enlace);font-weight:var(--peso-medio)}
 .obj-tab:disabled{opacity:.45;cursor:not-allowed}
-.obj-tab .warn{margin-left:3px}
-.obj-vista{min-height:40px}
-.obj-hint{padding:0 12px 10px}
-.ep-table{table-layout:auto}
-.ep-table .file-row>td{padding:0;background:var(--panel2);border-bottom:1px solid var(--line)}
-.ep-table th:nth-child(1){width:34%}
-.ep-table th:nth-child(2),.ep-table th:nth-child(3),.ep-table th:nth-child(4){width:12%}
-.ep-table th:nth-child(5),.ep-table th:nth-child(7){width:8%}
+.obj-tab:focus-visible{outline:2px solid var(--foco-anillo);outline-offset:1px}
+
+/* Tabla (como la demo): encabezados en mayúsculas, nombre con su archivo debajo */
+.obj-vista{min-width:0;border:var(--borde-ancho) solid var(--borde);border-radius:var(--radio-tarjeta);background:var(--superficie);overflow:hidden}
+.exp-objetivos .table-scroll{max-width:100%;min-width:0;max-height:560px;overflow:auto;overscroll-behavior:contain}
+.exp-objetivos .table-scroll table{min-width:560px}
+.exp-objetivos table{width:100%;border-collapse:collapse}
+.exp-objetivos table th{position:sticky;top:0;z-index:1;padding:var(--esp-3);background:var(--superficie);border-bottom:var(--borde-ancho) solid var(--borde);color:var(--texto-2);font-size:11px;font-weight:var(--peso-medio);letter-spacing:.04em;text-transform:uppercase;text-align:left;white-space:nowrap}
+.exp-objetivos table td{padding:var(--esp-3);border-bottom:var(--borde-ancho) solid var(--borde);vertical-align:middle;font-size:13px}
+.exp-objetivos table tr:last-child td{border-bottom:0}
+.exp-objetivos table tbody tr:hover td{background:var(--superficie-2)}
+.exp-objetivos table .col-incl{width:44px;padding-right:0}
+/* Anchos como la maqueta: el nombre ocupa el espacio libre; Complejidad y Desde la última vez, angostas */
+.exp-objetivos table th:nth-child(3),.exp-objetivos table td:nth-child(3){width:130px}
+.exp-objetivos table th:nth-child(4),.exp-objetivos table td:nth-child(4){width:170px}
+.exp-objetivos table td.fn{font-family:var(--fuente-mono);color:var(--texto);overflow-wrap:anywhere}
+.exp-objetivos table .sub{margin-top:2px;font-family:var(--fuente-mono);font-size:11px;color:var(--texto-3)}
+.exp-vacio{color:var(--texto-2);text-align:center;padding:var(--esp-6) var(--esp-4)!important}
 .ep-no-resuelta{opacity:.6}
-td.muted{color:var(--dim)}
+.endpoint-method{font-family:var(--fuente-mono);font-weight:var(--peso-medio);color:var(--texto)}
+.endpoint-route{font-family:var(--fuente-mono);overflow-wrap:anywhere}
 
-@media(max-height:700px){
-  #s-preview .page{padding-top:12px;padding-bottom:16px;gap:10px}
-  #s-preview .card .bd{padding-top:10px;padding-bottom:10px}
+/* Profundizar: la columna solo se ve cuando se activa esa opción (#s-preview.con-profundizar) */
+.exp-objetivos .col-prof{display:none;width:110px;text-align:center}
+#s-preview.con-profundizar .exp-objetivos .col-prof{display:table-cell}
+
+/* Complejidad y Desde la última vez */
+.exp-aviso{color:var(--aviso-t)}
+.exp-exito{display:block;color:var(--exito-t)}
+.exp-cambio{display:block;color:var(--enlace)}
+.exp-sub{display:block;color:var(--texto-3);font-size:11px}
+
+/* Pie de la tabla y aviso de archivos que no se pudieron leer */
+.exp-pie{color:var(--texto-2);font-size:var(--texto-meta)}
+.exp-errores{align-items:center}
+.exp-errores #expErroresLista{display:flex;flex-direction:column;gap:var(--esp-1);margin-top:var(--esp-1)}
+.exp-errores #expErroresLista span{color:var(--texto-2)}
+
+/* Ícono informativo ⓘ (accesible con mouse y con teclado) y su descripción emergente */
+.info{display:inline-flex;align-items:center;justify-content:center;width:14px;height:14px;margin-left:4px;border-radius:50%;border:var(--borde-ancho) solid var(--borde-fuerte);color:var(--texto-3);font-size:9px;line-height:1;cursor:help;vertical-align:middle}
+.info:focus-visible{outline:2px solid var(--foco-anillo);outline-offset:1px;color:var(--enlace)}
+.tip-flotante{position:fixed;z-index:60;max-width:280px;padding:var(--esp-2) var(--esp-3);background:var(--superficie-2);color:var(--texto);border:var(--borde-ancho) solid var(--borde-fuerte);border-radius:var(--radio-control);font:var(--texto-meta)/1.45 var(--fuente-ui);box-shadow:var(--sombra-modal);pointer-events:none}
+
+/* Ventanas estrechas o bajas */
+@media(max-width:900px){
+  .exp-cifras{grid-template-columns:minmax(0,1fr)}
+  #s-preview .page.exp{padding-left:var(--esp-4);padding-right:var(--esp-4)}
+  .exp-filtros{flex-wrap:wrap}
 }
-
-/* ---- Issue #65: funciones agrupadas por archivo, Calidad y plegado ---- */
-
-/* Encabezado plegable de cada archivo Python */
-.fn-table .file-row>td{padding:0;background:var(--panel2);border-bottom:1px solid var(--line)}
-.file-head{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:8px 10px;font-family:var(--mono);font-size:11px;color:var(--mut)}
-.file-head.no-targets{opacity:.55}
-.file-toggle{background:none;border:0;color:var(--mut);cursor:pointer;font-size:12px;line-height:1;width:18px;padding:0;text-align:center}
-.file-toggle:hover{color:var(--blue-t)}
-.file-toggle:focus-visible{outline:2px solid var(--blue-800-a60);outline-offset:1px;border-radius:4px}
-.file-icon{font-size:12px}
-.file-path{font-weight:700;color:var(--txt);overflow-wrap:anywhere}
-.file-count{color:var(--dim)}
-.file-head .no-targets-note{font-family:var(--sans);font-size:10px;color:var(--mut)}
-.file-incl{margin-left:auto;display:flex;align-items:center;gap:6px;font-family:var(--sans);font-size:11px;color:var(--mut);cursor:pointer}
-
-/* Semáforo de Calidad: además del color, siempre hay texto (Lista / Mejorable / Incierto) */
-.calidad-lista{background:var(--calidad-lista-bg);color:var(--calidad-lista-t);border-color:var(--calidad-lista-b)}
-.calidad-mejorable{background:var(--calidad-mejorable-bg);color:var(--calidad-mejorable-t);border-color:var(--calidad-mejorable-b)}
-.calidad-incierto{background:var(--calidad-incierto-bg);color:var(--calidad-incierto-t);border-color:var(--calidad-incierto-b)}
-
-/* Cabeceras con icono informativo ⓘ (accesible con mouse y con teclado) */
-.info{display:inline-flex;align-items:center;justify-content:center;width:13px;height:13px;margin-left:4px;border-radius:50%;border:1px solid var(--line2);color:var(--dim);font-size:9px;line-height:1;cursor:help;text-transform:none;letter-spacing:0;vertical-align:middle}
-.info:hover{color:var(--blue-t);border-color:var(--blue-b)}
-.info:focus-visible{outline:2px solid var(--blue-800-a60);outline-offset:1px;color:var(--blue-t)}
-.tip-flotante{position:fixed;z-index:60;max-width:260px;background:var(--tooltip-bg);color:var(--tooltip-t);border:1px solid var(--tooltip-b);border-radius:8px;padding:8px 10px;font-family:var(--sans);font-size:11px;line-height:1.45;box-shadow:0 10px 30px var(--black-a50);pointer-events:none}
+@media(max-height:700px){
+  #s-preview .page{padding-top:var(--esp-4);padding-bottom:var(--esp-4);gap:var(--esp-3)}
+  .exp-cifra{padding:var(--esp-3) var(--esp-4)}
+}

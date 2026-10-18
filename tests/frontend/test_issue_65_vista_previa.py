@@ -43,15 +43,16 @@ def _cuerpo(nombre_funcion: str) -> str:
 
 # 1. Orden exacto de las columnas
 def test_orden_exacto_de_las_columnas() -> None:
+    # Rediseño: tabla compacta. «Incluir» es la casilla de la primera columna (sin título visible);
+    # tipos y docstring se resumen en «Información» y las condicionales en «Complejidad».
     assert _encabezados() == [
         "Función",
-        "Calidad",
-        "Tipos declarados",
-        "Docstring",
-        "Condicionales",
+        "Complejidad",
+        "Información",
+        "Desde la última vez",
         "Profundizar",
-        "Incluir",
     ]
+    assert '<th class="col-incl"><span class="vh">Incluir</span></th>' in _bloque_funciones()
 
 
 # 4-7. Cálculo de Calidad y su prioridad
@@ -66,7 +67,7 @@ def test_calidad_se_calcula_solo_en_el_frontend() -> None:
     assert "if(f.typed) return 'lista'" in cuerpo
     assert "return 'mejorable'" in cuerpo
     assert (
-        "CALIDAD_TEXTO = {lista:'Lista', mejorable:'Mejorable', incierto:'Incierto'}"
+        "CALIDAD_TEXTO = {lista:'Completa', mejorable:'Faltan tipos', incierto:'Sin descripción'}"
         in VISTA_JS
     )
 
@@ -186,7 +187,8 @@ def test_conteo_por_revisar_excluye_las_listas() -> None:
 def test_se_conservan_las_etiquetas_de_spec() -> None:
     assert "Vigente" in VISTA_JS
     assert "Cambió" in VISTA_JS
-    assert "Sin spec previo" in VISTA_JS
+    # Sin datos de una corrida anterior se muestra un guion: nunca se supone el estado.
+    assert "No hay datos de una corrida anterior para este archivo" in VISTA_JS
 
 
 # 17-18. Plegado inicial según "por revisar"
@@ -238,7 +240,9 @@ def test_encabezado_sincronizado_con_las_casillas_individuales() -> None:
 def test_los_errores_de_sintaxis_se_siguen_mostrando() -> None:
     assert "no se pudo analizar" in VISTA_JS
     assert "Error de sintaxis" in VISTA_JS
-    assert 'colspan="7"' in VISTA_JS
+    # Rediseño: se listan en el aviso «archivos no se pudieron leer», con su motivo.
+    assert "function renderErroresLectura" in VISTA_JS
+    assert "renderErroresLectura();" in VISTA_JS
 
 
 # 26. Archivos sin funciones
@@ -277,8 +281,9 @@ def test_los_tokens_de_calidad_existen_y_se_usan() -> None:
         "--tooltip-bg",
     ):
         assert f"{token}:" in TOKENS
-    assert "var(--calidad-lista-bg)" in VISTA_CSS
-    assert "var(--calidad-incierto-t)" in VISTA_CSS
+    # Rediseño: Explorar usa los tokens de estado del sistema (éxito y aviso), siempre con texto.
+    assert "var(--exito-s)" in VISTA_CSS
+    assert "var(--aviso-t)" in VISTA_CSS
 
 
 # 30. Ausencia de errores JavaScript (si hay Node disponible)

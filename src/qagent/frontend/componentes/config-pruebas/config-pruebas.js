@@ -1,83 +1,94 @@
-// config-pruebas.js — pantalla de configuración de pruebas (#69): qué hacer, tipo de prueba, profundizar y detalles de la corrida
+// config-pruebas.js — pantalla «Preparar»: qué hacer, tipos de prueba, críticas y comprobaciones previas
 // HTML del componente (se monta en el marcador data-componente="config-pruebas/config-pruebas" de index.html)
-registrarComponente('config-pruebas/config-pruebas', `<!-- ===== 3. CONFIGURACIÓN DE PRUEBAS ===== -->
+// Tres formas de correr (#69 y #70): generar pruebas nuevas, volver a correr las guardadas o analizar a fondo
+// las críticas. Esta última activa la columna Profundizar de Explorar. Los íconos (ICO_*) vienen de
+// inicio/modal-abrir.js, que se carga antes.
+const ICO_INICIAR = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M7 5v14l11-7z"/></svg>';
+const ICO_AJUSTES = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/></svg>';
+const ICO_CANDADO = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>';
+const ICO_PAUSA_PREP = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M10 9v6M14 9v6"/></svg>';
+
+registrarComponente('config-pruebas/config-pruebas', `<!-- ===== 3. PREPARAR ===== -->
 <section id="s-tests" class="hide" style="display:flex;flex-direction:column;flex:1;min-height:0">
-  <div class="topbar">
-    <div class="chip"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7h6l2 2h10v10H3z"/></svg><b>repo:</b> <span class="repoLbl"></span></div>
-    <div class="stepper">
-      <span class="done"><b>✓</b>Proyecto</span><span class="chev">›</span>
-      <span class="done"><b>✓</b>Vista previa</span><span class="chev">›</span>
-      <span class="on"><b>3</b>Configuración de pruebas</span><span class="chev">›</span>
-      <span><b>4</b>Ejecución</span>
+  <header class="ini-barra">
+    <nav class="ini-migas" aria-label="Ubicación"><span class="repoName"></span><span aria-hidden="true">/</span><span aria-current="page">Preparar prueba</span></nav>
+    <span class="ini-confianza">${ICO_ESCUDO}Tu proyecto permanece en tu equipo</span>
+  </header>
+  <div class="scroll"><div class="page prep">
+
+    <div class="np-cabecera">
+      <div>
+        <h1 class="ini-titulo" id="prepTitulo">Prepara una corrida fiable</h1>
+        <p class="np-subtitulo" id="prepSub"></p>
+      </div>
+      <button type="button" class="ini-btn ini-btn-principal" id="toPlan" onclick="accionPrincipalPreparar()"><span id="toPlanIco">${ICO_INICIAR}</span><span id="toPlanTxt">Iniciar prueba</span></button>
     </div>
-  </div>
-  <div class="scroll"><div class="page">
 
-    <!-- Alcance elegido en la Vista previa -->
-    <div class="card"><div class="scope" id="scopeSum"></div></div>
+    <div class="np-aviso np-aviso-aviso hide" id="prepBloqueo">${ICO_AVISO_CLON}<div><b>Todavía no podemos iniciar la prueba</b><span id="prepBloqueoTxt"></span></div></div>
 
-    <!-- Configuración: opciones, no planes (#69) -->
-    <div class="card">
-      <h4>Configuración de las pruebas</h4>
-      <div class="bd">
-        <div class="cfg-pregunta">¿Qué quieres hacer?</div>
-        <div class="cfg-modo" id="cfgModo" role="radiogroup" aria-label="Qué quieres hacer"></div>
-        <div id="cfgOpciones"></div>
-        <details class="cfg-detalles">
-          <summary>Detalles de la corrida</summary>
-          <div class="cfg-detalles-cuerpo" id="cfgDetalles"></div>
-        </details>
+    <div class="prep-rejilla">
+      <div class="np-columna">
+        <section class="np-tarjeta prep-modo-tarjeta" aria-labelledby="prepModoTitulo">
+          <h2 id="prepModoTitulo">¿Qué quieres hacer?</h2>
+          <div class="prep-modos" id="cfgModo" role="radiogroup" aria-labelledby="prepModoTitulo"></div>
+        </section>
+
+        <div class="prep-fila">
+          <section class="np-tarjeta" aria-labelledby="prepTiposTitulo">
+            <h2 id="prepTiposTitulo">Tipos de prueba</h2>
+            <div class="prep-lista" id="prepTipos"></div>
+          </section>
+          <section class="np-tarjeta" aria-labelledby="prepCritTitulo">
+            <h2 id="prepCritTitulo">Funciones críticas</h2>
+            <div class="prep-lista" id="prepCriticas"></div>
+          </section>
+        </div>
+
+        <div class="np-aviso np-aviso-info">${ICO_INFO}<div><b>Fortaleza de las pruebas</b><span>Mide si las pruebas detectan errores introducidos a propósito. Solo se mide en las funciones que marques como críticas.</span></div></div>
+      </div>
+
+      <div class="np-columna">
+        <section class="np-tarjeta" id="prepComprobaciones" aria-live="polite"></section>
+        <section class="np-tarjeta" id="prepLimites"></section>
+        <p class="np-meta">Si una prueba revela un posible bug, conservaremos el criterio original. No la debilitamos para hacerla pasar.</p>
       </div>
     </div>
 
   </div></div>
-  <div class="footbar">
-    <span class="msg" id="footMsg2"></span>
-    <button class="btn" style="margin-left:auto" onclick="go('preview')">← Volver a la vista previa</button>
-    <button class="btn primary" id="toPlan" onclick="startMonitor()">Iniciar corrida →</button>
-  </div>
 </section>
 `);
 
-// Nombre de cada perfil en el pie de la pantalla
-const NOMBRE_ELECCION = {humo:'Humo', std:'Estándar', deep:'Estándar + profundizar', reg:'Repetir pruebas guardadas', reg_deep:'Repetir pruebas guardadas + profundizar'};
+// #69: la elección de la pantalla se traduce al perfil que recibe start_run (std, deep o reg, #70).
+// Sin críticas marcadas no hay nada que analizar a fondo: se corre como Estándar.
+function perfilDeEleccion({modo}, prioritarias){
+  if (modo === 'repetir') return 'reg';
+  if (modo === 'fondo') return prioritarias > 0 ? 'deep' : 'std';
+  return 'std';
+}
 
+// Objetivos que entran en la corrida: lo incluido en Explorar, según los tipos de prueba elegidos.
 function estFor(k){
   const p = PROFILES.find(x=>x.k===k);
   const mods = MODULES.filter(m=>m.sel && !m.error && moduloTieneObjetivos(m));
-  const fns = mods.flatMap(m=>m.fns).filter(f=>f.inc);
-  const endpoints = mods.flatMap(m=>(m.endpoints || []).filter(e=>endpointElegible(e) && e.inc));
+  const fns = eleccionPruebas.unitarias === false ? [] : mods.flatMap(m=>m.fns).filter(f=>f.inc);
+  const endpoints = eleccionPruebas.endpoints === false ? [] : mods.flatMap(m=>(m.endpoints || []).filter(e=>endpointElegible(e) && e.inc));
   const objetivos = mods.flatMap(m=>[
-    ...m.fns.filter(f=>f.inc),
-    ...(m.endpoints || []).filter(e=>endpointElegible(e) && e.inc)
+    ...(eleccionPruebas.unitarias === false ? [] : m.fns.filter(f=>f.inc)),
+    ...(eleccionPruebas.endpoints === false ? [] : (m.endpoints || []).filter(e=>endpointElegible(e) && e.inc))
   ].map(objetivo=>({...objetivo, reuse: SPEC_STATUS[m.path]==='reuse'})));
   const reused = k==='reg' ? 0 : objetivos.filter(objetivo=>objetivo.reuse).length;
   const total = objetivos.length;
   const et = {P: (total - reused) * p.tok * EST_SPLIT.P, G: total * p.tok * EST_SPLIT.G, R: total * p.tok * EST_SPLIT.R};
   const tok = Math.round(et.P + et.G + et.R);
-  const saved = Math.round(reused * p.tok * EST_SPLIT.P);
-  return {p, fns, endpoints, total, reused, et, tok, saved, time: Math.max(1, Math.round(total * p.t))};
+  return {p, fns, endpoints, total, reused, tok, time: Math.max(1, Math.round(total * p.t))};
 }
-// #69: la elección de la pantalla se traduce al perfil que recibe start_run (humo, std, deep,
-// reg o reg_deep, #70). Sin funciones prioritarias marcadas no hay nada que profundizar.
-// Al repetir solo cuentan las prioritarias con prueba guardada vigente (`repetibles`).
-function perfilDeEleccion({modo, tipo, profundizar, profundizarRepetir = false}, prioritarias, repetibles = 0){
-  if (modo === 'repetir') return profundizarRepetir && repetibles > 0 ? 'reg_deep' : 'reg';
-  if (tipo === 'humo') return 'humo';
-  return profundizar && prioritarias > 0 ? 'deep' : 'std';
-}
-// #70: prioritarias incluidas que tienen una prueba guardada que se puede repetir hoy.
-function prioritariasRepetibles(){
-  return MODULES.filter(m=>m.sel && !m.error && moduloTieneObjetivos(m))
-    .flatMap(m=>m.fns.filter(f=>f.inc && f.crit).map(f=>m.path + '::' + f.n))
-    .filter(clave=>PRUEBAS_REPETIBLES===null || PRUEBAS_REPETIBLES.has(clave)).length;
-}
-// #74: «4 funciones y 2 endpoints prioritarios» según lo marcado en Profundizar.
+
+// #74: «4 funciones y 2 endpoints críticos» según lo marcado en Profundizar.
 function textoPrioritarias(fns, eps){
-  if (!eps) return `${fns} ${fns===1 ? 'función prioritaria' : 'funciones prioritarias'}`;
+  if (!eps) return `${fns} ${fns===1 ? 'función crítica' : 'funciones críticas'}`;
   const ep = `${eps} ${eps===1 ? 'endpoint' : 'endpoints'}`;
-  if (!fns) return `${ep} ${eps===1 ? 'prioritario' : 'prioritarios'}`;
-  return `${fns} ${fns===1 ? 'función' : 'funciones'} y ${ep} prioritarios`;
+  if (!fns) return `${ep} ${eps===1 ? 'crítico' : 'críticos'}`;
+  return `${fns} ${fns===1 ? 'función' : 'funciones'} y ${ep} críticos`;
 }
 function elegirPruebas(cambio){
   eleccionPruebas = {...eleccionPruebas, ...cambio};
@@ -89,98 +100,170 @@ function usoIA(tok){
   if (!tok) return 'sin IA';
   return tok < 50000 ? 'bajo' : tok < 200000 ? 'medio' : 'alto';
 }
-function renderOpcionesPruebas(prioritarias, repetibles = 0, epsPrioritarios = 0){
-  const {modo, tipo, profundizar, profundizarRepetir = false} = eleccionPruebas;
-  const perfil = k => PROFILES.find(p => p.k === k);
-  $('cfgModo').innerHTML = [
-    ['nuevas', 'Generar pruebas nuevas', false],
-    ['repetir', 'Repetir pruebas guardadas', !HAS_PRIOR_RUN],
-  ].map(([k, texto, bloqueado]) => `<button type="button" role="radio" aria-checked="${modo===k}" class="${modo===k?'on':''}"
-      ${bloqueado ? 'disabled title="Requiere una corrida previa de este proyecto"' : ''} onclick="elegirPruebas({modo:'${k}'})">${texto}</button>`).join('');
 
-  if (modo === 'repetir') {
-    const reg = perfil('reg'), deep = perfil('deep');
-    const apagadaRep = repetibles === 0;
-    const cuantasRep = `${repetibles} ${repetibles===1 ? 'función prioritaria' : 'funciones prioritarias'}`;
-    $('cfgOpciones').innerHTML = `<div class="cfg-repetir">
-      <div class="cfg-titulo">${reg.n} <span class="pill p-green">sin IA</span></div>
-      <span class="cfg-desc">${reg.descripcion}</span>
-      <span class="cfg-desc">Se repiten las pruebas aprobadas de los objetivos seleccionados; las de código que cambió se marcan como «requiere corrida nueva».</span>
-    </div>
-    <label class="cfg-profundizar ${apagadaRep?'dis':''}" ${apagadaRep ? 'title="Ninguna función marcada tiene una prueba guardada vigente"' : ''}>
-      <input type="checkbox" ${profundizarRepetir && !apagadaRep ? 'checked' : ''} ${apagadaRep ? 'disabled' : ''} onchange="elegirPruebas({profundizarRepetir:this.checked})">
-      <span><b>${deep.n} en ${cuantasRep}</b> <span class="caja caja-${deep.tipo_caja}">${TIPO_CAJA[deep.tipo_caja]}</span>
-        <span class="cfg-desc">Comprueba con mutación (mutmut) si las pruebas guardadas detectan errores. Tarda más, pero no usa IA. Solo cuentan las funciones marcadas que tienen una prueba guardada vigente; si nada cambió desde la última vez, se reutiliza su resultado.
-          <a href="#" onclick="go('preview');return false">Cambiar cuáles</a></span></span>
+/* ---------- ¿Qué quieres hacer? ---------- */
+const MODOS_PREPARAR = [
+  {k:'nuevas',  t:'Generar pruebas nuevas',     d:'Crear casos para lo que cambió y reutilizar lo que sigue igual.'},
+  {k:'repetir', t:'Volver a correr las guardadas', d:'Regresión: comprueba que los cambios no rompieron lo que antes funcionaba. No usa IA.',
+    tip:'Regresión: volver a correr las pruebas guardadas para comprobar que los cambios no rompieron lo que antes funcionaba.'},
+  {k:'fondo',   t:'Análisis a fondo de críticas', d:'Busca casos límite y mide la fortaleza de las pruebas. Tarda más.'},
+];
+function renderModosPreparar(){
+  const {modo} = eleccionPruebas;
+  $('cfgModo').innerHTML = MODOS_PREPARAR.map(o => {
+    const bloqueado = o.k === 'repetir' && !HAS_PRIOR_RUN;
+    return `<button type="button" role="radio" class="prep-modo ${modo===o.k?'on':''}" aria-checked="${modo===o.k}"
+      ${bloqueado ? 'disabled title="Requiere una corrida previa de este proyecto"' : (o.tip ? `title="${o.tip}"` : '')} onclick="elegirPruebas({modo:'${o.k}'})">
+      <span class="prep-radio" aria-hidden="true"></span>
+      <span><b>${o.t}</b><span class="prep-desc">${bloqueado ? 'Disponible después de la primera corrida de este proyecto.' : o.d}</span></span>
+    </button>`;
+  }).join('');
+}
+
+/* ---------- Tipos de prueba y funciones críticas ---------- */
+function renderTiposPrueba(){
+  const mods = MODULES.filter(m=>m.sel && !m.error && moduloTieneObjetivos(m));
+  const nFns = mods.flatMap(m=>m.fns).filter(f=>f.inc).length;
+  const nEps = mods.flatMap(m=>(m.endpoints || []).filter(e=>endpointElegible(e) && e.inc)).length;
+  const fila = (clave, titulo, n, singular, plural) => `<label class="prep-casilla ${n ? '' : 'dis'}">
+      <input type="checkbox" class="exp-caja" ${eleccionPruebas[clave] !== false && n ? 'checked' : ''} ${n ? '' : 'disabled'} onchange="elegirPruebas({${clave}:this.checked})">
+      <span><b>${titulo}</b><span class="prep-desc">${n} ${n === 1 ? singular : plural}</span></span>
     </label>`;
+  $('prepTipos').innerHTML = fila('unitarias', 'Unitarias', nFns, 'función seleccionada', 'funciones seleccionadas')
+    + fila('endpoints', 'Endpoints API', nEps, 'endpoint seleccionado', 'endpoints seleccionados');
+}
+// Críticas: funciones y endpoints incluidos y marcados en Profundizar. Se muestran tres; el resto
+// se ve y se edita en la columna Profundizar de Explorar (visible con «Análisis a fondo»).
+function renderCriticas(){
+  const criticas = [];
+  MODULES.forEach((m, mi) => {
+    if(!m.sel || m.error || !moduloTieneObjetivos(m)) return;
+    (m.fns || []).forEach((f, fi) => { if(f.inc && f.crit) criticas.push({n:f.n, fn:`toggle(${mi},${fi},'crit')`}); });
+    (m.endpoints || []).forEach((e, ei) => { if(endpointElegible(e) && e.inc && e.crit) criticas.push({n:e.objetivo, fn:`toggleEndpointCrit(${mi},${ei})`}); });
+  });
+  $('prepCritTitulo').textContent = `Funciones críticas · ${criticas.length}`;
+  const visibles = criticas.slice(0, 3), resto = criticas.length - visibles.length;
+  const enlace = resto > 0 ? `Ver y editar las otras ${resto} ${resto === 1 ? 'crítica' : 'críticas'}` : (criticas.length ? 'Editar en Explorar' : 'Marcar críticas en Explorar');
+  $('prepCriticas').innerHTML = (visibles.map(c => `<label class="prep-casilla">
+      <input type="checkbox" class="exp-caja" checked aria-label="Crítica: ${escHtml(c.n)}" onchange="${c.fn}"><span class="np-mono">${escHtml(c.n)}</span>
+    </label>`).join('') || '<p class="prep-desc">Todavía no hay funciones críticas marcadas.</p>')
+    + (eleccionPruebas.modo !== 'fondo' && criticas.length ? '<p class="prep-desc">Se analizan a fondo al elegir «Análisis a fondo de críticas».</p>' : '')
+    + `<button type="button" class="ini-enlace prep-enlace" onclick="irACriticas()">${enlace}</button>`;
+}
+// Para marcar o revisar críticas hace falta la columna Profundizar de Explorar.
+function irACriticas(){
+  if (eleccionPruebas.modo !== 'fondo') elegirPruebas({modo:'fondo'});
+  go('preview');
+}
+
+/* ---------- Comprobaciones previas ----------
+   Salen de la verificación real del entorno (EN-06: configuración, claves, Docker y Git) y de la
+   selección. Sin pywebview es una demostración: todo se muestra como listo. */
+function comprobacionesPrevias(total, reused){
+  const lista = [];
+  const r = typeof ENTORNO_VERIFICADO !== 'undefined' ? ENTORNO_VERIFICADO : null;
+  const demo = !(window.pywebview && window.pywebview.api);
+  const porId = id => r && (r.comprobaciones || []).find(c => c.id === id);
+  if (demo) {
+    lista.push({ok:true, t:'IA conectada', d:'Modo demostración'});
+    lista.push({ok:true, t:'Motor activo', d:'Entorno aislado · sin internet'});
+  } else if (!r) {
+    lista.push({ok:null, t:'Verificando el entorno…', d:'IA, motor y configuración'});
+  } else {
+    const ia = porId('claves'), motor = porId('docker'), conf = porId('config'), git = porId('git');
+    if (ia) lista.push(ia.ok ? {ok:true, t:'IA conectada', d: r.simulado ? 'IA simulada · sin consumo de tokens' : 'Proveedor configurado'}
+                             : {ok:false, t:'Conecta tu proveedor de IA', d:ia.mensaje, a:'Configurar IA'});
+    if (motor) lista.push(motor.ok ? {ok:true, t:'Motor activo', d:'Entorno aislado · sin internet'}
+                         : motor.opcional ? {ok:true, t:'Motor opcional', d:'No se usa con la IA simulada'}
+                         : {ok:false, pausa:true, t:'Inicia el motor', d:motor.mensaje, a:'Ir al motor'});
+    if (conf && !conf.ok) lista.push({ok:false, t:'Revisa la configuración', d:conf.mensaje, a:'Abrir Configuración'});
+    if (git && !git.ok) lista.push({ok:false, t:'Git no disponible', d:git.mensaje, a:'Abrir Configuración'});
+  }
+  lista.push(total ? {ok:true, t:'Selección válida', d:`${total} ${total === 1 ? 'función o endpoint' : 'funciones y endpoints'}`}
+                   : {ok:false, t:'Elige qué probar', d:'No hay funciones ni endpoints seleccionados.', a:'Ir a Explorar', explorar:true});
+  if (reused) lista.push({ok:true, t:'Trabajo reutilizable', d:`${reused} sin cambios desde la última vez`});
+  return lista;
+}
+function renderComprobaciones(lista){
+  const pendientes = lista.filter(c => c.ok === false).length;
+  const ico = c => c.ok === null ? ICO_GIRANDO : c.ok ? ICO_OK : c.pausa ? ICO_PAUSA_PREP : ICO_ERROR;
+  const clase = c => c.ok === null ? 'progreso' : c.ok ? 'exito' : c.pausa ? 'aviso' : 'bug';
+  $('prepComprobaciones').innerHTML = `<h2>${pendientes ? 'Comprobaciones previas' : 'Todo listo para empezar'}</h2>
+    ${pendientes ? `<span class="np-chip np-chip-aviso">${ICO_AVISO_CLON}${pendientes} ${pendientes === 1 ? 'pendiente' : 'pendientes'} de resolver</span>`
+                 : `<span class="np-chip np-chip-exito">${ICO_OK}Comprobaciones completas</span>`}
+    <ul class="prep-checks">${lista.map(c => `<li class="prep-check-${clase(c)}">
+      <span class="prep-check-ico">${ico(c)}</span>
+      <div><b>${escHtml(c.t)}</b><span class="prep-desc">${escHtml(c.d || '')}</span>
+        ${c.a ? `<button type="button" class="ini-enlace prep-enlace" onclick="${c.explorar ? "go('preview')" : "go('config')"}">${c.a}</button>` : ''}</div>
+    </li>`).join('')}</ul>`;
+  return pendientes;
+}
+
+/* ---------- Límites de la corrida / Inicio no disponible ---------- */
+function renderDetallesCorrida(e, bloqueado, prioritarias, epsPrioritarios = 0){
+  const {p, reused, tok} = e;
+  if (bloqueado) {
+    $('prepLimites').innerHTML = `<h2>Inicio no disponible</h2>
+      <button type="button" class="ini-btn" disabled>${ICO_CANDADO}Iniciar prueba</button>
+      <p class="np-meta">Se habilitará cuando todo esté listo. No perderás tus opciones.</p>`;
     return;
   }
-
-  const opcion = k => {
-    const p = perfil(k);
-    return `<label class="cfg-opcion ${tipo===k?'on':''}">
-      <input type="radio" name="tipoPrueba" ${tipo===k?'checked':''} onchange="elegirPruebas({tipo:'${k}'})">
-      <span><b>${p.n}</b><span class="cfg-desc">${p.descripcion}</span></span>
-    </label>`;
-  };
-  const deep = perfil('deep');
-  const apagada = tipo === 'humo' || prioritarias === 0;
-  const porque = tipo === 'humo' ? 'Disponible con el tipo Estándar' : 'Marca funciones en la vista previa para profundizar (o endpoints)';
-  const cuantas = textoPrioritarias(prioritarias - epsPrioritarios, epsPrioritarios);
-  $('cfgOpciones').innerHTML = `<div class="cfg-pregunta">Tipos de prueba</div>
-    ${opcion('humo')}
-    ${opcion('std')}
-    <label class="cfg-profundizar ${apagada?'dis':''}" ${apagada ? `title="${porque}"` : ''}>
-      <input type="checkbox" ${profundizar && !apagada ? 'checked' : ''} ${apagada ? 'disabled' : ''} onchange="elegirPruebas({profundizar:this.checked})">
-      <span><b>${deep.n} en ${cuantas}</b> <span class="caja caja-${deep.tipo_caja}">${TIPO_CAJA[deep.tipo_caja]}</span>
-        <span class="cfg-desc">${deep.descripcion} Las funciones y los endpoints se marcan en la columna Profundizar de la vista previa; en un endpoint solo se muta el código de su manejador.
-          <a href="#" onclick="go('preview');return false">Cambiar cuáles</a></span></span>
-    </label>`;
-}
-function renderDetallesCorrida(e, prioritarias, repetibles = 0, epsPrioritarios = 0){
-  const {p, reused, et, tok, saved} = e;
-  const repite = profile==='reg' || profile==='reg_deep';
   const filas = [
+    'Hasta 3 reintentos por función',
     `Uso de IA estimado: <b>${usoIA(tok)}</b>${tok ? ` · ~${tok.toLocaleString('es-PE')} tokens` : ''}`,
     `Duración aproximada: <b>${p.duracion}</b> · ~${e.time} min`,
-    repite
-      ? 'Solo se ejecutan pruebas guardadas: ningún agente llama a la IA.'
-      : 'Por agente: ' + ['P','G','R'].map(k => `${AGENTS_CFG[k].name} ~${Math.round(et[k]).toLocaleString('es-PE')}`).join(' · ') + ' tokens',
-    reused ? `♻ ${reused} objetivo(s) reutilizan su spec vigente: el Planner no trabaja ahí (ahorro ≈ ${saved.toLocaleString('es-PE')} tokens).` : '',
-    profile==='deep' ? `mutmut se aplicará a <b>${textoPrioritarias(prioritarias - epsPrioritarios, epsPrioritarios)}</b>: no consume tokens, sí tiempo de CPU.` : '',
-    profile==='reg_deep' ? `mutmut se aplicará a <b>${repetibles}</b> función(es) prioritaria(s) con prueba guardada vigente: no consume tokens, pero suma tiempo de CPU a la duración (salvo las que se reutilizan).` : '',
+    reused ? `${reused} sin cambios: se reutiliza el trabajo anterior.` : '',
+    profile==='deep' ? `Análisis a fondo en ${textoPrioritarias(prioritarias - epsPrioritarios, epsPrioritarios)}: comprueba con mutación si las pruebas detectan errores. No usa tokens, pero tarda más.` : '',
+    profile==='reg' ? 'Solo se vuelven a correr pruebas guardadas: no se usa IA.' : 'Los tokens se mostrarán en vivo y por función.',
   ];
-  $('cfgDetalles').innerHTML = filas.filter(Boolean).map(f => `<div>${f}</div>`).join('');
+  $('prepLimites').innerHTML = `<h2>Límites de esta corrida</h2>
+    <div class="prep-limites" id="cfgDetalles">${filas.filter(Boolean).map(f => `<p>${f}</p>`).join('')}</div>
+    <button type="button" class="ini-enlace prep-enlace" onclick="go('config')">Ajustar en Configuración</button>`;
 }
+
+// Botón principal: inicia la corrida si todo está listo; si no, lleva a resolver lo pendiente.
+let destinoBloqueo = null;
+function accionPrincipalPreparar(){
+  if (destinoBloqueo) { go(destinoBloqueo); return; }
+  startMonitor();
+}
+
 function calc(){
   if (eleccionPruebas.modo === 'repetir' && !HAS_PRIOR_RUN) eleccionPruebas.modo = 'nuevas';
-  // #74: los endpoints marcados también cuentan como prioritarios (solo al generar).
+  // La columna Profundizar de Explorar solo se ve con «Análisis a fondo de críticas».
+  if (typeof mostrarProfundizar === 'function') mostrarProfundizar(eleccionPruebas.modo === 'fondo');
+  // #74: los endpoints marcados también cuentan como críticos.
   const estStd = estFor('std');
   const epsPrioritarios = estStd.endpoints.filter(e=>e.crit).length;
   const prioritarias = estStd.fns.filter(f=>f.crit).length + epsPrioritarios;
-  const repetibles = prioritariasRepetibles();
-  profile = perfilDeEleccion(eleccionPruebas, prioritarias, repetibles);
-  const e = estFor(profile==='reg_deep' ? 'reg' : profile), {fns, endpoints, total, tok} = e;
+  profile = perfilDeEleccion(eleccionPruebas, prioritarias);
+  const e = estFor(profile), {fns, endpoints, total, tok, reused} = e;
   runEstimate = {tok};
   const noDoc = fns.filter(f=>!f.doc).length;
-  const nMods = obtenerSeleccionObjetivos().length;
-  $('fnCount').textContent = fns.length + ' incluidas';
-  // Resumen del alcance (pantalla 3)
-  $('scopeSum').innerHTML = `<span style="font-size:12px;color:var(--mut)">Alcance elegido en la vista previa:</span>
-    <span class="pill p-grey">${total} objetivos · ${fns.length} funciones · ${endpoints.length} endpoints · ${nMods} ${nMods===1?'módulo':'módulos'}</span>
-    <span class="pill p-grey">★ ${textoPrioritarias(prioritarias - epsPrioritarios, epsPrioritarios)}</span>
-    ${noDoc?`<span class="pill p-amber">⚠ ${noDoc} sin docstring</span>`:''}
-    <button class="btn" onclick="go('preview')">Editar selección</button>`;
   renderPieVistaPrevia(fns, noDoc, endpoints);
-  // Pie de la pantalla 3 (elección y alcance)
-  let msg = '', block = false;
-  if(!entornoListo){ msg = `<span class="err">${escHtml(entornoMotivo)}</span>`; block = true; }
-  else if(!total){ msg = 'No hay objetivos seleccionados: vuelve a la vista previa.'; block = true; }
-  else if(noDoc){ msg = `<span class="warn">⚠ ${noDoc} función(es) sin docstring: se generarán, pero con oráculo débil (se marcará en el informe).</span>`; }
-  else msg = profile==='reg' ? 'Repetir pruebas guardadas: se re-ejecutan sin IA.'
-    : profile==='reg_deep' ? `Repetir pruebas guardadas + profundizar: sin IA · mutmut en ${repetibles} función(es).`
-    : `Listo: ${total} objetivos · ${NOMBRE_ELECCION[profile]}.`;
-  $('footMsg2').innerHTML = msg; $('toPlan').disabled = block;
-  renderOpcionesPruebas(prioritarias, repetibles, epsPrioritarios);
-  renderDetallesCorrida(e, prioritarias, repetibles, epsPrioritarios);
+
+  renderModosPreparar();
+  renderTiposPrueba();
+  renderCriticas();
+  const lista = comprobacionesPrevias(total, reused);
+  const pendientes = renderComprobaciones(lista);
+  const verificando = lista.some(c => c.ok === null);
+  const bloqueado = !verificando && (!entornoListo || !total || pendientes > 0);
+
+  // Cabecera: título, resumen y botón principal según el estado.
+  const resumen = `${total} ${total === 1 ? 'seleccionada' : 'seleccionadas'} · ${fns.length} ${fns.length === 1 ? 'función' : 'funciones'} y ${endpoints.length} ${endpoints.length === 1 ? 'endpoint' : 'endpoints'} · Python`;
+  $('prepSub').textContent = bloqueado ? 'Tu selección está guardada. Resuelve estos puntos antes de empezar.' : resumen;
+  $('prepTitulo').textContent = verificando ? 'Comprobando tu entorno…'
+    : !bloqueado ? 'Prepara una corrida fiable'
+    : pendientes <= 1 ? 'Falta una comprobación' : `Faltan ${pendientes} comprobaciones`;
+  const soloSeleccion = !total && pendientes === 1;
+  destinoBloqueo = bloqueado ? (soloSeleccion ? 'preview' : 'config') : null;
+  $('toPlanIco').innerHTML = bloqueado ? ICO_AJUSTES : ICO_INICIAR;
+  $('toPlanTxt').textContent = bloqueado ? (soloSeleccion ? 'Volver a Explorar' : 'Resolver en Configuración') : 'Iniciar prueba';
+  $('toPlan').disabled = verificando;
+  const problemas = lista.filter(c => c.ok === false).map(c => c.t.toLowerCase());
+  $('prepBloqueo').classList.toggle('hide', !bloqueado);
+  $('prepBloqueoTxt').textContent = problemas.length ? `Falta: ${problemas.join(', ')}.` : entornoMotivo;
+
+  renderDetallesCorrida(e, bloqueado, prioritarias, epsPrioritarios);
 }

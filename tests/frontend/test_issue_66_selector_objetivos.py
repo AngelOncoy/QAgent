@@ -123,40 +123,35 @@ def test_cambiar_de_vista_no_recarga_ni_pierde_la_seleccion() -> None:
 
 
 def test_columnas_de_la_tabla_de_endpoints_en_orden() -> None:
+    # Rediseño: tabla compacta. Estado, respuesta, errores y dependencias simuladas van en la
+    # línea secundaria de «Información»; las decisiones (#74) en «Complejidad».
     assert _encabezados_endpoints() == [
         "Endpoint",
-        "Calidad",
-        "Estado",
-        "Respuesta",
-        "Errores",
-        "Simula",
-        "Decisiones",  # #74
+        "Complejidad",
+        "Información",
+        "Desde la última vez",
         "Profundizar",  # #74
-        "Incluir",
     ]
 
 
 def test_cada_columna_de_endpoint_tiene_tooltip() -> None:
     tooltips = _columnas_tooltips()
-    assert len(tooltips) == 9  # #74 añade Decisiones y Profundizar
+    assert len(tooltips) == 5  # una por columna con título (la casilla Incluir no lleva)
     for texto in (
-        "Método HTTP y ruta del endpoint detectado en el proyecto.",
-        "Indica si QAgent tiene suficiente información (modelo de respuesta y estado declarado) para probar el endpoint.",
-        "Código HTTP que devolverá el endpoint. En gris si es el 200 por defecto, no declarado.",
-        "Modelo de datos que devuelve el endpoint, si está declarado.",
-        "Cantidad de errores HTTP (HTTPException) que el endpoint puede lanzar.",
-        "Dependencias de Depends() que QAgent simula al probar el endpoint.",
-        "Permite seleccionar si este endpoint formará parte de la corrida.",
+        "Método HTTP y ruta del endpoint, con la función que lo atiende.",
+        "Si el endpoint declara su modelo de respuesta y su código de estado. Debajo: estado, respuesta, errores HTTP y dependencias que se simulan.",
+        "Pide un análisis más exhaustivo del endpoint. Tarda más.",
     ):
         assert f'data-tip="{texto}"' in VISTA_JS
 
 
 def test_todas_las_filas_comparten_las_nueve_columnas() -> None:
     render = cuerpo("renderEndpoints")
-    # Encabezado de archivo, fila normal y fila de error: todas ocupan 9 columnas (#74).
-    assert 'colspan="9"' in render
-    assert 'colspan="7"' not in render
-    assert render.count("<td") >= 9
+    # Rediseño: encabezado de archivo, fila normal y fila vacía ocupan las 6 columnas.
+    assert 'colspan="6"' in cuerpo("filaArchivo")
+    assert 'colspan="6"' in render
+    assert 'colspan="9"' not in render
+    assert render.count("<td") >= 6
 
 
 # ---------------- 10-14. Contenido de las celdas ----------------
@@ -173,7 +168,7 @@ def test_calidad_de_endpoint_no_depende_del_numero_de_estado() -> None:
 
 def test_el_estado_no_declarado_se_atenua() -> None:
     assert "class=\"${e.status_code_declarado ? '' : 'muted'}\"" in VISTA_JS
-    assert "td.muted{color:var(--dim)}" in VISTA_CSS
+    assert "td.muted,.exp-objetivos table .muted{color:var(--texto-3)}" in VISTA_CSS
 
 
 def test_la_respuesta_vacia_muestra_guion() -> None:
@@ -219,7 +214,9 @@ def test_el_plegado_de_una_vista_es_independiente_de_la_otra() -> None:
 def test_el_encabezado_de_archivo_cuenta_endpoints_y_por_revisar() -> None:
     render = cuerpo("renderEndpoints")
     assert "'endpoint' : 'endpoints'" in render
-    assert " por revisar" in render
+    assert "porRevisar" in render
+    # El encabezado de archivo es común a funciones y endpoints (rediseño).
+    assert " por revisar" in cuerpo("filaArchivo")
 
 
 def test_un_endpoint_sin_ruta_no_se_puede_incluir() -> None:
@@ -285,10 +282,11 @@ def test_la_demostracion_incluye_endpoints_resueltos_y_no_resueltos() -> None:
 
 
 def test_los_tokens_del_selector_existen_y_se_usan() -> None:
-    for token in ("--inset", "--blue-s", "--blue-t", "--dim"):
+    # Rediseño: el selector usa los tokens del sistema (fondo hundido y seleccionado).
+    for token in ("--hundido", "--accion-suave", "--enlace", "--texto-3"):
         assert f"{token}:" in TOKENS
-    assert "var(--inset)" in VISTA_CSS
-    assert "var(--blue-s)" in VISTA_CSS
+    assert "var(--hundido)" in VISTA_CSS
+    assert "var(--accion-suave)" in VISTA_CSS
 
 
 # ---------------- Comportamiento real de las funciones puras (Node) ----------------
