@@ -1,43 +1,8 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 372" fill="none" role="img" aria-label="QAgent, desde 2026">
-  <defs>
-    <linearGradient id="qa-marca" gradientUnits="userSpaceOnUse" x1="110" y1="0" x2="210" y2="245">
-      <stop offset="0" stop-color="#e6b8f2"/>
-      <stop offset="0.5" stop-color="#9d8cf7"/>
-      <stop offset="1" stop-color="#3f63ff"/>
-    </linearGradient>
-    <radialGradient id="qa-brillo">
-      <stop offset="0" stop-color="#ffffff" stop-opacity="0.55"/>
-      <stop offset="0.45" stop-color="#b79cff" stop-opacity="0.28"/>
-      <stop offset="1" stop-color="#7c5cff" stop-opacity="0"/>
-    </radialGradient>
-  </defs>
-
-  <g transform="translate(40 0)">
-    <g stroke="url(#qa-marca)" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round">
-      <path d="M120 12 L25 67 V177 L120 232 L215 177 V67 Z"/>
-      <path d="M59 112 V87 L120 52 L181 87 V112"/>
-      <path d="M59 132 V157 L120 192 L181 157 V132"/>
-      <path d="M84 113 V101 L120 80 L156 101 V113"/>
-      <path d="M84 131 V143 L120 164 L156 143 V131"/>
-      <path d="M25 67 L120 50 M215 177 L120 196 M120 12 V50 M120 196 V232"/>
-    </g>
-    <g fill="#0a0524" stroke="url(#qa-marca)" stroke-width="3.5">
-      <circle cx="120" cy="12" r="7.5"/>
-      <circle cx="25" cy="67" r="7.5"/>
-      <circle cx="121" cy="50" r="7.5"/>
-      <circle cx="215" cy="67" r="7.5"/>
-      <circle cx="25" cy="177" r="7.5"/>
-      <circle cx="217" cy="177" r="7.5"/>
-      <circle cx="120" cy="196" r="7.5"/>
-      <circle cx="120" cy="232" r="7.5"/>
-    </g>
-    <circle cx="120" cy="122" r="34" fill="url(#qa-brillo)"/>
-    <g stroke="#ffffff" stroke-width="5.5" stroke-linecap="round">
-      <circle cx="118" cy="119" r="12.5"/>
-      <path d="M123 124 L132 135"/>
-    </g>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 150 32" fill="none" role="img" aria-label="QAgent">
+  <!-- Logo completo: símbolo oficial + nombre. El texto usa Inter si está instalada; si no, Segoe UI
+       (un SVG cargado como imagen no hereda las fuentes de la página). -->
+  <g transform="translate(1 1) scale(0.3)">
+    <path d="M70.4002 9.46875H25.8076L8.17798 27.3188V65.1188L25.8076 82.9688H62.1039L69.2248 74.9349M69.2248 74.9349L81.6039 60.9688M69.2248 74.9349L61 67M69.2248 74.9349L85.3909 90.5312M40 46L55.8909 62L91.8219 24.5" stroke-width="7.63636" stroke-linecap="square" stroke="#F1F3F6"/>
   </g>
-
-  <text x="160" y="318" text-anchor="middle" fill="#ffffff" font-family="Poppins, Montserrat, 'Segoe UI', Arial, sans-serif" font-size="56" font-weight="700" letter-spacing="1">QAGENT</text>
-  <text x="160" y="354" text-anchor="middle" fill="#d9aef2" font-family="Poppins, Montserrat, 'Segoe UI', Arial, sans-serif" font-size="19" font-weight="600" letter-spacing="7">DESDE 2026</text>
+  <text x="38" y="23" fill="#F1F3F6" font-family="Inter, 'Segoe UI', system-ui, sans-serif" font-size="20" font-weight="400" letter-spacing="-0.2">QAgent</text>
 </svg>

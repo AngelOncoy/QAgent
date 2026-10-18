@@ -1,30 +1,58 @@
-/* sidebar.css — barra lateral: marca, secuencia de agentes, navegación y estado del sandbox */
-aside{width:236px;background:var(--side);border-right:1px solid var(--line);display:flex;flex-direction:column;flex-shrink:0}
-.brand{display:flex;gap:12px;align-items:center;padding:18px 16px;border-bottom:1px solid var(--line)}
-.brand b{font-size:15px}.ver{font-family:var(--mono);font-size:10px;color:var(--mut);border:1px solid var(--line2);border-radius:4px;padding:1px 5px;margin-left:6px}
-.brand small{display:block;color:var(--mut);font-size:11px;margin-top:2px}
-.side-back-wrap{padding:12px 14px 4px}
-.btn-side-back{display:flex;align-items:center;gap:8px;width:100%;padding:8px 10px;border-radius:7px;border:1px solid var(--line);background:var(--panel2);color:var(--txt);font-family:var(--sans);font-size:12px;font-weight:500;cursor:pointer;transition:all .15s}
-.btn-side-back:hover{background:var(--panel);border-color:var(--line2);color:var(--white)}
-.btn-side-back svg{flex-shrink:0;color:var(--mut);transition:transform .15s}
-.btn-side-back:hover svg{color:var(--blue);transform:translateX(-2px)}
-.navlbl{font-size:10px;letter-spacing:.12em;color:var(--dim);padding:16px 16px 8px;text-transform:uppercase;font-weight:600}
-.seq{padding:0 16px 14px;border-bottom:1px solid var(--line)}
-.seq .it{display:flex;align-items:center;gap:8px;margin:7px 0;font-size:12px;font-weight:600}
-.seq .it .lg{flex-shrink:0;width:16px;height:16px}
-.seq .it{white-space:nowrap}
-.seq .it .pill{margin-left:auto}
-nav a{display:flex;align-items:center;gap:10px;margin:2px 8px;padding:9px 10px;border-radius:8px;color:var(--mut);cursor:pointer;font-size:12.5px;text-decoration:none}
-nav a:hover{background:var(--panel)}
-nav a.on{background:var(--blue);color:var(--white)}
-nav a.off{opacity:.4;cursor:not-allowed}
-nav a .pill{margin-left:auto}
-nav a.on .pill{background:var(--white-a16);color:var(--white);border-color:transparent}
-.sidefoot{margin-top:auto}
-.runner{margin:12px;padding:10px;border:1px solid var(--line);border-radius:8px;background:var(--panel2);font-size:11px}
-.runner .row{display:flex;justify-content:space-between;gap:6px;margin:2px 0;color:var(--mut);white-space:nowrap}
-.runner #sbRow{flex-wrap:wrap}   /* el estado largo pasa a la línea siguiente en lugar de salirse del recuadro */
-.runner b{color:var(--txt);font-weight:600}
-.runner .sbhelp{align-items:center}
-.runner .sbhelp button{font-family:var(--mono);font-size:10px;padding:2px 8px;border-radius:5px;border:1px solid var(--red-b);background:var(--red-s);color:var(--red-t);cursor:pointer}
-.sidebottom{display:flex;justify-content:space-between;padding:12px 16px;border-top:1px solid var(--line);color:var(--mut);font-size:11.5px}
+/* sidebar.css — barra lateral retráctil (drawer): marca, navegación, espacio de trabajo y motor.
+   Usa solo los tokens del sistema (css/tokens.css, sección 1). Plegada (.plegada) queda un riel de íconos. */
+.lateral{width:var(--lateral-ancho);flex-shrink:0;display:flex;flex-direction:column;background:var(--lateral);border-right:var(--borde-ancho) solid var(--borde);font-family:var(--fuente-ui);color:var(--texto);overflow:hidden;transition:width .2s ease}
+.lateral.plegada{width:var(--lateral-plegada)}
+
+/* Cabecera: logo, nombre y botón para plegar */
+.lat-cabecera{display:flex;align-items:center;gap:var(--esp-3);min-height:64px;padding:0 var(--esp-3) 0 var(--esp-5)}
+.lat-marca{flex:1;font-size:20px;font-weight:var(--peso-normal);letter-spacing:-.01em;white-space:nowrap}
+.lat-plegar{display:grid;place-items:center;width:32px;height:32px;flex-shrink:0;border:0;border-radius:var(--radio-control);background:transparent;color:var(--texto-3);cursor:pointer}
+.lat-plegar:hover{background:var(--superficie-2);color:var(--texto)}
+.lat-flecha{transition:transform .2s ease;transform-origin:14.5px 12px}
+.plegada .lat-flecha{transform:scaleX(-1)}
+
+/* Navegación */
+.lat-nav{display:flex;flex-direction:column;gap:var(--esp-1);padding:var(--esp-4) var(--esp-3)}
+.lat-nav a{display:flex;align-items:center;gap:var(--esp-3);height:var(--control-alto);padding:0 var(--esp-3);border-radius:var(--radio-control);color:var(--texto-2);font-size:var(--texto-cuerpo);text-decoration:none;cursor:pointer;white-space:nowrap}
+.lat-nav a svg{flex-shrink:0}
+.lat-nav a:hover{background:var(--superficie);color:var(--texto)}
+.lat-nav a.on{background:var(--accion-suave);color:var(--enlace);font-weight:var(--peso-medio)}
+.lat-nav a.off{opacity:.45;cursor:not-allowed}
+.lat-nav a.off:hover{background:none;color:var(--texto-2)}
+.lat-insignia{margin-left:auto;padding:1px 6px;border:var(--borde-ancho) solid var(--borde);border-radius:var(--radio-chip);font-size:11px;color:var(--texto-3)}
+.lat-nav a:focus-visible,.lat-plegar:focus-visible,.btn-side-back:focus-visible,.lat-motor-ayuda:focus-visible{outline:2px solid var(--foco-anillo);outline-offset:1px}
+
+/* Volver a Inicio y espacio de trabajo (solo con un proyecto abierto) */
+.side-back-wrap{padding:var(--esp-4) var(--esp-3) 0}
+.btn-side-back{display:flex;align-items:center;gap:var(--esp-2);width:100%;height:36px;padding:0 var(--esp-3);border:0;border-radius:var(--radio-control);background:transparent;color:var(--texto-2);font:var(--texto-cuerpo)/1 var(--fuente-ui);cursor:pointer;white-space:nowrap}
+.btn-side-back:hover{background:var(--superficie);color:var(--texto)}
+.btn-side-back svg{flex-shrink:0;transition:transform .15s}
+.btn-side-back:hover svg{transform:translateX(-2px)}
+.lat-espacio{display:flex;flex-direction:column;gap:2px;margin:var(--esp-4) var(--esp-3) 0;padding:var(--esp-3);border-top:var(--borde-ancho) solid var(--borde)}
+.lat-etiqueta{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--texto-3)}
+.lat-espacio b{font-weight:var(--peso-medio);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.lat-rama{font-size:var(--texto-meta);color:var(--texto-2)}
+.lat-rama span{font-family:var(--fuente-mono)}
+
+/* Pie: estado del motor */
+.sidefoot{margin-top:auto;padding:var(--esp-3)}
+.lat-motor{display:flex;align-items:flex-start;gap:var(--esp-2);padding:var(--esp-3);border-radius:var(--radio-tarjeta);background:var(--superficie)}
+.lat-motor .dot{flex-shrink:0;width:8px;height:8px;margin:6px 0 0}
+.lat-motor-texto{display:flex;flex-direction:column;min-width:0}
+.lat-motor-texto b{font-size:13px;font-weight:var(--peso-medio);color:var(--texto)}
+.lat-motor-texto small{font-size:11px;color:var(--texto-2)}
+.lat-motor-ayuda{align-self:flex-start;margin-top:var(--esp-2);padding:3px var(--esp-2);border:var(--borde-ancho) solid var(--bug-b);border-radius:var(--radio-chip);background:var(--bug-s);color:var(--bug-t);font:11px/1.3 var(--fuente-ui);cursor:pointer}
+.lat-pie{padding:var(--esp-3) var(--esp-1) 0;font-size:11px;color:var(--texto-3);white-space:nowrap}
+
+/* Plegada: riel de íconos. Los textos se ocultan; el nombre queda en el title de cada enlace. */
+.plegada .lat-txt{display:none}
+.plegada .lat-cabecera{flex-direction:column;justify-content:center;gap:var(--esp-2);padding:var(--esp-3) 0}
+.plegada .lat-nav,.plegada .side-back-wrap{padding-left:var(--esp-2);padding-right:var(--esp-2)}
+.plegada .lat-nav a,.plegada .btn-side-back{justify-content:center;padding:0}
+.plegada .sidefoot{padding:var(--esp-3) var(--esp-2)}
+.plegada .lat-motor{justify-content:center;padding:var(--esp-3) 0}
+.plegada .lat-motor .dot{margin:0}
+
+@media (prefers-reduced-motion:reduce){
+  .lateral,.lat-flecha,.btn-side-back svg{transition:none}
+}

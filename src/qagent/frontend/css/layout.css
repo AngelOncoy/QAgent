@@ -35,4 +35,4 @@ main{flex:1;display:flex;flex-direction:column;min-width:0}
 .demo button{font-family:var(--mono);font-size:10px;color:var(--mut);background:var(--panel);border:1px solid var(--line2);padding:6px 10px;border-radius:6px;cursor:pointer}
 
 /* Logo de la barra lateral. Vive aquí (junto a tokens.css) porque --logo-icono usa una ruta relativa a css/ */
-.logo{width:36px;height:36px;border-radius:9px;background:var(--logo-icono) center/contain no-repeat;flex-shrink:0}
+.logo{width:32px;height:32px;background:var(--logo-icono) center/contain no-repeat;flex-shrink:0}
