@@ -18,3 +18,6 @@ mutants/
 # Empaquetado
 build/
 dist/
+# Claude Code: skills y ajustes personales
+.claude/skills/
+.claude/settings.local.json
