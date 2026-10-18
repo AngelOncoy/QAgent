@@ -53,8 +53,8 @@ function renderHistoryDemo(){
     <td class="mono">#${h.run}${h.current?' <span class="pill p-blue" style="margin-left:4px">actual</span>':''}</td>
     <td>${h.date}</td><td>${h.profile}</td><td style="font-size:11.5px">${h.models}</td><td>${h.specs}</td><td>${h.pass}</td><td class="mono">${h.tokens?kfmt(h.tokens):'0'}</td>
     <td class="mono">S/ ${(agentCost((sp => ({P:h.tokens*sp.P/100,G:h.tokens*sp.G/100,R:h.tokens*sp.R/100}))(h.split||AGENT_SPLIT))*FX).toFixed(2)}</td>
-    <td>${h.current ? `<button class="btn" style="font-size:10.5px;padding:6px 10px" onclick="go('report')">Ver reporte</button>`
-                    : `<button class="btn" style="font-size:10.5px;padding:6px 10px" onclick="toast('En la app real se abre el reporte archivado de la corrida #${h.run} <span style=&quot;color:var(--dim)&quot;>(simulado)</span>')">Ver reporte</button>`}</td></tr>`).join('');
+    <td>${h.current ? `<button class="btn" style="font-size:10.5px;padding:6px 10px" onclick="go('exec')">Ver resultados</button>`
+                    : `<button class="btn" style="font-size:10.5px;padding:6px 10px" onclick="toast('En la app real se abren los resultados archivados de la corrida #${h.run} <span style=&quot;color:var(--dim)&quot;>(simulado)</span>')">Ver resultados</button>`}</td></tr>`).join('');
   const mods = [...new Set(RUN.map(f=>f.module))];
   $('specTable').innerHTML = mods.map(mod => {
     const fns = RUN.filter(f=>f.module===mod), st = SPEC_STATUS[mod], name = specName(mod);
@@ -89,7 +89,7 @@ function renderHistoryReal(datos){
       <td>${escHtml(partes.join(' · ') || '—')}</td><td>${h.pass_rate===null || h.pass_rate===undefined?'—':Number(h.pass_rate).toFixed(1)+'%'}</td>
       <td class="mono">${Number(h.total_tokens || 0).toLocaleString('es-PE')}<div class="sub">Planner: ${Number(h.tokens_planner || 0).toLocaleString('es-PE')}</div></td>
       <td class="mono">US$ ${Number(h.costo_usd || 0).toFixed(4)}</td>
-      <td><button class="btn" style="font-size:10.5px;padding:6px 10px" onclick="cargarReporteReal('${escHtml(h.run_id)}')">Ver reporte</button></td></tr>`;
+      <td><button class="btn" style="font-size:10.5px;padding:6px 10px" onclick="cargarEjecucionReal('${escHtml(h.run_id)}')">Ver resultados</button></td></tr>`;
   }).join('') : '<tr><td colspan="9" class="hint">Todavía no hay corridas registradas en este proyecto.</td></tr>';
 
   $('specTable').innerHTML = specs.length ? specs.map(spec => {

@@ -199,7 +199,6 @@ def test_fuentes_css_se_carga_antes_que_los_tokens() -> None:
 _FLUJO_REAL = [
     "vista-previa/vista-previa",
     "config-pruebas/config-pruebas",
-    "barra-corrida/barra-corrida",
 ]
 _EJEMPLOS = [
     "ecommerce-core",
@@ -278,13 +277,10 @@ def test_cada_paso_del_monitor_se_envia_a_la_consola_de_python() -> None:
     monitor = (FRONTEND / "componentes" / "monitor" / "monitor.js").read_text(
         encoding="utf-8"
     )
-    barra = (FRONTEND / "componentes" / "barra-corrida" / "barra-corrida.js").read_text(
-        encoding="utf-8"
-    )
     assert "api.registrar_evento" in monitor
-    # un envío por cada paso, por el fin, por «completar» y por la pausa
+    # un envío por cada paso, por el fin, por «completar» y por la pausa (que ahora vive en monitor.js)
     assert monitor.count("registrarEnPython(") >= 4
-    assert "registrarEnPython(" in barra
+    assert "paused ? 'Corrida pausada' : 'Corrida reanudada'" in monitor
 
 
 # ---------- corrida real: filas que llegan de Python ----------
@@ -297,12 +293,11 @@ def test_el_monitor_recibe_la_corrida_real_y_escapa_sus_textos() -> None:
         encoding="utf-8"
     )
     assert "corrida_evento" in puente and "corrida_fin" in puente
+    # Rediseño «En curso»: las filas se registran y se escapan al pintarlas.
     cuerpo = monitor[
-        monitor.index("function monitorEventoReal") : monitor.index(
-            "function monitorFinReal"
-        )
+        monitor.index("function pintarProgreso") : monitor.index("function textoPlano")
     ]
-    for campo in ("escHtml(lugar)", "escHtml(d.t", "escHtml(d.guard[0])"):
+    for campo in ("escHtml(a.fn)", "escHtml(textoPlano(p.t || ''))", "escHtml(titulo)"):
         assert campo in cuerpo
     assert "r.modo === 'real'" in monitor
 
@@ -315,46 +310,63 @@ def test_la_ejecucion_real_no_calcula_cifras_y_escapa_los_nombres() -> None:
     js = (FRONTEND / "componentes" / "ejecucion" / "ejecucion.js").read_text(
         encoding="utf-8"
     )
-    real = js[js.index("let ejecucionReal") :]
-    assert "api.obtener_ejecucion(" in real
+    # Rediseño «Resultados» (bandeja): los datos reales salen de elementosReales; la demo,
+    # con sus datos de ejemplo, va aparte en elementosDemo.
+    assert "api.obtener_ejecucion(" in js
+    real = js[
+        js.index("function elementosReales") : js.index("function detalleDeReporte")
+    ]
     assert "metrics()" not in real and "RUN." not in real and "AGENT_SPLIT" not in real
-    for campo in ("escHtml(g.modulo)", "escHtml(p.identificador)"):
-        assert campo in real
-    assert "Disponible en Sprint 2" not in real  # el texto también viene de Python
+    vista = js[js.index("function renderExec") :]
+    for campo in ("escHtml(e.nombre)", "escHtml(e.modulo)"):
+        assert campo in vista
+    assert "Disponible en Sprint 2" not in js  # el texto también viene de Python
 
 
-# ---------- HU-21: el Reporte de una corrida real ----------
+# ---------- HU-21: la evidencia de una corrida real (ahora en Resultados) ----------
 
 
-def test_el_reporte_real_no_calcula_cifras_y_escapa_los_textos() -> None:
-    """El Reporte real muestra lo que devuelve obtener_reporte; los textos del proyecto se escapan."""
-    js = (FRONTEND / "componentes" / "informe" / "informe.js").read_text(
+def _cuerpo_js(js: str, inicio: str, fin: str) -> str:
+    return js[js.index(inicio) : js.index(fin, js.index(inicio))]
+
+
+def test_la_evidencia_real_no_calcula_cifras_y_escapa_los_textos() -> None:
+    """La evidencia sale de obtener_reporte sin calcular cifras; los textos del proyecto se escapan."""
+    js = (FRONTEND / "componentes" / "ejecucion" / "ejecucion.js").read_text(
         encoding="utf-8"
     )
-    real = js[js.index("let reporteReal") :]
-    assert "api.obtener_reporte(" in real
-    assert "metrics()" not in real and "RUN." not in real and "AGENTS_CFG" not in real
+    assert "api.obtener_reporte(" in js
+    datos = _cuerpo_js(js, "function detalleDeReporte", "function elementosDemo")
+    assert (
+        "metrics()" not in datos and "RUN." not in datos and "AGENTS_CFG" not in datos
+    )
+    vista = js[js.index("function renderDetalleBandeja") :]
     for campo in (
-        "escHtml(f.identificador)",
-        "escHtml(f.modulo)",
-        "escHtml(f.traza)",
-        "escHtml(c.etiqueta)",
+        "escHtml(e.nombre)",
+        "escHtml(e.modulo)",
+        "escHtml(e.traza || e.salida)",
+        "escHtml(c.etiqueta || c.clave || '')",
+        "escHtml(c.traza)",
+        "escHtml(c.obtenido ?? '—')",
     ):
-        assert campo in real
+        assert campo in vista
 
 
 # ---------- HU-22: exportar el informe como evidencia ----------
 
 
 def test_exportar_informe_conecta_puente_y_mantiene_boton_activo() -> None:
-    """El botón Exportar informe sigue activo en corridas reales y el modal llama a Python."""
-    informe = (FRONTEND / "componentes" / "informe" / "informe.js").read_text(
+    """Resultados ofrece Exportar informe (sin pantalla de informe aparte) y Exportar llama a Python."""
+    resultados = (FRONTEND / "componentes" / "ejecucion" / "ejecucion.js").read_text(
         encoding="utf-8"
     )
-    modal = (FRONTEND / "componentes" / "informe" / "modal-exportar.js").read_text(
+    modal = (FRONTEND / "componentes" / "exportar" / "exportar.js").read_text(
         encoding="utf-8"
     )
-    assert ".btn:not(.primary)" in informe
+    assert 'onclick="openExport()"' in resultados
+    assert (
+        "reporteReal = r;" in resultados
+    )  # Exportar lee de aquí la corrida y el proyecto
     assert "api.exportar_informe(" in modal
     assert "api.select_folder()" in modal
     assert "escHtml(r.ruta)" in modal

@@ -235,14 +235,15 @@ def test_frontend_historial_conecta_tabla_y_apertura_de_reportes() -> None:
         / "historial"
         / "historial.js"
     ).read_text(encoding="utf-8")
-    contenido_informe = (
+    # El informe dejó de ser una pantalla: abrir una corrida lleva a Resultados (ejecucion.js).
+    contenido_resultados = (
         Path(__file__).resolve().parents[2]
         / "src"
         / "qagent"
         / "frontend"
         / "componentes"
-        / "informe"
-        / "informe.js"
+        / "ejecucion"
+        / "ejecucion.js"
     ).read_text(encoding="utf-8")
 
     # Columnas de la tabla (Criterio 1)
@@ -258,10 +259,11 @@ def test_frontend_historial_conecta_tabla_y_apertura_de_reportes() -> None:
     # Conexión con api.obtener_historial
     assert "api.obtener_historial(projectPath)" in contenido_historial
 
-    # Desde cada fila se abre el reporte (Criterio 3)
-    assert "cargarReporteReal('${escHtml(h.run_id)}')" in contenido_historial
+    # Desde cada fila se abren los resultados de esa corrida (Criterio 3)
+    assert "cargarEjecucionReal('${escHtml(h.run_id)}')" in contenido_historial
 
-    # cargarReporteReal pide a Python el reporte específico por runId y navega a report
-    assert "api.obtener_reporte(projectPath, runId || null)" in contenido_informe
-    assert "reporteReal = r;" in contenido_informe
-    assert "go('report');" in contenido_informe
+    # Resultados pide a Python esa corrida por runId, su evidencia, y navega a la bandeja
+    assert "api.obtener_ejecucion(projectPath, runId || null)" in contenido_resultados
+    assert "api.obtener_reporte(projectPath, runId)" in contenido_resultados
+    assert "reporteReal = r;" in contenido_resultados
+    assert "go('exec')" in contenido_resultados

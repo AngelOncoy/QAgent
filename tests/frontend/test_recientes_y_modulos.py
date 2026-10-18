@@ -43,10 +43,10 @@ def test_pasos_definen_desbloquear_todas_las_vistas() -> None:
 
 
 def test_load_project_desbloquea_todos_los_modulos_si_ya_cargo_prueba() -> None:
-    """Si el proyecto reciente ya tiene una prueba cargada, habilita todos los modulos y va a reporte."""
+    """Si el proyecto reciente ya tiene una prueba cargada, habilita todos los modulos y va a Resultados."""
     assert "if (esReciente && yaCargoPrueba) {" in VISTA_PREVIA
     assert "desbloquearTodasLasVistas()" in VISTA_PREVIA
-    assert "go('report');" in VISTA_PREVIA
+    assert "go('exec');" in VISTA_PREVIA
     assert "reiniciarVistasProyecto()" in VISTA_PREVIA
     assert "go('preview');" in VISTA_PREVIA
 

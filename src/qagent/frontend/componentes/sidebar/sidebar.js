@@ -139,7 +139,7 @@ function iniciarLateral(){
 }
 
 /* Proyecto actual: recuerda en qué paso del proyecto estaba la persona para volver ahí. */
-const VISTAS_PROYECTO = ['preview','tests','monitor','exec','report'];
+const VISTAS_PROYECTO = ['preview','tests','monitor','exec'];
 let vistaProyecto = null;   // null hasta que se abre un proyecto
 function irAProyectoActual(){ if(vistaProyecto) go(vistaProyecto); }
 function irAHistorial(){ if(vistaProyecto) go('history'); }
@@ -161,7 +161,7 @@ function volverAInicio(){
 // Resalta el destino activo y habilita Proyecto actual e Historial cuando hay un proyecto. Lo invoca go(v).
 function actualizarSidebar(v){
   if(VISTAS_PROYECTO.includes(v)) vistaProyecto = v;
-  const activo = VISTAS_PROYECTO.includes(v) ? 'proyecto' : (v === 'open' || v === 'clone' ? 'welcome' : v);
+  const activo = VISTAS_PROYECTO.includes(v) || v === 'export' ? 'proyecto' : (v === 'open' || v === 'clone' ? 'welcome' : v);
   document.querySelectorAll('#latNav a').forEach(a => {
     if(a.dataset.h === 'proyecto' || a.dataset.h === 'history') habilitarEnlace(a, !!vistaProyecto);
     a.classList.toggle('on', a.dataset.h === activo);

@@ -1,11 +1,10 @@
-// ejecucion.js — pantalla «Pruebas» (resultados de la corrida) como bandeja de problemas
+// ejecucion.js — pantalla «Resultados» (resultados de la corrida) como bandeja de problemas
 // HTML del componente (se monta en el marcador data-componente="ejecucion/ejecucion" de index.html)
 // Bandejas por estado a la izquierda, lista priorizada al centro (primero lo que requiere atención) y el
 // detalle de la función o endpoint elegido a la derecha. La lista sale de obtener_ejecucion(); el detalle
 // (prueba generada, salida, lo esperado e intentos) de obtener_reporte() de la misma corrida.
 // Los íconos compartidos (ICO_*) vienen de inicio/modal-abrir.js y modal-clonar.js.
 const ICO_COPIAR = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>';
-const ICO_INFORME = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M6 3h9l4 4v14H6z"/><path d="M9 12h7M9 16h7"/></svg>';
 const ICO_DESCARGAR = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></svg>';
 const ICO_CAPAS = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="m12 3 9 5-9 5-9-5z"/><path d="m3 13 9 5 9-5"/></svg>';
 const ICO_RELOJ = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>';
@@ -26,8 +25,7 @@ registrarComponente('ejecucion/ejecucion', `<!-- ===== 5. PRUEBAS: BANDEJA DE PR
         <p class="np-subtitulo" id="bnjSub"></p>
       </div>
       <div class="bnj-acciones">
-        <button type="button" class="ini-btn ini-btn-principal" onclick="irAReporteFinal()">${ICO_INFORME}Ver informe completo</button>
-        <button type="button" class="ini-btn" onclick="openExport()">${ICO_DESCARGAR}Exportar informe</button>
+        <button type="button" class="ini-btn ini-btn-principal" onclick="openExport()">${ICO_DESCARGAR}Exportar informe</button>
       </div>
     </div>
 
@@ -56,16 +54,11 @@ registrarComponente('ejecucion/ejecucion', `<!-- ===== 5. PRUEBAS: BANDEJA DE PR
 </section>
 `);
 
-function irAReporteFinal(){
-  if (typeof desbloquearVista === 'function') {
-    desbloquearVista('report');
-    desbloquearVista('history');
-  }
-  if (ejecucionReal && ejecucionReal.run_id) {
-    cargarReporteReal(ejecucionReal.run_id);
-  } else {
-    go('report');
-  }
+// El informe completo ya no es una pantalla: su evidencia está en el detalle de cada elemento y el
+// documento formal se genera desde «Exportar informe». Abrir el reporte de una corrida (historial,
+// proyectos recientes) lleva a Resultados con esa corrida.
+async function cargarReporteReal(runId = null, navegar = true){
+  return cargarEjecucionReal(runId, navegar);
 }
 
 /* ---------------- Estado de la pantalla ---------------- */
@@ -108,6 +101,7 @@ const MOTIVO_SIN_PRUEBA = {
 // Corrida real: lista de obtener_ejecucion(); el detalle se completa con obtener_reporte().
 let ejecucionReal = null;
 let detalleReal = null;          // {run_id, porClave: {"modulo::funcion": funcion del reporte}}
+let reporteReal = null;          // último obtener_reporte(); lo usa Exportar (corrida y proyecto)
 let cargandoDetalle = false;
 const tiempoReal = s => s===null || s===undefined ? '—' : (s < 1 ? Math.round(s*1000) + ' ms' : Number(s).toFixed(1) + ' s');
 const pctTexto = v => v===null || v===undefined ? '—' : Math.round(Number(v)) + ' %';
@@ -142,7 +136,26 @@ function detalleDeReporte(f){
     esperado: esperado || null,
     debilitada: intentos.some(i => i.laundering_detectado),
     firma: f.firma || f.manejador || null,
+    // Ejecución del último intento que llegó al sandbox: cada caso con esperado y obtenido.
+    ...ejecucionDeIntentos(intentos),
+    // Evidencia de auditoría (antes en la pantalla del informe).
+    controles: Array.isArray(f.controles) ? f.controles : [],
+    casos,
+    categorias: f.texto_categorias || null,
+    intentos,
+    fortaleza: f.mutation_score === null || f.mutation_score === undefined ? null : Number(f.mutation_score),
+    sobrevivientes: (f.mutacion && f.mutacion.sobrevivientes) || [],
   };
+}
+function ejecucionDeIntentos(intentos){
+  const conEjecucion = intentos.filter(i => i.ejecucion);
+  const ej = conEjecucion.length ? conEjecucion[conEjecucion.length - 1].ejecucion : null;
+  if (!ej) return {casosEjecutados: [], lineasSinCubrir: null, salida: null, fallo: null};
+  const casosEjecutados = Array.isArray(ej.casos) ? ej.casos : [];
+  // El primer caso que falló con valores es el que mejor explica el posible bug.
+  const fallo = casosEjecutados.find(c => (c.resultado === 'fallo' || c.resultado === 'error')
+    && ((c.esperado !== null && c.esperado !== undefined) || (c.obtenido !== null && c.obtenido !== undefined))) || null;
+  return {casosEjecutados, lineasSinCubrir: Array.isArray(ej.lineas_sin_cubrir) ? ej.lineas_sin_cubrir.map(Number) : null, salida: ej.salida || null, fallo};
 }
 // Demostración (sin pywebview): datos de js/datos-corrida.js.
 function elementosDemo(){
@@ -173,7 +186,6 @@ async function cargarEjecucionReal(runId = null, navegar = true){
     ejecucionReal = r; filterState = 'todos'; filterType = 'todos'; filtroArchivo = 'todos'; seleccionBandeja = null;
     if (typeof desbloquearVista === 'function') {
       desbloquearVista('exec');
-      desbloquearVista('report');
     }
     if (navegar) go('exec'); else renderExec();
   } finally {
@@ -189,7 +201,10 @@ async function cargarDetalleReal(runId){
   try {
     const r = await api.obtener_reporte(projectPath, runId);
     const porClave = {};
-    if (r && r.ok) (r.funciones || []).forEach(f => { porClave[f.modulo + '::' + f.funcion] = f; });
+    if (r && r.ok) {
+      reporteReal = r;   // Exportar lee de aquí la corrida y el proyecto
+      (r.funciones || []).forEach(f => { porClave[f.modulo + '::' + f.funcion] = f; });
+    }
     detalleReal = {run_id: runId, porClave};
   } catch (err) {
     console.error('Error al leer el detalle de la corrida:', err);
@@ -200,20 +215,11 @@ async function cargarDetalleReal(runId){
   renderExec();
 }
 
-// Barra superior compartida (barra-corrida): la usa también Resultados del informe.
-function actualizarBarraReal(v){
-  const ok = v.estado_final === 'fin';
-  $('ctxChip').className = 'chip ' + (ok ? 'done' : 'amber');
-  $('ctxLbl').textContent = 'Corrida ' + v.run_id + ':'; $('curFile').textContent = ok ? 'completada' : 'detenida';
-  $('progNum').textContent = v.total_objetivos + ' objetivos revisados'; $('progBar').style.width = '100%';
-  $('liveBtn').className = 'live done'; $('liveTxt').innerHTML = ok ? '✓ COMPLETADO' : 'DETENIDA';
-}
 
 /* ---------------- Renderizado ---------------- */
 function renderExec(){
   if (typeof desbloquearVista === 'function') {
     desbloquearVista('exec');
-    desbloquearVista('report');
   }
   const v = ejecucionReal;
   if (v) cargarDetalleReal(v.run_id);
@@ -270,6 +276,7 @@ function renderCabeceraBandeja(todos, v){
   if (v && v.fecha) partes.push(new Date(v.fecha).toLocaleString('es-PE', {day:'numeric', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit'}));
   if (duracion) partes.push('Duración ' + (duracion >= 60 ? `${Math.floor(duracion / 60)} min ${Math.round(duracion % 60)} s` : `${Math.round(duracion)} s`));
   if (v && v.es_simulado) partes.push('IA simulada');
+  if (v && v.es_humo) partes.push('Corrida Humo: lo principal es cuántas pruebas pasan');   // #75
   $('bnjSub').textContent = partes.filter(Boolean).join(' · ');
 
   // Cifras: pruebas que pasan, posibles bugs, cobertura y tokens (nunca costos).
@@ -281,7 +288,7 @@ function renderCabeceraBandeja(todos, v){
   $('kpis').innerHTML = `
     <div class="exp-cifra"><span class="exp-cifra-etq">Pasaron</span><b>${pasaron} / ${total}</b><span class="exp-cifra-sub">${total - pasaron} con algo por revisar</span></div>
     <div class="exp-cifra"><span class="exp-cifra-etq">Posibles bugs</span><b class="${bugs.length ? 'bnj-cifra-bug' : ''}">${bugs.length}</b><span class="exp-cifra-sub">En ${bugs.length} de ${total} funciones o endpoints</span></div>
-    <div class="exp-cifra"><span class="exp-cifra-etq" title="Porcentaje de líneas del código que ejecutaron las pruebas">Cobertura ⓘ</span><b>${pctTexto(cobertura)}</b><span class="exp-cifra-sub">${ramas !== null && ramas !== undefined ? pctTexto(ramas) + ' de las ramas' : 'De las líneas del código'}</span></div>
+    <div class="exp-cifra"><span class="exp-cifra-etq" title="Porcentaje de líneas del código que ejecutaron las pruebas">Cobertura ⓘ</span><b>${pctTexto(cobertura)}</b><span class="exp-cifra-sub">${k && k.cobertura.exige_ramas === false ? 'Ramas no exigidas en Humo' : ramas !== null && ramas !== undefined ? pctTexto(ramas) + ' de las ramas' : 'De las líneas del código'}</span></div>
     <div class="exp-cifra"><span class="exp-cifra-etq">Tokens de la corrida</span><b>${tokens === null ? '—' : Number(tokens).toLocaleString('es-PE')}</b><span class="exp-cifra-sub">${tokens === null ? 'Disponible en la app de escritorio' : 'Sumando las tres etapas'}</span></div>`;
   $('bnjResumen').textContent = `${total} ${total === 1 ? 'función o endpoint' : 'funciones y endpoints'}: ` +
     BANDEJAS.map(b => [n(b.k), b.t.toLowerCase()]).filter(([c]) => c).map(([c, t]) => `${c} ${t}`).join(' · ');
@@ -312,12 +319,74 @@ function renderDetalleBandeja(e){
     <span class="np-chip np-chip-${b.cls}">${b.ico()}${e.bandeja === 'bug' ? 'Posible bug en tu código' : b.chip}</span>
     ${explicacion ? `<p class="bnj-explicacion">${escHtml(explicacion)}</p>` : ''}
     ${cargando}
-    ${e.esperado ? `<div class="bnj-esperado"><span class="bnj-caja-etq">Esperado según el contrato</span><pre>${escHtml(e.esperado)}</pre></div>` : ''}
+    ${e.fallo ? `<div class="bnj-valores">
+        <div class="bnj-esperado"><span class="bnj-caja-etq">Esperado</span><pre>${escHtml(e.fallo.esperado ?? '—')}</pre></div>
+        <div class="bnj-obtenido"><span class="bnj-caja-etq">Obtenido${e.fallo.operador && e.fallo.operador !== '==' ? ' (condición: ' + escHtml(e.fallo.operador) + ')' : ''}</span><pre>${escHtml(e.fallo.obtenido ?? '—')}</pre></div>
+      </div>`
+      : e.esperado ? `<div class="bnj-esperado"><span class="bnj-caja-etq">Esperado según el contrato</span><pre>${escHtml(e.esperado)}</pre></div>` : ''}
     ${e.codigo ? `<div class="bnj-bloque"><div class="bnj-bloque-cab"><b>Prueba generada</b><button type="button" class="ini-enlace" onclick="copiarPruebaBandeja()">${ICO_COPIAR}Copiar prueba</button></div>
       <pre class="bnj-codigo" id="bnjCodigo">${escHtml(e.codigo)}</pre></div>` : ''}
+    ${e.lineasSinCubrir ? `<p class="bnj-sin-probar ${e.lineasSinCubrir.length ? '' : 'completo'}">${e.lineasSinCubrir.length ? 'Código sin probar · líneas ' + e.lineasSinCubrir.join(', ') : 'Todas las líneas de la función se ejecutaron en las pruebas'}</p>` : ''}
     <p class="np-meta bnj-datos">${e.intento ? `${e.intento} de 3 intentos` : ''}${e.cobLineas !== null && e.cobLineas !== undefined ? ` · cobertura ${pctTexto(e.cobLineas)} de líneas${e.cobRamas !== null && e.cobRamas !== undefined ? ' y ' + pctTexto(e.cobRamas) + ' de ramas' : ''}` : ''}${e.duracion ? ' · ' + tiempoReal(e.duracion) : ''}</p>
-    ${e.traza ? `<details class="np-detalle"><summary>Ver detalle técnico</summary><pre class="np-log">${escHtml(e.traza)}</pre></details>` : ''}
-    ${e.debilitada ? `<div class="np-aviso np-aviso-aviso">${ICO_AVISO_CLON}<div><b>Criterio original conservado</b><span>Se bloqueó un intento de debilitar esta prueba. ${e.bandeja === 'bug' ? 'El posible bug sigue visible.' : ''}</span></div></div>` : ''}`;
+    ${e.traza || e.salida ? `<details class="np-detalle"><summary>Ver detalle técnico</summary><pre class="np-log">${escHtml(e.traza || e.salida)}</pre></details>` : ''}
+    ${e.debilitada ? `<div class="np-aviso np-aviso-aviso">${ICO_AVISO_CLON}<div><b>Criterio original conservado</b><span>Se bloqueó un intento de debilitar esta prueba. ${e.bandeja === 'bug' ? 'El posible bug sigue visible.' : ''}</span></div></div>` : ''}
+    ${evidenciaAuditoria(e)}`;
+}
+
+/* Evidencia de auditoría: controles de integridad, casos del contrato, intentos y fortaleza de
+   las pruebas. Plegada por defecto; solo aparecen los bloques que la corrida guardó. */
+const CONTROL_ESTADO = {ok:['exito', () => ICO_OK, 'En orden'], falla:['bug', () => ICO_ERROR, 'No cumple'],
+  no_aplica:['neutro', () => ICO_CIRCULO, 'No aplica'], pendiente:['neutro', () => ICO_CIRCULO, 'Pendiente'], sin_dato:['neutro', () => ICO_CIRCULO, 'Sin dato']};
+const DECISION_TEXTO = {accept:'Aceptada', retry:'Se reintentó', bug_detectado:'Posible bug', stalled:'Sin prueba válida', requiere_corrida_nueva:'Requiere corrida nueva'};
+const RESULTADO_CASO = {paso:['exito', () => ICO_OK, 'Pasó'], fallo:['bug', () => ICO_ERROR, 'Falló'],
+  error:['bug', () => ICO_ERROR, 'Error'], omitido:['neutro', () => ICO_CIRCULO, 'Omitido']};
+// Un caso de pytest en el sandbox. Los que fallan muestran dónde, los valores, la pila y la traza.
+function casoEjecutadoHtml(c){
+  const [cls, ico, txt] = RESULTADO_CASO[c.resultado] || RESULTADO_CASO.error;
+  const falla = c.resultado === 'fallo' || c.resultado === 'error';
+  const valores = falla && ((c.esperado !== null && c.esperado !== undefined) || (c.obtenido !== null && c.obtenido !== undefined))
+    ? `<pre>Esperado: ${escHtml(c.esperado ?? '—')}\nObtenido: ${escHtml(c.obtenido ?? '—')}</pre>` : '';
+  const pila = (c.pila || []).map(m => `${escHtml(m.archivo)}:${Number(m.linea)}${m.detalle ? ' · ' + escHtml(m.detalle) : ''}${m.codigo ? '\n    ' + escHtml(m.codigo) : ''}`).join('\n');
+  return `<li class="bnj-ev-${cls}"><span class="bnj-ev-ico">${ico()}</span><span>
+    <span><span class="np-mono">${escHtml(c.nombre || '')}</span> · ${txt}${c.duracion_s ? ' · ' + tiempoReal(c.duracion_s) : ''}</span>
+    ${falla && c.mensaje ? `<span class="np-meta">${escHtml(c.tipo_error ? c.tipo_error + ': ' : '')}${escHtml(String(c.mensaje).split('\n')[0])}</span>` : ''}
+    ${falla && c.archivo ? `<span class="np-meta">En ${escHtml(c.archivo)}:${Number(c.linea)}${c.codigo ? ' → ' + escHtml(c.codigo) : ''}</span>` : ''}
+    ${valores}
+    ${pila ? `<details class="np-detalle"><summary>Pila de llamadas</summary><pre>${pila}</pre></details>` : ''}
+    ${c.traza ? `<details class="np-detalle"><summary>Traza completa de pytest</summary><pre>${escHtml(c.traza)}</pre></details>` : ''}
+  </span></li>`;
+}
+function evidenciaAuditoria(e){
+  const bloques = [];
+  if (e.casosEjecutados && e.casosEjecutados.length) {
+    const pasaron = e.casosEjecutados.filter(c => c.resultado === 'paso').length;
+    bloques.push(`<div class="bnj-ev"><b>Casos ejecutados · ${pasaron} de ${e.casosEjecutados.length} pasaron</b><ul>${e.casosEjecutados.map(casoEjecutadoHtml).join('')}</ul></div>`);
+  }
+  if (e.controles && e.controles.length) {
+    const enOrden = e.controles.filter(c => c.estado === 'ok').length;
+    bloques.push(`<div class="bnj-ev"><b>Controles de integridad · ${enOrden} de ${e.controles.length} en orden</b><ul>${e.controles.map(c => {
+      const [cls, ico, txt] = CONTROL_ESTADO[c.estado] || CONTROL_ESTADO.sin_dato;
+      return `<li class="bnj-ev-${cls}"><span class="bnj-ev-ico">${ico()}</span><span>${escHtml(c.etiqueta || c.clave || '')}<span class="np-meta">${escHtml(c.nota || txt)}</span></span></li>`;
+    }).join('')}</ul></div>`);
+  }
+  if ((e.casos && e.casos.length) || e.categorias) {
+    bloques.push(`<div class="bnj-ev"><b>Casos del contrato${e.categorias ? ' · ' + escHtml(e.categorias) : ''}</b>${(e.casos || []).map(c => `<div class="bnj-ev-caso">
+      <span>${escHtml(c.descripcion || c.id || 'Caso')}</span>
+      <pre>Petición: ${escHtml(JSON.stringify(c.peticion))}\nRespuesta esperada: ${escHtml(JSON.stringify(c.respuesta_esperada))}</pre></div>`).join('')}</div>`);
+  }
+  if (e.intentos && e.intentos.length) {
+    bloques.push(`<div class="bnj-ev"><b>Historial de intentos</b><ol>${e.intentos.map((i, n) => `<li><span class="bnj-ev-num">Intento ${escHtml(String(i.intento || n + 1))}</span>
+      <span>${escHtml(DECISION_TEXTO[i.decision] || i.decision || '—')}${i.laundering_detectado ? ' · se bloqueó debilitarla' : ''}${i.tipo_fallo ? ' · ' + escHtml(i.tipo_fallo) : ''}
+      ${i.feedback ? `<span class="np-meta">${escHtml(i.feedback)}</span>` : ''}</span></li>`).join('')}</ol></div>`);
+  }
+  if (e.fortaleza !== null && e.fortaleza !== undefined) {
+    const vivos = e.sobrevivientes || [];
+    bloques.push(`<div class="bnj-ev"><b>Fortaleza de las pruebas · ${Math.round(e.fortaleza)} %</b>
+      <span class="np-meta">${vivos.length ? `${vivos.length} ${vivos.length === 1 ? 'cambio introducido a propósito no fue detectado' : 'cambios introducidos a propósito no fueron detectados'}:` : 'Las pruebas detectaron todos los cambios introducidos a propósito.'}</span>
+      ${vivos.length ? `<ul>${vivos.map(s => `<li><span class="bnj-ev-num">${s.linea === null || s.linea === undefined ? 'Línea —' : 'Línea ' + Number(s.linea)}</span><code>${escHtml(s.cambio || s.mutante || '')}</code></li>`).join('')}</ul>` : ''}</div>`);
+  }
+  if (!bloques.length) return '';
+  return `<details class="np-detalle bnj-evidencia"><summary>Evidencia de auditoría</summary><div class="bnj-ev-lista">${bloques.join('')}</div></details>`;
 }
 function copiarPruebaBandeja(){
   const texto = $('bnjCodigo') ? $('bnjCodigo').textContent : '';

@@ -202,7 +202,7 @@ function pintarAccionesProgreso(){
 }
 let modoRealUsado = false;
 function verResultadosDeCorrida(){
-  if (typeof desbloquearVista === 'function') { desbloquearVista('exec'); desbloquearVista('report'); desbloquearVista('history'); }
+  if (typeof desbloquearVista === 'function') { desbloquearVista('exec'); desbloquearVista('history'); }
   if (PRG && PRG.fin && PRG.fin.runId && typeof cargarEjecucionReal === 'function') cargarEjecucionReal(PRG.fin.runId);
   else go('exec');
 }
@@ -239,7 +239,7 @@ async function startMonitor(){
   if (typeof desbloquearVista === 'function') desbloquearVista('monitor');
   ejecucionReal = null; reporteReal = null;   // la demostración usa sus propios datos de ejemplo
   monitorStarted = true; runDone = false; evIdx = 0; shown = []; modoRealUsado = false; paused = false;
-  document.querySelectorAll('#views a[data-v=exec],#views a[data-v=report]').forEach(a=>a.classList.add('hide','off'));
+  document.querySelectorAll('#views a[data-v=exec]').forEach(a=>a.classList.add('hide','off'));
   reiniciarProgreso();
   if (!window.pywebview) {
     $('barraDemo').classList.remove('hide');
@@ -272,7 +272,7 @@ function iniciarMonitorReal(){
   if (typeof desbloquearVista === 'function') desbloquearVista('monitor');
   ejecucionReal = null; reporteReal = null; modoReal = true; modoRealUsado = true; monitorStarted = true; runDone = false; shown = [];
   clearInterval(monTimer);
-  document.querySelectorAll('#views a[data-v=exec],#views a[data-v=report]').forEach(a=>a.classList.add('hide','off'));
+  document.querySelectorAll('#views a[data-v=exec]').forEach(a=>a.classList.add('hide','off'));
   $('skipBtn').classList.add('hide');
   reiniciarProgreso();
   go('monitor');
@@ -297,4 +297,14 @@ function monitorFinReal(r){
     if (typeof cargarReporteReal === 'function') cargarReporteReal(r.run_id, false);
   }
   pintarProgreso();
+}
+
+// Pausa de la demostración (antes en la barra de corrida). La de una corrida real llega con HU-10.
+let paused = false;
+function togglePause(){
+  if (modoReal && !runDone) { toast('Por ahora no se puede pausar una corrida real (HU-10).'); return; }
+  if(runDone) return;
+  paused = !paused;
+  registrarEnPython({tipo:'control', agente:'Monitor', mensaje: paused ? 'Corrida pausada' : 'Corrida reanudada'});
+  clearInterval(monTimer); if(!paused) monTimer = setInterval(pushEvent, 900);
 }

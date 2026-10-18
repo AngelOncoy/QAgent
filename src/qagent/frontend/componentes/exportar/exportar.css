@@ -1,0 +1,55 @@
+/* exportar.css — pantalla «Exportar informe» («Comparte la evidencia»).
+   Usa solo los tokens del sistema (css/tokens.css, sección 1). La barra, la cabecera, las tarjetas, los
+   avisos y los chips se comparten con Inicio (inicio.css); el radio y las casillas, con Preparar. */
+#s-export{font-family:var(--fuente-ui);font-size:var(--texto-cuerpo);line-height:var(--interlineado);color:var(--texto);background:var(--fondo)}
+#s-export .page.xpo{width:100%;max-width:var(--contenido-max);margin:0 auto;padding:var(--esp-6);gap:var(--esp-5)}
+.xpo-acciones{display:flex;gap:var(--esp-3);flex-wrap:wrap}
+.xpo-rejilla{grid-template-columns:minmax(0,1fr) minmax(300px,380px)}
+
+/* Formato: cuatro tarjetas tipo radio */
+.xpo-formatos{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:var(--esp-3);width:100%}
+.xpo-formato{display:flex;flex-direction:column;align-items:flex-start;gap:var(--esp-2);min-height:120px;padding:var(--esp-4);border:var(--borde-ancho) solid var(--borde);border-radius:var(--radio-control);background:var(--hundido);color:var(--texto);font:inherit;text-align:left;cursor:pointer}
+.xpo-formato b{font-weight:var(--peso-medio);margin-top:var(--esp-2)}
+.xpo-formato .prep-radio{margin-top:0}
+.xpo-formato:hover{border-color:var(--borde-fuerte)}
+.xpo-formato.on{border-color:var(--accion-borde);background:var(--accion-suave)}
+.xpo-formato.on .prep-radio{border-color:var(--enlace)}
+.xpo-formato.on .prep-radio::after{content:"";width:6px;height:6px;border-radius:50%;background:var(--enlace)}
+.xpo-formato:focus-visible{outline:2px solid var(--foco-anillo);outline-offset:2px}
+
+/* Qué incluir: dos columnas de casillas */
+.xpo-incluir{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--esp-3) var(--esp-5);width:100%}
+.xpo-fijo{cursor:default}
+.xpo-fijo .exp-caja:disabled{opacity:1;cursor:default}
+
+/* Ubicación: carpeta y nombre del archivo */
+.xpo-campo{display:flex;flex-direction:column;gap:var(--esp-2);width:100%}
+.xpo-etiqueta{font-weight:var(--peso-medio)}
+.xpo-ruta{display:flex;align-items:center;gap:var(--esp-3);width:100%;min-height:44px;padding:0 var(--esp-2) 0 var(--esp-4);border:var(--borde-ancho) solid var(--borde);border-radius:var(--radio-control);background:var(--hundido)}
+.xpo-ruta-texto{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.xpo-ruta-btn,.xpo-ruta-ico{display:grid;place-items:center;width:32px;height:32px;flex-shrink:0;border:0;border-radius:var(--radio-control);background:transparent;color:var(--texto-2)}
+.xpo-ruta-btn{cursor:pointer}
+.xpo-ruta-btn:hover{background:var(--superficie-2);color:var(--texto)}
+.xpo-ruta-btn:focus-visible{outline:2px solid var(--foco-anillo);outline-offset:2px}
+.xpo-restaurar{align-self:flex-start;padding:0;font-size:var(--texto-meta)}
+
+/* Este informe contiene */
+.xpo-contiene{display:flex;flex-direction:column;align-items:flex-start;gap:var(--esp-3);width:100%}
+.xpo-proyecto{font-size:22px;font-weight:var(--peso-fuerte);overflow-wrap:anywhere}
+.xpo-cifras{display:flex;flex-direction:column;width:100%;padding-top:var(--esp-3);border-top:var(--borde-ancho) solid var(--borde)}
+.xpo-cifras div{display:flex;justify-content:space-between;gap:var(--esp-4);padding:var(--esp-2) 0}
+.xpo-cifras dt{color:var(--texto-2)}
+.xpo-cifras dd{font-weight:var(--peso-fuerte)}
+
+/* Exportación completada */
+.xpo-hecho{display:flex;align-items:center;gap:var(--esp-3)}
+.xpo-hecho b{font-weight:var(--peso-medio)}
+.xpo-hecho-ico{display:grid;place-items:center;color:var(--exito-t)}
+.xpo-aviso-exito{background:var(--exito-s);border-color:var(--exito-b);color:var(--exito-t)}
+.xpo-aviso-exito code{font-family:var(--fuente-mono);color:var(--texto)}
+
+@media(max-width:1100px){.xpo-rejilla{grid-template-columns:minmax(0,1fr)}.xpo-formatos{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:760px){
+  .xpo-incluir{grid-template-columns:minmax(0,1fr)}
+  #s-export .page.xpo{padding-left:var(--esp-4);padding-right:var(--esp-4)}
+}
