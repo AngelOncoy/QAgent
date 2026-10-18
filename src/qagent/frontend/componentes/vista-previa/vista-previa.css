@@ -2,7 +2,7 @@
    Usa solo los tokens del sistema (css/tokens.css, sección 1). La barra, la cabecera, los avisos y
    el campo de texto se comparten con Inicio (componentes/inicio/inicio.css). */
 #s-preview{font-family:var(--fuente-ui);font-size:var(--texto-cuerpo);line-height:var(--interlineado);color:var(--texto);background:var(--fondo)}
-#s-preview .page.exp{max-width:1280px;padding:var(--esp-6);gap:var(--esp-5)}
+#s-preview .page.exp{width:100%;max-width:var(--contenido-max);margin:0 auto;padding:var(--esp-6);gap:var(--esp-5)}
 #s-preview .mono{font-family:var(--fuente-mono)}
 .vh{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
 

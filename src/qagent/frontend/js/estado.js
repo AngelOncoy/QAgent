@@ -82,7 +82,7 @@ let profile = 'deep';
 // Elección de la configuración de pruebas (#69): qué hacer, tipo de prueba y si se profundiza.
 // `profile` se deriva de ella con perfilDeEleccion() (config-pruebas.js).
 // Preparar: modo = 'nuevas' | 'repetir' | 'fondo' (análisis a fondo de críticas) y los tipos de prueba incluidos.
-let eleccionPruebas = {modo:'nuevas', unitarias:true, endpoints:true};
+let eleccionPruebas = {modo:'nuevas', unitarias:false, endpoints:false};   // los tipos se eligen a propósito
 let runEstimate = {tok:0}, projectPath = 'E:\\Proyectos\\ecommerce-core';
 
 

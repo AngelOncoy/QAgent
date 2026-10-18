@@ -128,6 +128,7 @@
   --control-alto:40px;        /* botones y campos: área cómoda para el clic */
   --lateral-ancho:232px;      /* barra lateral expandida */
   --lateral-plegada:64px;     /* barra lateral plegada: solo íconos */
+  --contenido-max:1600px;     /* ancho máximo del contenido; en pantallas más anchas se centra */
 }
 
 /* Proveedores de IA (HU-30): color de la insignia de cada uno en Configuración.
