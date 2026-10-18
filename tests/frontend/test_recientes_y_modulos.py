@@ -18,12 +18,12 @@ VISTA_PREVIA = (
 
 
 def test_recientes_distingue_origen_carpeta_y_github() -> None:
-    """La lista de recientes muestra badges diferenciados para git y carpeta local."""
+    """La lista de recientes distingue git y carpeta local con texto (el color es para estados)."""
     assert "r.origen === 'git'" in INICIO
-    assert "p-purple" in INICIO
-    assert "p-blue" in INICIO
-    assert "GitHub" in INICIO
-    assert "Carpeta" in INICIO
+    assert "ini-origen-git" in INICIO
+    assert "ini-origen-carpeta" in INICIO
+    assert ">Git</span>" in INICIO
+    assert ">Carpeta local</span>" in INICIO
 
 
 def test_abrir_reciente_transmite_opciones_de_prueba_previa() -> None:

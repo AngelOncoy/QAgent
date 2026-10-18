@@ -1,24 +1,133 @@
 /* tokens.css — ÚNICA fuente de verdad visual de QAgent.
-   Para cambiar colores, tipografía o logo se edita solo este archivo. */
+   Para cambiar colores, tipografía o logo se edita solo este archivo.
 
+   Identidad «Precisión serena»: color con una función, no decoración.
+   - Grafito como base, un solo azul sólido reservado a la acción principal de cada pantalla.
+   - Cinco estados (éxito, posible bug, error de generación, aviso, en progreso), siempre con ícono y texto.
+   Orden del archivo: 1) tokens semánticos del sistema (lo que usan los componentes nuevos),
+   2) tema claro, 3) alias de la interfaz anterior (--bg, --panel, --blue…), 4) marca, tipografía,
+   espaciado y radios, 5) paleta heredada que aún usan los componentes sin migrar. */
+
+/* 1. Sistema: tema oscuro (por defecto) */
 :root{
-  --bg:#0a0f1c; --side:#0d1424; --panel:#111a2d; --panel2:#0f1729; --inset:#0b1222;
-  --line:#1f2a40; --line2:#2a3854; --txt:var(--slate-200); --mut:var(--slate-300-c); --dim:#5b6a86;
-  --blue:var(--blue-500); --blue-t:var(--blue-300); --blue-s:#172c55;
-  --purple:var(--purple-500); --purple-t:var(--purple-300); --purple-s:#2f1a4d;
-  --green:#22c55e; --green-t:var(--green-300); --green-s:#0f3322;
-  --red:var(--rose-500); --red-t:var(--rose-300); --red-s:#3a0f1c;
-  --amber:var(--amber-500); --amber-t:var(--amber-300); --amber-s:#3a2708;
+  /* Superficies */
+  --fondo:#1b1e23;            /* fondo / base: área principal */
+  --lateral:#1b1e23;          /* barra lateral (separada por --borde) */
+  --superficie:#24282e;       /* superficie / panel: tarjetas */
+  --superficie-2:#2b3037;     /* panel elevado: hover de filas, menús */
+  --hundido:#16191d;          /* campos de texto, bloques de código */
+  --borde:#343941;
+  --borde-fuerte:#464c55;
+  --velo:rgba(10,12,15,0.62); /* fondo detrás de un modal */
+
+  /* Texto */
+  --texto:#eceef1;
+  --texto-2:#a9afb8;          /* secundario: subtítulos, descripciones */
+  --texto-3:#7d848e;          /* terciario: metadatos, ayudas */
+  --texto-sobre-accion:#ffffff;
+
+  /* Acción y foco */
+  --accion:#0e3aae;           /* acción / principal: solo el botón principal de la pantalla */
+  --accion-hover:#1747c7;
+  --accion-suave:#263452;     /* seleccionado: ítem activo del menú, fila elegida */
+  --accion-borde:#3a5590;
+  --enlace:#9bb9ff;           /* foco / enlace */
+  --foco-anillo:rgba(155,185,255,0.45);
+
+  /* Estados: -t texto/ícono, -s fondo suave, -b borde */
+  --exito:#91d9ba;  --exito-t:#91d9ba;  --exito-s:#22362f;  --exito-b:#2f5a48;
+  --bug:#ffa7a7;    --bug-t:#ffa7a7;    --bug-s:#432a2d;    --bug-b:#6e3a3e;
+  --error:#d4b4ff;  --error-t:#d4b4ff;  --error-s:#33294a;  --error-b:#55437a;
+  --aviso:#eac68c;  --aviso-t:#eac68c;  --aviso-s:#3d3426;  --aviso-b:#6b5733;
+  --progreso:#9bb9ff; --progreso-t:#9bb9ff; --progreso-s:#25324d; --progreso-b:#3a5590;
+  --info-t:#9bb9ff; --info-s:#25324d; --info-b:#3a5590;
+
+  /* Código */
+  --codigo-fondo:var(--hundido);
+  --codigo-texto:#d6dae0;
+  --codigo-clave:#9bb9ff;
+  --codigo-cadena:#eac68c;
+  --codigo-comentario:#7d848e;
+  --codigo-linea-sin-probar:#3a3122;
+
+  --sombra-modal:0 18px 48px rgba(0,0,0,0.45);
+}
+
+/* 2. Tema claro: grafito sobre superficie clara. Se activa con <html data-theme="claro">.
+   Solo cambia los tokens semánticos y los alias; los componentes aún sin migrar
+   (que usan la paleta heredada directamente) no se adaptan hasta que se migren. */
+:root[data-theme="claro"]{
+  --fondo:#f3f5f8;
+  --lateral:#e9edf3;
+  --superficie:#ffffff;
+  --superficie-2:#f6f7f9;
+  --hundido:#eef1f5;
+  --borde:#dde1e7;
+  --borde-fuerte:#c5cbd4;
+  --velo:rgba(27,30,35,0.38);
+
+  --texto:#1b1e23;
+  --texto-2:#4a515b;
+  --texto-3:#6b727c;
+
+  --accion:#0e3aae;
+  --accion-hover:#1747c7;
+  --accion-suave:#e3eafc;
+  --accion-borde:#a9bdf0;
+  --enlace:#1e4fd1;
+  --foco-anillo:rgba(30,79,209,0.35);
+
+  --exito:#1c7a52;  --exito-t:#1c7a52;  --exito-s:#e6f4ec;  --exito-b:#b7dfc9;
+  --bug:#b42330;    --bug-t:#b42330;    --bug-s:#fbe9ea;    --bug-b:#f1c0c4;
+  --error:#6b3fb0;  --error-t:#6b3fb0;  --error-s:#f0e9fb;  --error-b:#d6c6f2;
+  --aviso:#8a5a0b;  --aviso-t:#8a5a0b;  --aviso-s:#fcf1dc;  --aviso-b:#ecd3a3;
+  --progreso:#1e4fd1; --progreso-t:#1e4fd1; --progreso-s:#e3eafc; --progreso-b:#a9bdf0;
+  --info-t:#1e4fd1; --info-s:#e3eafc; --info-b:#a9bdf0;
+
+  --codigo-texto:#2b3037;
+  --codigo-clave:#1e4fd1;
+  --codigo-cadena:#8a5a0b;
+  --codigo-comentario:#6b727c;
+  --codigo-linea-sin-probar:#fcf1dc;
+
+  --sombra-modal:0 18px 48px rgba(27,30,35,0.18);
+}
+
+/* 3. Alias de la interfaz anterior: apuntan al sistema nuevo, así las pantallas sin migrar
+   ya toman la identidad. Al migrar un componente, usar los nombres de la sección 1. */
+:root{
+  --bg:var(--fondo); --side:var(--lateral); --panel:var(--superficie); --panel2:var(--superficie);
+  --inset:var(--hundido); --line:var(--borde); --line2:var(--borde-fuerte);
+  --txt:var(--texto); --mut:var(--texto-2); --dim:var(--texto-3);
+  --blue:var(--accion); --blue-t:var(--enlace); --blue-s:var(--accion-suave); --blue-b:var(--accion-borde);
+  --purple:var(--error); --purple-t:var(--error-t); --purple-s:var(--error-s); --purple-b:var(--error-b);
+  --green:var(--exito); --green-t:var(--exito-t); --green-s:var(--exito-s); --green-b:var(--exito-b);
+  --red:var(--bug); --red-t:var(--bug-t); --red-s:var(--bug-s); --red-b:var(--bug-b);
+  --amber:var(--aviso); --amber-t:var(--aviso-t); --amber-s:var(--aviso-s); --amber-b:var(--aviso-b);
   --mono:var(--fuente-mono); --sans:var(--fuente-ui);
 }
 
-/* Marca (tomada del logo: assets/logo/) */
+/* 4a. Marca: «una Q que verifica» (assets/logo/). El símbolo es de trazo, sin degradados.
+   Los SVG del logo llevan estos valores escritos: si cambian, actualizarlos también allí. */
 :root{
-  --marca-1:#e6b8f2; --marca-2:#9d8cf7; --marca-3:#3f63ff;
-  --marca-gradiente:linear-gradient(135deg,var(--marca-1),var(--marca-3));
-  --fondo-marca:#0a0524;
+  --marca-1:#f1f3f6;          /* blanco suave: símbolo sobre grafito */
+  --marca-2:#9bb9ff;          /* azul foco */
+  --marca-3:#0e3aae;          /* azul acción */
+  --marca-grafito:#1b1e23;    /* símbolo sobre superficie clara */
+  --marca-gradiente:linear-gradient(135deg,var(--marca-2),var(--marca-3));
+  --fondo-marca:#1b1e23;
   --logo-icono:url('../assets/logo/qagent-icono.svg');
   --logo-completo:url('../assets/logo/qagent-logo.svg');
+}
+
+/* 4b. Ritmo: base 4 px. Tarjetas 10 px, controles 6 px, borde 1 px. */
+:root{
+  --esp-1:4px; --esp-2:8px; --esp-3:12px; --esp-4:16px; --esp-5:24px; --esp-6:32px; --esp-7:48px;
+  --radio-tarjeta:10px; --radio-control:6px; --radio-chip:6px; --radio-pildora:999px;
+  --borde-ancho:1px;
+  --control-alto:40px;        /* botones y campos: área cómoda para el clic */
+  --lateral-ancho:232px;      /* barra lateral expandida */
+  --lateral-plegada:64px;     /* barra lateral plegada: solo íconos */
 }
 
 /* Proveedores de IA (HU-30): color de la insignia de cada uno en Configuración.
@@ -36,11 +145,23 @@
   --caja-blanca-s:var(--slate-200); --caja-blanca-t:var(--slate-900); --caja-blanca-b:var(--slate-300);
 }
 
-/* Tipografía */
+/* 4c. Tipografía: Inter para la interfaz, monoespaciada para código, funciones y datos técnicos.
+   Escala 28 / 20 / 16 / 14 / 12 px; pesos 400, 500 y 600. */
 :root{
   --fuente-ui:'Inter',system-ui,sans-serif;
   --fuente-mono:'JetBrains Mono',ui-monospace,Consolas,monospace;
+  --texto-titulo:28px;     /* título de pantalla: la respuesta («3 posibles bugs…») */
+  --texto-seccion:20px;    /* título de tarjeta grande, cifras */
+  --texto-cuerpo-l:16px;   /* subtítulos, opciones */
+  --texto-cuerpo:14px;     /* texto base */
+  --texto-meta:12px;       /* metadatos, ayudas, chips */
+  --peso-normal:400; --peso-medio:500; --peso-fuerte:600;
+  --interlineado:1.5;
 }
+
+/* 5. Paleta heredada: colores que aún usan los componentes sin migrar (escala de Tailwind y propios).
+   No usarla en componentes nuevos: van con los tokens de la sección 1.
+   Los -b de estado (--red-b, --green-b…) ahora son alias de la sección 3. */
 
 /* Paleta: todos los colores que usan los componentes (valores de la paleta de Tailwind y propios del proyecto).
    Los sufijos -aNN son el mismo color con NN % de opacidad y -c marca un valor propio, fuera de Tailwind.
@@ -53,7 +174,7 @@
   --slate-600:#475569; --slate-700:#334155; --slate-800:#1e293b; --slate-900:#0f172a; --slate-950:#020617;
   --slate-800-a25:rgba(30,41,59,0.25); --slate-900-a90:rgba(15,23,42,0.9); --slate-950-a60:rgba(2,6,23,0.6);
   --slate-950-a90:rgba(2,6,23,0.9);
-  --red-b:#6b1d31; --red-400:#f87171; --red-600:#dc2626;
+  --red-400:#f87171; --red-600:#dc2626;
   --red-900-a60:rgba(127,29,29,0.6);
   --rose-100:#ffe4e6; --rose-200:#fecdd3; --rose-300:#fda4af; --rose-400:#fb7185; --rose-500:#f43f5e;
   --rose-600:#e11d48; --rose-700:#be123c; --rose-800:#9f1239; --rose-950:#4c0519;
@@ -66,23 +187,23 @@
   --orange-500:#f97316; --orange-700:#c2410c; --orange-950:#431407;
   --orange-500-a20:rgba(249,115,22,0.2); --orange-700-a80:rgba(194,65,12,0.8); --orange-900-a90:rgba(124,45,18,0.9);
   --orange-950-a40:rgba(67,20,7,0.4); --orange-950-a80:rgba(67,20,7,0.8);
-  --amber-b:#6b4a10; --amber-300:#fcd34d; --amber-400:#fbbf24; --amber-500:#f59e0b; --amber-700:#b45309;
+  --amber-300:#fcd34d; --amber-400:#fbbf24; --amber-500:#f59e0b; --amber-700:#b45309;
   --amber-800:#92400e; --amber-950:#451a03;
   --amber-500-a20:rgba(245,158,11,0.2); --amber-800-a60:rgba(146,64,14,0.6); --amber-800-a80:rgba(146,64,14,0.8);
   --amber-950-a35:rgba(69,26,3,0.35); --amber-950-a80:rgba(69,26,3,0.8);
-  --green-b:#1b5a3a; --green-300:#86efac;
+  --green-300:#86efac;
   --emerald-300:#6ee7b7; --emerald-400:#34d399; --emerald-500:#10b981; --emerald-600:#059669;
   --emerald-500-a20:rgba(16,185,129,0.2); --emerald-500-a30:rgba(16,185,129,0.3);
   --emerald-700-a60:rgba(4,120,87,0.6); --emerald-800-a50:rgba(6,95,70,0.5); --emerald-800-a80:rgba(6,95,70,0.8);
   --emerald-950-a20:rgba(2,44,34,0.2); --emerald-950-a80:rgba(2,44,34,0.8);
   --teal-400:#2dd4bf;
-  --blue-b:#24457f; --blue-300:#93c5fd; --blue-400:#60a5fa; --blue-500:#3b82f6; --blue-600:#2563eb;
+  --blue-300:#93c5fd; --blue-400:#60a5fa; --blue-500:#3b82f6; --blue-600:#2563eb;
   --blue-500-a06:rgba(59,130,246,0.06); --blue-500-a25:rgba(59,130,246,0.25); --blue-700-c-a70:rgba(31,42,64,0.7);
   --blue-800-a40:rgba(30,64,175,0.4); --blue-800-a60:rgba(30,64,175,0.6); --blue-900-c-a70:rgba(8,13,25,0.7);
   --blue-950-a60:rgba(23,37,84,0.6); --blue-950-c-a72:rgba(3,7,18,0.72);
   --indigo-400:#818cf8; --indigo-500:#6366f1;
   --indigo-950-a60:rgba(30,27,75,0.6);
-  --purple-b:#4b2a78; --purple-300:#d8b4fe; --purple-400:#c084fc; --purple-500:#a855f7; --purple-900-c:#140d1a;
+  --purple-300:#d8b4fe; --purple-400:#c084fc; --purple-500:#a855f7; --purple-900-c:#140d1a;
   --purple-800-a40:rgba(107,33,168,0.4); --purple-950-a60:rgba(59,7,100,0.6);
   --fuchsia-200:#f5d0fe; --fuchsia-300:#f0abfc; --fuchsia-400:#e879f9; --fuchsia-500:#d946ef; --fuchsia-600:#c026d3;
   --fuchsia-700:#a21caf; --fuchsia-800:#86198f; --fuchsia-900-c:#1a0b1c;

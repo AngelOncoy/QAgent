@@ -89,16 +89,24 @@ Cuidado con el HTML dentro de la plantilla JS: hay que escapar `` ` `` y `${` si
 
 Todo lo visual se cambia en **`css/tokens.css`**:
 
+Identidad «Precisión serena»: grafito de base, un solo azul sólido para la acción principal de cada pantalla y cinco estados que siempre van con ícono y texto. Los componentes nuevos o migrados usan **solo los tokens del sistema** (primeras filas); los alias y la paleta heredada existen para las pantallas que aún no se migran.
+
 | Grupo | Variables | Uso |
 |---|---|---|
-| Estructura | `--bg`, `--side`, `--panel`, `--panel2`, `--inset`, `--line`, `--line2`, `--txt`, `--mut`, `--dim` | Fondos, bordes y textos |
-| Semánticos de estado | `--blue`, `--purple`, `--green`, `--red`, `--amber`, cada una con `-t` (texto) y `-s` (fondo suave) | Estados, pills, acentos |
-| Paleta | `--<familia>-<tono>` (`--emerald-400`, `--rose-500`, `--slate-950`…), más variantes `-aNN`, `-b` y `-c` (ver abajo) | Todos los colores que usan los componentes |
-| Marca | `--marca-1`, `--marca-2`, `--marca-3`, `--marca-gradiente`, `--fondo-marca` | Colores tomados del logo |
-| Tipografía | `--fuente-ui`, `--fuente-mono` (`--sans` y `--mono` son alias) | Texto de interfaz y de código |
-| Logo | `--logo-icono`, `--logo-completo` | Rutas a los SVG de `assets/logo/` |
+| Superficies | `--fondo`, `--lateral`, `--superficie`, `--superficie-2`, `--hundido`, `--borde`, `--borde-fuerte`, `--velo` | Fondos, tarjetas, campos y bordes |
+| Texto | `--texto`, `--texto-2`, `--texto-3`, `--texto-sobre-accion` | Principal, secundario y terciario |
+| Acción y foco | `--accion` (solo el botón principal), `--accion-hover`, `--accion-suave` (seleccionado), `--accion-borde`, `--enlace`, `--foco-anillo` | Botón principal, ítem activo, enlaces y foco |
+| Estados | `--exito`, `--bug`, `--error` (no se pudo generar), `--aviso` (tiempo agotado, advertencias), `--progreso`, `--info`, cada uno con `-t`, `-s` y `-b` | Chips, avisos y resultados |
+| Código | `--codigo-fondo`, `--codigo-texto`, `--codigo-clave`, `--codigo-cadena`, `--codigo-comentario`, `--codigo-linea-sin-probar` | Pruebas generadas y líneas sin probar |
+| Ritmo | `--esp-1`…`--esp-7` (base 4 px), `--radio-tarjeta` (10 px), `--radio-control` (6 px), `--control-alto`, `--lateral-ancho` | Espaciado y radios |
+| Tipografía | `--fuente-ui`, `--fuente-mono`, `--texto-titulo`…`--texto-meta` (28/20/16/14/12 px), `--peso-*` | Texto de interfaz y de código |
+| Marca y logo | `--marca-1`, `--marca-2`, `--marca-3`, `--marca-grafito`, `--marca-gradiente`, `--fondo-marca`, `--logo-icono`, `--logo-completo` | Símbolo «Q que verifica» y rutas a `assets/logo/` |
+| Alias heredados | `--bg`, `--side`, `--panel`, `--panel2`, `--inset`, `--line`, `--line2`, `--txt`, `--mut`, `--dim`, `--blue`, `--purple`, `--green`, `--red`, `--amber` (con `-t`, `-s`, `-b`) | Apuntan a los tokens del sistema; no usarlos en código nuevo |
+| Paleta heredada | `--<familia>-<tono>` (`--emerald-400`, `--rose-500`…), más `-aNN` y `-c` (ver abajo) | Colores de los componentes sin migrar |
 
-**Cambiar el logo:** reemplazar los SVG de `assets/logo/` (mismos nombres) o cambiar las rutas en `tokens.css`. La barra lateral lo usa con `.logo`, que **debe seguir en `css/layout.css`**: la ruta de `--logo-icono` es relativa a `css/`, y si esa regla se mueve a la carpeta de un componente la imagen deja de resolverse. En `qagent-logo.svg` el texto usa la fuente Poppins, que no se incluye (el SVG se dibuja como imagen y no hereda las fuentes de la página): sin ella cae a Segoe UI.
+**Tema claro:** `<html data-theme="claro">` redefine los tokens del sistema (y, por los alias, los heredados). Las pantallas que usan la paleta heredada directamente no se adaptan hasta migrarlas, así que el selector de tema se habilita cuando todas estén migradas.
+
+**Cambiar el logo:** reemplazar los SVG de `assets/logo/` (mismos nombres) o cambiar las rutas en `tokens.css`. El símbolo es de trazo (retícula 24 × 24, trazo 2) en blanco suave `#ECEEF1`; los SVG llevan el color escrito, así que si cambia la marca hay que actualizarlos junto con `--marca-*`. La barra lateral lo usa con `.logo`, que **debe seguir en `css/layout.css`**: la ruta de `--logo-icono` es relativa a `css/`, y si esa regla se mueve a la carpeta de un componente la imagen deja de resolverse. En `qagent-logo.svg` el texto usa Inter si está instalada en el sistema (el SVG se dibuja como imagen y no hereda las fuentes de la página): sin ella cae a Segoe UI.
 
 **Cambiar la tipografía:** las fuentes van incluidas en el proyecto (`assets/fuentes/`, unos 140 KB, licencia OFL): la interfaz no depende de internet. Para cambiar de fuente, reemplazar los `woff2`, actualizar los `@font-face` de `css/fuentes.css` y el nombre de la familia en `--fuente-ui` / `--fuente-mono` de `tokens.css`. Hoy se incluyen Inter (400, 500, 600, 700) y JetBrains Mono (400, 600), con el subconjunto latino, que cubre el español; otro alfabeto requeriría añadir su subconjunto. Un peso que no esté incluido (el 800, por ejemplo) se resuelve al más cercano.
 
