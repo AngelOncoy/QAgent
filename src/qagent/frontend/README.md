@@ -41,7 +41,7 @@ src/qagent/frontend/
     ├── vista-previa/     Pantalla «Explorar»: cifras, carpetas incluidas, tabla compacta de funciones y endpoints con buscador y avisos
     ├── config-pruebas/   Pantalla «Preparar»: qué hacer (nuevas, volver a correr, análisis a fondo), tipos de prueba, críticas y comprobaciones previas
     ├── barra-corrida/    Barra superior de Monitor, Ejecución e Informe
-    ├── monitor/          Línea de tiempo de la corrida
+    ├── monitor/          Pantalla «En curso»: progreso en vivo (etapas, avance, función actual y actividad reciente)
     ├── ejecucion/        KPIs, filtros y detalle por función
     ├── informe/          Informe final · modal-exportar
     ├── configuracion/    Pantalla «Configuración»: conexión de IA por etapa (modal-api), motor de ejecución, límites y apariencia

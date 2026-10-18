@@ -2,7 +2,7 @@
 /* ---------------- Navegación ---------------- */
 function go(v){
   ['welcome','open','clone','preview','tests','monitor','exec','report','history','config'].forEach(s => $('s-'+s).classList.toggle('hide', s!==v));
-  $('runTop').classList.toggle('hide', !['monitor','report'].includes(v));   // Pruebas (exec) ya tiene su propia cabecera
+  $('runTop').classList.toggle('hide', v !== 'report');   // En curso y Pruebas ya tienen su propia cabecera
   if(v==='exec') renderExec();
   if(v==='report') renderReport();
   if(v==='history') renderHistory();
