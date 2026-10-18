@@ -29,7 +29,7 @@ TAMANO_MAXIMO_REGISTRO = 1_000_000  # bytes por archivo; se guardan 2 anteriores
 LARGO_MAXIMO = 300
 
 # Tipos de evento del Monitor que merecen atención (aparecen resaltados en la pantalla).
-TIPOS_DE_ALERTA = frozenset({"guard", "watch", "oracle", "stuck"})
+TIPOS_DE_ALERTA = frozenset({"guard", "watch", "oracle", "stuck", "fallo"})
 
 registro = logging.getLogger(NOMBRE)
 

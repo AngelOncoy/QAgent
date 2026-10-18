@@ -2,8 +2,8 @@
 
 Lee dos fuentes:
 
-- `config.toml` (se versiona): modelo y precio por agente, tope de gasto, reintentos y
-  umbrales de calidad.
+- `config.toml` (se versiona): modelo y precio por agente, tope de gasto, reintentos,
+  umbrales de calidad y límites del sandbox Docker (`[sandbox]`, opcional).
 - `.env` (nunca se versiona): claves de API de cada proveedor.
 
 `config.toml` viaja dentro del paquete; `.env` y `config.local.toml` son del usuario y
@@ -37,6 +37,7 @@ from qagent.llm.cliente import VARIABLE_SIMULADA, es_modo_simulado, valor_simula
 from qagent.llm.precios import AGENTES, PrecioAgente, texto_opcional
 from qagent.llm.precios import RUTA_CONFIG as RUTA_CONFIG_EQUIPO
 from qagent.llm.proveedores import variable_por_proveedor
+from qagent.sandbox.modelos import LIMITES_POR_DEFECTO, LimitesSandbox
 from qagent.usuario import carpeta_usuario
 
 if sys.version_info >= (3, 11):
@@ -107,6 +108,13 @@ UMBRALES = ("pass_rate_min", "cobertura_lineas_min", "iteraciones_promedio_max")
 #: Tiempo máximo de mutmut por función crítica si `[mutacion]` no lo define (EN-09).
 TIEMPO_MUTACION_POR_DEFECTO_S = 120
 
+#: Memoria en formato Docker: un entero y una unidad (b, k, m o g), p. ej. "512m" o "3g".
+#: Secciones que solo define el equipo en `config.toml`: `config.local.toml` no las
+#: cambia. Los límites del sandbox no son un ajuste del usuario final (EN-03).
+SECCIONES_SOLO_EQUIPO = frozenset({"sandbox"})
+
+_MEMORIA_DOCKER = re.compile(r"^[1-9][0-9]*[bkmg]$", re.IGNORECASE)
+
 MIN_LARGO_SECRETO = 8  # menos que esto no se redacta: daría falsos positivos
 _NOMBRE_ENV = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 
@@ -144,6 +152,7 @@ class Configuracion:
     umbrales: Umbrales
     agentes: dict[str, PrecioAgente]
     mutacion: Mutacion = Mutacion()
+    sandbox: LimitesSandbox = LIMITES_POR_DEFECTO
 
     def proveedores(self) -> dict[str, list[str]]:
         """Agentes que usa cada proveedor: `{"openai": ["reviewer"], ...}`."""
@@ -496,6 +505,7 @@ def _leer_config(
     max_intentos = _leer_reintentos(datos.get("reintentos", {}), avisos)
     umbrales = _leer_umbrales(datos.get("umbrales", {}), avisos)
     mutacion = _leer_mutacion(datos.get("mutacion", {}), avisos)
+    sandbox = _leer_sandbox(datos.get("sandbox", {}), avisos)
     agentes = _leer_agentes(
         datos.get("agentes", {}),
         avisos,
@@ -503,7 +513,9 @@ def _leer_config(
     )
     if len(avisos) > antes:
         return None
-    return Configuracion(presupuesto, max_intentos, umbrales, agentes, mutacion)  # type: ignore[arg-type]
+    return Configuracion(
+        presupuesto, max_intentos, umbrales, agentes, mutacion, sandbox
+    )  # type: ignore[arg-type]
 
 
 def superponer_config(
@@ -513,13 +525,15 @@ def superponer_config(
 
     Cada agente de `[agentes.*]` se reemplaza entero (así no se mezclan el proveedor
     local con el precio o el `esfuerzo` del equipo); las demás secciones se
-    superponen clave a clave.
+    superponen clave a clave, salvo `SECCIONES_SOLO_EQUIPO`, que se ignoran.
     """
     datos = {
         seccion: dict(valor) if isinstance(valor, Mapping) else valor
         for seccion, valor in base.items()
     }
     for seccion, valor in local.items():
+        if seccion in SECCIONES_SOLO_EQUIPO:
+            continue
         if seccion == "agentes" and isinstance(valor, Mapping):
             agentes = dict(datos.get("agentes") or {})
             agentes.update({agente: dict(tabla) for agente, tabla in valor.items()})
@@ -596,6 +610,41 @@ def _leer_mutacion(tabla: Mapping[str, Any], avisos: list[str]) -> Mutacion | No
         )
         return None
     return Mutacion(int(tiempo))
+
+
+def _leer_sandbox(tabla: Mapping[str, Any], avisos: list[str]) -> LimitesSandbox | None:
+    """`[sandbox]` es opcional: cada valor que falte toma el de `LIMITES_POR_DEFECTO`.
+
+    `cpus` es un número > 0, `memoria` un texto en formato Docker ("512m", "3g") y
+    `timeout_s` un entero > 0. Un valor inválido deja un aviso, nunca una excepción.
+    """
+    if not isinstance(tabla, Mapping):
+        avisos.append("[sandbox] de config.toml debe ser una sección.")
+        return None
+    antes = len(avisos)
+    cpus = LIMITES_POR_DEFECTO.cpus
+    if "cpus" in tabla:
+        cpus = _numero(tabla, "cpus", "sandbox", avisos)  # type: ignore[assignment]
+    memoria = LIMITES_POR_DEFECTO.memoria
+    if "memoria" in tabla:
+        valor = tabla["memoria"]
+        if isinstance(valor, str) and _MEMORIA_DOCKER.match(valor.strip()):
+            memoria = valor.strip().lower()
+        else:
+            avisos.append(
+                "memoria en [sandbox] debe tener el formato de Docker: un entero y "
+                'una unidad (b, k, m o g), p. ej. "512m" o "3g".'
+            )
+    timeout = LIMITES_POR_DEFECTO.timeout_s
+    if "timeout_s" in tabla:
+        leido = _numero(tabla, "timeout_s", "sandbox", avisos)
+        if leido is not None and leido != int(leido):
+            avisos.append("timeout_s en [sandbox] debe ser un número entero.")
+        elif leido is not None:
+            timeout = int(leido)
+    if len(avisos) > antes:
+        return None
+    return LimitesSandbox(cpus=cpus, memoria=memoria, timeout_s=timeout)
 
 
 def _leer_umbrales(tabla: Mapping[str, Any], avisos: list[str]) -> Umbrales | None:

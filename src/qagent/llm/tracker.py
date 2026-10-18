@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import threading
 from dataclasses import asdict, dataclass, field
 from datetime import datetime
 from pathlib import Path
@@ -54,7 +55,10 @@ class TokenTracker:
     Si recibe `precios` (de `cargar_precios()`), calcula el costo de cada llamada con
     el precio del agente en config.toml; si no, usa el `costo_usd` que se le pase.
     El orquestador fija con `fijar_contexto()` la función y el intento en curso, para
-    que los agentes no necesiten conocerlos al registrar.
+    que los agentes no necesiten conocerlos al registrar. Cada agente corre en su
+    propio hilo y recibe una copia de ese contexto (`fijar_contexto_hilo`): si el
+    orquestador deja de esperarlo y pasa a otra función, lo que registre al terminar
+    tarde sigue contando para la función en la que se pidió.
     """
 
     def __init__(self, precios: dict[str, PrecioAgente] | None = None) -> None:
@@ -62,11 +66,22 @@ class TokenTracker:
         self.precios = precios or {}
         self._funcion: str | None = None
         self._intento: int | None = None
+        self._local = threading.local()
+        self._candado = threading.Lock()
 
     def fijar_contexto(self, funcion: str | None, intento: int | None) -> None:
         """Indica qué función e intento se están procesando (lo usa el orquestador)."""
         self._funcion = funcion
         self._intento = intento
+
+    def contexto_actual(self) -> tuple[str | None, int | None]:
+        """(función, intento) que se usa al registrar desde el hilo actual."""
+        propio = getattr(self._local, "contexto", None)
+        return propio if propio is not None else (self._funcion, self._intento)
+
+    def fijar_contexto_hilo(self, funcion: str | None, intento: int | None) -> None:
+        """Contexto solo para el hilo actual (el de un agente); manda sobre el general."""
+        self._local.contexto = (funcion, intento)
 
     def registrar(
         self,
@@ -90,10 +105,11 @@ class TokenTracker:
             tokens_salida=tokens_salida,
             costo_usd=costo_usd,
             es_simulado=es_simulado,
-            funcion=funcion if funcion is not None else self._funcion,
-            intento=intento if intento is not None else self._intento,
+            funcion=funcion if funcion is not None else self.contexto_actual()[0],
+            intento=intento if intento is not None else self.contexto_actual()[1],
         )
-        self.llamadas.append(registro)
+        with self._candado:  # un agente que terminó tarde puede registrar a la vez
+            self.llamadas.append(registro)
         return registro
 
     @property

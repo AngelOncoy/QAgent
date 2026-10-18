@@ -22,6 +22,14 @@ iteraciones_promedio_max = 2.0   # intentos promedio por prueba
 [mutacion]
 tiempo_maximo_por_funcion_s = 120   # segundos por función crítica
 
+# Límites de cada contenedor del sandbox Docker (EN-03). Si Docker Desktop tiene menos
+# CPU asignados que `cpus`, se usan los que tenga. La memoria es también el tope de swap.
+# Solo los cambia el equipo aquí: ~/.qagent/config.local.toml no puede tocarlos.
+[sandbox]
+cpus = 4
+memoria = "3g"                   # formato Docker: "512m", "2g", "3g"...
+timeout_s = 120                  # segundos por ejecución; el paso del orquestador espera más
+
 # Cada agente usa la URL de chat de su proveedor (src/qagent/llm/fabrica.py).
 # Para otra URL agrega:  endpoint = "https://.../v1/chat/completions"
 # `esfuerzo` se envía como `reasoning_effort`; quítalo si el proveedor no lo acepta.

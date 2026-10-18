@@ -64,8 +64,14 @@ modelos = [
 # API compatible con OpenAI: se reutiliza esa integración. Los modelos llevan el
 # nombre completo de OpenRouter (`<empresa>/<modelo>`).
 # Solo modelos gratuitos (`:free`), que no piden crédito en la cuenta. Revisados el
-# 2026-10-14 en https://openrouter.ai/models?variant=free; la lista cambia seguido:
-# `python -m qagent.llm.validar --gratis` muestra la de hoy.
+# 2026-10-17 en https://openrouter.ai/api/v1/models (16 `:free`); la lista cambia
+# seguido: `python -m qagent.llm.validar --gratis` muestra la de hoy. Quedan fuera los
+# que no sirven como agente: el de moderación (nemotron-3.5-content-safety), uno
+# demasiado chico para escribir pruebas (liquid/lfm-2.5-2.6b) y el enrutador
+# `openrouter/free`, que elige el modelo solo y no deja saber cuál respondió.
+# Los Gemma 4 (google/gemma-4-*) siguen en la lista pública pero no respondían: se
+# quitaron para no confundir.
+# Todos razonan antes de responder: son más lentos que un modelo sin razonamiento.
 [proveedores.openrouter]
 nombre = "OpenRouter"
 variable = "OPENROUTER_API_KEY"
@@ -73,12 +79,18 @@ endpoint = "https://openrouter.ai/api/v1/chat/completions"
 modelos_url = "https://openrouter.ai/api/v1/models"
 tipo = "texto"
 modelos = [
-  { id = "google/gemma-4-31b-it:free", nombre = "Gemma 4 31B (gratis)", entrada = 0, salida = 0 },
-  { id = "google/gemma-4-26b-a4b-it:free", nombre = "Gemma 4 26B A4B (gratis)", entrada = 0, salida = 0 },
   { id = "nvidia/nemotron-3-super-120b-a12b:free", nombre = "Nemotron 3 Super 120B (gratis)", entrada = 0, salida = 0 },
   { id = "nvidia/nemotron-3-ultra-550b-a55b:free", nombre = "Nemotron 3 Ultra 550B (gratis)", entrada = 0, salida = 0 },
   { id = "nvidia/nemotron-3.5-lightning:free", nombre = "Nemotron 3.5 Lightning (gratis)", entrada = 0, salida = 0 },
   { id = "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free", nombre = "Nemotron 3 Nano Omni 30B (gratis)", entrada = 0, salida = 0 },
+  { id = "nvidia/nemotron-3.5-super-vl:free", nombre = "Nemotron 3.5 Super VL (gratis)", entrada = 0, salida = 0 },
+  { id = "cohere/north-mini-code:free", nombre = "Cohere North Mini Code (gratis)", entrada = 0, salida = 0 },
+  { id = "poolside/laguna-s-2.1:free", nombre = "Poolside Laguna S 2.1 (gratis)", entrada = 0, salida = 0 },
+  { id = "poolside/laguna-xs-2.1:free", nombre = "Poolside Laguna XS 2.1 (gratis)", entrada = 0, salida = 0 },
+  { id = "thinkingmachines/inkling:free", nombre = "Thinking Machines Inkling (gratis)", entrada = 0, salida = 0 },
+  { id = "thinkingmachines/inkling-small:free", nombre = "Thinking Machines Inkling Small (gratis)", entrada = 0, salida = 0 },
+  { id = "xingchen-agi/xing4.0-29b-a4b:free", nombre = "XingChen Xing4.0 29B A4B (gratis)", entrada = 0, salida = 0 },
+  { id = "dots-studio/dots-3-note-preview:free", nombre = "Dots3-Note Preview (gratis)", entrada = 0, salida = 0 },
 ]
 
 [proveedores.gemini]

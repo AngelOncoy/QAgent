@@ -20,6 +20,7 @@ from qagent.config import (
 )
 from qagent.config import carga as carga_mod
 from qagent.config.carga import RUTA_CONFIG
+from qagent.sandbox.modelos import LIMITES_POR_DEFECTO, LimitesSandbox
 
 # Valores de prueba armados en tiempo de ejecución: no son claves reales.
 SECRETO_A = "valor-de-prueba-" + "A" * 12
@@ -184,6 +185,114 @@ def test_config_local_puede_cambiar_el_tiempo_de_mutacion(tmp_path, env_completo
         RUTA_CONFIG, env_completo, simulado=False, ruta_local=local
     )
     assert carga.config.mutacion.tiempo_maximo_por_funcion_s == 300
+
+
+# ---------- [sandbox] (EN-03) ----------
+
+
+def test_config_del_equipo_define_los_limites_del_sandbox():
+    config = cargar_configuracion(RUTA_CONFIG, "no-existe.env", simulado=True).config
+    assert config.sandbox == LimitesSandbox(cpus=4.0, memoria="3g", timeout_s=120)
+
+
+def test_sandbox_con_valores_validos(tmp_path, env_completo):
+    ruta = _config_con(
+        tmp_path,
+        {
+            "cpus = 4": "cpus = 2.5",
+            'memoria = "3g"': 'memoria = "512M"',
+            "timeout_s = 120": "timeout_s = 90",
+        },
+    )
+    carga = cargar_configuracion(ruta, env_completo, simulado=False)
+    assert carga.ok, carga.avisos
+    assert carga.config.sandbox == LimitesSandbox(
+        cpus=2.5, memoria="512m", timeout_s=90
+    )
+
+
+def test_sin_seccion_de_sandbox_usa_los_valores_por_defecto(tmp_path, env_completo):
+    texto = RUTA_CONFIG.read_text(encoding="utf-8")
+    inicio = texto.index("[sandbox]")
+    fin = texto.index("# Cada agente usa")
+    ruta = tmp_path / "config.toml"
+    ruta.write_text(texto[:inicio] + texto[fin:], encoding="utf-8")
+
+    carga = cargar_configuracion(ruta, env_completo, simulado=False)
+
+    assert carga.ok, carga.avisos
+    assert carga.config.sandbox == LIMITES_POR_DEFECTO
+
+
+def test_sandbox_incompleto_completa_con_los_valores_por_defecto(
+    tmp_path, env_completo
+):
+    ruta = _config_con(tmp_path, {'memoria = "3g"': "", "timeout_s = 120": ""})
+    carga = cargar_configuracion(ruta, env_completo, simulado=False)
+    assert carga.ok, carga.avisos
+    assert carga.config.sandbox == LIMITES_POR_DEFECTO
+
+
+@pytest.mark.parametrize(
+    "viejo, nuevo, clave, aviso",
+    [
+        ("cpus = 4", "cpus = 0", "cpus", "mayor que 0"),
+        ("cpus = 4", "cpus = -1", "cpus", "mayor que 0"),
+        ("cpus = 4", 'cpus = "cuatro"', "cpus", "mayor que 0"),
+        ('memoria = "3g"', 'memoria = "3 GB"', "memoria", "formato de Docker"),
+        ('memoria = "3g"', 'memoria = "0m"', "memoria", "formato de Docker"),
+        ('memoria = "3g"', "memoria = 3", "memoria", "formato de Docker"),
+        ("timeout_s = 120", "timeout_s = 0", "timeout_s", "mayor que 0"),
+        ("timeout_s = 120", "timeout_s = 90.5", "timeout_s", "entero"),
+    ],
+)
+def test_sandbox_con_valores_invalidos_avisa(
+    tmp_path, env_completo, viejo, nuevo, clave, aviso
+):
+    ruta = _config_con(tmp_path, {viejo: nuevo})
+    carga = cargar_configuracion(ruta, env_completo, simulado=False)
+    assert carga.config is None
+    assert any(
+        a.startswith(clave) and "[sandbox]" in a and aviso in a
+        for a in carga.avisos_config
+    ), carga.avisos_config
+
+
+def test_sandbox_reune_todos_sus_avisos(tmp_path, env_completo):
+    ruta = _config_con(
+        tmp_path,
+        {"cpus = 4": "cpus = 0", 'memoria = "3g"': 'memoria = "mucha"'},
+    )
+    carga = cargar_configuracion(ruta, env_completo, simulado=False)
+    avisos = [a for a in carga.avisos_config if "[sandbox]" in a]
+    assert len(avisos) == 2
+
+
+def test_config_local_no_cambia_los_limites_del_sandbox(tmp_path, env_completo):
+    """El usuario final no configura el sandbox: solo el equipo, en config.toml."""
+    local = tmp_path / "config.local.toml"
+    local.write_text(
+        '[sandbox]\ncpus = 16\nmemoria = "32g"\ntimeout_s = 9999\n'
+        "[mutacion]\ntiempo_maximo_por_funcion_s = 300\n",
+        encoding="utf-8",
+    )
+    carga = cargar_configuracion(
+        RUTA_CONFIG, env_completo, simulado=False, ruta_local=local
+    )
+    assert carga.ok, carga.avisos
+    assert carga.config.sandbox == LimitesSandbox(cpus=4.0, memoria="3g", timeout_s=120)
+    # Las demás secciones sí se siguen superponiendo.
+    assert carga.config.mutacion.tiempo_maximo_por_funcion_s == 300
+
+
+def test_config_local_con_sandbox_invalido_se_ignora_sin_aviso(tmp_path, env_completo):
+    local = tmp_path / "config.local.toml"
+    local.write_text("[sandbox]\ntimeout_s = -3\n", encoding="utf-8")
+    carga = cargar_configuracion(
+        RUTA_CONFIG, env_completo, simulado=False, ruta_local=local
+    )
+    assert carga.ok, carga.avisos
+    assert carga.config.sandbox.timeout_s == 120
 
 
 def test_proveedor_desconocido(tmp_path, env_completo):

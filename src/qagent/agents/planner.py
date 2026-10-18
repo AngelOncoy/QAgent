@@ -15,6 +15,12 @@ Cada caso lleva su `categoria` (#76): `normal`, `limite` o `error`. Sin IA se co
 que sea coherente con lo que espera (una excepción o un 4xx/5xx es `error`) y, si no,
 se corrige con un aviso. Un caso `limite` solo se acepta si la especificación describe
 ese límite (docstring, tipos con restricciones o modelo Pydantic); si no, se descarta.
+
+Una función cuyo valor esperado no se puede deducir de su firma, tipos o docstring (por
+ejemplo, devuelve un token con la hora actual o un objeto de una biblioteca) queda
+**omitida** con un aviso (`omitidas`): el modelo no propone casos o solo propone casos
+que no se pueden respaldar. No es un error: la corrida sigue con las demás funciones y,
+si se omiten todas las del módulo, el módulo termina sin objetivos.
 """
 
 from __future__ import annotations
@@ -66,6 +72,14 @@ _EJEMPLO_RESPUESTA = [
 ]
 
 # Contrato mínimo para validar un caso suelto contra el schema del Planner.
+#: Por qué se omite una función sin valor esperado deducible (fuera de Humo y en Humo).
+MOTIVO_OMITIDA = (
+    "su valor esperado no se puede deducir de la firma, los tipos ni el docstring"
+)
+MOTIVO_OMITIDA_HUMO = (
+    "no hay un caso normal deducible de la firma, los tipos ni el docstring"
+)
+
 _CONTRATO_DE_PRUEBA = {
     "version": "2",
     "modulo": "x.py",
@@ -107,6 +121,11 @@ class PlannerAgent:
         #: Casos mínimos que faltan en el último plan de endpoints (no lo descartan) y,
         #: en Humo, los casos de más que se dejaron fuera.
         self.avisos: list[str] = []
+        #: Funciones del último plan sin valor esperado deducible: nombre → motivo.
+        self.omitidas: dict[str, str] = {}
+        # Casos con formato inválido en la última llamada (errores del modelo, no
+        # falta de especificación).
+        self._casos_invalidos = 0
 
     @property
     def es_humo(self) -> bool:
@@ -116,16 +135,19 @@ class PlannerAgent:
     def planificar(self, modulo: dict[str, Any]) -> list[dict[str, Any]]:
         """Devuelve un `planner_contract.v2` por cada función del módulo con casos.
 
-        Las funciones que el modelo no cubre, los objetivos que no existen en el
-        módulo y los casos inválidos se descartan (quedan en `self.descartados`) en
-        lugar de tumbar la corrida del módulo.
+        Los objetivos que no existen en el módulo y los casos inválidos se descartan
+        (quedan en `self.descartados`); las funciones sin valor esperado deducible
+        quedan en `self.omitidas`. Ninguno de los dos tumba la corrida del módulo.
 
         Raises:
-            ErrorRespuestaPlanner: si la respuesta no es una lista JSON, o si trae
-                objetivos pero ninguno produce un contrato válido.
+            ErrorRespuestaPlanner: si la respuesta no es una lista JSON, o si ninguna
+                función produce un contrato válido por errores del modelo (y no porque
+                su valor esperado no se pueda deducir).
         """
         self.descartados = []
         self.avisos = []
+        self.omitidas = {}
+        self._casos_invalidos = 0
         funciones = {f["nombre"]: f for f in modulo.get("funciones", [])}
         if not funciones:
             return []
@@ -163,12 +185,25 @@ class PlannerAgent:
             if contrato is not None:
                 plan.append(contrato)
 
-        if propuesta and not plan:
+        # El modelo omite las funciones que no puede respaldar (lo pide el prompt).
+        cubiertas = {contrato["objetivo"] for contrato in plan} | set(self.omitidas)
+        intentadas = {
+            e.get("objetivo") for e in propuesta if isinstance(e, dict)
+        } & set(funciones)
+        for nombre in funciones:
+            if nombre not in cubiertas and nombre not in intentadas:
+                self._omitir(nombre)
+
+        if not plan and self.descartados and not self.omitidas:
             detalle = "; ".join(self.descartados[:3])
             raise ErrorRespuestaPlanner(
                 f"El Planner no produjo ningún contrato válido ({detalle})."
             )
         return plan
+
+    def _omitir(self, nombre: str) -> None:
+        """Deja la función como omitida: su valor esperado no se puede deducir."""
+        self.omitidas[nombre] = MOTIVO_OMITIDA_HUMO if self.es_humo else MOTIVO_OMITIDA
 
     # --- Construcción del contrato ----------------------------------------------
 
@@ -191,15 +226,17 @@ class PlannerAgent:
             return None
 
         funcion = funciones[nombre]
+        invalidos_antes = self._casos_invalidos
         casos = self._casos_validos(nombre, elemento.get("casos"), funcion)
         if self.es_humo:
             casos = self._solo_un_caso_normal(nombre, casos, es_normal_funcion)
         if not casos:
-            self.descartados.append(
-                f"{nombre}: sin un caso normal deducible de la especificación"
-                if self.es_humo
-                else f"{nombre}: sin casos válidos"
-            )
+            if self._casos_invalidos == invalidos_antes:
+                # Sin casos o solo con casos que la especificación no respalda: el
+                # valor esperado no se puede deducir. No es un error del modelo.
+                self._omitir(nombre)
+            else:
+                self.descartados.append(f"{nombre}: sin casos válidos")
             return None
 
         contrato = {
@@ -235,9 +272,11 @@ class PlannerAgent:
         validos: list[dict[str, Any]] = []
         for caso in casos:
             if not isinstance(caso, dict):
+                self._casos_invalidos += 1
                 self.descartados.append(f"{nombre}: un caso no es un objeto JSON")
                 continue
             if any(caso.get("id") == previo["id"] for previo in validos):
+                self._casos_invalidos += 1
                 self.descartados.append(f"{nombre}: caso repetido {caso.get('id')!r}")
                 continue
             try:
@@ -245,6 +284,7 @@ class PlannerAgent:
                     contracts.PLANNER, {**_CONTRATO_DE_PRUEBA, "casos": [caso]}
                 )
             except ContratoInvalido as error:
+                self._casos_invalidos += 1
                 self.descartados.append(f"{nombre}: caso {caso.get('id')!r}: {error}")
                 continue
             caso = self._con_categoria(nombre, caso)

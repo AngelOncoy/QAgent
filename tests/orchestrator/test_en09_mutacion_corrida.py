@@ -18,6 +18,7 @@ from qagent.config import Mutacion, cargar_configuracion
 from qagent.config.carga import RUTA_CONFIG
 from qagent.orchestrator.corrida import ejecutar_corrida
 from qagent.sandbox import (
+    LimitesSandbox,
     MutacionFuncion,
     ResultadoMutacion,
     ResultadoSandbox,
@@ -65,6 +66,8 @@ class MutadorGrabado:
                 "modulo": modulo,
                 "funciones": list(funciones),
                 "timeout_s": limites.timeout_s,
+                "cpus": limites.cpus,
+                "memoria": limites.memoria,
                 "pruebas": sorted(p.name for p in Path(tests).iterdir()),
                 "inicios": extra.get("inicios"),
             }
@@ -220,6 +223,18 @@ def test_el_tiempo_maximo_sale_de_config(almacen, config) -> None:
     correr(almacen, corta, mutador, criticas=["calcular_descuento", "clasificar_edad"])
 
     assert mutador.llamadas[0]["timeout_s"] == 60
+
+
+def test_cpu_y_memoria_de_la_mutacion_salen_de_sandbox(almacen, config) -> None:
+    mutador = MutadorGrabado()
+    otra = replace(config, sandbox=LimitesSandbox(cpus=2.0, memoria="1g", timeout_s=45))
+
+    correr(almacen, otra, mutador, criticas=["calcular_descuento"])
+
+    [llamada] = mutador.llamadas
+    assert (llamada["cpus"], llamada["memoria"]) == (2.0, "1g")
+    # El tiempo máximo sigue siendo el de [mutacion], no el de [sandbox].
+    assert llamada["timeout_s"] == 120
 
 
 def test_el_monitor_muestra_el_resultado_de_la_mutacion(almacen, config) -> None:

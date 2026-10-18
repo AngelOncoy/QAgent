@@ -87,6 +87,11 @@ _LIMITE_CERO = re.compile(r"\blimit\W{0,3}\s*0(?![\d.])", re.IGNORECASE)
 AGENTE_USUARIO = "QAgent/1.0"
 #: Largo máximo del detalle del proveedor que se agrega a un error HTTP.
 LARGO_DETALLE_ERROR = 300
+#: Bytes que se leen de la respuesta en cada vuelta, para revisar el plazo entre una y
+#: otra (algunos proveedores mandan espacios para mantener viva la conexión).
+TAMANO_BLOQUE_LECTURA = 65536
+#: Mínimo de tiempo que debe quedar del plazo para que valga la pena reintentar.
+MINIMO_PARA_REINTENTAR_S = 5.0
 
 
 class TransporteLLM(Protocol):
@@ -118,11 +123,15 @@ class TransporteHTTP:
     ) -> dict[str, Any]:
         """Realiza una solicitud al proveedor LLM (POST por defecto).
 
+        `timeout_s` es el tiempo **total** de la solicitud, no solo el silencio máximo
+        del socket: el timeout de `urlopen` se reinicia con cada byte recibido, así que
+        un proveedor lento que envía la respuesta de a poco podía pasar varios minutos.
+
         Args:
             url: Endpoint del proveedor.
             cabeceras: Cabeceras HTTP, incluida la autorización.
             datos: Cuerpo JSON de la solicitud; None en un GET.
-            timeout_s: Tiempo máximo de espera en segundos.
+            timeout_s: Tiempo máximo total en segundos.
             metodo: "POST" o "GET" (consultar un modelo al validar la clave).
 
         Returns:
@@ -139,9 +148,10 @@ class TransporteHTTP:
             method=metodo,
         )
 
+        plazo = time.monotonic() + timeout_s
         try:
             with urlopen(solicitud, timeout=timeout_s) as respuesta:
-                contenido = respuesta.read().decode("utf-8")
+                contenido = _leer_con_plazo(respuesta, plazo).decode("utf-8")
         except HTTPError as error:
             raise error_http(
                 error.code, _cuerpo_error(error), _segundos_retry_after(error)
@@ -170,6 +180,42 @@ class TransporteHTTP:
         return datos_respuesta
 
 
+def _leer_con_plazo(respuesta: Any, plazo: float) -> bytes:
+    """Lee el cuerpo de la respuesta por bloques sin pasar de `plazo` (reloj monotónico).
+
+    Raises:
+        TimeoutError: si se acaba el plazo antes de terminar de leer.
+    """
+    leer = getattr(respuesta, "read1", None) or respuesta.read
+    partes: list[bytes] = []
+    while True:
+        restante = plazo - time.monotonic()
+        if restante <= 0:
+            raise TimeoutError("se agotó el plazo de la solicitud")
+        _limitar_espera_del_socket(respuesta, restante)
+        bloque = leer(TAMANO_BLOQUE_LECTURA)
+        if not bloque:
+            return b"".join(partes)
+        partes.append(bloque)
+
+
+def _limitar_espera_del_socket(respuesta: Any, segundos: float) -> None:
+    """Hace que la próxima lectura espere como mucho lo que queda del plazo.
+
+    Accede al socket de `http.client`; si la respuesta no lo expone (otra
+    implementación o un doble de prueba), se queda con el timeout de `urlopen`.
+    """
+    socket = getattr(
+        getattr(getattr(respuesta, "fp", None), "raw", None), "_sock", None
+    )
+    if socket is None:
+        return
+    try:
+        socket.settimeout(max(segundos, 0.05))
+    except OSError:
+        pass
+
+
 class ClienteLLMReal:
     """Cliente para proveedores con una API de chat compatible con OpenAI."""
 
@@ -186,6 +232,7 @@ class ClienteLLMReal:
         reintentos_limite: int = 3,
         espera_maxima_s: float = 20.0,
         esperar: Callable[[float], None] = time.sleep,
+        plazo_total_s: float | None = None,
     ) -> None:
         """Inicializa el cliente real.
 
@@ -194,7 +241,7 @@ class ClienteLLMReal:
             clave: Clave del proveedor cargada desde `.env`.
             endpoint: URL del endpoint de chat del proveedor.
             transporte: Transporte reemplazable durante las pruebas.
-            timeout_s: Tiempo máximo de espera por solicitud.
+            timeout_s: Tiempo máximo total de cada solicitud.
             esfuerzo: Valor de `reasoning_effort`; si es None no se envía.
             cabecera_clave: Cabecera adicional con la clave, para proveedores que
                 no usan `Authorization: Bearer` (ej. `api-key` en Xiaomi MiMo).
@@ -203,6 +250,9 @@ class ClienteLLMReal:
             espera_maxima_s: tope de cada espera entre reintentos, aunque el
                 proveedor pida más (el orquestador corta un paso a los 120 s).
             esperar: función de espera; se reemplaza en las pruebas.
+            plazo_total_s: tiempo máximo de `generar()` sumando reintentos y esperas;
+                por defecto `timeout_s`. Así una llamada nunca llega al timeout por
+                paso del orquestador, ni siquiera con el sandbox del Reviewer.
         """
         if not modelo.strip():
             raise ValueError("El modelo LLM no puede estar vacío.")
@@ -214,6 +264,8 @@ class ClienteLLMReal:
             raise ValueError("El timeout debe ser mayor que cero.")
         if reintentos_limite < 0:
             raise ValueError("Los reintentos no pueden ser negativos.")
+        if plazo_total_s is not None and plazo_total_s <= 0:
+            raise ValueError("El plazo total debe ser mayor que cero.")
 
         self.modelo = modelo
         self._clave = clave
@@ -225,6 +277,7 @@ class ClienteLLMReal:
         self.reintentos_limite = reintentos_limite
         self.espera_maxima_s = espera_maxima_s
         self._esperar = esperar
+        self.plazo_total_s = plazo_total_s if plazo_total_s is not None else timeout_s
 
     def generar(self, prompt: str, rol: str = "generator") -> RespuestaLLM:
         """Genera una respuesta mediante el proveedor configurado.
@@ -277,22 +330,36 @@ class ClienteLLMReal:
     def _enviar_con_reintentos(
         self, cabeceras: dict[str, str], datos: dict[str, Any]
     ) -> dict[str, Any]:
-        """Envía la solicitud; ante HTTP 429/503 espera y reintenta (capas gratuitas)."""
+        """Envía la solicitud; ante HTTP 429/503 espera y reintenta (capas gratuitas).
+
+        Todo, solicitudes y esperas, cabe en `plazo_total_s`: cada solicitud recibe lo
+        que queda del plazo y no se reintenta si ya no alcanza.
+        """
+        plazo = time.monotonic() + self.plazo_total_s
         for intento in range(self.reintentos_limite + 1):
+            restante = plazo - time.monotonic()
             try:
                 return self.transporte.enviar(
                     url=self.endpoint,
                     cabeceras=cabeceras,
                     datos=datos,
-                    timeout_s=self.timeout_s,
+                    timeout_s=max(min(self.timeout_s, restante), 0.1),
                 )
             except LimiteProveedor as error:
                 if intento == self.reintentos_limite:
                     raise
-                espera = (
-                    error.espera_s if error.espera_s is not None else 2.0 * 2**intento
+                espera = min(
+                    max(
+                        error.espera_s
+                        if error.espera_s is not None
+                        else 2.0 * 2**intento,
+                        0.0,
+                    ),
+                    self.espera_maxima_s,
                 )
-                self._esperar(min(max(espera, 0.0), self.espera_maxima_s))
+                if plazo - time.monotonic() - espera < MINIMO_PARA_REINTENTAR_S:
+                    raise
+                self._esperar(espera)
         raise AssertionError("inalcanzable")  # pragma: no cover
 
     def _convertir_respuesta(self, datos: dict[str, Any]) -> RespuestaLLM:

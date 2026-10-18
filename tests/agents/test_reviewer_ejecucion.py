@@ -10,7 +10,7 @@ from pathlib import Path
 from qagent import contracts
 from qagent.agents.reviewer import ReviewerAgent
 from qagent.llm import TokenTracker
-from qagent.sandbox import ResultadoSandbox
+from qagent.sandbox import LimitesSandbox, ResultadoSandbox, ejecutar_pruebas
 from tests.agents.test_reviewer import CODIGO_VALIDO, CONTRATO, EjecutorGrabado
 
 GRABACIONES = Path(__file__).resolve().parents[1] / "sandbox" / "grabaciones"
@@ -73,7 +73,7 @@ def test_el_entorno_sale_de_la_cabecera_de_pytest(tmp_path: Path) -> None:
     assert entorno["pytest"] == "9.1.1"
     assert entorno["plataforma"] == "linux"
     assert "--junitxml=/out/junit.xml" in entorno["comando"]
-    assert entorno["limites"] == {"cpus": 1.0, "memoria": "256m", "timeout_s": 60}
+    assert entorno["limites"] == {"cpus": 4.0, "memoria": "3g", "timeout_s": 120}
 
 
 def test_un_test_aprobado_tambien_deja_sus_casos(tmp_path: Path) -> None:
@@ -135,3 +135,24 @@ def test_las_lineas_sin_cubrir_salen_del_coverage(tmp_path: Path) -> None:
     revision = _revisar(tmp_path, _grabado("falla_assert", 1, coverage), fuente)
 
     assert revision["ejecucion"]["lineas_sin_cubrir"] == [3]
+
+
+def test_el_reviewer_aplica_los_limites_de_config_al_sandbox_real(
+    tmp_path: Path,
+) -> None:
+    limites = LimitesSandbox(cpus=2.0, memoria="1g", timeout_s=30)
+    reviewer = ReviewerAgent(TokenTracker(), tmp_path, "img", limites=limites)
+
+    assert reviewer.ejecutor.func is ejecutar_pruebas
+    assert reviewer.ejecutor.keywords == {"limites": limites}
+
+
+def test_el_informe_muestra_los_limites_que_de_verdad_se_aplicaron(
+    tmp_path: Path,
+) -> None:
+    resultado = _grabado("falla_assert", 1)
+    resultado.limites = LimitesSandbox(cpus=2.0, memoria="3g", timeout_s=120)
+
+    entorno = _revisar(tmp_path, resultado)["ejecucion"]["entorno"]
+
+    assert entorno["limites"] == {"cpus": 2.0, "memoria": "3g", "timeout_s": 120}

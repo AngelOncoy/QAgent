@@ -43,7 +43,7 @@ def crear_cliente(
     *,
     simulado: bool,
     transporte: TransporteLLM | None = None,
-    timeout_s: float = 90.0,  # menor que el timeout por paso del orquestador (120 s)
+    timeout_s: float = 90.0,  # menor que el timeout por paso del orquestador (240 s)
 ) -> ClienteLLM:
     """Devuelve el cliente LLM del agente descrito por `precio`.
 

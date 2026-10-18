@@ -17,6 +17,11 @@ from qagent.orchestrator import (
     TransicionInvalida,
     validar_transicion,
 )
+from qagent.orchestrator.orquestador import (
+    TIMEOUT_PASO_POR_DEFECTO_S,
+    timeout_paso_para,
+)
+from qagent.sandbox import LIMITES_POR_DEFECTO
 from tests.orchestrator.fakes import (
     MODULO,
     GeneratorSimulado,
@@ -267,8 +272,17 @@ def test_agente_colgado_no_cuelga_la_corrida() -> None:
     resultado = orquestador.ejecutar(MODULO)
 
     assert time.monotonic() - inicio < 2
-    assert resultado.estado_final is E.FALLO_CONTROLADO
-    assert "no respondió" in resultado.motivo_fallo
+    # A2: un agente que no responde deja esa función sin veredicto y el módulo
+    # termina; ya no lo detiene (ver test_tiempo_agotado.py).
+    assert resultado.estado_final is E.FIN
+    [objetivo] = resultado.objetivos
+    assert objetivo.decision is None
+    assert objetivo.motivo_sin_veredicto == "tiempo_agotado"
+    assert any(
+        "no respondió" in e.mensaje
+        for e in orquestador.bus.historial
+        if e.tipo == "veredicto"
+    )
 
 
 # --- Métricas y configuración ---------------------------------------------------
@@ -296,3 +310,34 @@ def test_tokens_por_agente_con_ia_simulada_son_cero() -> None:
 def test_configuracion_invalida(opciones) -> None:
     with pytest.raises(ValueError):
         armar(["accept"], **opciones)
+
+
+def test_el_paso_espera_mas_que_el_sandbox_y_que_el_llm():
+    from qagent.llm.fabrica import crear_cliente
+
+    timeout_llm = crear_cliente.__kwdefaults__["timeout_s"]
+    assert TIMEOUT_PASO_POR_DEFECTO_S == 240.0
+    # El paso del Reviewer = sandbox + su llamada al LLM.
+    assert TIMEOUT_PASO_POR_DEFECTO_S > LIMITES_POR_DEFECTO.timeout_s + timeout_llm
+    assert timeout_paso_para(LIMITES_POR_DEFECTO.timeout_s) == 240.0
+
+
+def test_el_paso_crece_si_el_sandbox_se_alarga():
+    assert timeout_paso_para(30) == TIMEOUT_PASO_POR_DEFECTO_S
+    assert timeout_paso_para(600) > 600
+
+
+def test_funciones_omitidas_se_avisan_y_el_modulo_termina_en_fin() -> None:
+    orquestador, planner, _, _ = armar([], plan=[])
+    planner.omitidas = {"obtener_modelos": "su valor esperado no se puede deducir"}
+
+    resultado = orquestador.ejecutar(MODULO)
+
+    assert resultado.estado_final == E.FIN
+    assert resultado.motivo_fallo is None
+    assert resultado.objetivos == []
+    [aviso] = [e for e in orquestador.bus.historial if (e.datos or {}).get("omitida")]
+    assert aviso.agente == "planner"
+    assert aviso.funcion == "obtener_modelos"
+    assert "Función omitida" in aviso.mensaje
+    assert not any(e.tipo == "fallo" for e in orquestador.bus.historial)
