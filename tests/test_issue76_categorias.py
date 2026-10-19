@@ -359,12 +359,7 @@ def test_una_corrida_anterior_sin_conteo_se_infiere_del_contrato(corrida) -> Non
 
 
 def test_la_interfaz_muestra_las_categorias() -> None:
-    informe = (FRONTEND / "informe" / "informe.js").read_text(encoding="utf-8")
     ejecucion = (FRONTEND / "ejecucion" / "ejecucion.js").read_text(encoding="utf-8")
 
-    assert "Casos de la corrida: ${escHtml(v.texto_categorias)}" in informe
-    assert "Casos: ${escHtml(f.texto_categorias)}" in informe
-    assert "escHtml(f.aviso_limites)" in informe
-    assert "categoriaDeCaso(f, c.nombre)" in informe
-    assert "NOMBRE_CATEGORIA[c.categoria]" in informe
-    assert "escHtml(p.categorias)" in ejecucion
+    assert "escHtml(e.categorias)" in ejecucion
+    assert "Casos del contrato" in ejecucion

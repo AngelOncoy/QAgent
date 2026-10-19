@@ -476,6 +476,11 @@ function normalizarDecisiones(valor){
     ? valor
     : null;
 }
+function textoDecisiones(valor){
+  const n = normalizarDecisiones(valor);
+  return n === null ? '—' : String(n);
+}
+
 
 // Un endpoint solo es analizable si su ruta se pudo resolver: sin objetivo ("GET /ruta")
 // no hay nada que probar. Nunca se inventa una ruta.

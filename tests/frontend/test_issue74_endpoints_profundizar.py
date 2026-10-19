@@ -26,8 +26,8 @@ def test_cada_endpoint_trae_sus_decisiones_y_la_marca_propuesta() -> None:
 
 def test_la_tabla_muestra_decisiones_y_una_marca_editable() -> None:
     render = cuerpo(VISTA_JS, "function renderEndpoints")
-    assert '<td class="mono">${decisiones}</td>' in render
-    assert 'onclick="toggleEndpointCrit(${mi},${ei})"' in render
+    assert "<td>${textoComplejidad(e.br)}</td>" in render
+    assert "toggleEndpointCrit(${mi},${ei})" in render
     assert "Se aplica si activas Profundizar en la configuración de pruebas." in render
     marca = cuerpo(VISTA_JS, "function toggleEndpointCrit")
     assert "e.crit = !e.crit;" in marca
@@ -50,7 +50,7 @@ def test_la_configuracion_cuenta_funciones_y_endpoints_prioritarios() -> None:
         in calc
     )
     texto = cuerpo(CONFIG_JS, "function textoPrioritarias")
-    assert "y ${ep} prioritarios" in texto
+    assert "y ${ep} críticos" in texto
     assert "textoPrioritarias(prioritarias - epsPrioritarios, epsPrioritarios)" in (
-        cuerpo(CONFIG_JS, "function renderOpcionesPruebas")
+        cuerpo(CONFIG_JS, "function renderDetallesCorrida")
     )

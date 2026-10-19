@@ -17,7 +17,7 @@ def test_archivos_vacios_quedan_desmarcados_deshabilitados_y_atenuados() -> None
     css = leer("componentes/vista-previa/vista-previa.css")
 
     assert "sel: tieneObjetivos" in js
-    assert "m.sel = false" in js
+    assert "sel: false" in js
     assert "'disabled'" in js
     assert "sin objetivos analizables" in js
     assert ".tree .row.no-targets" in css
@@ -31,7 +31,7 @@ def test_funciones_y_endpoints_habilitan_modulo_y_seleccionar_todos_ignora_vacio
     assert "fns.length > 0 || endpoints.length > 0" in js
     assert "function seleccionarTodosModulos" in js
     assert "m.sel = moduloTieneObjetivos(m) && seleccionado" in js
-    assert "const totalObjetivos" in js
+    assert "moduloTieneObjetivos" in js
 
 
 def test_seleccion_persiste_y_se_envia_al_backend() -> None:

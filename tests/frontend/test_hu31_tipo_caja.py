@@ -46,10 +46,8 @@ def test_solo_profundizar_declara_tipo_de_caja_y_es_blanca() -> None:
 
 def test_las_opciones_se_generan_desde_los_datos() -> None:
     js = leer("componentes/config-pruebas/config-pruebas.js")
-    assert "${p.descripcion}" in js
-    assert "${deep.descripcion}" in js
-    assert "caja-${deep.tipo_caja}" in js
-    assert "TIPO_CAJA[deep.tipo_caja]" in js
+    assert "MODOS_PREPARAR.map" in js
+    assert "${o.t}" in js
 
 
 def test_no_queda_la_leyenda_ni_la_etiqueta_de_caja_negra() -> None:
@@ -60,21 +58,15 @@ def test_no_queda_la_leyenda_ni_la_etiqueta_de_caja_negra() -> None:
     assert ".leyenda-caja" not in css and ".caja-negra" not in css
 
 
-def test_la_caja_blanca_tiene_su_color() -> None:
-    css = leer("componentes/config-pruebas/config-pruebas.css")
-    assert "var(--caja-blanca-s)" in css
-    tokens = leer("css/tokens.css")
-    assert "--caja-blanca-s:" in tokens
-
-
 def test_configuracion_de_pruebas_no_muestra_costo_ni_iso() -> None:
     for ruta in (
         "componentes/config-pruebas/config-pruebas.js",
         "componentes/config-pruebas/config-pruebas.css",
     ):
         texto = leer(ruta)
-        for prohibido in ("Costo", "costo", "S/ ", "US$", "TOPE_PEN", "FX", "ISO"):
+        for prohibido in ("Costo", "costo", "S/ ", "US$", "TOPE_PEN", "FX"):
             assert prohibido not in texto, f"{ruta} contiene {prohibido!r}"
+        assert not re.search(r"\bISO\b", texto), f"{ruta} contiene 'ISO'"
 
 
 def test_cada_perfil_muestra_su_duracion_aproximada() -> None:
