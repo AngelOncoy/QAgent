@@ -126,6 +126,7 @@
 :root{
   --prov-anthropic:var(--orange-400-c); --prov-xiaomi:var(--orange-500); --prov-openai:var(--emerald-400);
   --prov-openrouter:var(--indigo-400); --prov-gemini:var(--blue-300); --prov-groq:var(--rose-400);
+  --prov-deepseek:var(--blue-500);
   --prov-otro:var(--slate-500);
 }
 
@@ -161,6 +162,7 @@
   --emerald-500:#10b981;
   --emerald-500-a20:rgba(16,185,129,0.2);
   --blue-300:#93c5fd;
+  --blue-500:#3b82f6;
   --indigo-400:#818cf8;
   --fuchsia-400:#e879f9;
   --fuchsia-500:#d946ef;

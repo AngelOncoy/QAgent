@@ -81,6 +81,7 @@ const LOGO_PROVEEDOR = {
   anthropic:  `<svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true"><path d="M13.8 3h-3.5L4 21h3.4l1.2-3.4h6.8l1.2 3.4H20zM9.6 14.6 12 7.6l2.4 7z"/></svg>`,
   gemini:     `<svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true"><path d="M12 2c.6 5.4 4.6 9.4 10 10-5.4.6-9.4 4.6-10 10-.6-5.4-4.6-9.4-10-10 5.4-.6 9.4-4.6 10-10z"/></svg>`,
   openrouter: SVG_LOGO('<path d="M3 12h5l3-6h6m0 0-2-2m2 2-2 2M8 12l3 6h6m0 0-2-2m2 2-2 2"/>'),
+  deepseek:   SVG_LOGO('<path d="M4 13c2 4 7 6 11 4 3-1.5 5-4.5 5-8-2 1-4 1-6 0-3-1.5-7 0-8 3"/><circle cx="15" cy="10" r="1"/>'),
   groq:       SVG_LOGO('<circle cx="12" cy="12" r="8"/><path d="M12 8v4h4"/>'),
   xiaomi:     '<img src="assets/proveedores/xiaomi.png" width="18" height="18" alt="">',
   openai:     '<img src="assets/proveedores/openai.png" width="18" height="18" alt="">',

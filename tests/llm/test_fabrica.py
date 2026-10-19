@@ -107,3 +107,19 @@ def test_proveedores_de_capa_gratuita_usan_su_url_y_bearer(
     assert envio["url"] == url
     assert envio["cabeceras"]["Authorization"] == "Bearer clave-gratis-123"
     assert "api-key" not in envio["cabeceras"]
+
+
+def test_deepseek_usa_su_url_y_la_key_de_su_variable() -> None:
+    """HU-36, criterio 4: la key sale de DEEPSEEK_API_KEY y solo viaja en la cabecera."""
+    transporte = TransporteEspia()
+    claves = Claves({"DEEPSEEK_API_KEY": "clave-deepseek-123"})
+
+    cliente = crear_cliente(
+        precio("deepseek"), claves, simulado=False, transporte=transporte
+    )
+    cliente.generar("hola", rol="generator")
+
+    [envio] = transporte.envios
+    assert envio["url"] == "https://api.deepseek.com/chat/completions"
+    assert envio["cabeceras"]["Authorization"] == "Bearer clave-deepseek-123"
+    assert "clave-deepseek-123" not in repr(envio["datos"])

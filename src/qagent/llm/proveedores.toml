@@ -120,3 +120,20 @@ modelos = [
   { id = "openai/gpt-oss-20b", nombre = "GPT-OSS 20B (gratis)", entrada = 0, salida = 0 },
   { id = "qwen/qwen3.8-27b", nombre = "Qwen 3.8 27B (gratis)", entrada = 0, salida = 0 },
 ]
+
+# DeepSeek (HU-36): alternativa económica. Revisado el 2026-10-19 en
+# https://api-docs.deepseek.com/quick_start/pricing. El `id` es el nombre que acepta la
+# API (`deepseek-flash` sirve hoy la versión DeepSeek-V4.1-Flash-1017 y
+# `deepseek-v4-pro` la V4-Pro-0813), no la versión fechada. DeepSeek cobra la mitad
+# fuera de hora punta; aquí va el precio de hora punta para que el tope por corrida no
+# se quede corto.
+[proveedores.deepseek]
+nombre = "DeepSeek"
+variable = "DEEPSEEK_API_KEY"
+endpoint = "https://api.deepseek.com/chat/completions"
+modelos_url = "https://api.deepseek.com/models"
+tipo = "texto"
+modelos = [
+  { id = "deepseek-flash", nombre = "DeepSeek V4.1 Flash", entrada = 0.30, salida = 1.20 },
+  { id = "deepseek-v4-pro", nombre = "DeepSeek V4 Pro", entrada = 1.32, salida = 3.96 },
+]
