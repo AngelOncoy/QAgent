@@ -933,6 +933,23 @@ def ejecutar(argv: list[str] | None = None) -> None:
     main()
 
 
+def _limpiar_sandbox() -> None:
+    """Borra contenedores huérfanos e imágenes viejas del sandbox (en segundo plano)."""
+    from qagent.sandbox.limpieza import limpiar_al_iniciar
+
+    resultado = limpiar_al_iniciar()
+    if resultado.get("contenedores"):
+        bitacora.registro.info(
+            "Sandbox: se borraron %d contenedores de corridas interrumpidas.",
+            resultado["contenedores"],
+        )
+    if resultado.get("imagenes"):
+        bitacora.registro.info(
+            "Sandbox: se borraron imágenes sin uso: %s.",
+            ", ".join(resultado["imagenes"]),
+        )
+
+
 def main() -> None:
     """Abre la aplicación de escritorio."""
     from qagent.config.carga import migrar_desde_repositorio
@@ -948,6 +965,9 @@ def main() -> None:
             "Se movió %s de la carpeta del código a ~/.qagent/.", nombre
         )
     _registrar_estado_configuracion()
+    threading.Thread(
+        target=_limpiar_sandbox, name="limpieza-sandbox", daemon=True
+    ).start()
     # Se carga como file:// y no como ruta: con una ruta, pywebview sirve la carpeta con un servidor
     # HTTP interno cuya cola admite 5 conexiones, y al abrir la ventana (decenas de CSS, JS y fuentes
     # a la vez) rechaza algunas peticiones al azar y la interfaz queda sin estilos o sin scripts.

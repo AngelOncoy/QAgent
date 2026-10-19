@@ -415,12 +415,15 @@ def _preparar_imagen(ruta: Path, avanzar: Callable[[str], None] | None = None) -
         construir_imagen_base,
         preparar_imagen,
     )
+    from qagent.sandbox.limpieza import registrar_uso
 
     try:
-        return preparar_imagen(ruta, avanzar=avanzar)
+        imagen = preparar_imagen(ruta, avanzar=avanzar)
     except ImagenNoEncontrada:
         construir_imagen_base(avanzar=avanzar)  # una sola vez por PC; necesita internet
-        return preparar_imagen(ruta, avanzar=avanzar)
+        imagen = preparar_imagen(ruta, avanzar=avanzar)
+    registrar_uso(imagen)  # las imágenes req- sin uso se borran al abrir la app
+    return imagen
 
 
 #: Segundos mínimos entre dos avisos de avance de la construcción de la imagen.
