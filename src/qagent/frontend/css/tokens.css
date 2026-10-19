@@ -53,55 +53,48 @@
   --sombra-modal:0 18px 48px rgba(0,0,0,0.45);
 }
 
-/* 2. Tema claro: grafito sobre superficie clara. Se activa con <html data-theme="claro">.
-   Solo cambia los tokens semánticos y los alias; los componentes aún sin migrar
-   (que usan la paleta heredada directamente) no se adaptan hasta que se migren. */
-:root[data-theme="claro"]{
-  --fondo:#f5f7fa;
-  --lateral:#eef1f5;
+/* 2. Tema claro: grafito sobre superficie clara. Se activa con <html data-theme="claro"> o data-tema="claro". */
+:root[data-theme="claro"],
+:root[data-tema="claro"]{
+  --fondo:#f3f5f8;
+  --lateral:#e9edf3;
   --superficie:#ffffff;
-  --superficie-2:#f3f5f8;
-  --hundido:#e8ecf1;
-
-  --borde:#d8dee6;
-  --borde-fuerte:#bcc5d1;
+  --superficie-2:#f6f7f9;
+  --hundido:#eef1f5;
+  --borde:#dde1e7;
+  --borde-fuerte:#c5cbd4;
+  --velo:rgba(27,30,35,0.38);
 
   --texto:#1b1e23;
-  --texto-2:#4d5562;
-  --texto-3:#717d8e;
+  --texto-2:#4a515b;
+  --texto-3:#6b727c;
+  --texto-sobre-accion:#ffffff;
 
-  --accion:#1b6ff4;
-  --accion-hover:#1558c4;
-  --accion-suave:#eaf2fd;
-  --accion-borde:#b8d5fa;
-  --enlace:#125bc4;
+  --accion:#0e3aae;
+  --accion-hover:#1747c7;
+  --accion-suave:#e3eafc;
+  --accion-borde:#a9bdf0;
+  --enlace:#1e4fd1;
+  --foco-anillo:rgba(30,79,209,0.35);
 
-  --exito:#1a8a4b;
-  --exito-t:#126335;
-  --exito-s:#edf7f1;
-  --exito-b:#b3e0c4;
+  --exito:#1c7a52;  --exito-t:#1c7a52;  --exito-s:#e6f4ec;  --exito-b:#b7dfc9;
+  --bug:#b42330;    --bug-t:#b42330;    --bug-s:#fbe9ea;    --bug-b:#f1c0c4;
+  --error:#6b3fb0;  --error-t:#6b3fb0;  --error-s:#f0e9fb;  --error-b:#d6c6f2;
+  --aviso:#8a5a0b;  --aviso-t:#8a5a0b;  --aviso-s:#fcf1dc;  --aviso-b:#ecd3a3;
+  --progreso:#1e4fd1; --progreso-t:#1e4fd1; --progreso-s:#e3eafc; --progreso-b:#a9bdf0;
+  --info-t:#1e4fd1; --info-s:#e3eafc; --info-b:#a9bdf0;
 
-  --bug:#d32f2f;
-  --bug-t:#9a1f1f;
-  --bug-s:#fdeeee;
-  --bug-b:#f7b8b8;
-
-  --error:#b52828;
-  --error-t:#871919;
-  --error-s:#fdebeb;
-  --error-b:#f4abab;
-
-  --aviso:#b87000;
-  --aviso-t:#7a4a00;
-  --aviso-s:#fef7ea;
-  --aviso-b:#f8dcad;
-
-  --codigo-texto:#1b1e23;
-  --codigo-clave:#8a2be2;
+  --codigo-fondo:#eef1f5;
+  --codigo-texto:#2b3037;
+  --codigo-clave:#1e4fd1;
   --codigo-cadena:#8a5a0b;
+  --codigo-comentario:#6b727c;
   --codigo-linea-sin-probar:#fcf1dc;
 
   --sombra-modal:0 18px 48px rgba(27,30,35,0.18);
+  --fondo-marca:#f3f5f8;
+  --logo-icono:url('../assets/logo/qagent-icono-claro.svg');
+  --logo-completo:url('../assets/logo/qagent-logo-claro.svg');
 }
 
 /* 3. Marca: «una Q que verifica» (assets/logo/). El símbolo es de trazo, sin degradados.
