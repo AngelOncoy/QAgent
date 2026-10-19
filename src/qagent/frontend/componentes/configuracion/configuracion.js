@@ -55,16 +55,16 @@ registrarComponente('configuracion/configuracion', `<!-- ===== CONFIGURACIÓN ==
           <section class="np-tarjeta" aria-labelledby="cfgAparienciaTitulo">
             <h2 id="cfgAparienciaTitulo">Apariencia</h2>
             <div class="cfg-temas" role="radiogroup" aria-labelledby="cfgAparienciaTitulo">
-              <button type="button" class="cfg-tema cfg-tema-oscuro on" role="radio" aria-checked="true">
+              <button type="button" class="cfg-tema cfg-tema-oscuro on" id="temaOscuro" role="radio" aria-checked="true" onclick="elegirTema('oscuro')">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"/></svg>
                 <span>Oscuro</span>
               </button>
-              <button type="button" class="cfg-tema cfg-tema-claro" role="radio" aria-checked="false" disabled title="Disponible cuando todas las pantallas estén migradas">
+              <button type="button" class="cfg-tema cfg-tema-claro" id="temaClaro" role="radio" aria-checked="false" onclick="elegirTema('claro')">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
                 <span>Claro</span>
               </button>
             </div>
-            <p class="np-meta">El modo claro llegará cuando todas las pantallas usen el diseño nuevo.</p>
+            <p class="np-meta" id="cfgTemaAyuda">Grafito sobre superficie clara en modo claro, oscuro por defecto.</p>
           </section>
 
           <div class="np-aviso np-aviso-info">${ICO_INFO}<div><b>El criterio no cambia</b><span>La IA no puede debilitar una prueba para ocultar un posible bug, sin importar el modelo elegido.</span></div></div>
@@ -263,8 +263,66 @@ async function guardarLimites(){
 }
 window.addEventListener('pywebviewready', cargarLimites, {once:true});
 
+/* Apariencia / Tema (obtener_tema / guardar_tema).
+   Guarda en ~/.qagent/config.local.toml y aplica data-theme="claro" / data-tema="claro" en <html> */
+let temaActual = 'oscuro';
+try { temaActual = localStorage.getItem('qagent.tema') || 'oscuro'; } catch (_) {}
+
+function aplicarTema(tema){
+  temaActual = (tema === 'claro') ? 'claro' : 'oscuro';
+  if(temaActual === 'claro'){
+    document.documentElement.setAttribute('data-theme', 'claro');
+    document.documentElement.setAttribute('data-tema', 'claro');
+  } else {
+    document.documentElement.removeAttribute('data-theme');
+    document.documentElement.removeAttribute('data-tema');
+  }
+  try { localStorage.setItem('qagent.tema', temaActual); } catch (_) {}
+  pintarTema();
+}
+
+function pintarTema(){
+  const oscuroBtn = $('temaOscuro');
+  const claroBtn = $('temaClaro');
+  if(oscuroBtn && claroBtn){
+    const esClaro = temaActual === 'claro';
+    oscuroBtn.classList.toggle('on', !esClaro);
+    oscuroBtn.setAttribute('aria-checked', String(!esClaro));
+    claroBtn.classList.toggle('on', esClaro);
+    claroBtn.setAttribute('aria-checked', String(esClaro));
+  }
+}
+
+async function cargarTema(){
+  if(window.pywebview && window.pywebview.api && window.pywebview.api.obtener_tema){
+    try {
+      const r = await window.pywebview.api.obtener_tema();
+      if(r && r.ok && r.tema){
+        aplicarTema(r.tema);
+        return;
+      }
+    } catch (err) { console.error('Error al leer el tema:', err); }
+  }
+  pintarTema();
+}
+
+async function elegirTema(tema){
+  aplicarTema(tema);
+  if(window.pywebview && window.pywebview.api && window.pywebview.api.guardar_tema){
+    try {
+      const r = await window.pywebview.api.guardar_tema(tema);
+      if(r && r.ok) toast(escHtml(r.mensaje || `Apariencia: tema ${tema}.`));
+    } catch (err) {
+      console.error('Error al guardar el tema:', err);
+    }
+  }
+}
+window.addEventListener('pywebviewready', cargarTema, {once:true});
+aplicarTema(temaActual);
+
 function renderConfig(){
   cargarRoles();
   renderMotorConfig();
   cargarLimites();
+  cargarTema();
 }

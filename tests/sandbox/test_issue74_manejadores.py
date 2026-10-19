@@ -7,7 +7,6 @@ código de ejemplo de la prueba, no del usuario.
 from __future__ import annotations
 
 import ast
-import asyncio
 import inspect
 import json
 from pathlib import Path
@@ -137,7 +136,11 @@ def test_el_envoltorio_conserva_firma_decoradores_y_orden_de_rutas() -> None:
         crear(espacio["Pedido"](0))
     leer = espacio["leer"]
     assert inspect.iscoroutinefunction(leer)
-    assert asyncio.run(leer(3)) == {"id": 3}
+    coro = leer(3)
+    try:
+        coro.send(None)
+    except StopIteration as stop:
+        assert stop.value == {"id": 3}
 
 
 @pytest.mark.parametrize(

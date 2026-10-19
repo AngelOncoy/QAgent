@@ -1,38 +1,40 @@
 /* layout.css — base de la página y estructura general: reset, área principal, barra superior, botones y pasos */
-*{box-sizing:border-box;margin:0;padding:0;scrollbar-width:thin;scrollbar-color:var(--slate-600) var(--bg)}
+*{box-sizing:border-box;margin:0;padding:0;scrollbar-width:thin;scrollbar-color:var(--borde-fuerte) var(--fondo)}
 ::-webkit-scrollbar{width:8px;height:8px}
-::-webkit-scrollbar-track{background:var(--bg)}
-::-webkit-scrollbar-thumb{background:var(--slate-700);border-radius:4px;border:2px solid var(--bg)}
-::-webkit-scrollbar-thumb:hover{background:var(--slate-500)}
-::-webkit-scrollbar-corner{background:var(--bg)}
-body{background:var(--bg);color:var(--txt);font-family:var(--sans);font-size:13px;height:100vh;overflow:hidden}
+::-webkit-scrollbar-track{background:var(--fondo)}
+::-webkit-scrollbar-thumb{background:var(--borde-fuerte);border-radius:4px;border:2px solid var(--fondo)}
+::-webkit-scrollbar-thumb:hover{background:var(--texto-3)}
+::-webkit-scrollbar-corner{background:var(--fondo)}
+body{background:var(--fondo);color:var(--texto);font-family:var(--fuente-ui);font-size:13px;height:100vh;overflow:hidden}
 .app{display:flex;height:100vh}
 .hide{display:none!important}
-.mono{font-family:var(--mono)}
+.mono{font-family:var(--fuente-mono)}
 button{font-family:inherit}
 /* ---------- Main ---------- */
 main{flex:1;display:flex;flex-direction:column;min-width:0}
 .scroll{flex:1;min-width:0;min-height:0;overflow:auto}
-.topbar{display:flex;gap:12px;align-items:center;padding:12px 24px;border-bottom:1px solid var(--line);min-height:62px}
-.chip{display:flex;align-items:center;gap:8px;font-family:var(--mono);font-size:11.5px;padding:7px 12px;border:1px solid var(--line2);border-radius:7px;background:var(--panel2);white-space:nowrap}
-.chip b{font-weight:600}
-.chip.amber{border-color:var(--amber-b);background:var(--amber-s);color:var(--amber-t)}
-.chev{color:var(--dim)}
-.btn{font-family:var(--mono);font-size:11px;font-weight:600;letter-spacing:.04em;padding:9px 14px;border-radius:7px;border:1px solid var(--line2);background:var(--panel);color:var(--txt);cursor:pointer;text-transform:uppercase;white-space:nowrap}
-.btn:hover{border-color:var(--blue)}
-.btn.primary{background:var(--blue);border-color:var(--blue);color:var(--white)}
-.btn.green{background:var(--green-s);border-color:var(--green-b);color:var(--green-t)}
+.topbar{display:flex;gap:12px;align-items:center;padding:12px 24px;border-bottom:var(--borde-ancho) solid var(--borde);min-height:62px}
+.chip{display:flex;align-items:center;gap:8px;font-family:var(--fuente-mono);font-size:11.5px;padding:7px 12px;border:var(--borde-ancho) solid var(--borde);border-radius:var(--radio-control);background:var(--superficie);white-space:nowrap}
+.chip b{font-weight:var(--peso-fuerte)}
+.chip.amber{border-color:var(--aviso-b);background:var(--aviso-s);color:var(--aviso-t)}
+.chev{color:var(--texto-3)}
+.btn{font-family:var(--fuente-mono);font-size:11px;font-weight:600;letter-spacing:.04em;padding:9px 14px;border-radius:var(--radio-control);border:var(--borde-ancho) solid var(--borde);background:var(--superficie);color:var(--texto);cursor:pointer;text-transform:uppercase;white-space:nowrap}
+.btn:hover{border-color:var(--enlace);background:var(--superficie-2)}
+.btn.primary{background:var(--accion);border-color:var(--accion);color:var(--texto-sobre-accion)}
+.btn.primary:hover{background:var(--accion-hover);border-color:var(--accion-hover)}
+.btn.green{background:var(--exito-s);border-color:var(--exito-b);color:var(--exito-t)}
 .btn:disabled{opacity:.4;cursor:not-allowed}
-.stepper{display:flex;gap:6px;align-items:center;font-size:11.5px;color:var(--dim);margin-left:auto}
+.stepper{display:flex;gap:6px;align-items:center;font-size:11.5px;color:var(--texto-3);margin-left:auto}
 .stepper span{display:flex;align-items:center;gap:6px}
-.stepper span b{width:20px;height:20px;border-radius:50%;display:grid;place-items:center;font-size:10px;border:1px solid var(--line2)}
-.stepper span.on{color:var(--txt)} .stepper span.on b{background:var(--blue);border-color:var(--blue);color:var(--white)}
-.stepper span.done b{background:var(--green-s);border-color:var(--green-b);color:var(--green-t)}
+.stepper span b{width:20px;height:20px;border-radius:50%;display:grid;place-items:center;font-size:10px;border:var(--borde-ancho) solid var(--borde)}
+.stepper span.on{color:var(--texto)} .stepper span.on b{background:var(--accion);border-color:var(--accion);color:var(--texto-sobre-accion)}
+.stepper span.done b{background:var(--exito-s);border-color:var(--exito-b);color:var(--exito-t)}
 
 
 @media(max-width:1600px){.crumb{display:none!important}}
 .demo{position:fixed;left:12px;bottom:118px;display:flex;flex-direction:column;align-items:flex-start;gap:6px;z-index:30;width:212px}
-.demo button{font-family:var(--mono);font-size:10px;color:var(--mut);background:var(--panel);border:1px solid var(--line2);padding:6px 10px;border-radius:6px;cursor:pointer}
+.demo button{font-family:var(--fuente-mono);font-size:10px;color:var(--texto-2);background:var(--superficie);border:var(--borde-ancho) solid var(--borde);padding:6px 10px;border-radius:var(--radio-control);cursor:pointer}
+.demo button:hover{background:var(--superficie-2);color:var(--texto);border-color:var(--borde-fuerte)}
 
 /* Logo de la barra lateral. Vive aquí (junto a tokens.css) porque --logo-icono usa una ruta relativa a css/ */
 .logo{width:32px;height:32px;background:var(--logo-icono) center/contain no-repeat;flex-shrink:0}

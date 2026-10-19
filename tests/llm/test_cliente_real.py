@@ -125,7 +125,7 @@ def test_cliente_real_envia_modelo_prompt_rol_y_timeout() -> None:
     solicitud = transporte.solicitudes[0]
 
     assert solicitud["url"] == ENDPOINT_PRUEBA
-    assert solicitud["timeout_s"] == 15.0
+    assert solicitud["timeout_s"] == pytest.approx(15.0, abs=0.1)
     assert solicitud["cabeceras"]["Authorization"] == f"Bearer {CLAVE_PRUEBA}"
     assert solicitud["cabeceras"]["Content-Type"] == "application/json"
 

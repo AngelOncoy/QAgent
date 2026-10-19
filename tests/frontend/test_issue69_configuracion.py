@@ -25,20 +25,17 @@ def test_la_eleccion_por_defecto_equivale_al_perfil_por_defecto() -> None:
 
     assert "let profile = 'deep';" in estado
     assert (
-        "let eleccionPruebas = {modo:'nuevas', tipo:'std', profundizar:true};" in estado
+        "let eleccionPruebas = {modo:'nuevas', unitarias:false, endpoints:false};"
+        in estado
     )
 
 
 def test_la_eleccion_se_traduce_a_los_cuatro_perfiles_del_backend() -> None:
-    cuerpo = cuerpo_de(config(), "function perfilDeEleccion", "function elegirPruebas")
+    cuerpo = cuerpo_de(config(), "function perfilDeEleccion", "function estFor")
 
-    # #70: repetir puede además profundizar (reg_deep) si hay prioritarias repetibles.
-    assert (
-        "if (modo === 'repetir') return profundizarRepetir && repetibles > 0 ? 'reg_deep' : 'reg';"
-        in cuerpo
-    )
-    assert "if (tipo === 'humo') return 'humo';" in cuerpo
-    assert "return profundizar && prioritarias > 0 ? 'deep' : 'std';" in cuerpo
+    assert "if (modo === 'repetir') return 'reg';" in cuerpo
+    assert "if (modo === 'fondo') return prioritarias > 0 ? 'deep' : 'std';" in cuerpo
+    assert "return 'std';" in cuerpo
 
 
 def test_elegir_recalcula_el_perfil_y_desbloquea_el_monitor() -> None:
@@ -49,26 +46,24 @@ def test_elegir_recalcula_el_perfil_y_desbloquea_el_monitor() -> None:
     assert "eleccionPruebas = {...eleccionPruebas, ...cambio};" in elegir
     assert "calc();" in elegir
     assert "desbloquearVista('monitor')" in elegir
-    assert (
-        "profile = perfilDeEleccion(eleccionPruebas, prioritarias, repetibles);"
-        in recalcular
-    )
+    assert "profile = perfilDeEleccion(eleccionPruebas, prioritarias);" in recalcular
 
 
 def test_la_pantalla_pregunta_que_hacer_y_el_tipo_de_prueba() -> None:
     js = config()
 
     assert "¿Qué quieres hacer?" in js
-    assert "'Generar pruebas nuevas'" in js and "'Repetir pruebas guardadas'" in js
+    assert "Generar pruebas nuevas" in js and "Volver a correr las guardadas" in js
     assert "Tipos de prueba" in js
-    assert "${opcion('humo')}" in js and "${opcion('std')}" in js
-    assert 'type="radio" name="tipoPrueba"' in js
+    assert "Unitarias" in js and "Endpoints API" in js
+    assert "renderTiposPrueba" in js
+    assert "renderModosPreparar" in js
 
 
 def test_repetir_requiere_una_corrida_previa() -> None:
     js = config()
 
-    assert "!HAS_PRIOR_RUN" in cuerpo_de(js, "function renderOpcionesPruebas", "\n}\n")
+    assert "!HAS_PRIOR_RUN" in cuerpo_de(js, "function renderModosPreparar", "\n}\n")
     assert 'title="Requiere una corrida previa de este proyecto"' in js
     assert (
         "if (eleccionPruebas.modo === 'repetir' && !HAS_PRIOR_RUN) eleccionPruebas.modo = 'nuevas';"
@@ -79,10 +74,9 @@ def test_repetir_requiere_una_corrida_previa() -> None:
 def test_profundizar_se_apaga_con_humo_o_sin_funciones_prioritarias() -> None:
     js = config()
 
-    assert "const apagada = tipo === 'humo' || prioritarias === 0;" in js
-    assert "Disponible con el tipo Estándar" in js
-    assert "Marca funciones en la vista previa para profundizar" in js
-    assert "onclick=\"go('preview');return false\">Cambiar cuáles</a>" in js
+    assert "if (modo === 'fondo') return prioritarias > 0 ? 'deep' : 'std';" in js
+    assert "irACriticas" in js
+    assert "Marcar críticas en Explorar" in js
 
 
 def test_ya_no_hay_tarjetas_comparacion_ni_estimacion() -> None:
@@ -108,12 +102,11 @@ def test_tokens_y_duracion_quedan_en_detalles_plegados() -> None:
     js = config()
     detalles = cuerpo_de(js, "function renderDetallesCorrida", "\n}\n")
 
-    assert '<details class="cfg-detalles">' in js
-    assert '<details class="cfg-detalles" open' not in js
+    assert 'id="cfgDetalles"' in detalles
     assert "Uso de IA estimado: <b>${usoIA(tok)}</b>" in detalles
     assert "Duración aproximada: <b>${p.duracion}</b>" in detalles
-    assert "reutilizan su spec vigente" in detalles
-    assert "mutmut se aplicará" in detalles
+    assert "sin cambios: se reutiliza el trabajo anterior" in detalles
+    assert "Análisis a fondo en" in detalles
 
 
 def test_el_uso_de_ia_se_expresa_en_palabras() -> None:

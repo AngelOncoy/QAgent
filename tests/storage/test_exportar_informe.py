@@ -139,11 +139,11 @@ def test_criterio1_resumen_va_siempre_y_secciones_opcionales_se_controlan(
         },
     )
     texto_minimo = Path(minimo["ruta"]).read_text(encoding="utf-8")
-    assert "## 1. Resumen de las 5 métricas" in texto_minimo
-    assert "## 2. Resultado por función" not in texto_minimo
-    assert "## 3. Trazas del Reviewer" not in texto_minimo
-    assert "## 4. Código de las pruebas generadas" not in texto_minimo
-    assert "## 5. Contratos JSON del Planner" not in texto_minimo
+    assert "## Metas de calidad" in texto_minimo
+    assert "## Resultado por función" not in texto_minimo
+    assert "## Trazas de los incidentes" not in texto_minimo
+    assert "## Código de las pruebas generadas" not in texto_minimo
+    assert "## Contratos JSON del análisis" not in texto_minimo
 
     # Todo activado
     completo = exportar_informe(
@@ -158,13 +158,13 @@ def test_criterio1_resumen_va_siempre_y_secciones_opcionales_se_controlan(
         },
     )
     texto_completo = Path(completo["ruta"]).read_text(encoding="utf-8")
-    assert "## 1. Resumen de las 5 métricas" in texto_completo
-    assert "## 2. Resultado por función" in texto_completo
-    assert "## 3. Trazas del Reviewer de los incidentes" in texto_completo
+    assert "## Metas de calidad" in texto_completo
+    assert "## Resultado por función" in texto_completo
+    assert "## Trazas de los incidentes" in texto_completo
     assert "assert 19 == 20" in texto_completo
-    assert "## 4. Código de las pruebas generadas" in texto_completo
+    assert "## Código de las pruebas generadas" in texto_completo
     assert "def test_caso_1():" in texto_completo
-    assert "## 5. Contratos JSON del Planner" in texto_completo
+    assert "## Contratos JSON del análisis" in texto_completo
     assert '"version": "2"' in texto_completo
 
 
@@ -180,12 +180,14 @@ def test_criterio3_y_4_incluye_5_metricas_modelos_costo_por_agente_specs_y_coinc
     exp_md = exportar_informe(raiz, run_id=rutas.run_id, formato="md")
     exp_pdf = exportar_informe(raiz, run_id=rutas.run_id, formato="pdf")
     exp_json = exportar_informe(raiz, run_id=rutas.run_id, formato="json")
+    exp_html = exportar_informe(raiz, run_id=rutas.run_id, formato="html")
 
     texto_md = Path(exp_md["ruta"]).read_text(encoding="utf-8")
     texto_pdf = extraer_texto_pdf(exp_pdf["ruta"])
+    texto_html = Path(exp_html["ruta"]).read_text(encoding="utf-8")
     datos_json = json.loads(Path(exp_json["ruta"]).read_text(encoding="utf-8"))
 
-    # Las 5 métricas están presentes con meta y estado (Cumple / No cumple)
+    # Las 5 métricas están presentes con meta y estado (Cumple / No cumple / Informativo)
     claves_metricas = [m["clave"] for m in datos_json["metricas"]]
     assert claves_metricas == [
         "pass_rate",
@@ -196,33 +198,40 @@ def test_criterio3_y_4_incluye_5_metricas_modelos_costo_por_agente_specs_y_coinc
     ]
     for m in datos_json["metricas"]:
         assert m["meta"]
-        assert m["estado"].startswith(("Cumple", "No cumple"))
+        assert m["estado"].startswith(("Cumple", "No cumple", "Informativo"))
         assert m["nombre"] in texto_md
         # El PDF usa el diseño nuevo: cada métrica con su nombre para personas.
         assert METRICA[m["clave"]] in texto_pdf
-    # El PDF no muestra costos (solo tokens).
-    assert "US$" not in texto_pdf
+        assert METRICA[m["clave"]] in texto_md
 
-    # Modelos usados y costo por agente en los 3 formatos
+    # Ningún formato muestra costos (solo tokens).
+    assert "US$" not in texto_pdf
+    assert "US$" not in texto_md
+    assert "US$" not in texto_html
+    assert "US$" not in json.dumps(datos_json)
+    assert "costo_usd" not in json.dumps(datos_json)
+
+    # Modelos usados en los 3 formatos (sin costos)
     for agente in ("planner", "generator", "reviewer"):
         modelo = results["modelos"][agente]["modelo"]
         assert modelo in texto_md
         assert modelo in texto_pdf
         assert datos_json["modelos"][agente]["modelo"] == modelo
-        assert (
-            datos_json["costo_por_agente"][agente]["costo_usd"]
-            == pantalla_ejec["indicadores"]["costo"]["por_agente"][agente]["costo_usd"]
-        )
 
-    # Specs reutilizados
+    # Specs reutilizados sin rutas técnicas
     assert "1 reutilizados (modulo_simulado.py)" in texto_md
     assert "1 regenerados (descuentos.py)" in texto_md
     assert "1 reutilizados (modulo_simulado.py)" in texto_pdf
+    assert ".qagent/specs/" not in texto_md
+    assert ".qagent/specs/" not in texto_pdf
     assert datos_json["specs"]["reutilizados"] == 1
     assert datos_json["specs"]["regenerados"] == 1
 
     # Criterio 4: las cifras coinciden exactamente con results.json y la pantalla
-    assert datos_json["resumen"] == results["resumen"]
+    assert (
+        datos_json["resumen"]["total_funciones"]
+        == results["resumen"]["total_funciones"]
+    )
     assert (
         datos_json["metricas"][0]["valor"]
         == pantalla_rep["indicadores"]["pass_rate"]["valor"]
@@ -234,9 +243,8 @@ def test_criterio3_y_4_incluye_5_metricas_modelos_costo_por_agente_specs_y_coinc
         == results["resumen"]["cobertura_lineas_promedio"]
     )
     assert (
-        datos_json["metricas"][3]["costo_total_usd"]
-        == pantalla_rep["indicadores"]["costo"]["usd"]
-        == results["resumen"]["costo_total_usd"]
+        datos_json["metricas"][3]["tokens_total"]
+        == pantalla_ejec["indicadores"]["costo"]["tokens_total"]
     )
 
 

@@ -21,9 +21,9 @@ def seleccion_js() -> str:
 
 
 def test_la_seleccion_envia_las_funciones_marcadas() -> None:
-    assert "criticas: (m.fns || []).filter(f => f.inc && f.crit).map(f => f.n)" in (
-        seleccion_js()
-    )
+    cuerpo = seleccion_js()
+    assert "criticas:" in cuerpo
+    assert "(m.fns || []).filter(f => f.inc && f.crit).map(f => f.n)" in cuerpo
 
 
 def test_solo_se_envian_marcas_de_funciones_incluidas() -> None:

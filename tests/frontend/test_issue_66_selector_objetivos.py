@@ -40,7 +40,11 @@ def cuerpo(nombre_funcion: str) -> str:
 def _encabezados_endpoints() -> list[str]:
     bloque = VISTA_JS[VISTA_JS.index('<table class="ep-table">') :]
     thead = bloque[: bloque.index("</thead>")]
-    return [texto.strip() for texto in re.findall(r"<th>(.*?)<span", thead, re.DOTALL)]
+    return [
+        texto.strip()
+        for texto in re.findall(r"<th[^>]*>(.*?)</th>", thead, re.DOTALL)
+        if '<span class="vh"' not in texto
+    ]
 
 
 def _columnas_tooltips() -> list[str]:
@@ -99,12 +103,6 @@ def test_una_opcion_sin_objetivos_queda_deshabilitada_con_explicacion() -> None:
     assert "aria-disabled" in VISTA_JS
 
 
-def test_avisa_cuando_hay_objetivos_por_revisar() -> None:
-    assert "function totalEndpointsPorRevisar" in VISTA_JS
-    assert "$('tabFnsWarn')" in VISTA_JS
-    assert "$('tabEpsWarn')" in VISTA_JS
-
-
 def test_cambiar_de_vista_no_recarga_ni_pierde_la_seleccion() -> None:
     bloque = cuerpo("cambiarVistaObjetivos")
     for prohibido in (
@@ -123,54 +121,45 @@ def test_cambiar_de_vista_no_recarga_ni_pierde_la_seleccion() -> None:
 
 
 def test_columnas_de_la_tabla_de_endpoints_en_orden() -> None:
-    # Rediseño: tabla compacta. Estado, respuesta, errores y dependencias simuladas van en la
-    # línea secundaria de «Información»; las decisiones (#74) en «Complejidad».
     assert _encabezados_endpoints() == [
-        "Endpoint",
+        "Función / endpoint",
         "Complejidad",
-        "Información",
         "Desde la última vez",
         "Profundizar",  # #74
     ]
 
 
 def test_cada_columna_de_endpoint_tiene_tooltip() -> None:
-    tooltips = _columnas_tooltips()
-    assert (
-        len(tooltips) == 5
-    )  # una por columna con título (la casilla Incluir no lleva)
-    for texto in (
-        "Método HTTP y ruta del endpoint, con la función que lo atiende.",
-        "Si el endpoint declara su modelo de respuesta y su código de estado. Debajo: estado, respuesta, errores HTTP y dependencias que se simulan.",
-        "Pide un análisis más exhaustivo del endpoint. Tarda más.",
-    ):
-        assert f'data-tip="{texto}"' in VISTA_JS
+    render = cuerpo("renderEndpoints")
+    assert "title=" in render
+    assert "Ruta no disponible: no se puede probar" in render
+    assert "Profundizar: solicita un análisis más exhaustivo del endpoint" in render
+    assert 'title="${detalle}"' in render
 
 
 def test_todas_las_filas_comparten_las_nueve_columnas() -> None:
     render = cuerpo("renderEndpoints")
-    # Rediseño: encabezado de archivo, fila normal y fila vacía ocupan las 6 columnas.
-    assert 'colspan="6"' in cuerpo("filaArchivo")
-    assert 'colspan="6"' in render
-    assert 'colspan="9"' not in render
-    assert render.count("<td") >= 6
+    assert 'colspan="5"' in render
+    assert '<td class="col-incl">' in render
+    assert '<td class="fn"' in render
+    assert "<td>${textoComplejidad(e.br)}</td>" in render
+    assert "<td>${textoDesdeUltimaVez(m)}</td>" in render
+    assert '<td class="col-prof">' in render
 
 
 # ---------------- 10-14. Contenido de las celdas ----------------
 
 
 def test_calidad_de_endpoint_no_depende_del_numero_de_estado() -> None:
-    bloque = cuerpo("calidadEndpoint")
-    assert "response_model" in bloque
-    assert "status_code_declarado" in bloque
-    assert "=== 200" not in bloque and "== 200" not in bloque
-    assert bloque.index("return 'lista'") < bloque.index("return 'mejorable'")
-    assert bloque.index("return 'mejorable'") < bloque.index("return 'incierto'")
+    render = cuerpo("renderEndpoints")
+    assert "Función ${e.manejador ? escHtml(e.manejador) : '—'}" in render
+    assert "Estado ${estado}" in render
+    assert "Respuesta ${respuesta}" in render
+    assert "Simula: " in render
 
 
 def test_el_estado_no_declarado_se_atenua() -> None:
-    assert "class=\"${e.status_code_declarado ? '' : 'muted'}\"" in VISTA_JS
-    assert "td.muted,.exp-objetivos table .muted{color:var(--texto-3)}" in VISTA_CSS
+    assert "e.status_code_declarado ? '' : ' (por defecto)'" in VISTA_JS
 
 
 def test_la_respuesta_vacia_muestra_guion() -> None:
@@ -180,15 +169,12 @@ def test_la_respuesta_vacia_muestra_guion() -> None:
 def test_los_errores_resumen_los_codigos_http() -> None:
     assert "e.excepciones_http || []" in VISTA_JS
     assert "Errores HTTP:" in VISTA_JS
-    assert 'title="${escHtml(tipErr)}"' in VISTA_JS
+    assert "Sin errores HTTP identificados" in VISTA_JS
 
 
 def test_simula_muestra_depends_y_no_inventa() -> None:
     assert "Sin Depends" in VISTA_JS
-    assert (
-        'e.dependencias.map(d => `<span class="pill p-grey">${escHtml(d)}</span>`)'
-        in VISTA_JS
-    )
+    assert "'Simula: ' + e.dependencias.join(', ')" in VISTA_JS
 
 
 def test_los_textos_del_proyecto_se_escapan() -> None:
@@ -197,28 +183,7 @@ def test_los_textos_del_proyecto_se_escapan() -> None:
     assert "e.manejador ? escHtml(e.manejador) : '—'" in VISTA_JS
 
 
-# ---------------- 15-18. Agrupación, plegado y endpoints no resueltos ----------------
-
-
-def test_los_endpoints_se_agrupan_por_archivo_con_su_plegado() -> None:
-    assert 'class="ep-table"' in VISTA_JS
-    assert "function endpointAbierto" in VISTA_JS
-    assert "function toggleArchivoEndpoints" in VISTA_JS
-    assert "let ARCHIVOS_ABIERTOS_EP = {}" in VISTA_JS
-    assert "ARCHIVOS_ABIERTOS_EP[m.path]" in VISTA_JS
-
-
-def test_el_plegado_de_una_vista_es_independiente_de_la_otra() -> None:
-    assert "ARCHIVOS_ABIERTOS_EP" in cuerpo("toggleArchivoEndpoints")
-    assert "ARCHIVOS_ABIERTOS_EP" not in cuerpo("toggleArchivo")
-
-
-def test_el_encabezado_de_archivo_cuenta_endpoints_y_por_revisar() -> None:
-    render = cuerpo("renderEndpoints")
-    assert "'endpoint' : 'endpoints'" in render
-    assert "porRevisar" in render
-    # El encabezado de archivo es común a funciones y endpoints (rediseño).
-    assert " por revisar" in cuerpo("filaArchivo")
+# ---------------- 15-18. Endpoints no resueltos e inclusión ----------------
 
 
 def test_un_endpoint_sin_ruta_no_se_puede_incluir() -> None:
@@ -227,24 +192,11 @@ def test_un_endpoint_sin_ruta_no_se_puede_incluir() -> None:
     assert "ep-no-resuelta" in VISTA_JS
 
 
-# ---------------- 19-22. Selección por archivo e individual ----------------
-
-
-def test_incluir_archivo_marca_solo_los_endpoints_analizables() -> None:
-    bloque = cuerpo("seleccionarEndpointsArchivo")
-    assert "endpointsElegibles(m)" in bloque
-    assert "e.inc = !!seleccionado" in bloque
-
-
-def test_el_checkbox_de_archivo_sincroniza_indeterminado() -> None:
-    assert "function sincronizarCheckboxesArchivoEndpoints" in VISTA_JS
-    assert "sincronizarCheckboxesArchivoEndpoints();" in VISTA_JS
-    assert "chk.indeterminate" in VISTA_JS
-
-
 def test_incluir_un_endpoint_individual_actualiza_la_seleccion() -> None:
     assert "function toggleEndpoint" in VISTA_JS
-    assert 'class="file-check" data-mi=' in VISTA_JS
+    marca = cuerpo("toggleEndpoint")
+    assert "e.inc = !e.inc;" in marca
+    assert "renderFns();" in marca
 
 
 # ---------------- 23-26. Envío al backend y estimación ----------------
@@ -263,10 +215,7 @@ def test_la_estimacion_cuenta_solo_los_endpoints_elegidos() -> None:
 
 
 def test_el_pie_y_los_contadores_usan_la_seleccion() -> None:
-    assert (
-        "const totalEndpointsIncluidos = sel.flatMap(m => endpointsIncluidos(m)).length"
-        in VISTA_JS
-    )
+    assert "endpointElegible(r.e) && r.e.inc" in VISTA_JS
     assert "const total = fns.length + endpoints.length" in VISTA_JS
 
 
@@ -301,9 +250,10 @@ function registrarComponente(){}
 const window = {};
 const document = { querySelectorAll: () => [], querySelector: () => null };
 function $(id){ return null; }
+const ICO_ESCUDO = '', ICO_FLECHA = '', ICO_OK = '', ICO_ERROR = '';
 const factory = new Function(
-  'registrarComponente', 'window', 'document', '$', 'MODULES',
-  src + '\nreturn {calidadEndpoint, endpointElegible, endpointsElegibles, endpointsIncluidos, moduloConSeleccion, contarEndpointsPorRevisar, totalFuncionesDetectadas, totalEndpointsDetectados};'
+  'registrarComponente', 'window', 'document', '$', 'MODULES', 'ICO_ESCUDO', 'ICO_FLECHA', 'ICO_OK', 'ICO_ERROR',
+  src + '\nreturn {endpointElegible, endpointsElegibles, endpointsIncluidos, moduloTieneObjetivos, totalFuncionesDetectadas, totalEndpointsDetectados};'
 );
 const MODS = [
   { path:'a.py', sel:true, fns:[{n:'f1', inc:true}], endpoints:[
@@ -316,15 +266,8 @@ const MODS = [
     { objetivo:'DELETE /c', inc:true, response_model:null, status_code:204, status_code_declarado:true }
   ]}
 ];
-const api = factory(registrarComponente, window, document, $, MODS);
+const api = factory(registrarComponente, window, document, $, MODS, ICO_ESCUDO, ICO_FLECHA, ICO_OK, ICO_ERROR);
 const out = {
-  calidad: {
-    lista: api.calidadEndpoint({response_model:'X', status_code_declarado:true}),
-    mejorable_resp: api.calidadEndpoint({response_model:'X', status_code_declarado:false}),
-    mejorable_estado: api.calidadEndpoint({response_model:null, status_code_declarado:true}),
-    incierto: api.calidadEndpoint({response_model:null, status_code_declarado:false}),
-    estado_200_por_defecto_no_es_lista: api.calidadEndpoint({response_model:'X', status_code:200, status_code_declarado:false})
-  },
   elegible: {
     resuelto: api.endpointElegible({objetivo:'GET /a'}),
     sin_objetivo: api.endpointElegible({objetivo:null}),
@@ -332,16 +275,14 @@ const out = {
   },
   conteos: {
     funciones: api.totalFuncionesDetectadas(),
-    endpoints: api.totalEndpointsDetectados(),
-    porRevisarA: api.contarEndpointsPorRevisar(MODS[0]),
-    porRevisarB: api.contarEndpointsPorRevisar(MODS[1])
+    endpoints: api.totalEndpointsDetectados()
   },
   incluidos: {
     a: api.endpointsIncluidos(MODS[0]).map(e => e.objetivo),
     b: api.endpointsIncluidos(MODS[1]).map(e => e.objetivo),
-    soloFn: api.moduloConSeleccion({fns:[{inc:true}], endpoints:[]}),
-    soloEp: api.moduloConSeleccion({fns:[], endpoints:[{objetivo:'GET /a', inc:true}]}),
-    epNoResuelto: api.moduloConSeleccion({fns:[], endpoints:[{objetivo:null, inc:true}]})
+    soloFn: api.moduloTieneObjetivos({fns:[{inc:true}], endpoints:[]}),
+    soloEp: api.moduloTieneObjetivos({fns:[], endpoints:[{objetivo:'GET /a', inc:true}]}),
+    conError: api.moduloTieneObjetivos({error:{}, fns:[], endpoints:[]})
   }
 };
 console.log(JSON.stringify(out));
@@ -368,16 +309,6 @@ def _ejecutar_harness(tmp_path: Path) -> dict:
     return json.loads(resultado.stdout)
 
 
-def test_comportamiento_de_calidad(tmp_path: Path) -> None:
-    calidad = _ejecutar_harness(tmp_path)["calidad"]
-    assert calidad["lista"] == "lista"
-    assert calidad["mejorable_resp"] == "mejorable"
-    assert calidad["mejorable_estado"] == "mejorable"
-    assert calidad["incierto"] == "incierto"
-    # Un 200 sin declarar no es Lista: se exige el modelo de respuesta y el estado declarado.
-    assert calidad["estado_200_por_defecto_no_es_lista"] == "mejorable"
-
-
 def test_comportamiento_de_elegibilidad_y_conteos(tmp_path: Path) -> None:
     datos = _ejecutar_harness(tmp_path)
     assert datos["elegible"] == {
@@ -387,8 +318,6 @@ def test_comportamiento_de_elegibilidad_y_conteos(tmp_path: Path) -> None:
     }
     assert datos["conteos"]["funciones"] == 1
     assert datos["conteos"]["endpoints"] == 5  # incluye el no resuelto: es lo detectado
-    assert datos["conteos"]["porRevisarA"] == 3
-    assert datos["conteos"]["porRevisarB"] == 1
 
 
 def test_comportamiento_de_inclusion(tmp_path: Path) -> None:
@@ -400,7 +329,7 @@ def test_comportamiento_de_inclusion(tmp_path: Path) -> None:
     assert incluidos["b"] == ["DELETE /c"]
     assert incluidos["soloFn"] is True
     assert incluidos["soloEp"] is True
-    assert incluidos["epNoResuelto"] is False
+    assert incluidos["conError"] is False
 
 
 def test_sin_errores_de_sintaxis_javascript() -> None:

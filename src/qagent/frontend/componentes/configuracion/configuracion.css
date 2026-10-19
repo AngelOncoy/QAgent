@@ -51,7 +51,7 @@
 
 /* Modal «Agregar API» */
 #m-api select.inp{cursor:pointer}
-#m-api select.inp option{background:var(--panel2);color:var(--txt)}
+#m-api select.inp option{background:var(--superficie);color:var(--texto)}
 .api-estado{font-size:12.5px;min-height:18px}
-.api-estado.ok{color:var(--green-t)}
-.api-estado.no{color:var(--red-t)}
+.api-estado.ok{color:var(--exito-t)}
+.api-estado.no{color:var(--bug-t)}

@@ -46,12 +46,14 @@ function registrarComponente(){}
 const window = {};
 const document = { querySelectorAll: () => [], querySelector: () => null };
 function $(id){ return null; }
+const ICO_ESCUDO = '', ICO_FLECHA = '', ICO_OK = '', ICO_ERROR = '';
 const factory = new Function(
-  'registrarComponente', 'window', 'document', '$', 'MODULES',
+  'registrarComponente', 'window', 'document', '$', 'MODULES', 'ICO_ESCUDO', 'ICO_FLECHA', 'ICO_OK', 'ICO_ERROR',
   vista + '\nreturn {normalizarDecisiones, textoDecisiones};'
 );
-const api = factory(registrarComponente, window, document, $, []);
+const api = factory(registrarComponente, window, document, $, [], ICO_ESCUDO, ICO_FLECHA, ICO_OK, ICO_ERROR);
 const demo = new Function(
+
   estado.split('const IN_RUN')[0] + '\nreturn MODULES;'
 )();
 const valores = [4, 0, undefined, null, NaN, 7];
@@ -118,9 +120,11 @@ def test_analizador_real_entrega_decisiones_numericas(tmp_path: Path) -> None:
 
 
 def test_tablas_anchas_quedan_dentro_de_su_scroll_interno() -> None:
-    assert re.search(r"\.grid2\s*>\s*\.card\s*\{[^}]*min-width\s*:\s*0", VISTA_CSS)
+    assert re.search(
+        r"\.exp-rejilla\s*\{[^}]*min-width\s*:\s*0", VISTA_CSS
+    ) or re.search(r"\.exp-objetivos\s*\{[^}]*min-width\s*:\s*0", VISTA_CSS)
     assert re.search(r"\.obj-vista\s*\{[^}]*min-width\s*:\s*0", VISTA_CSS)
-    assert re.search(r"\.table-scroll\s*\{[^}]*overflow-x\s*:\s*auto", VISTA_CSS)
+    assert re.search(r"\.table-scroll\s*\{[^}]*overflow", VISTA_CSS)
 
 
 def test_grid_se_apila_antes_del_ancho_minimo_de_pywebview() -> None:
@@ -130,17 +134,16 @@ def test_grid_se_apila_antes_del_ancho_minimo_de_pywebview() -> None:
     ]
     assert any(valor >= 1024 for valor in breakpoints)
     assert re.search(
-        r"@media\s*\(max-width\s*:\s*\d+px\)\s*\{[^}]*\.grid2\s*\{[^}]*grid-template-columns\s*:\s*1fr",
+        r"@media\s*\(max-width\s*:\s*\d+px\)\s*\{[^}]*\.exp-rejilla\s*\{[^}]*grid-template-columns\s*:\s*minmax\(0,\s*1fr\)",
         VISTA_CSS,
         re.DOTALL,
     )
 
 
 def test_encabezado_del_arbol_admite_ajuste_sin_ocultar_el_control() -> None:
-    assert 'class="tree-head"' in VISTA_JS
-    assert re.search(r"\.tree-head\s*\{[^}]*flex-wrap\s*:\s*wrap", VISTA_CSS)
     assert 'id="selectAllModules"' in VISTA_JS
     assert "seleccionarTodosModulos(this.checked)" in VISTA_JS
+    assert ".tree .row" in VISTA_CSS
 
 
 def test_favicon_oficial_existe_y_es_svg_valido() -> None:

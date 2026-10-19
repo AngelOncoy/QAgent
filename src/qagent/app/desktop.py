@@ -357,6 +357,21 @@ class DesktopAPI:
             bitacora.registro.info("Intentos por función: %s", max_intentos)
         return {**resultado, "limites": leer_limites()}
 
+    def obtener_tema(self) -> dict:
+        """Tema visual vigente (oscuro o claro) para la interfaz de escritorio."""
+        from qagent.config.apariencia import leer_tema
+
+        return {"ok": True, "tema": leer_tema()}
+
+    def guardar_tema(self, tema: str) -> dict:
+        """Guarda la preferencia de tema (oscuro o claro) en `config.local.toml`."""
+        from qagent.config.apariencia import guardar_tema
+
+        resultado = guardar_tema(tema)
+        if resultado["ok"]:
+            bitacora.registro.info("Tema de la interfaz: %s", tema)
+        return resultado
+
     def obtener_ejecucion(self, ruta: str, run_id: str | None = None) -> dict:
         """Datos de la vista Ejecución de una corrida (HU-18).
 

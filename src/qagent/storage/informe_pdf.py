@@ -16,11 +16,6 @@ from pathlib import Path
 from typing import Any
 
 from qagent import __version__
-from qagent.storage.exportar_informe import (
-    _envolver_linea,
-    _escapar_literal_pdf,
-    _filas_entorno,
-)
 
 # Página A4 en puntos
 ANCHO, ALTO = 595.0, 842.0
@@ -99,6 +94,95 @@ _SIMBOLO = (
 
 def _rgb(c: Color) -> str:
     return f"{c[0]:.3f} {c[1]:.3f} {c[2]:.3f}"
+
+
+def _normalizar_para_pdf(texto: str) -> str:
+    """Convierte símbolos fuera de Windows-1252 a equivalentes legibles en Type1."""
+    reemplazos = {
+        "≥": ">=",
+        "≤": "<=",
+        "→": "->",
+        "✅": "[OK]",
+        "❌": "[NO]",
+        "☑️": "[OK]",
+        "⚠️": "[!]",
+        "♻": "",
+        "↻": "",
+        "★": "*",
+        "—": "-",
+        "–": "-",
+        "…": "...",
+    }
+    for orig, dest in reemplazos.items():
+        texto = texto.replace(orig, dest)
+    return texto
+
+
+def _escapar_literal_pdf(texto: str) -> str:
+    """Codifica una cadena en literal PDF con escapes octales para caracteres no ASCII."""
+    normalizado = _normalizar_para_pdf(texto).replace("\t", "    ")
+    datos = normalizado.encode("cp1252", errors="replace")
+    partes: list[str] = []
+    for byte in datos:
+        if byte == 0x5C:  # \
+            partes.append("\\\\")
+        elif byte == 0x28:  # (
+            partes.append("\\(")
+        elif byte == 0x29:  # )
+            partes.append("\\)")
+        elif 32 <= byte <= 126:
+            partes.append(chr(byte))
+        elif byte >= 128:
+            partes.append(f"\\{byte:03o}")
+    return "".join(partes)
+
+
+def _decodificar_literal_pdf(cuerpo: str) -> str:
+    """Inversa de `_escapar_literal_pdf` para pruebas y auditoría."""
+    salida = bytearray()
+    i = 0
+    n = len(cuerpo)
+    while i < n:
+        ch = cuerpo[i]
+        if ch == "\\" and i + 1 < n:
+            sig = cuerpo[i + 1]
+            if sig in "\\()":
+                salida.append(ord(sig))
+                i += 2
+                continue
+            if i + 4 <= n and all(c in "01234567" for c in cuerpo[i + 1 : i + 4]):
+                salida.append(int(cuerpo[i + 1 : i + 4], 8))
+                i += 4
+                continue
+        salida.append(ord(ch) if ord(ch) < 256 else ord("?"))
+        i += 1
+    return bytes(salida).decode("cp1252", errors="replace")
+
+
+def _envolver_linea(texto: str, max_caracteres: int = 92) -> list[str]:
+    """Envuelve una línea larga respetando palabras."""
+    if len(texto) <= max_caracteres:
+        return [texto]
+    palabras = texto.split(" ")
+    lineas: list[str] = []
+    actual = ""
+    for palabra in palabras:
+        while len(palabra) > max_caracteres:
+            if actual:
+                lineas.append(actual)
+                actual = ""
+            lineas.append(palabra[:max_caracteres])
+            palabra = palabra[max_caracteres:]
+        if not actual:
+            actual = palabra
+        elif len(actual) + 1 + len(palabra) <= max_caracteres:
+            actual = f"{actual} {palabra}"
+        else:
+            lineas.append(actual)
+            actual = palabra
+    if actual or not lineas:
+        lineas.append(actual)
+    return lineas
 
 
 def _caracteres_por_linea(ancho: float, tamano: float, mono: bool = False) -> int:
@@ -719,6 +803,8 @@ def construir_pdf(
         )
         for f in funciones:
             _resultado_funcion(lz, f, opts, limpiar)
+
+    from qagent.storage.exportar_informe import _filas_entorno
 
     entorno = _filas_entorno(datos)
     if entorno:
