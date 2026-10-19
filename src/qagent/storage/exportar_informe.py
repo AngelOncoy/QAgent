@@ -27,7 +27,6 @@ from qagent.config.auditoria import PATRONES, Hallazgo
 from qagent.config.carga import Claves, leer_env
 from qagent.storage.registro import CARPETA_RUNS, nombre_perfil
 from qagent.storage.vista_ejecucion import (
-    AGENTES,
     leer_results,
     vista_ejecucion,
 )
@@ -39,27 +38,20 @@ from qagent.storage.vista_reporte import (
 
 FORMATOS = ("pdf", "md", "json", "html")
 
-NOMBRES_AGENTE = {
-    "planner": "Planner",
-    "generator": "Generator",
-    "reviewer": "Reviewer",
-}
+from qagent.storage.informe_pdf import (
+    BANDEJA,
+    CONTROL,
+    ETAPAS,
+    METRICA,
+    _decodificar_literal_pdf,
+    _envolver_linea,
+    _explicacion,
+)
 
-ETIQUETAS_ESTADO = {
-    "aprobado": "APROBADO",
-    "bug_detectado": "BUG DETECTADO",
-    "rechazado_laundering": "RECHAZADO: LAUNDERING",
-    "estancado": "ESTANCADO",
-    "sin_veredicto": "SIN VEREDICTO",
-}
-
-ETIQUETAS_CONTROL = {
-    "ok": "OK",
-    "falla": "NO CUMPLE",
-    "no_aplica": "NO APLICA",
-    "pendiente": "PENDIENTE",
-    "sin_dato": "SIN DATO",
-}
+NOMBRES_ETAPAS = dict(ETAPAS)
+NOMBRES_AGENTE = NOMBRES_ETAPAS
+ETIQUETAS_ESTADO = {k: v[1] for k, v in BANDEJA.items()}
+ETIQUETAS_CONTROL = CONTROL
 
 _PATRON_ASIGNACION = re.compile(
     r"""(?ix)(\b[A-Z0-9_]*(?:API_?KEY|SECRET|PASSWORD|(?:ACCESS|AUTH|API)_?TOKEN)\b\s*[=:]\s*["']?)
@@ -249,14 +241,8 @@ def construir_cinco_metricas(results: dict[str, Any]) -> list[dict[str, Any]]:
     )
     it_cumple = bool(it["valor"] is not None and it["valor"] <= it_meta)
 
-    # 4. Tokens y costo por corrida
+    # 4. Tokens de la corrida
     cs = ind["costo"]
-    cs_meta = (
-        cs["tope_usd"]
-        if cs["tope_usd"] is not None
-        else metas.get("tope_por_corrida_usd", 1.0)
-    )
-    cs_cumple = bool(cs["costo_total_usd"] <= cs_meta)
 
     # 5. Mutation Score
     criticas = [o for o in objetivos if o.get("critical")]
@@ -276,10 +262,16 @@ def construir_cinco_metricas(results: dict[str, Any]) -> list[dict[str, Any]]:
         ms_resultado = f"N/A ({len(criticas)} críticas)"
         ms_estado = "No cumple (sin medición)"
 
+    tokens_total = cs.get("tokens_total") or 0
+    por_agente_tok = {
+        ag: {"tokens": (cs.get("por_agente") or {}).get(ag, {}).get("tokens", 0)}
+        for ag in ("planner", "generator", "reviewer")
+    }
+
     return [
         {
             "clave": "pass_rate",
-            "nombre": "Pass Rate",
+            "nombre": METRICA["pass_rate"],
             "valor": pr["valor"],
             "pasaron": pr["pasaron"],
             "total": pr["total"],
@@ -291,7 +283,7 @@ def construir_cinco_metricas(results: dict[str, Any]) -> list[dict[str, Any]]:
         },
         {
             "clave": "cobertura",
-            "nombre": "Cobertura de líneas / ramas",
+            "nombre": METRICA["cobertura"],
             "lineas": cv["lineas"],
             "ramas": cv["ramas"],
             "resultado": f"{_fmt_pct(cv['lineas'])} / {_fmt_pct(cv['ramas'])}",
@@ -302,7 +294,7 @@ def construir_cinco_metricas(results: dict[str, Any]) -> list[dict[str, Any]]:
         },
         {
             "clave": "iteraciones",
-            "nombre": "Iteraciones promedio",
+            "nombre": METRICA["iteraciones"],
             "valor": it["valor"],
             "tope": it["tope"],
             "resultado": "—" if it["valor"] is None else f"{it['valor']:.2f}",
@@ -313,21 +305,22 @@ def construir_cinco_metricas(results: dict[str, Any]) -> list[dict[str, Any]]:
         },
         {
             "clave": "costo",
-            "nombre": "Tokens y costo de la corrida",
-            "tokens_total": cs["tokens_total"],
-            "costo_total_usd": cs["costo_total_usd"],
-            "por_agente": cs["por_agente"],
-            "resultado": (
-                f"{cs['tokens_total']} tokens · US$ {cs['costo_total_usd']:.4f}"
-            ),
-            "meta_valor": cs_meta,
-            "meta": f"≤ US$ {cs_meta:.2f}",
-            "cumple": cs_cumple,
-            "estado": "Cumple" if cs_cumple else "No cumple",
+            "nombre": METRICA["costo"],
+            "tokens_total": tokens_total,
+            "por_agente": por_agente_tok,
+            "resultado": f"{int(tokens_total):,} tokens".replace(",", "."),
+            "meta_valor": None,
+            "meta": "Informativo",
+            "cumple": True,
+            "estado": "Informativo",
         },
         {
             "clave": "mutation_score",
-            "nombre": f"Mutation Score ({len(criticas)} funciones críticas)",
+            "nombre": (
+                f"{METRICA['mutation_score']} ({len(criticas)} críticas)"
+                if criticas
+                else METRICA["mutation_score"]
+            ),
             "valor": ms_valor,
             "criticas": len(criticas),
             "resultado": ms_resultado,
@@ -486,8 +479,8 @@ def _salud_proyecto(datos: dict[str, Any]) -> dict[str, Any]:
     ]
     if fns_sin_laund:
         fortalezas.append(
-            f"Integridad de contratos: {len(fns_sin_laund)}/{total} funciones mantuvieron "
-            f"oráculos estrictos sin debilitar ni relajar aserciones."
+            f"Integridad de pruebas: {len(fns_sin_laund)}/{total} funciones mantuvieron "
+            f"criterios estrictos sin debilitar ni relajar aserciones."
         )
     if prom_lineas >= 80.0:
         fortalezas.append(
@@ -523,8 +516,8 @@ def _salud_proyecto(datos: dict[str, Any]) -> dict[str, Any]:
     ]
     for fl in fns_laund:
         deficiencias.append(
-            f"Intento de alteración de aserciones (Assertion Laundering) en `{fl['modulo']}::{fl['funcion']}`: "
-            f"Se intentó debilitar el oráculo para ocultar un fallo, lo cual fue bloqueado por el Reviewer."
+            f"Intento de debilitar pruebas en `{fl['modulo']}::{fl['funcion']}`: "
+            f"Se intentó relajar el criterio esperado para ocultar un fallo, lo cual fue bloqueado durante la verificación."
         )
     fns_bajas_ramas = [
         f for f in funciones if (f.get("cobertura_ramas") or 100.0) < 85.0
@@ -557,7 +550,7 @@ def _salud_proyecto(datos: dict[str, Any]) -> dict[str, Any]:
         )
     if fns_laund:
         recomendaciones.append(
-            "Prioridad 3 — Auditar oráculos de prueba: Evitar modificar los valores esperados de las aserciones para forzar el paso de los tests; resolver siempre el defecto en el código fuente."
+            "Prioridad 3 — Auditar criterios de prueba: Evitar modificar los valores esperados de las aserciones para forzar el paso de los tests; resolver siempre el defecto en el código fuente."
         )
     if not recomendaciones:
         recomendaciones.append(
@@ -808,19 +801,17 @@ def _markdown_ejecucion(datos: dict[str, Any], con_traza: bool) -> list[str]:
             f"- **Suite pytest:** `tests/test_{f['funcion']}.py` ({f['iteraciones']}/3 iteraciones en sandbox hermético)"
         )
         laund_txt = (
-            "DETECTADO (aserciones alteradas)"
+            "Se bloqueó intento de debilitar pruebas"
             if f.get("laundering_detectado")
-            else "Aserciones estrictas e íntegras"
+            else "Criterio estricto conservado"
         )
         lineas.append(
-            f"- **Evaluación del Reviewer:** {estado_lbl} · Cobertura: {_fmt_pct(f['cobertura_lineas'])} líneas / {_fmt_pct(f['cobertura_ramas'])} ramas · Laundering: {laund_txt}"
+            f"- **Evaluación:** {estado_lbl} · Cobertura: {_fmt_pct(f['cobertura_lineas'])} líneas / {_fmt_pct(f['cobertura_ramas'])} ramas · Integridad: {laund_txt}"
         )
         for it in f.get("intentos") or []:
             fb = it.get("feedback")
             if fb:
-                lineas.append(
-                    f"  - *Diagnóstico Reviewer (Intento {it.get('intento')}):* {fb}"
-                )
+                lineas.append(f"  - *Diagnóstico (Intento {it.get('intento')}):* {fb}")
         lineas.append("")
 
         ejecucion = f["ejecucion"]
@@ -1074,46 +1065,109 @@ def construir_markdown_informe(
     opts = normalizar_opciones(opciones)
     run_id = datos["run_id"]
     rama = datos.get("rama") or "sin repositorio Git"
-    modelos_txt = " · ".join(
-        f"{NOMBRES_AGENTE.get(ag, ag)}: {m['modelo']} ({m['proveedor']}, "
-        f"entrada US$ {m['precio_entrada_usd_m']:g}/M · salida US$ {m['precio_salida_usd_m']:g}/M)"
-        for ag in AGENTES
-        if ag in datos["modelos"]
-        for m in [datos["modelos"][ag]]
+
+    funciones = sorted(
+        datos.get("funciones") or [],
+        key=lambda f: (
+            BANDEJA.get(str(f.get("estado")), BANDEJA["sin_veredicto"])[3],
+            not f.get("critical"),
+        ),
     )
-    por_ag = datos["costo_por_agente"]
-    costo_agentes_txt = " · ".join(
-        f"{NOMBRES_AGENTE.get(ag, ag)}: {por_ag[ag]['tokens']} tokens "
-        f"(US$ {(por_ag[ag]['costo_usd'] or 0.0):.4f})"
-        for ag in AGENTES
-        if ag in por_ag
+    bugs = [
+        f
+        for f in funciones
+        if BANDEJA.get(str(f.get("estado")), BANDEJA["sin_veredicto"])[0] == "bug"
+    ]
+    sin = [
+        f
+        for f in funciones
+        if BANDEJA.get(str(f.get("estado")), BANDEJA["sin_veredicto"])[0]
+        in ("sin", "repetir")
+    ]
+    total = len(funciones)
+    if bugs:
+        nombre_pri = str(
+            bugs[0].get("identificador") or bugs[0].get("funcion") or "Función"
+        )
+        respuesta = f"{len(bugs)} {'posible bug' if len(bugs) == 1 else 'posibles bugs'}. Empieza por {nombre_pri}."
+    elif sin:
+        respuesta = "Sin posibles bugs, pero faltan pruebas por revisar."
+    else:
+        respuesta = f"Todo pasó: {total} {'función o endpoint verificado' if total == 1 else 'funciones y endpoints verificados'}."
+
+    meta_parts = [
+        f"**Proyecto:** {datos['proyecto']}",
+        f"**Rama:** {rama}",
+        f"**Fecha:** {datos['fecha']}",
+        f"**Perfil:** {datos['perfil']}",
+        f"**Funciones evaluadas:** {datos['total_funciones']} ({datos['criticas']} críticas)",
+        "**Generado por:** QAgent",
+    ]
+    if datos.get("es_simulado"):
+        meta_parts.append("**Modo:** IA simulada")
+
+    m_dict = {x["clave"]: x for x in datos.get("metricas") or []}
+    pasaron = sum(
+        1
+        for f in funciones
+        if BANDEJA.get(str(f.get("estado")), BANDEJA["sin_veredicto"])[0] == "paso"
+    )
+    cob = m_dict.get("cobertura", {})
+    tokens_val = (m_dict.get("costo") or {}).get("tokens_total")
+    tokens_str = "—" if tokens_val is None else f"{int(tokens_val):,}".replace(",", ".")
+    sub_cob = (
+        "Ramas no exigidas en Humo"
+        if datos.get("perfil") == "Humo"
+        else f"{_fmt_pct(cob.get('ramas'))} de las ramas"
     )
 
+    specs = (datos.get("specs") or {}).get("texto") or ""
+    specs_sin_ruta = specs.split(" · guardados en")[0]
+
     lineas = [
-        f"# Informe de auditoría de pruebas unitarias — Corrida #{run_id}",
+        f"# Informe de pruebas — Corrida #{run_id}",
         "",
-        f"- **Proyecto:** {datos['proyecto']}",
-        f"- **Rama:** {rama}",
-        f"- **Fecha:** {datos['fecha']}",
-        f"- **Perfil:** {datos['perfil']} · **Funciones evaluadas:** {datos['total_funciones']} ({datos['criticas']} críticas)",
-        "- **Generado por:** QAgent (Planner → Generator → Reviewer)",
-        f"- **Modelos usados:** {modelos_txt}",
-        f"- **Costo por agente:** {costo_agentes_txt}",
-        f"- **Specs:** {datos['specs']['texto']}",
+        f"> **{respuesta}**",
         "",
-        "## 1. Resumen de las 5 métricas",
-        "",
-        "| Métrica | Resultado | Meta | Estado |",
-        "|---|---|---|---|",
+        "- " + " · ".join(meta_parts),
     ]
-    for m in datos["metricas"]:
-        icono = "✅" if m["cumple"] else "❌"
-        lineas.append(
-            f"| {m['nombre']} | {m['resultado']} | {m['meta']} | {icono} {m['estado']} |"
-        )
-    lineas.append(
-        f"| Costo por agente | {costo_agentes_txt} | Desglose por agente | Reportado |"
+    if datos.get("motivo_fallo"):
+        lineas.append(f"- **La corrida se detuvo:** {datos['motivo_fallo']}")
+    lineas.extend(
+        [
+            "",
+            "| Pasaron | Posibles bugs | Cobertura | Tokens de la corrida |",
+            "|---|---|---|---|",
+            f"| {pasaron} / {total} | {len(bugs)} | {_fmt_pct(cob.get('lineas'))} | {tokens_str} |",
+            f"| {total - pasaron} con algo por revisar | En {len(bugs)} de {total} | {sub_cob} | Sumando las tres etapas |",
+            "",
+            "## Metas de calidad",
+            "",
+            "| Métrica | Resultado | Meta | Estado |",
+            "|---|---|---|---|",
+        ]
     )
+    for m in datos["metricas"]:
+        nombre = METRICA.get(m.get("clave"), m.get("nombre", ""))
+        if m.get("clave") == "mutation_score" and m.get("criticas") is not None:
+            nombre = f"{nombre} ({m['criticas']} críticas)"
+        es_tokens = m.get("clave") == "costo"
+        resultado = (
+            f"{int(m.get('tokens_total') or 0):,} tokens".replace(",", ".")
+            if es_tokens
+            else str(m.get("resultado", ""))
+        )
+        meta = "Informativo" if es_tokens else str(m.get("meta", ""))
+        if es_tokens:
+            estado = "Informativo"
+            icono = "ℹ️"
+        elif m.get("cumple"):
+            estado = "Cumple"
+            icono = "✅"
+        else:
+            estado = "No cumple"
+            icono = "❌"
+        lineas.append(f"| {nombre} | {resultado} | {meta} | {icono} {estado} |")
     lineas.append("")
 
     salud = _salud_proyecto(datos)
@@ -1127,7 +1181,7 @@ def construir_markdown_informe(
             (
                 f"- **Balance de calidad:** ✅ {salud['aprobadas']} aprobadas · "
                 f"🐛 {salud['bugs']} defectos en código · "
-                f"🛡️ {salud['laundering']} laundering bloqueado · "
+                f"🛡️ {salud['laundering']} pruebas debilitadas bloqueadas · "
                 f"⏳ {salud['estancadas']} estancadas (de {salud['total']} evaluadas)"
             ),
             "",
@@ -1154,7 +1208,7 @@ def construir_markdown_informe(
         lineas.append(f"{idx_rec}. {rec}")
     lineas.append("")
     if salud["incidentes"]:
-        lineas.append("- **Puntos críticos que requieren corrección en el código:**")
+        lineas.append("- **Puntos de atención que requieren corrección en el código:**")
         for inc in salud["incidentes"]:
             det = f"`{inc['funcion']}` en `{inc['ubicacion']}`: {inc['causa']}"
             if inc["esperado"] is not None and inc["obtenido"] is not None:
@@ -1164,40 +1218,71 @@ def construir_markdown_informe(
             if inc.get("accion_sugerida"):
                 det += f" — *Sugerencia:* {inc['accion_sugerida']}"
             lineas.append(f"  - {det}")
+        lineas.append("")
+
+    if bugs:
+        lineas.extend(["## Por dónde empezar", ""])
+        for n, f in enumerate(bugs[:3], start=1):
+            nom = str(f.get("identificador") or f.get("funcion") or "Función")
+            lineas.append(f"### Prioridad {n}: Corrige `{nom}` · {f.get('modulo', '')}")
+            lineas.append("")
+            exp = _explicacion(f)
+            if exp:
+                lineas.append(exp.split("\n")[0])
+                lineas.append("")
+
+    lineas.extend(["## Datos de la corrida", ""])
+    modelos = datos.get("modelos") or {}
+    for clave, etapa in ETAPAS:
+        info = modelos.get(clave) or {}
+        if info.get("modelo"):
+            lineas.append(
+                f"- **{etapa}:** {info['modelo']} ({info.get('proveedor', '')})"
+            )
+    if specs_sin_ruta:
+        lineas.append(f"- **Trabajo del análisis:** {specs_sin_ruta}")
+    if datos.get("texto_categorias"):
+        lineas.append(f"- **Casos planificados:** {datos['texto_categorias']}")
+    lineas.append(
+        f"- **Funciones y endpoints:** {datos.get('total_funciones', 0)} revisados · {datos.get('criticas', 0)} críticos"
+    )
     lineas.append("")
 
     if opts["detalle"]:
         lineas.extend(
             [
-                "## 2. Resultado por función",
+                "## Resultado por función",
                 "",
-                "| Función | Módulo | Estado | Intentos | Cob. líneas | Cob. ramas | Mutation Score | Tokens |",
+                "| Función | Módulo | Estado | Intentos | Cob. líneas | Cob. ramas | Fortaleza | Tokens |",
                 "|---|---|---|---|---|---|---|---|\n".rstrip("\n"),
             ]
         )
-        for f in datos["funciones"]:
-            estado_lbl = ETIQUETAS_ESTADO.get(f["estado"], f["estado"])
+        for f in funciones:
+            etiqueta = BANDEJA.get(str(f.get("estado")), BANDEJA["sin_veredicto"])[1]
             ms_lbl = (
-                "N/A (no crítica)"
-                if not f["critical"]
+                "—"
+                if not f.get("critical")
                 else (
                     "Pendiente"
-                    if f["mutation_score"] is None
+                    if f.get("mutation_score") is None
                     else f"{f['mutation_score']:g}%"
                 )
             )
+            nom = str(f.get("identificador") or f.get("funcion") or "Función")
             lineas.append(
-                f"| {f['funcion']} | {f['modulo']} | {estado_lbl} | {f['iteraciones']}/3 | "
-                f"{_fmt_pct(f['cobertura_lineas'])} | {_fmt_pct(f['cobertura_ramas'])} | "
-                f"{ms_lbl} | {f['tokens']} |"
+                f"| `{nom}` | {f.get('modulo', '')} | {etiqueta} | {f.get('iteraciones', 1)}/3 | "
+                f"{_fmt_pct(f.get('cobertura_lineas'))} | {_fmt_pct(f.get('cobertura_ramas'))} | "
+                f"{ms_lbl} | {f.get('tokens', 0)} |"
             )
         lineas.append("")
         lineas.extend(_markdown_categorias(datos))
         lineas.extend(_markdown_ejecucion(datos, opts["trazas"]))
 
     if opts["trazas"]:
-        lineas.extend(["## 3. Trazas del Reviewer de los incidentes", ""])
-        incidentes = [f for f in datos["funciones"] if not f["verde"] or f.get("traza")]
+        lineas.extend(["## Trazas de los incidentes", ""])
+        incidentes = [
+            f for f in funciones if not f.get("verde", True) or f.get("traza")
+        ]
         if not incidentes:
             lineas.append(
                 "No se registraron incidentes ni trazas de fallo en esta corrida."
@@ -1205,16 +1290,18 @@ def construir_markdown_informe(
             lineas.append("")
         else:
             for f in incidentes:
-                estado_lbl = ETIQUETAS_ESTADO.get(f["estado"], f["estado"])
-                lineas.append(f"### {f['funcion']} ({f['modulo']}) — {estado_lbl}")
+                etiqueta = BANDEJA.get(str(f.get("estado")), BANDEJA["sin_veredicto"])[
+                    1
+                ]
+                nom = str(f.get("identificador") or f.get("funcion") or "Función")
+                lineas.append(f"### {nom} ({f['modulo']}) — {etiqueta}")
                 lineas.append("")
-                # Diagnóstico formal del incidente: qué parte falló y por qué
                 lineas.append(
                     f"- **Parte del código afectada:** `{f['modulo']}::{f['funcion']}`"
                 )
-                lineas.append(f"- **Veredicto del Reviewer:** {estado_lbl}")
+                lineas.append(f"- **Resultado:** {etiqueta}")
                 causa_incidente = f.get("motivo_fallo") or (
-                    "Assertion Laundering detectado (el Generator intentó debilitar o relajar aserciones para enmascarar un fallo)."
+                    "Se bloqueó un intento de debilitar pruebas (aserciones relajadas)."
                     if f.get("laundering_detectado")
                     else (
                         "Defecto confirmado en código (el test detectó una discrepancia frente a la especificación esperada)."
@@ -1225,19 +1312,16 @@ def construir_markdown_informe(
                 lineas.append(f"- **¿Por qué falló?:** {causa_incidente}")
                 if f.get("laundering_detectado"):
                     lineas.append(
-                        "- **Incidente de seguridad:** Assertion Laundering detectado "
-                        "(el Generator intentó debilitar o relajar aserciones para enmascarar un fallo)."
+                        "- **Incidente de integridad:** Criterio original conservado (se bloqueó un intento de relajar aserciones)."
                     )
                 intentos = f.get("intentos") or []
                 if intentos:
-                    lineas.append(
-                        f"- **Historial de intentos del Reviewer ({len(intentos)}/3):**"
-                    )
+                    lineas.append(f"- **Historial de intentos ({len(intentos)}/3):**")
                     for it in intentos:
                         dec = _ETIQUETA_DECISION.get(
                             str(it.get("decision")), it.get("decision")
                         )
-                        fb = it.get("feedback") or "Sin retroalimentación adicional."
+                        fb = it.get("feedback") or "Sin diagnóstico adicional."
                         lineas.append(
                             f"  - *Intento {it.get('intento')}:* Decisión `{dec}` · Diagnóstico: {fb}"
                         )
@@ -1274,19 +1358,20 @@ def construir_markdown_informe(
     if opts["codigo"]:
         lineas.extend(
             [
-                "## 4. Código de las pruebas generadas",
+                "## Código de las pruebas generadas",
                 "",
-                "_Anexo de referencia: suites de prueba pytest generadas por el Generator._",
+                "_Anexo de referencia: suites de prueba pytest generadas._",
                 "",
             ]
         )
-        for f in datos["funciones"]:
-            estado_lbl = ETIQUETAS_ESTADO.get(f["estado"], f["estado"])
+        for f in funciones:
+            etiqueta = BANDEJA.get(str(f.get("estado")), BANDEJA["sin_veredicto"])[1]
+            nom = str(f.get("identificador") or f.get("funcion") or "Función")
             lineas.append(f"### tests/test_{f['funcion']}.py ({f['modulo']})")
             lineas.append("")
             lineas.append(
-                f"- **Autor:** Generator (QAgent) · **Estado:** {estado_lbl} · "
-                f"**Iteraciones:** {f['iteraciones']}/3"
+                f"- **Suite de pruebas:** Generada con pytest hermético · **Estado:** {etiqueta} · "
+                f"**Iteraciones:** {f.get('iteraciones', 1)}/3"
             )
             lineas.append(
                 "- **Entorno de prueba:** Ejecución hermética en sandbox Docker sin acceso a red"
@@ -1303,24 +1388,25 @@ def construir_markdown_informe(
     if opts["contratos"]:
         lineas.extend(
             [
-                "## 5. Contratos JSON del Planner",
+                "## Contratos JSON del análisis",
                 "",
-                "_Anexo técnico secundario: especificaciones y contratos formales del Planner para auditoría de oráculos._",
+                "_Anexo técnico secundario: especificaciones y contratos formales para auditoría._",
                 "",
             ]
         )
-        for f in datos["funciones"]:
+        for f in funciones:
             contrato = f.get("contrato") or {}
             casos_plan = _resumen_casos_planner(contrato)
             crit_txt = (
                 "Sí (crítica, evaluada con mutation testing)"
-                if f["critical"]
+                if f.get("critical")
                 else "No (función estándar)"
             )
-            lineas.append(f"### {f['funcion']} ({f['modulo']})")
+            nom = str(f.get("identificador") or f.get("funcion") or "Función")
+            lineas.append(f"### {nom} ({f['modulo']})")
             lineas.append("")
             lineas.append(
-                f"- **Diseñado por:** Planner (QAgent) mediante análisis estático AST · "
+                f"- **Análisis:** Casos deducidos mediante análisis estático AST · "
                 f"**Criticidad:** {crit_txt}"
             )
             lineas.append(
@@ -1335,6 +1421,22 @@ def construir_markdown_informe(
                 lineas.append("_Sin contrato registrado para esta función._")
             lineas.append("")
 
+    entorno = _filas_entorno(datos)
+    if entorno:
+        lineas.extend(
+            [
+                "## Datos de la ejecución (anexo técnico)",
+                "",
+                "| Dato | Valor |",
+                "|---|---|",
+            ]
+        )
+        for etq, valor in entorno:
+            if etq == "Comando" and not opts["trazas"]:
+                continue
+            lineas.append(f"| {etq} | `{valor}` |")
+        lineas.append("")
+
     return sanitizar_secretos("\n".join(lineas), claves)
 
 
@@ -1346,28 +1448,60 @@ def construir_json_informe(
     """Construye el archivo `results_<run_id>.json` con las cifras de `results.json`."""
     opts = normalizar_opciones(opciones)
     base = copy.deepcopy(datos["results"])
-    base["specs"] = copy.deepcopy(datos["specs"])
-    base["costo_por_agente"] = copy.deepcopy(datos["costo_por_agente"])
+
+    # Eliminar costos monetarios y precios de tokens de la salida JSON para personas
+    if "resumen" in base and isinstance(base["resumen"], dict):
+        base["resumen"].pop("costo_total_usd", None)
+        base["resumen"].pop("tope_por_corrida_usd", None)
+        base["resumen"].pop("precio_entrada_usd_m", None)
+        base["resumen"].pop("precio_salida_usd_m", None)
+
+    if "modelos" in base and isinstance(base["modelos"], dict):
+        for m in base["modelos"].values():
+            if isinstance(m, dict):
+                m.pop("precio_entrada_usd_m", None)
+                m.pop("precio_salida_usd_m", None)
+
+    specs_clean = copy.deepcopy(datos.get("specs") or {})
+    if "texto" in specs_clean:
+        specs_clean["texto"] = specs_clean["texto"].split(" · guardados en")[0]
+    base["specs"] = specs_clean
+
+    tok_por_etapa = {
+        ag: {
+            "tokens": (datos.get("costo_por_agente") or {}).get(ag, {}).get("tokens", 0)
+        }
+        for ag in ("planner", "generator", "reviewer")
+    }
+    base["costo_por_agente"] = tok_por_etapa
+    base["tokens_por_etapa"] = tok_por_etapa
     base["metricas"] = copy.deepcopy(datos["metricas"])
     base["salud_proyecto"] = _salud_proyecto(datos)
-    base["agentes"] = {
-        "modelos": copy.deepcopy(datos["modelos"]),
-        "costo_por_agente": copy.deepcopy(datos["costo_por_agente"]),
+    base["etapas"] = {
+        "modelos": copy.deepcopy(base.get("modelos", {})),
+        "tokens_por_etapa": tok_por_etapa,
         "roles": {
-            "planner": "Analiza el AST del código, firmas, docstrings y dependencias para deducir casos de prueba formales.",
-            "generator": "Escribe las suites de pruebas pytest herméticas a partir de los contratos del Planner.",
-            "reviewer": "Ejecuta las pruebas en sandbox Docker, audita Assertion Laundering y emite veredictos de calidad.",
+            "analizando": "Analiza el AST del código, firmas, docstrings y dependencias para deducir casos de prueba.",
+            "escribiendo_pruebas": "Escribe las suites de pruebas pytest en un sandbox aislado.",
+            "verificando": "Ejecuta las pruebas en sandbox Docker y verifica los resultados.",
         },
     }
+    base["agentes"] = base["etapas"]
 
     if opts["detalle"]:
         base["ejecucion"] = _json_ejecucion(datos, opts["trazas"])
         detalles_fn = []
         for fn in datos["funciones"]:
+            nom = str(fn.get("identificador") or fn.get("funcion") or "Función")
+            etiqueta_bandeja = BANDEJA.get(
+                str(fn.get("estado")), BANDEJA["sin_veredicto"]
+            )[1]
             item: dict[str, Any] = {
                 "modulo": fn["modulo"],
                 "funcion": fn["funcion"],
+                "identificador": nom,
                 "estado": fn["estado"],
+                "estado_legible": etiqueta_bandeja,
             }
             if opts["trazas"]:
                 item["traza"] = fn.get("traza")
@@ -1379,29 +1513,48 @@ def construir_json_informe(
             contrato_fn = fn.get("contrato") or {}
             casos_plan = _resumen_casos_planner(contrato_fn)
             tok_ag = fn.get("tokens_por_agente") or {}
-            item["planner"] = {
+            info_analisis = {
                 "firma": fn.get("firma") or contrato_fn.get("firma") or fn["funcion"],
                 "critical": bool(fn.get("critical")),
                 "total_casos_planificados": len(casos_plan),
                 "casos_planificados": casos_plan,
                 "llama_a": contrato_fn.get("llama_a", []),
-                "tokens": tok_ag.get("planner", {}),
+                "tokens": (
+                    (tok_ag.get("planner") or {}).get("tokens", 0)
+                    if isinstance(tok_ag.get("planner"), dict)
+                    else tok_ag.get("planner", 0)
+                ),
             }
-            item["generator"] = {
+            info_pruebas = {
                 "archivo_test": f"tests/test_{fn['funcion']}.py",
                 "iteraciones": fn.get("iteraciones", 1),
                 "aislamiento": "sandbox_docker_sin_red",
                 "codigo": fn.get("codigo") if opts["codigo"] else None,
-                "tokens": tok_ag.get("generator", {}),
+                "tokens": (
+                    (tok_ag.get("generator") or {}).get("tokens", 0)
+                    if isinstance(tok_ag.get("generator"), dict)
+                    else tok_ag.get("generator", 0)
+                ),
             }
-            item["reviewer"] = {
-                "veredicto": fn.get("estado"),
-                "laundering_detectado": bool(fn.get("laundering_detectado")),
+            info_verificacion = {
+                "veredicto": etiqueta_bandeja,
+                "criterio_conservado": not bool(fn.get("laundering_detectado")),
                 "cobertura_lineas": fn.get("cobertura_lineas"),
                 "cobertura_ramas": fn.get("cobertura_ramas"),
                 "intentos": fn.get("intentos", []),
-                "tokens": tok_ag.get("reviewer", {}),
+                "tokens": (
+                    (tok_ag.get("reviewer") or {}).get("tokens", 0)
+                    if isinstance(tok_ag.get("reviewer"), dict)
+                    else tok_ag.get("reviewer", 0)
+                ),
             }
+            item["analisis"] = info_analisis
+            item["pruebas"] = info_pruebas
+            item["verificacion"] = info_verificacion
+            item["planner"] = info_analisis
+            item["generator"] = info_pruebas
+            item["reviewer"] = info_verificacion
+
             ejecucion_fn = fn.get("ejecucion") or {}
             casos_fallidos = [
                 {
@@ -1432,7 +1585,7 @@ def construir_json_informe(
                 if not ubicacion_fallo:
                     ubicacion_fallo = f"{fn['modulo']}::{fn['funcion']}"
             motivo_fallo = fn.get("motivo_fallo") or (
-                "Assertion Laundering detectado"
+                "Se bloqueó un intento de debilitar pruebas (aserciones relajadas)"
                 if fn.get("laundering_detectado")
                 else (
                     "Defecto confirmado en código"
@@ -1455,7 +1608,27 @@ def construir_json_informe(
     else:
         base["objetivos"] = []
 
-    limpio = _sanitizar_estructura(base, claves)
+    def _quitar_costos_json(obj: Any) -> Any:
+        if isinstance(obj, dict):
+            return {
+                k: _quitar_costos_json(v)
+                for k, v in obj.items()
+                if k
+                not in (
+                    "costo_usd",
+                    "costo_total_usd",
+                    "tope_por_corrida_usd",
+                    "precio_entrada_usd_m",
+                    "precio_salida_usd_m",
+                    "tope_usd",
+                )
+            }
+        if isinstance(obj, list):
+            return [_quitar_costos_json(elem) for elem in obj]
+        return obj
+
+    sin_costos = _quitar_costos_json(base)
+    limpio = _sanitizar_estructura(sin_costos, claves)
     texto = json.dumps(limpio, indent=2, ensure_ascii=False)
     return sanitizar_secretos(texto, claves)
 
@@ -1465,7 +1638,7 @@ def construir_html_informe(
     opciones: Mapping[str, Any] | None = None,
     claves: Claves | None = None,
 ) -> str:
-    """Construye un informe HTML interactivo con pestañas, gráficas y estadísticas."""
+    """Construye un informe HTML interactivo con la identidad del rediseño."""
     import html as html_mod
 
     opts = normalizar_opciones(opciones)
@@ -1476,21 +1649,66 @@ def construir_html_informe(
     run_id = esc(datos["run_id"])
     proyecto = esc(datos["proyecto"])
     rama = esc(datos.get("rama") or "sin repositorio Git")
-    fecha = esc(datos["fecha"])
+    fecha = esc(str(datos.get("fecha") or "")[:16].replace("T", " "))
     perfil = esc(datos["perfil"])
     total_fn = int(datos["total_funciones"])
     criticas = int(datos["criticas"])
-    specs_txt = esc(datos["specs"]["texto"])
+    specs = (datos.get("specs") or {}).get("texto") or ""
+    specs_txt = esc(specs.split(" · guardados en")[0])
     metricas = datos["metricas"]
-    cumple_count = sum(1 for m in metricas if m["cumple"])
+
+    funciones = sorted(
+        datos.get("funciones") or [],
+        key=lambda f: (
+            BANDEJA.get(str(f.get("estado")), BANDEJA["sin_veredicto"])[3],
+            not f.get("critical"),
+        ),
+    )
+    bugs = [
+        f
+        for f in funciones
+        if BANDEJA.get(str(f.get("estado")), BANDEJA["sin_veredicto"])[0] == "bug"
+    ]
+    sin = [
+        f
+        for f in funciones
+        if BANDEJA.get(str(f.get("estado")), BANDEJA["sin_veredicto"])[0]
+        in ("sin", "repetir")
+    ]
+    total = len(funciones)
+    if bugs:
+        nombre_pri = str(
+            bugs[0].get("identificador") or bugs[0].get("funcion") or "Función"
+        )
+        respuesta = f"{len(bugs)} {'posible bug' if len(bugs) == 1 else 'posibles bugs'}. Empieza por {nombre_pri}."
+    elif sin:
+        respuesta = "Sin posibles bugs, pero faltan pruebas por revisar."
+    else:
+        respuesta = f"Todo pasó: {total} {'función o endpoint verificado' if total == 1 else 'funciones y endpoints verificados'}."
+
+    m_dict = {x["clave"]: x for x in metricas}
+    pasaron = sum(
+        1
+        for f in funciones
+        if BANDEJA.get(str(f.get("estado")), BANDEJA["sin_veredicto"])[0] == "paso"
+    )
+    cob = m_dict.get("cobertura", {})
+    tokens_val = (m_dict.get("costo") or {}).get("tokens_total")
+    tokens_str = "—" if tokens_val is None else f"{int(tokens_val):,}".replace(",", ".")
+    sub_cob = (
+        "Ramas no exigidas en Humo"
+        if datos.get("perfil") == "Humo"
+        else f"{_fmt_pct(cob.get('ramas'))} de las ramas"
+    )
 
     filas_metricas = []
     for m in metricas:
-        pill = (
-            '<span class="pill pass">✓ Cumple</span>'
-            if m["cumple"]
-            else '<span class="pill fail">✗ No cumple</span>'
-        )
+        if m.get("clave") == "costo":
+            pill = '<span class="pill info">ℹ Informativo</span>'
+        elif m["cumple"]:
+            pill = '<span class="pill pass">✓ Cumple</span>'
+        else:
+            pill = '<span class="pill fail">✗ No cumple</span>'
         filas_metricas.append(
             f"<tr><td><b>{esc(m['nombre'])}</b></td><td>{esc(m['resultado'])}</td>"
             f"<td>{esc(m['meta'])}</td><td>{pill}</td></tr>"
@@ -1505,7 +1723,7 @@ def construir_html_informe(
             else "—"
         )
         accion_txt = (
-            f"<br><small style='color:#38bdf8'><b>Acción sugerida:</b> {esc(inc['accion_sugerida'])}</small>"
+            f"<br><small style='color:#388bfd'><b>Acción sugerida:</b> {esc(inc['accion_sugerida'])}</small>"
             if inc.get("accion_sugerida")
             else ""
         )
@@ -1516,7 +1734,7 @@ def construir_html_informe(
             f"<td><small>{esp_obt}</small></td></tr>"
         )
     tabla_puntos_html = (
-        f"<h3 style='margin:16px 0 6px 0;font-size:13.5px;color:#cbd5e1'>Puntos de atención que requieren corrección en el código</h3>"
+        f"<h3 style='margin:18px 0 8px 0;font-size:14px;color:#f0f6fc'>Puntos de atención que requieren corrección en el código</h3>"
         f"<table><thead><tr><th>Función</th><th>Ubicación (archivo:línea)</th><th>Causa del fallo y sugerencia</th><th>Esperado vs Obtenido</th></tr></thead>"
         f"<tbody>{''.join(filas_puntos)}</tbody></table>"
         if filas_puntos
@@ -1536,42 +1754,42 @@ def construir_html_informe(
         for r in salud["recomendaciones"]
     )
     color_score = (
-        "#10b981"
+        "#3fb950"
         if salud["indice_salud"] >= 75
-        else ("#f59e0b" if salud["indice_salud"] >= 50 else "#ef4444")
+        else ("#d29922" if salud["indice_salud"] >= 50 else "#f85149")
     )
 
     salud_html = (
-        f"<div style='background:#111c33;border:1px solid #334155;border-left:4px solid #3b82f6;border-radius:10px;padding:18px;margin:18px 0'>"
+        f"<div class='salud-card'>"
         f"<div style='display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;margin-bottom:12px'>"
         f"<div>"
-        f"<h3 style='margin:0 0 4px 0;font-size:16px;color:#93c5fd'>🏥 Estado de Salud del Proyecto</h3>"
-        f"<p style='margin:0;font-size:13px;color:#94a3b8'>Evaluación técnica para desarrolladores y auditoría de calidad</p>"
+        f"<h3 style='margin:0 0 4px 0;font-size:16px;color:#f0f6fc'>🏥 Estado de Salud del Proyecto</h3>"
+        f"<p style='margin:0;font-size:13px;color:#8b949e'>Evaluación técnica para desarrolladores y auditoría de calidad</p>"
         f"</div>"
         f"<div style='text-align:right'>"
-        f"<div style='font-size:24px;font-weight:800;color:{color_score}'>{salud['indice_salud']}/100</div>"
-        f"<small style='color:#cbd5e1;font-weight:600'>{esc(salud['nivel_madurez'])}</small>"
+        f"<div style='font-size:26px;font-weight:800;color:{color_score}'>{salud['indice_salud']}/100</div>"
+        f"<small style='color:#8b949e;font-weight:600'>{esc(salud['nivel_madurez'])}</small>"
         f"</div>"
         f"</div>"
         f"<p style='margin:0 0 12px 0;font-size:13px;line-height:1.5'>{esc(salud['diagnostico'])}</p>"
         f"<div style='display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px'>"
         f"<span class='pill pass'>✓ {salud['aprobadas']} aprobadas ({salud['pct_aprobadas']:.1f}%)</span>"
         f"<span class='pill fail'>🐛 {salud['bugs']} defectos en código</span>"
-        f"<span class='pill fail'>🛡️ {salud['laundering']} laundering bloqueado</span>"
-        f"<span class='pill' style='color:#f59e0b;font-weight:700'>⏳ {salud['estancadas']} estancadas</span>"
+        f"<span class='pill fail'>🛡️ {salud['laundering']} pruebas debilitadas bloqueadas</span>"
+        f"<span class='pill' style='color:#d29922;font-weight:700'>⏳ {salud['estancadas']} estancadas</span>"
         f"</div>"
         f"<div style='display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px;margin-top:14px'>"
-        f"<div style='background:#0d1527;border:1px solid #1e293b;border-radius:8px;padding:12px'>"
-        f"<h4 style='margin:0 0 8px 0;font-size:13px;color:#34d399'>🛡️ Fortalezas del Proyecto</h4>"
-        f"<ul style='margin:0;padding-left:16px;font-size:12.5px;color:#cbd5e1;line-height:1.45'>{fortalezas_items}</ul>"
+        f"<div class='salud-col'>"
+        f"<h4 style='margin:0 0 8px 0;font-size:13px;color:#3fb950'>🛡️ Fortalezas del Proyecto</h4>"
+        f"<ul style='margin:0;padding-left:16px;font-size:12.5px;color:#8b949e;line-height:1.45'>{fortalezas_items}</ul>"
         f"</div>"
-        f"<div style='background:#0d1527;border:1px solid #1e293b;border-radius:8px;padding:12px'>"
-        f"<h4 style='margin:0 0 8px 0;font-size:13px;color:#f87171'>⚠️ Deficiencias Detectadas</h4>"
-        f"<ul style='margin:0;padding-left:16px;font-size:12.5px;color:#cbd5e1;line-height:1.45'>{deficiencias_items}</ul>"
+        f"<div class='salud-col'>"
+        f"<h4 style='margin:0 0 8px 0;font-size:13px;color:#f85149'>⚠️ Deficiencias Detectadas</h4>"
+        f"<ul style='margin:0;padding-left:16px;font-size:12.5px;color:#8b949e;line-height:1.45'>{deficiencias_items}</ul>"
         f"</div>"
-        f"<div style='background:#0d1527;border:1px solid #1e293b;border-radius:8px;padding:12px'>"
-        f"<h4 style='margin:0 0 8px 0;font-size:13px;color:#38bdf8'>🚀 Plan de Mejora Accionable</h4>"
-        f"<ul style='margin:0;padding-left:16px;font-size:12.5px;color:#cbd5e1;line-height:1.45'>{recomendaciones_items}</ul>"
+        f"<div class='salud-col'>"
+        f"<h4 style='margin:0 0 8px 0;font-size:13px;color:#388bfd'>🚀 Plan de Mejora Accionable</h4>"
+        f"<ul style='margin:0;padding-left:16px;font-size:12.5px;color:#8b949e;line-height:1.45'>{recomendaciones_items}</ul>"
         f"</div>"
         f"</div>"
         f"{tabla_puntos_html}"
@@ -1579,14 +1797,16 @@ def construir_html_informe(
     )
 
     tarjetas_fn = []
-    for f in datos["funciones"]:
-        est = esc(ETIQUETAS_ESTADO.get(str(f.get("estado", "")), f.get("estado", "")))
+    for f in funciones:
+        _, etiqueta, clase, _ = BANDEJA.get(
+            str(f.get("estado")), BANDEJA["sin_veredicto"]
+        )
         ms_lbl = (
-            "N/A"
-            if not f["critical"]
+            "—"
+            if not f.get("critical")
             else (
                 "Pendiente"
-                if f["mutation_score"] is None
+                if f.get("mutation_score") is None
                 else f"{f['mutation_score']:g}%"
             )
         )
@@ -1598,6 +1818,7 @@ def construir_html_informe(
             or f.get("manejador")
             or f["funcion"]
         )
+        nom = str(f.get("identificador") or f.get("funcion") or "Función")
         casos_plan_txt = "".join(
             f"<li><b>[{esc(cp['id'])}]</b> {esc(cp['descripcion'])}"
             + (
@@ -1639,9 +1860,9 @@ def construir_html_informe(
         )
 
         laund_txt = (
-            "<span class='pill fail'>Laundering detectado</span>"
+            "<span class='pill fail'>Se bloqueó debilitar prueba</span>"
             if f.get("laundering_detectado")
-            else "<span class='pill pass'>Aserciones estrictas</span>"
+            else "<span class='pill pass'>Criterio conservado</span>"
         )
         llama_a = contrato.get("llama_a")
         llama_html = (
@@ -1650,26 +1871,27 @@ def construir_html_informe(
             else ""
         )
 
+        badge_class = f"badge-{clase}"
         tarjetas_fn.append(
             f"<div class='fn-card'>"
             f"<div style='display:flex;justify-content:space-between;align-items:center;margin-bottom:8px'>"
-            f"<b>{esc(f['funcion'])}</b> <span>({esc(f['modulo'])})</span> — <span class='badge'>{est}</span>"
+            f"<b><code>{esc(nom)}</code></b> <span>({esc(f['modulo'])})</span> — <span class='badge {badge_class}'>{esc(etiqueta)}</span>"
             f"</div>"
-            f"<small>Intentos: {f['iteraciones']}/3 · Cob. líneas: {_fmt_pct(f['cobertura_lineas'])} · "
-            f"Cob. ramas: {_fmt_pct(f['cobertura_ramas'])} · Mutation Score: {esc(ms_lbl)} · "
-            f"Tokens: {f['tokens']}</small>"
+            f"<small>Intentos: {f.get('iteraciones', 1)}/3 · Cob. líneas: {_fmt_pct(f.get('cobertura_lineas'))} · "
+            f"Cob. ramas: {_fmt_pct(f.get('cobertura_ramas'))} · Fortaleza: {esc(ms_lbl)} · "
+            f"Tokens: {f.get('tokens', 0)}</small>"
             f"<div class='agent-grid'>"
-            f"<div class='agent-box'><h4>📋 Planner (Análisis AST)</h4>"
-            f"<p><small><b>Firma:</b> <code>{esc(firma)}</code> | <b>Criticidad:</b> {'Crítica' if f['critical'] else 'Estándar'}</small></p>"
+            f"<div class='agent-box'><h4>📋 Análisis (AST)</h4>"
+            f"<p><small><b>Firma:</b> <code>{esc(firma)}</code> | <b>Criticidad:</b> {'Crítica' if f.get('critical') else 'Estándar'}</small></p>"
             f"{llama_html}"
-            f"<details><summary>Casos planificados ({len(casos_plan)})</summary>{casos_plan_html}</details>"
+            f"<details><summary>Casos deducidos ({len(casos_plan)})</summary>{casos_plan_html}</details>"
             f"</div>"
-            f"<div class='agent-box'><h4>⚙️ Generator (Suite pytest)</h4>"
+            f"<div class='agent-box'><h4>⚙️ Suite pytest</h4>"
             f"<p><small><b>Archivo:</b> <code>tests/test_{esc(f['funcion'])}.py</code></small></p>"
-            f"<p><small><b>Iteraciones:</b> {f['iteraciones']}/3 | <b>Aislamiento:</b> Sandbox Docker hermético</small></p>"
+            f"<p><small><b>Iteraciones:</b> {f.get('iteraciones', 1)}/3 | <b>Aislamiento:</b> Sandbox Docker hermético</small></p>"
             f"</div>"
-            f"<div class='agent-box'><h4>🛡️ Reviewer & Ejecutor</h4>"
-            f"<p><small><b>Veredicto:</b> {est} | <b>Laundering:</b> {laund_txt}</small></p>"
+            f"<div class='agent-box'><h4>🛡️ Verificación</h4>"
+            f"<p><small><b>Veredicto:</b> {esc(etiqueta)} | <b>Integridad:</b> {laund_txt}</small></p>"
             f"<details><summary>Historial de intentos y diagnósticos</summary>{intentos_html}</details>"
             f"</div>"
             f"</div>"
@@ -1677,17 +1899,26 @@ def construir_html_informe(
         )
 
     tarjetas_inc = []
-    incidentes = [f for f in datos["funciones"] if not f["verde"] or f.get("traza")]
+    incidentes = [f for f in funciones if not f.get("verde", True) or f.get("traza")]
     if not incidentes:
         tarjetas_inc.append(
             "<p>No se registraron incidentes ni trazas de fallo en esta corrida.</p>"
         )
     else:
         for f in incidentes:
-            est = esc(
-                ETIQUETAS_ESTADO.get(str(f.get("estado", "")), f.get("estado", ""))
+            _, etiqueta, clase, _ = BANDEJA.get(
+                str(f.get("estado")), BANDEJA["sin_veredicto"]
             )
-            motivo = f.get("motivo_fallo") or "Error detectado durante la validación"
+            nom = str(f.get("identificador") or f.get("funcion") or "Función")
+            motivo = f.get("motivo_fallo") or (
+                "Se bloqueó un intento de debilitar pruebas (aserciones relajadas)"
+                if f.get("laundering_detectado")
+                else (
+                    "Defecto confirmado en código"
+                    if f.get("estado") == "bug_detectado"
+                    else "Error detectado durante la validación"
+                )
+            )
             ejec_f = f.get("ejecucion") or {}
             casos_fallidos = [
                 c
@@ -1713,9 +1944,9 @@ def construir_html_informe(
             )
 
             laund_alerta = (
-                "<div style='background:#450a0a;border:1px solid #991b1b;color:#fecdd3;padding:8px 12px;border-radius:6px;margin:8px 0;font-size:12px'>"
-                "<b>🛡️ Alerta de integridad:</b> Assertion Laundering detectado "
-                "(el Generator intentó debilitar o relajar aserciones para ocultar un fallo)."
+                "<div class='alerta-laundering'>"
+                "<b>🛡️ Alerta de integridad:</b> Criterio original conservado "
+                "(se bloqueó un intento de relajar o debilitar las aserciones)."
                 "</div>"
                 if f.get("laundering_detectado")
                 else ""
@@ -1727,14 +1958,14 @@ def construir_html_informe(
                 if it.get("feedback")
             )
             fb_html = (
-                f"<details style='margin:8px 0'><summary style='cursor:pointer;color:#93c5fd;font-size:12px'>"
-                f"Diagnósticos del Reviewer por intento ({len(f.get('intentos') or [])})</summary>"
+                f"<details style='margin:8px 0'><summary style='cursor:pointer;color:#388bfd;font-size:12px'>"
+                f"Diagnósticos por intento ({len(f.get('intentos') or [])})</summary>"
                 f"<ul>{fb_list}</ul></details>"
                 if fb_list
                 else ""
             )
             traza_html = (
-                f"<details open style='margin-top:8px'><summary style='cursor:pointer;color:#f87171;font-size:12px'>Traza del error en pytest</summary>"
+                f"<details open style='margin-top:8px'><summary style='cursor:pointer;color:#f85149;font-size:12px'>Traza del error en pytest</summary>"
                 f"<pre class='fallo'>{esc(f['traza'])}</pre></details>"
                 if f.get("traza")
                 else "<p><i>Sin traza registrada.</i></p>"
@@ -1742,8 +1973,8 @@ def construir_html_informe(
             tarjetas_inc.append(
                 f"<div class='fn-card'>"
                 f"<div style='display:flex;justify-content:space-between;align-items:center;margin-bottom:8px'>"
-                f"<h3>{esc(f['funcion'])} <span style='font-weight:400;color:#94a3b8'>({esc(f['modulo'])})</span></h3>"
-                f"<span class='badge'>{est}</span>"
+                f"<h3><code>{esc(nom)}</code> <span style='font-weight:400;color:#8b949e'>({esc(f['modulo'])})</span></h3>"
+                f"<span class='badge badge-{clase}'>{esc(etiqueta)}</span>"
                 f"</div>"
                 f"<p style='margin:4px 0;font-size:13px'><b>Parte del código afectada:</b> <code>{esc(f['modulo'])}::{esc(f['funcion'])}</code></p>"
                 f"<p style='margin:4px 0;font-size:13px'><b>¿Por qué falló?:</b> {esc(motivo)}</p>"
@@ -1755,7 +1986,7 @@ def construir_html_informe(
             )
 
     tarjetas_cod = []
-    for f in datos["funciones"]:
+    for f in funciones:
         cod = f.get("codigo")
         cod_html = (
             f"<pre><code>{esc(cod)}</code></pre>"
@@ -1767,7 +1998,7 @@ def construir_html_informe(
         )
 
     tarjetas_con = []
-    for f in datos["funciones"]:
+    for f in funciones:
         con = f.get("contrato")
         con_str = json.dumps(con, indent=2, ensure_ascii=False) if con else None
         con_html = (
@@ -1779,76 +2010,155 @@ def construir_html_informe(
             f"<div class='fn-card'><b>{esc(f['funcion'])}</b> ({esc(f['modulo'])})<br>{con_html}</div>"
         )
 
-    por_ag = datos["costo_por_agente"]
     modelos_str = " · ".join(
-        f"{NOMBRES_AGENTE.get(ag, ag)}: {esc(datos['modelos'][ag]['modelo'])}"
-        for ag in AGENTES
-        if ag in datos["modelos"]
+        f"{esc(etapa)}: {esc(datos['modelos'][ag]['modelo'])}"
+        for ag, etapa in ETAPAS
+        if ag in datos.get("modelos", {})
     )
-    costo_str = " · ".join(
-        f"{NOMBRES_AGENTE.get(ag, ag)}: {por_ag[ag]['tokens']} tokens (US$ {(por_ag[ag]['costo_usd'] or 0.0):.4f})"
-        for ag in AGENTES
-        if ag in por_ag
+
+    prioridades_items = []
+    if bugs:
+        for n, f in enumerate(bugs[:3], start=1):
+            nom = str(f.get("identificador") or f.get("funcion") or "Función")
+            exp = _explicacion(f)
+            exp_txt = (
+                f"<p style='margin:4px 0 0 0;font-size:13px;color:#8b949e'>"
+                f"{esc(exp.splitlines()[0])}</p>"
+                if exp
+                else ""
+            )
+            prioridades_items.append(
+                f"<div class='prioridad-card'>"
+                f"<div style='font-size:11px;font-weight:700;color:#388bfd;text-transform:uppercase'>Prioridad {n}</div>"
+                f"<div style='font-size:15px;font-weight:700;margin-top:2px'>Corrige <code>{esc(nom)}</code> · {esc(f.get('modulo', ''))}</div>"
+                f"{exp_txt}"
+                f"</div>"
+            )
+    prioridades_html = (
+        "".join(prioridades_items)
+        if prioridades_items
+        else "<p>No hay posibles bugs que requieran acción prioritaria.</p>"
+    )
+
+    filas_entorno_html = "".join(
+        f"<tr><th>{esc(k)}</th><td><code>{esc(v)}</code></td></tr>"
+        for k, v in _filas_entorno(datos)
+        if k != "Comando" or opts["trazas"]
     )
 
     return f"""<!DOCTYPE html>
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<title>Informe Interactivo QAgent — Corrida #{run_id}</title>
+<title>Informe QAgent — Corrida #{run_id}</title>
 <style>
-body{{font-family:system-ui,-apple-system,sans-serif;background:#0f172a;color:#f8fafc;margin:0;padding:24px}}
+body{{font-family:system-ui,-apple-system,sans-serif;background:#0e1117;color:#f0f6fc;margin:0;padding:24px;line-height:1.5}}
 .wrap{{max-width:1100px;margin:0 auto}}
-.header{{background:linear-gradient(135deg,#1e293b,#0f172a);border:1px solid #334155;border-radius:14px;padding:24px;margin-bottom:18px}}
+.header{{background:#161b22;border:1px solid #30363d;border-radius:12px;padding:24px;margin-bottom:18px}}
+.header-top{{display:flex;align-items:center;gap:12px;margin-bottom:12px}}
+.header-title{{margin:0;font-size:20px;font-weight:700;display:flex;align-items:center;gap:10px}}
+.header-meta{{margin:0 0 16px 0;font-size:13px;color:#8b949e}}
+.respuesta{{font-size:17px;font-weight:600;color:#f0f6fc;margin:0 0 16px 0;padding:12px 16px;background:#21262d;border-radius:8px;border-left:4px solid #1f6feb}}
+.cifras-grid{{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin-top:16px}}
+.cifra-card{{background:#21262d;border:1px solid #30363d;border-radius:8px;padding:14px}}
+.cifra-etq{{font-size:12px;color:#8b949e;margin-bottom:4px}}
+.cifra-val{{font-size:22px;font-weight:800;color:#f0f6fc}}
+.cifra-val.val-bug{{color:#f85149}}
+.cifra-sub{{font-size:11px;color:#6e7681;margin-top:2px}}
 .tabs{{display:flex;gap:8px;margin-bottom:18px;flex-wrap:wrap}}
-.tab{{padding:10px 18px;border-radius:10px;background:#1e293b;border:1px solid #334155;color:#cbd5e1;cursor:pointer;font-weight:700}}
-.tab.active{{background:#2563eb;border-color:#3b82f6;color:#fff}}
-.panel{{display:none;background:#1e293b;border:1px solid #334155;border-radius:14px;padding:20px}}
+.tab{{padding:9px 16px;border-radius:8px;background:#161b22;border:1px solid #30363d;color:#8b949e;cursor:pointer;font-weight:600;font-size:13px}}
+.tab:hover{{color:#f0f6fc;background:#21262d}}
+.tab.active{{background:#1f6feb;border-color:#388bfd;color:#fff}}
+.panel{{display:none;background:#161b22;border:1px solid #30363d;border-radius:12px;padding:20px}}
 .panel.active{{display:block}}
 table{{width:100%;border-collapse:collapse;margin-top:12px}}
-th,td{{padding:10px 12px;border-bottom:1px solid #334155;text-align:left}}
-.pill.pass{{color:#34d399;font-weight:700}}.pill.fail{{color:#fb7185;font-weight:700}}
-.fn-card{{padding:14px;border:1px solid #334155;border-radius:10px;margin-bottom:12px;background:#0f172a}}
+th,td{{padding:10px 12px;border-bottom:1px solid #30363d;text-align:left;font-size:13px}}
+th{{color:#8b949e;font-weight:600}}
+.pill{{display:inline-block;padding:2px 8px;border-radius:12px;font-size:11.5px;font-weight:700}}
+.pill.pass{{background:#0d2818;color:#3fb950;border:1px solid #238636}}
+.pill.fail{{background:#3a0e10;color:#f85149;border:1px solid #da3633}}
+.pill.info{{background:#13233a;color:#58a6ff;border:1px solid #1f6feb}}
+.badge{{display:inline-block;padding:3px 8px;border-radius:6px;font-size:11px;font-weight:700}}
+.badge-exito{{background:#0d2818;color:#3fb950;border:1px solid #238636}}
+.badge-bug{{background:#3a0e10;color:#f85149;border:1px solid #da3633}}
+.badge-error{{background:#2a123d;color:#d2a8ff;border:1px solid #8957e5}}
+.badge-aviso{{background:#341f02;color:#d29922;border:1px solid #9e6a03}}
+.salud-card{{background:#161b22;border:1px solid #30363d;border-left:4px solid #1f6feb;border-radius:8px;padding:16px;margin:16px 0}}
+.salud-col{{background:#21262d;border:1px solid #30363d;border-radius:8px;padding:12px}}
+.fn-card{{padding:14px;border:1px solid #30363d;border-radius:8px;margin-bottom:12px;background:#0e1117}}
 .agent-grid{{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:10px;margin-top:10px}}
-.agent-box{{background:#111c33;border:1px solid #334155;border-radius:8px;padding:10px}}
-.agent-box h4{{margin:0 0 6px 0;font-size:13px;color:#93c5fd}}
-.agent-box p{{margin:4px 0;font-size:12px}}
-.agent-box ul{{margin:4px 0 4px 18px;padding:0;font-size:11.5px}}
-.agent-box details summary{{cursor:pointer;color:#60a5fa;font-size:12px;margin-top:4px}}
-.caso{{padding:8px 10px;border-left:3px solid #334155;margin:6px 0;background:#111c33;border-radius:6px}}
-.caso.paso{{border-color:#34d399}}.caso.fallo{{border-color:#fb7185}}.caso.omitido{{border-color:#94a3b8}}
-.caso pre,details pre{{white-space:pre-wrap;overflow-wrap:anywhere;background:#020617;border:1px solid #334155;border-radius:6px;padding:8px;font-size:12px}}
-.caso pre.fallo,pre.fallo{{color:#fecdd3;background:#450a0a;border:1px solid #991b1b;padding:10px;border-radius:6px;white-space:pre-wrap}}
-code{{font-family:ui-monospace,monospace}}
+.agent-box{{background:#161b22;border:1px solid #30363d;border-radius:8px;padding:12px}}
+.agent-box h4{{margin:0 0 6px 0;font-size:13px;color:#f0f6fc}}
+.agent-box p{{margin:4px 0;font-size:12px;color:#8b949e}}
+.agent-box ul{{margin:4px 0 4px 18px;padding:0;font-size:11.5px;color:#8b949e}}
+.agent-box details summary{{cursor:pointer;color:#388bfd;font-size:12px;margin-top:4px}}
+.prioridad-card{{background:#21262d;border:1px solid #30363d;border-left:4px solid #388bfd;border-radius:8px;padding:14px;margin-bottom:12px}}
+.alerta-laundering{{background:#341f02;border:1px solid #9e6a03;color:#f0e6d2;padding:8px 12px;border-radius:6px;margin:8px 0;font-size:12px}}
+.caso{{padding:8px 10px;border-left:3px solid #30363d;margin:6px 0;background:#161b22;border-radius:6px;font-size:12px}}
+.caso.paso{{border-color:#3fb950}}.caso.fallo{{border-color:#f85149}}.caso.omitido{{border-color:#8b949e}}
+.caso pre,details pre{{white-space:pre-wrap;overflow-wrap:anywhere;background:#0e1117;border:1px solid #30363d;border-radius:6px;padding:8px;font-size:12px}}
+.caso pre.fallo,pre.fallo{{color:#ff7b72;background:#3a0e10;border:1px solid #da3633;padding:10px;border-radius:6px;white-space:pre-wrap}}
+pre{{background:#0e1117;border:1px solid #30363d;border-radius:6px;padding:12px;overflow-x:auto;font-size:12px}}
+code{{font-family:ui-monospace,SFMono-Regular,Consolas,monospace}}
 </style>
 </head>
 <body>
 <div class="wrap">
   <div class="header">
-    <h1>Informe Interactivo de Auditoría — Corrida #{run_id}</h1>
-    <p>Proyecto: {proyecto} · Rama: {rama} · Fecha: {fecha} · Perfil: {perfil} · Funciones: {total_fn} ({criticas} críticas) · Cumplimiento: {cumple_count}/5</p>
-    <p><small>Modelos: {modelos_str} | Costo por agente: {costo_str} | Specs: {specs_txt}</small></p>
+    <div class="header-top">
+      <svg width="28" height="28" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="QAgent">
+        <path d="M70.4002 9.46875H25.8076L8.17798 27.3188V65.1188L25.8076 82.9688H62.1039L69.2248 74.9349M69.2248 74.9349L81.6039 60.9688M69.2248 74.9349L61 67M69.2248 74.9349L85.3909 90.5312M40 46L55.8909 62L91.8219 24.5" stroke-width="7.6" stroke-linecap="square" stroke="#F1F3F6"/>
+      </svg>
+      <h1 class="header-title">QAgent · Informe de pruebas — Corrida #{run_id}</h1>
+    </div>
+    <div class="respuesta">{respuesta}</div>
+    <p class="header-meta">Proyecto: <b>{proyecto}</b> · Rama: <b>{rama}</b> · Fecha: <b>{fecha}</b> · Perfil: <b>{perfil}</b> · Funciones: <b>{total_fn}</b> ({criticas} críticas)</p>
+    <p class="header-meta"><small>Etapas: {modelos_str} · Specs: {specs_txt}</small></p>
+    <div class="cifras-grid">
+      <div class="cifra-card">
+        <div class="cifra-etq">Pasaron</div>
+        <div class="cifra-val">{pasaron} / {total}</div>
+        <div class="cifra-sub">{total - pasaron} con algo por revisar</div>
+      </div>
+      <div class="cifra-card">
+        <div class="cifra-etq">Posibles bugs</div>
+        <div class="cifra-val{" val-bug" if bugs else ""}">{len(bugs)}</div>
+        <div class="cifra-sub">En {len(bugs)} de {total}</div>
+      </div>
+      <div class="cifra-card">
+        <div class="cifra-etq">Cobertura</div>
+        <div class="cifra-val">{_fmt_pct(cob.get("lineas"))}</div>
+        <div class="cifra-sub">{sub_cob}</div>
+      </div>
+      <div class="cifra-card">
+        <div class="cifra-etq">Tokens de la corrida</div>
+        <div class="cifra-val">{tokens_str}</div>
+        <div class="cifra-sub">Sumando las tres etapas</div>
+      </div>
+    </div>
   </div>
   <div class="tabs">
-    <button class="tab active" onclick="verTab('t1',this)">1. Resumen y KPIs</button>
+    <button class="tab active" onclick="verTab('t1',this)">1. Resumen y Metas</button>
     <button class="tab" onclick="verTab('t2',this)">2. Detalle por Función</button>
     <button class="tab" onclick="verTab('t3',this)">3. Casos y ejecución</button>
-    <button class="tab" onclick="verTab('t4',this)">4. Incidentes y Errores</button>
+    <button class="tab" onclick="verTab('t4',this)">4. Dónde falló el código (Incidentes)</button>
     <button class="tab" onclick="verTab('t5',this)">5. Suites Generadas (Anexo)</button>
-    <button class="tab" onclick="verTab('t6',this)">6. Contratos Planner (Anexo Secundario)</button>
+    <button class="tab" onclick="verTab('t6',this)">6. Contratos del análisis (Anexo Secundario)</button>
+    <button class="tab" onclick="verTab('t7',this)">7. Datos de la ejecución (Anexo Técnico)</button>
   </div>
   <div id="t1" class="panel active">
-    <h2>1. Resumen de las 5 métricas</h2>
+    <h2>1. Metas de calidad y Por dónde empezar</h2>
+    {prioridades_html}
     {salud_html}
     <table><thead><tr><th>Métrica</th><th>Resultado</th><th>Meta</th><th>Estado</th></tr></thead>
     <tbody>{"".join(filas_metricas)}</tbody></table>
   </div>
   <div id="t2" class="panel">
-    <h2>2. Resultado por función y actividad de agentes</h2>
+    <h2>2. Resultado por función</h2>
     {"".join(tarjetas_fn) if opts["detalle"] else "<p>Sección opcional desactivada.</p>"}
   </div>
   <div id="t3" class="panel">
-    <h2>3. Casos de prueba y datos de la ejecución</h2>
+    <h2>3. Casos y ejecución</h2>
     {_html_ejecucion(datos, opts["trazas"], esc) if opts["detalle"] else "<p>Sección opcional desactivada.</p>"}
   </div>
   <div id="t4" class="panel">
@@ -1856,12 +2166,16 @@ code{{font-family:ui-monospace,monospace}}
     {"".join(tarjetas_inc) if opts["trazas"] else "<p>Sección opcional desactivada.</p>"}
   </div>
   <div id="t5" class="panel">
-    <h2>5. Código de las pruebas generadas (Generator — Anexo)</h2>
+    <h2>5. Código de las pruebas generadas (Anexo)</h2>
     {"".join(tarjetas_cod) if opts["codigo"] else "<p>Sección opcional desactivada.</p>"}
   </div>
   <div id="t6" class="panel">
-    <h2>6. Contratos JSON del Planner (Anexo Secundario)</h2>
+    <h2>6. Contratos JSON del análisis (Anexo Secundario)</h2>
     {"".join(tarjetas_con) if opts["contratos"] else "<p>Sección opcional desactivada.</p>"}
+  </div>
+  <div id="t7" class="panel">
+    <h2>7. Datos de la ejecución (Anexo Técnico)</h2>
+    <table><tbody>{filas_entorno_html}</tbody></table>
   </div>
 </div>
 <script>
@@ -2001,100 +2315,6 @@ def verificar_archivo_sin_claves(ruta: str | Path) -> list[Hallazgo]:
 
 def _fmt_pct(valor: float | None) -> str:
     return "—" if valor is None else f"{valor:.1f}%"
-
-
-def _normalizar_para_pdf(texto: str) -> str:
-    """Convierte símbolos fuera de Windows-1252 a equivalentes legibles en Type1."""
-    reemplazos = {
-        "≥": ">=",
-        "≤": "<=",
-        "→": "->",
-        "✅": "[OK]",
-        "❌": "[NO]",
-        "☑️": "[OK]",
-        "⚠️": "[!]",
-        "♻": "",
-        "↻": "",
-        "★": "*",
-        "—": "-",
-        "–": "-",
-        "…": "...",
-    }
-    for orig, dest in reemplazos.items():
-        texto = texto.replace(orig, dest)
-    return texto
-
-
-def _escapar_literal_pdf(texto: str) -> str:
-    """Codifica una cadena en literal PDF con escapes octales para caracteres no ASCII.
-
-    Al usar escapes octales `\\ddd` (WinAnsiEncoding / cp1252), el archivo PDF es
-    100 % ASCII/UTF-8 en disco (revisable directamente por `auditoria.py`) y muestra
-    todas las tildes y eñes correctamente en cualquier visor PDF.
-    """
-    normalizado = _normalizar_para_pdf(texto).replace("\t", "    ")
-    datos = normalizado.encode("cp1252", errors="replace")
-    partes: list[str] = []
-    for byte in datos:
-        if byte == 0x5C:  # \
-            partes.append("\\\\")
-        elif byte == 0x28:  # (
-            partes.append("\\(")
-        elif byte == 0x29:  # )
-            partes.append("\\)")
-        elif 32 <= byte <= 126:
-            partes.append(chr(byte))
-        elif byte >= 128:
-            partes.append(f"\\{byte:03o}")
-    return "".join(partes)
-
-
-def _decodificar_literal_pdf(cuerpo: str) -> str:
-    """Inversa de `_escapar_literal_pdf` para pruebas y auditoría."""
-    salida = bytearray()
-    i = 0
-    n = len(cuerpo)
-    while i < n:
-        ch = cuerpo[i]
-        if ch == "\\" and i + 1 < n:
-            sig = cuerpo[i + 1]
-            if sig in "\\()":
-                salida.append(ord(sig))
-                i += 2
-                continue
-            if i + 4 <= n and all(c in "01234567" for c in cuerpo[i + 1 : i + 4]):
-                salida.append(int(cuerpo[i + 1 : i + 4], 8))
-                i += 4
-                continue
-        salida.append(ord(ch) if ord(ch) < 256 else ord("?"))
-        i += 1
-    return bytes(salida).decode("cp1252", errors="replace")
-
-
-def _envolver_linea(texto: str, max_caracteres: int = 92) -> list[str]:
-    """Envuelve una línea larga respetando palabras."""
-    if len(texto) <= max_caracteres:
-        return [texto]
-    palabras = texto.split(" ")
-    lineas: list[str] = []
-    actual = ""
-    for palabra in palabras:
-        while len(palabra) > max_caracteres:
-            if actual:
-                lineas.append(actual)
-                actual = ""
-            lineas.append(palabra[:max_caracteres])
-            palabra = palabra[max_caracteres:]
-        if not actual:
-            actual = palabra
-        elif len(actual) + 1 + len(palabra) <= max_caracteres:
-            actual = f"{actual} {palabra}"
-        else:
-            lineas.append(actual)
-            actual = palabra
-    if actual or not lineas:
-        lineas.append(actual)
-    return lineas
 
 
 def _escribir_bytes_atomico(ruta: Path, datos: bytes) -> None:
