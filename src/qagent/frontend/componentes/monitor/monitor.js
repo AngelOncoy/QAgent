@@ -167,7 +167,7 @@ function pintarProgreso(){
   const a = PRG.actual;
   $('prgActual').innerHTML = !a ? '<h2>Función actual</h2><p class="np-texto">Esperando el primer paso de la corrida…</p>'
     : `<h2>${PRG.fin ? 'Última función' : 'Función actual'}</h2>
-      <div class="prg-actual-cab"><span class="prg-actual-nombre">${escHtml(a.fn)}</span>
+      <div class="prg-actual-cab"><span><span class="prg-actual-nombre">${escHtml(a.fn)}</span>${docstringDeObjetivo(a.f, a.fn) === false ? etiquetaSinDocstring(a.tipo === 'endpoint' ? 'endpoint' : 'funcion') : ''}</span>
         ${PRG.fin ? '' : `<span class="np-chip np-chip-progreso">${ICO_GIRANDO}${(ETAPAS_PRG.find(e => e.k === a.etapa) || {t:'En curso'}).t}</span>`}</div>
       <span class="bnj-ruta">${escHtml(a.f || '')}${a.tipo === 'endpoint' ? ' · Endpoint' : ''}</span>
       <span class="np-meta">${a.pasos} ${a.pasos === 1 ? 'paso registrado' : 'pasos registrados'} en esta función</span>

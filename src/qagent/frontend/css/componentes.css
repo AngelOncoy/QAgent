@@ -38,3 +38,7 @@ td .sub{font-family:var(--fuente-mono);font-size:10.5px;color:var(--texto-3)}
 
 .toast{position:fixed;left:50%;bottom:24px;transform:translate(-50%,20px);opacity:0;pointer-events:none;transition:.25s;background:var(--superficie-2);border:var(--borde-ancho) solid var(--borde-fuerte);border-radius:var(--radio-control);padding:11px 16px;display:flex;gap:10px;align-items:center;font-size:12.5px;z-index:40;box-shadow:var(--sombra-modal);max-width:80vw;color:var(--texto)}
 .toast.show{opacity:1;transform:translate(-50%,0)}
+/* Etiqueta «Sin docstring» (issue 114): informa, no alarma; tooltip con el mouse y con el teclado */
+.etq-sin-doc{display:inline-flex;align-items:center;margin-left:var(--esp-2);padding:0 var(--esp-2);border-radius:var(--radio-chip);border:var(--borde-ancho) dashed var(--borde-fuerte);background:var(--superficie-2);color:var(--texto-2);font-family:var(--fuente-ui);font-size:var(--texto-meta);font-weight:500;line-height:1.6;white-space:nowrap;vertical-align:middle;cursor:help}
+.etq-sin-doc:focus-visible{outline:2px solid var(--foco-anillo);outline-offset:1px}
+.bnj-item-cab .etq-sin-doc{margin-left:0}
