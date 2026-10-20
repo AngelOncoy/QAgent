@@ -76,7 +76,7 @@ Para ver solo la interfaz, sin Python, abre `src/qagent/frontend/index.html` en 
 | Qué | Cómo |
 |---|---|
 | Probar el paquete instalado, limpio y fuera del repositorio | `python scripts/verificar_paquete.py` |
-| Construir `QAgent.exe` y el instalador de Windows | `pip install -e .[dev,empaquetar]`, instalar Inno Setup 6 (`winget install JRSoftware.InnoSetup`) y `python scripts/construir_windows.py` → `dist\windows\` |
+| Construir `QAgent.exe` y el instalador de Windows | `pip install -e .[dev,empaquetar]`, instalar Inno Setup 6.6 o superior (`winget install JRSoftware.InnoSetup`) y `python scripts/construir_windows.py` → `dist\windows\` |
 | Publicar una versión | Ver abajo |
 
 ### Publicar una versión
@@ -103,7 +103,7 @@ QAgent/
 │   ├── desarrollo.md       Esta guía
 │   ├── imagenes/           Capturas de la portada
 │   └── releases/           Notas de cada versión
-├── packaging/windows/      Receta de PyInstaller, instalador de Inno Setup, ícono y requisitos
+├── packaging/windows/      Receta de PyInstaller, instalador de Inno Setup, ícono, imágenes del asistente y requisitos
 ├── scripts/                verificar_paquete.py y construir_windows.py
 ├── src/qagent/
 │   ├── agents/             Planner, Generator y Reviewer (EN-04)

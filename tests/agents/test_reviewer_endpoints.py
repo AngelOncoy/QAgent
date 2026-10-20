@@ -260,7 +260,9 @@ def test_reviewer_rechaza_el_reintento_debilitado(plan_api):
 @pytest.fixture
 def proyecto_api(tmp_path: Path) -> AlmacenProyecto:
     carpeta = tmp_path / "api"
-    shutil.copytree(BANCO_API, carpeta, ignore=shutil.ignore_patterns("*.md"))
+    shutil.copytree(
+        BANCO_API, carpeta, ignore=shutil.ignore_patterns("*.md", ".qagent")
+    )
     almacen = AlmacenProyecto(carpeta)
     almacen.inicializar()
     return almacen

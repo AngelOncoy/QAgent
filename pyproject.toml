@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 # Nombre en PyPI (`pip install qagent-pytest`): «qagent» ya era de otro proyecto. El
 # producto, el comando `qagent` y el paquete `import qagent` no cambian (ADR-005).
 name = "qagent-pytest"
-version = "0.1.0"
+version = "0.2.0"
 description = "Sistema multiagente que genera y valida pruebas pytest para código Python 3.10+"
 readme = "README.md"
 requires-python = ">=3.10"

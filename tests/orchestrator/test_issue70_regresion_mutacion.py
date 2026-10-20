@@ -75,7 +75,9 @@ def seleccion(criticas: list[str]) -> list[dict]:
 def preparado(tmp_path: Path, monkeypatch):
     """Banco con tres pruebas aprobadas guardadas (Estándar, sin mutación)."""
     raiz = tmp_path / "banco"
-    shutil.copytree(BANCO, raiz, ignore=shutil.ignore_patterns("*.md", "*.json"))
+    shutil.copytree(
+        BANCO, raiz, ignore=shutil.ignore_patterns("*.md", "*.json", ".qagent")
+    )
     almacen = AlmacenProyecto(raiz)
     almacen.inicializar()
     config = cargar_configuracion(RUTA_CONFIG, "no-existe.env", simulado=True).config
@@ -264,7 +266,9 @@ def test_profundo_deja_el_resultado_para_repetir_sin_mutar_de_nuevo(
     tmp_path: Path, monkeypatch
 ) -> None:
     raiz = tmp_path / "banco"
-    shutil.copytree(BANCO, raiz, ignore=shutil.ignore_patterns("*.md", "*.json"))
+    shutil.copytree(
+        BANCO, raiz, ignore=shutil.ignore_patterns("*.md", "*.json", ".qagent")
+    )
     almacen = AlmacenProyecto(raiz)
     almacen.inicializar()
     config = cargar_configuracion(RUTA_CONFIG, "no-existe.env", simulado=True).config

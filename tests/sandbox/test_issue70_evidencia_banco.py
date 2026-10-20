@@ -45,7 +45,9 @@ def test_repetir_con_mutacion_real_reutiliza_y_respeta_los_cambios(
     tmp_path: Path, imagen_base, monkeypatch
 ):
     raiz = tmp_path / "banco"
-    shutil.copytree(BANCO, raiz, ignore=shutil.ignore_patterns("*.md", "*.json"))
+    shutil.copytree(
+        BANCO, raiz, ignore=shutil.ignore_patterns("*.md", "*.json", ".qagent")
+    )
     almacen = AlmacenProyecto(raiz)
     almacen.inicializar()
     config = cargar_configuracion(RUTA_CONFIG, "no-existe.env", simulado=True).config

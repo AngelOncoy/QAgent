@@ -45,7 +45,9 @@ APROBADA_NO_CRITICA = "formatear_moneda"
 
 def test_mutmut_solo_sobre_criticas_aprobadas_del_banco(tmp_path: Path, imagen_base):
     raiz = tmp_path / "banco"
-    shutil.copytree(BANCO, raiz, ignore=shutil.ignore_patterns("*.md", "*.json"))
+    shutil.copytree(
+        BANCO, raiz, ignore=shutil.ignore_patterns("*.md", "*.json", ".qagent")
+    )
     almacen = AlmacenProyecto(raiz)
     almacen.inicializar()
     config = cargar_configuracion(RUTA_CONFIG, "no-existe.env", simulado=True).config
