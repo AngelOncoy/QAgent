@@ -180,15 +180,45 @@ def test_transicion_no_permitida() -> None:
 # --- Criterio 2: solo contratos de EN-01 ----------------------------------------
 
 
-def test_planner_que_rompe_el_contrato_termina_en_fallo_controlado() -> None:
+def test_planner_que_rompe_el_contrato_deja_sin_veredicto_el_objetivo() -> None:
     plan = plan_grabado()
     plan[0]["casos"][0]["origen"] = "ejecucion"  # oráculo prohibido
-    orquestador, *_ = armar(["accept"], plan=plan)
+    orquestador, _, generator, _ = armar(["accept"], plan=plan)
 
     resultado = orquestador.ejecutar(MODULO)
 
-    assert resultado.traza_estados == [E.PLANIFICAR, E.FALLO_CONTROLADO]
-    assert "planner_contract.v2" in resultado.motivo_fallo
+    assert resultado.estado_final is E.FIN
+    assert len(resultado.objetivos) == 1
+    assert resultado.objetivos[0].decision is None
+    assert resultado.objetivos[0].motivo_sin_veredicto == "error_contrato_planner"
+    assert generator.feedbacks == []  # no se generaron pruebas para ocultar el error
+
+
+def test_planner_que_rompe_el_contrato_en_un_objetivo_no_impide_los_demas() -> None:
+    primer_contrato = copy.deepcopy(plan_grabado()[0])
+    primer_contrato["objetivo"] = "con_error"
+    primer_contrato["casos"][0]["origen"] = "ejecucion"  # oráculo prohibido
+    segundo_contrato = copy.deepcopy(plan_grabado()[0])
+    segundo_contrato["objetivo"] = "valida"
+
+    orquestador, _, _, _ = armar(["accept"], plan=[primer_contrato, segundo_contrato])
+
+    resultado = orquestador.ejecutar(MODULO)
+
+    assert resultado.estado_final is E.FIN
+    assert [o.objetivo for o in resultado.objetivos] == ["con_error", "valida"]
+    assert resultado.objetivos[0].decision is None
+    assert resultado.objetivos[0].motivo_sin_veredicto == "error_contrato_planner"
+    assert resultado.objetivos[1].decision == "accept"
+
+
+def test_planner_que_devuelve_estructura_invalida_es_fallo_controlado() -> None:
+    orquestador, *_ = armar(["accept"], plan="no_es_lista")
+
+    resultado = orquestador.ejecutar(MODULO)
+
+    assert resultado.estado_final is E.FALLO_CONTROLADO
+    assert "lista de contratos" in (resultado.motivo_fallo or "").lower()
 
 
 def test_reviewer_que_responde_por_otro_objetivo_es_fallo_controlado() -> None:

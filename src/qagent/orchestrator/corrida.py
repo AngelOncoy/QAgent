@@ -31,6 +31,7 @@ from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any
 
+from qagent import contracts
 from qagent.agents import GeneratorAgent, PlannerAgent, ReviewerAgent
 from qagent.agents.planner import contrato_humo
 from qagent.agents.reviewer import Ejecutor
@@ -89,6 +90,7 @@ class ResumenCorrida:
     inicio: str | None = None
     fin: str | None = None
     duracion_etapas: dict[str, float] = field(default_factory=dict)
+    cancelada: bool = False
 
     def a_dict(self) -> dict[str, Any]:
         """Versión serializable a JSON (evento `corrida_fin` de la interfaz)."""
@@ -221,6 +223,13 @@ def ejecutar_corrida(
     try:
         if not ruta.is_dir():
             raise ErrorCorrida(f"La carpeta del proyecto no existe: {ruta}")
+        if cancelado is not None and cancelado():
+            resumen.estado = FALLO
+            resumen.cancelada = True
+            resumen.motivo = "Corrida cancelada por el usuario."
+            avisar(resumen.motivo, "fallo")
+            _cerrar_run(almacen, resumen, tipos)
+            return resumen
         if resumen.run_id is None and almacen.existe():
             resumen.run_id = almacen.crear_run(tipos_prueba=["funcion"])["run_id"]
 
@@ -312,7 +321,8 @@ def ejecutar_corrida(
         for modulo in modulos:
             if cancelado is not None and cancelado():
                 resumen.estado = FALLO
-                resumen.motivo = "Corrida detenida por el usuario."
+                resumen.cancelada = True
+                resumen.motivo = "Corrida cancelada por el usuario."
                 avisar(resumen.motivo, "fallo")
                 break
             if tracker.total_costo_usd >= tope:
@@ -419,19 +429,23 @@ def ejecutar_corrida(
             if contratos and plan_guardado is not None:
                 contratos = _combinar_plan(plan_guardado["contratos"], contratos)
             if contratos:
-                planes_specs.append(
-                    {
-                        "modulo": modulo["ruta"],
-                        "huella": modulo["huella"],
-                        "contratos": contratos,
-                        "accion": accion,
-                        "perfiles": {
-                            c["objetivo"]: perfiles[c["objetivo"]]
-                            for c in contratos
-                            if c["objetivo"] in perfiles
-                        },
-                    }
-                )
+                contratos_validos_spec = [
+                    c for c in contratos if contracts.es_valido(contracts.PLANNER, c)
+                ]
+                if contratos_validos_spec:
+                    planes_specs.append(
+                        {
+                            "modulo": modulo["ruta"],
+                            "huella": modulo["huella"],
+                            "contratos": contratos_validos_spec,
+                            "accion": accion,
+                            "perfiles": {
+                                c["objetivo"]: perfiles[c["objetivo"]]
+                                for c in contratos_validos_spec
+                                if c["objetivo"] in perfiles
+                            },
+                        }
+                    )
             if resultado.estado_final.value == FALLO and resumen.motivo is None:
                 resumen.estado = FALLO
                 resumen.motivo = f"{resultado.modulo}: {resultado.motivo_fallo}"
@@ -440,6 +454,15 @@ def ejecutar_corrida(
                 break
 
         _contar(resumen, resultados, tracker)
+        if (
+            resumen.estado == FIN
+            and resumen.sin_veredicto > 0
+            and resumen.motivo is None
+        ):
+            resumen.motivo = (
+                f"Corrida completada con errores: {resumen.sin_veredicto} objetivo(s) "
+                "quedaron sin veredicto."
+            )
         progreso["total"] = resumen.total_funciones
         resumen.duracion_s = segundos(inicio, reloj())
         resumen.fin = ahora()
@@ -464,12 +487,27 @@ def ejecutar_corrida(
 
     resumen.duracion_s = resumen.duracion_s or segundos(inicio, reloj())
     resumen.fin = resumen.fin or ahora()
-    avisar(
-        f"Corrida terminada: {resumen.aceptadas} aceptada(s), "
-        f"{resumen.bugs_detectados} bug(s) detectado(s), {resumen.estancadas} "
-        f"estancada(s)",
-        "fin",
-    )
+    partes_terminacion = [
+        f"{resumen.aceptadas} aceptada(s)",
+        f"{resumen.bugs_detectados} bug(s) detectado(s)",
+        f"{resumen.estancadas} estancada(s)",
+    ]
+    if resumen.sin_veredicto:
+        partes_terminacion.append(f"{resumen.sin_veredicto} sin veredicto")
+    texto_resumen = ", ".join(partes_terminacion)
+
+    if resumen.cancelada or (resumen.motivo and "cancelad" in resumen.motivo.lower()):
+        titulo_fin = "Corrida cancelada"
+    elif resumen.estado == FIN:
+        titulo_fin = (
+            "Corrida completada con errores"
+            if resumen.sin_veredicto
+            else "Corrida terminada"
+        )
+    else:
+        titulo_fin = "Corrida detenida"
+
+    avisar(f"{titulo_fin}: {texto_resumen}", "fin")
     return resumen
 
 
@@ -639,13 +677,16 @@ def _registrar(
                 contrato, perfil_spec = guardadas.get(
                     (resultado.modulo, objetivo.objetivo), (objetivo.contrato, None)
                 )
-                almacen.guardar_spec(
-                    contrato,
-                    resumen.run_id,
-                    archivo,
-                    huella_objetivo=huella,
-                    perfil=perfil_spec,
-                )
+                if contrato is not None and contracts.es_valido(
+                    contracts.PLANNER, contrato
+                ):
+                    almacen.guardar_spec(
+                        contrato,
+                        resumen.run_id,
+                        archivo,
+                        huella_objetivo=huella,
+                        perfil=perfil_spec,
+                    )
         registros = []
         for plan in planes_specs:
             guardado = almacen.guardar_plan_modulo(

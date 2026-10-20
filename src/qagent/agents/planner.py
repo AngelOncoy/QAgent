@@ -578,7 +578,11 @@ Ejemplo: {ejemplo}
             )
             return None
         contrato = {**base, "casos": validos}
-        contracts.validar(contracts.PLANNER, contrato)
+        try:
+            contracts.validar(contracts.PLANNER, contrato)
+        except ContratoInvalido as error:
+            self.descartados.append(f"{objetivo}: {error}")
+            return None
         return contrato
 
     @staticmethod

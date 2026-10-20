@@ -144,7 +144,12 @@ function registrarPaso({a, f, fn, t, guard, hechos, total, tipo_objetivo, transc
 function pintarProgreso(){
   if (!PRG) return;
   const etapaActual = ETAPAS_PRG.find(e => e.k === PRG.etapa);
-  $('prgTitulo').textContent = PRG.fin ? (PRG.fin.ok ? 'Corrida completada' : 'Corrida detenida')
+  $('prgTitulo').textContent = PRG.fin ? (
+      PRG.fin.cancelada ? 'Corrida cancelada'
+      : PRG.fin.conErrores ? 'Corrida completada con errores'
+      : PRG.fin.ok ? 'Corrida completada'
+      : 'Corrida detenida'
+    )
     : PRG.preparandoEntorno ? 'Preparando el entorno aislado'
     : etapaActual ? etapaActual.titulo : 'Preparando la corrida';
   $('prgEntorno').classList.toggle('hide', !(PRG.preparandoEntorno && !PRG.fin));
@@ -333,13 +338,22 @@ function monitorFinReal(r){
   if(!modoReal || !r) return;
   runDone = true; modoReal = false; clearInterval(agoTimer);
   const ok = r.estado === 'fin';
+  const cancelada = Boolean(r.cancelada || (!ok && /cancelad/i.test(r.motivo || '')));
+  const conErrores = Boolean(ok && (Number(r.sin_veredicto || 0) > 0 || (r.motivo && /error/i.test(r.motivo))));
   const duracion = typeof r.duracion_s === 'number' && isFinite(r.duracion_s) && r.duracion_s >= 0 ? r.duracion_s : null;
   if (duracion !== null) PRG.inicio = Date.now() - duracion * 1000;
-  PRG.fin = {ok, t: Date.now(), runId: r.run_id && r.carpeta ? r.run_id : null, duracion};
+  PRG.fin = {ok, cancelada, conErrores, t: Date.now(), runId: r.run_id && r.carpeta ? r.run_id : null, duracion};
   // Resumen final: aprobadas, posibles bugs y tokens (sin costos).
   $('prgTokens').textContent = Number(r.tokens || 0).toLocaleString('es-PE');
-  $('prgTokensSub').textContent = `${Number(r.aceptadas)} ${Number(r.aceptadas) === 1 ? 'aprobada' : 'aprobadas'} · ${Number(r.bugs_detectados)} ${Number(r.bugs_detectados) === 1 ? 'posible bug' : 'posibles bugs'} · ${Number(r.estancadas)} sin prueba`;
-  if (r.motivo) PRG.alerta = {titulo: ok ? 'Corrida completada con avisos' : 'La corrida se detuvo', texto: r.motivo};
+  const sinVeredictoTxt = Number(r.sin_veredicto || 0) > 0 ? ` · ${Number(r.sin_veredicto)} sin veredicto` : '';
+  $('prgTokensSub').textContent = `${Number(r.aceptadas)} ${Number(r.aceptadas) === 1 ? 'aprobada' : 'aprobadas'} · ${Number(r.bugs_detectados)} ${Number(r.bugs_detectados) === 1 ? 'posible bug' : 'posibles bugs'} · ${Number(r.estancadas)} sin prueba${sinVeredictoTxt}`;
+  if (r.motivo) {
+    const titulo = cancelada ? 'Corrida cancelada por el usuario'
+      : conErrores ? 'Corrida completada con errores'
+      : ok ? 'Corrida completada con avisos'
+      : 'La corrida se detuvo';
+    PRG.alerta = {titulo, texto: r.motivo};
+  }
   if(PRG.fin.runId){   // HU-18: Resultados lee el results.json de esta corrida
     if (typeof desbloquearVista === 'function') { desbloquearVista('exec'); desbloquearVista('history'); }
     if (typeof cargarEjecucionReal === 'function') cargarEjecucionReal(r.run_id, false);
