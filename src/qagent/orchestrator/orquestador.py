@@ -80,6 +80,22 @@ class CorridaCancelada(FalloControlado):
 
 #: Motivo de un objetivo sin veredicto porque un agente no respondió a tiempo.
 TIEMPO_AGOTADO = "tiempo_agotado"
+#: Motivo de un objetivo sin veredicto porque el contrato del Planner no es válido.
+ERROR_CONTRATO_PLANNER = "error_contrato_planner"
+
+
+def _resumen_error_contrato(error: BaseException) -> str:
+    """Mensaje conciso y comprensible para el usuario ante un contrato inválido."""
+    causa = getattr(error, "__cause__", None) or error
+    if isinstance(causa, ContratoInvalido) and causa.errores:
+        primer_error = causa.errores[0].strip()
+        if len(primer_error) > 120:
+            primer_error = primer_error[:117] + "…"
+        return primer_error
+    texto = str(causa).strip()
+    if len(texto) > 120:
+        texto = texto[:117] + "…"
+    return texto or "formato no válido"
 
 
 def es_falla_pasajera(error: BaseException) -> bool:
@@ -367,8 +383,11 @@ class Orquestador:
             )
         plan_endpoints = self._planificar_endpoints(modulo)
         plan = [*plan, *plan_endpoints]
-        for contrato in plan:
-            self._validar(contracts.PLANNER, contrato, "planner")
+        for elemento in plan:
+            if not isinstance(elemento, dict) or not elemento.get("objetivo"):
+                raise FalloControlado(
+                    "El Planner devolvió un contrato que no es un objeto con 'objetivo'"
+                )
         self._emitir(
             "planner",
             None,
@@ -441,11 +460,17 @@ class Orquestador:
         El resultado se agrega a `objetivos` antes de empezar, para que un fallo
         controlado conserve lo avanzado (decision queda en None).
         """
-        objetivo = contrato["objetivo"]
+        objetivo = (
+            contrato.get("objetivo")
+            if isinstance(contrato, dict)
+            else "objetivo_desconocido"
+        )
         resultado = ResultadoObjetivo(
             objetivo=objetivo,
-            critical=contrato["critical"],
-            contrato=copy.deepcopy(contrato),
+            critical=bool(contrato.get("critical", False))
+            if isinstance(contrato, dict)
+            else False,
+            contrato=copy.deepcopy(contrato) if isinstance(contrato, dict) else None,
         )
         objetivos.append(resultado)
         tope = min(self.max_intentos, MAX_INTENTOS_CONTRATO)  # nunca más de 3
@@ -457,6 +482,26 @@ class Orquestador:
         self._inicio_objetivo_utc = resultado.inicio
 
         try:
+            try:
+                self._validar(contracts.PLANNER, contrato, "planner")
+            except FalloControlado as error:
+                resultado.motivo_sin_veredicto = ERROR_CONTRATO_PLANNER
+                resumen_err = _resumen_error_contrato(error)
+                self._emitir(
+                    "planner",
+                    objetivo,
+                    f"Sin veredicto en '{objetivo}': la propuesta del Planner no cumple "
+                    f"el contrato ({resumen_err}). Se continúa con los siguientes objetivos.",
+                    tipo="veredicto",
+                    datos={
+                        "decision": None,
+                        "intento": 0,
+                        "motivo": ERROR_CONTRATO_PLANNER,
+                        "error": str(error),
+                    },
+                )
+                return
+
             while True:
                 if self.cancelado is not None and self.cancelado():
                     raise CorridaCancelada("Corrida detenida por el usuario.")

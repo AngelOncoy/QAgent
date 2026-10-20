@@ -590,6 +590,7 @@
         "motivo_sin_veredicto": {
           "enum": [
             "tiempo_agotado",
+            "error_contrato_planner",
             null
           ],
           "description": "Por qué un objetivo quedó sin veredicto (decision null) sin detener el módulo: tiempo_agotado (un agente o el proveedor de IA no respondió a tiempo). Opcional: las corridas anteriores no lo tienen."

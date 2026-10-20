@@ -137,6 +137,8 @@ def _clasificar(
         return "watch", ("Aviso de presupuesto", "LÍMITE TOKENS")
     if tipo == "veredicto" and datos.get("motivo") == "tiempo_agotado":
         return "watch", ("Tiempo agotado: el agente no respondió", "SIN VEREDICTO")
+    if tipo == "veredicto" and datos.get("motivo") == "error_contrato_planner":
+        return "watch", ("Error en contrato del Planner", "SIN VEREDICTO")
     if agente in ("planner", "generator"):
         return agente, None
     if agente == "reviewer":
@@ -156,6 +158,8 @@ def _clasificar(
     # Orquestador: preparación, avisos, fallos y fin. Un fallo no es un límite de
     # reintentos del Reviewer: tiene su propia fila.
     if tipo == "fallo":
+        if "cancelad" in mensaje.lower() or datos.get("cancelada"):
+            return "fallo", ("Corrida cancelada por el usuario", "CANCELADA")
         if evento.get("archivo"):  # falló un módulo; los demás siguen
             return "fallo", ("Fallo controlado del módulo", "MÓDULO DETENIDO")
         return "fallo", ("Fallo controlado", "CORRIDA DETENIDA")
