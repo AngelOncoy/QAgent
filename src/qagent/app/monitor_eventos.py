@@ -66,6 +66,15 @@ def a_fila_monitor(evento: dict[str, Any]) -> dict[str, Any] | None:
         if evento.get("duracion_objetivo_s") is not None
         else datos.get("duracion_objetivo_s"),
         "etapas_s": evento.get("etapas_s") or datos.get("etapas_s"),
+        "tokens_acumulados": evento.get(
+            "tokens_acumulados", datos.get("tokens_acumulados", 0)
+        ),
+        "tokens_reales": evento.get("tokens_reales", datos.get("tokens_reales", 0)),
+        "tokens_estimados": evento.get(
+            "tokens_estimados", datos.get("tokens_estimados", 0)
+        ),
+        "limite_tokens": evento.get("limite_tokens", datos.get("limite_tokens")),
+        "alerta_presupuesto": datos.get("alerta_presupuesto", False),
     }
 
 
@@ -122,6 +131,10 @@ def _clasificar(
     agente: str, tipo: Any, mensaje: str, evento: dict[str, Any]
 ) -> tuple[str, tuple[str, str] | None]:
     datos = evento.get("datos") or {}
+    if datos.get("alerta_presupuesto") or (
+        tipo == "aviso" and "tokens" in mensaje.lower()
+    ):
+        return "watch", ("Aviso de presupuesto", "LÍMITE TOKENS")
     if tipo == "veredicto" and datos.get("motivo") == "tiempo_agotado":
         return "watch", ("Tiempo agotado: el agente no respondió", "SIN VEREDICTO")
     if agente in ("planner", "generator"):

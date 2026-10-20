@@ -36,9 +36,11 @@ SANDBOX_FALLIDO = frozenset({"timeout", "error"})
 DECISIONES_FINALES = frozenset({"accept", "bug_detectado", "stalled"})
 LIMITE_INTENTOS = "limite_intentos"  # motivos del corte (HU-14)
 ERROR_REPETIDO = "error_repetido"
+LIMITE_TOKENS = "limite_tokens"
 _TEXTO_MOTIVO = {
     LIMITE_INTENTOS: "límite de intentos",
     ERROR_REPETIDO: "mismo error repetido",
+    LIMITE_TOKENS: "límite de tokens",
 }
 
 
@@ -66,6 +68,14 @@ class FalloControlado(Exception):
 
 class TimeoutPaso(FalloControlado):
     """Un agente no respondió dentro de `timeout_paso_s`."""
+
+
+class LimiteTokensSuperado(FalloControlado):
+    """Se alcanzó el límite de presupuesto de tokens por corrida."""
+
+
+class CorridaCancelada(FalloControlado):
+    """La corrida fue cancelada por el usuario."""
 
 
 #: Motivo de un objetivo sin veredicto porque un agente no respondió a tiempo.
@@ -198,6 +208,8 @@ class Orquestador:
         timeout_paso_s: float = TIMEOUT_PASO_POR_DEFECTO_S,
         reloj: Callable[[], float] = time.monotonic,
         ahora: Callable[[], str] = iso_utc,
+        limite_tokens: int | None = None,
+        cancelado: Callable[[], bool] | None = None,
     ) -> None:
         """Crea el orquestador.
 
@@ -209,6 +221,8 @@ class Orquestador:
             timeout_paso_s: tiempo máximo que se espera a un agente en cada paso.
             reloj: reloj monotónico inyectable (los tests usan uno falso).
             ahora: marca UTC ISO inyectable (los tests usan una fija).
+            limite_tokens: presupuesto máximo de tokens de la corrida, si existe.
+            cancelado: consulta inyectable para detener la corrida.
         """
         if not 1 <= max_intentos <= MAX_INTENTOS_CONTRATO:
             raise ValueError(
@@ -225,6 +239,9 @@ class Orquestador:
         self.timeout_paso_s = timeout_paso_s
         self._reloj = reloj
         self._ahora = ahora
+        self.limite_tokens = limite_tokens
+        self.cancelado = cancelado
+        self._aviso_80_emitido = False
         self._estado = Estado.PLANIFICAR
         self._traza: list[Estado] = []
         self._archivo: str | None = None
@@ -277,12 +294,36 @@ class Orquestador:
                 )
             plan_completo = copy.deepcopy(plan)
             for contrato in plan:
+                if self.cancelado is not None and self.cancelado():
+                    raise CorridaCancelada("Corrida detenida por el usuario.")
+                if (
+                    self.limite_tokens
+                    and self.tracker.total_tokens >= self.limite_tokens
+                ):
+                    self._emitir(
+                        "orquestador",
+                        contrato["objetivo"],
+                        f"Presupuesto de tokens alcanzado ({self.limite_tokens} tokens). "
+                        "No se procesarán más objetivos en este módulo.",
+                        tipo="aviso",
+                        datos={
+                            "alerta_presupuesto": True,
+                            "tokens": self.tracker.total_tokens,
+                        },
+                    )
+                    raise LimiteTokensSuperado(
+                        f"Se alcanzó el presupuesto de tokens por corrida ({self.limite_tokens} tokens)."
+                    )
                 self._procesar_objetivo(contrato, objetivos)
             self._transicionar(Estado.FIN, None)
             self._emitir("orquestador", None, "Corrida terminada", tipo="fin")
         except FalloControlado as error:
             motivo = str(error)
-            funcion = objetivos[-1].objetivo if objetivos else None  # el que falló
+            funcion = (
+                objetivos[-1].objetivo
+                if objetivos and objetivos[-1].decision is None
+                else None
+            )
             self._transicionar(Estado.FALLO_CONTROLADO, funcion)
             self._emitir("orquestador", funcion, f"Fallo controlado: {motivo}", "fallo")
 
@@ -417,6 +458,8 @@ class Orquestador:
 
         try:
             while True:
+                if self.cancelado is not None and self.cancelado():
+                    raise CorridaCancelada("Corrida detenida por el usuario.")
                 n_intento = intento
                 inicio_intento = self._reloj()
                 generacion_s = 0.0
@@ -462,7 +505,6 @@ class Orquestador:
                             resultado.duracion_generacion_s + generacion_s, 3
                         )
                         sumar_etapa(self._etapas, "generator", generacion_s)
-
                     resultado.codigo = test["codigo"]
                     self._transicionar(Estado.EJECUTAR_REVISAR, objetivo)
                     inicio_revision = self._reloj()
@@ -514,6 +556,30 @@ class Orquestador:
                     if decision in DECISIONES_FINALES:
                         resultado.decision = decision
                         resultado.motivo_estancado = motivo
+                        self._emitir_veredicto(objetivo, decision, intento, motivo)
+                        return
+
+                    if self.cancelado is not None and self.cancelado():
+                        raise CorridaCancelada("Corrida detenida por el usuario.")
+
+                    if (
+                        self.limite_tokens
+                        and self.tracker.total_tokens >= self.limite_tokens
+                    ):
+                        decision = "stalled"
+                        motivo = LIMITE_TOKENS
+                        resultado.decision = decision
+                        resultado.motivo_estancado = motivo
+                        self._emitir(
+                            "orquestador",
+                            objetivo,
+                            f"Presupuesto de tokens alcanzado ({self.limite_tokens} tokens). Reintento cancelado.",
+                            tipo="aviso",
+                            datos={
+                                "alerta_presupuesto": True,
+                                "tokens": self.tracker.total_tokens,
+                            },
+                        )
                         self._emitir_veredicto(objetivo, decision, intento, motivo)
                         return
 
@@ -675,6 +741,33 @@ class Orquestador:
                 f"se esperaba '{objetivo}' intento {intento}"
             )
 
+    def _revisar_alerta_presupuesto(self) -> None:
+        """Emite una advertencia al alcanzar el 80 % del presupuesto de tokens."""
+        if not self.limite_tokens or self._aviso_80_emitido:
+            return
+        if self.tracker.total_tokens >= int(self.limite_tokens * 0.80):
+            self._aviso_80_emitido = True
+            pct = round(self.tracker.total_tokens / self.limite_tokens * 100)
+            self.bus.emitir(
+                Evento(
+                    agente="orquestador",
+                    archivo=self._archivo,
+                    funcion=None,
+                    mensaje=(
+                        f"Aviso de presupuesto: se ha consumido el {pct} % del límite de tokens "
+                        f"({self.tracker.total_tokens} de {self.limite_tokens} tokens)."
+                    ),
+                    estado=self._estado.value,
+                    tipo="aviso",
+                    datos={
+                        "alerta_presupuesto": True,
+                        "tokens": self.tracker.total_tokens,
+                        "limite_tokens": self.limite_tokens,
+                        "porcentaje": pct,
+                    },
+                )
+            )
+
     def _emitir(
         self,
         agente: str,
@@ -683,6 +776,7 @@ class Orquestador:
         tipo: str = "agente",
         datos: dict[str, Any] | None = None,
     ) -> None:
+        self._revisar_alerta_presupuesto()
         informacion: dict[str, Any] = {
             "inicio_corrida": self._inicio_utc,
             "transcurrido_s": segundos(self._inicio_reloj, self._reloj()),

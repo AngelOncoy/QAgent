@@ -66,6 +66,47 @@ def test_run_log_antiguo_sin_tiempos_sigue_siendo_valido() -> None:
     validar(RUN_LOG, _results())
 
 
+def test_caso_e_schema_y_vista_aceptan_tiempos_y_presupuesto_opcionales() -> None:
+    datos = _results()
+    datos.update(
+        inicio="2026-10-20T12:00:00Z",
+        fin="2026-10-20T12:00:12Z",
+        duracion_s=12.0,
+        duracion_etapas={
+            "planner": 1.0,
+            "generator": 2.0,
+            "reviewer": 3.0,
+            "sandbox": 4.0,
+            "pytest": 2.0,
+        },
+        tokens_reales=700,
+        tokens_estimados=100,
+    )
+    datos["resumen"].update(
+        inicio=datos["inicio"],
+        fin=datos["fin"],
+        duracion_s=12.0,
+        duracion_etapas=datos["duracion_etapas"],
+        total_tokens=800,
+        tokens_reales=700,
+        tokens_estimados=100,
+    )
+    datos["resumen"].setdefault("metas", {})["tope_tokens_por_corrida"] = 1000
+
+    validar(RUN_LOG, datos)
+    vista = vista_ejecucion(datos)
+
+    assert vista["duracion_total_s"] == 12.0
+    assert vista["indicadores"]["costo"]["tokens_total"] == 800
+    assert vista["indicadores"]["costo"]["tope_tokens"] == 1000
+
+    antigua = _results()
+    validar(RUN_LOG, antigua)
+    vista_antigua = vista_ejecucion(antigua)
+    assert vista_antigua["duracion_total_s"] is None
+    assert vista_antigua["indicadores"]["costo"]["tope_tokens"] is None
+
+
 def test_vista_ejecucion_expone_el_total_y_las_etapas() -> None:
     datos = _results()
     datos.update(

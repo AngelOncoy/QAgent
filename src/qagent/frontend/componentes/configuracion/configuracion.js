@@ -44,6 +44,11 @@ registrarComponente('configuracion/configuracion', `<!-- ===== CONFIGURACIÓN ==
                 <div class="np-campo cfg-select"><select class="np-input" id="cfgTiempo" disabled title="Lo define el equipo para todas las corridas"></select>${ICO_FLECHA_ABAJO}</div>
                 <span class="np-meta">Si se supera, verás «Tiempo agotado». Lo define el equipo.</span>
               </div>
+              <div class="cfg-campo cfg-campo-ancho">
+                <label class="np-etiqueta" for="cfgTokensMax">Presupuesto máximo de tokens por corrida</label>
+                <div class="np-campo"><input class="np-input" id="cfgTokensMax" type="number" min="0" step="1000" placeholder="Sin límite (0)" oninput="limitesCambiaron()"></div>
+                <span class="np-meta" id="cfgTokensMaxAyuda">Define un tope de tokens para evitar consumo excesivo en proyectos grandes (0 o vacío para sin límite).</span>
+              </div>
             </div>
             <span class="np-meta cfg-estado-guardado" id="cfgLimitesEstado" role="status" aria-live="polite"></span>
           </section>
@@ -243,18 +248,25 @@ function pintarLimites(){
   $('cfgIntentos').innerHTML = opciones.join('');
   $('cfgIntentosAyuda').textContent = `Entre ${intentos_min} y ${intentos_max} por función`;
   $('cfgTiempo').innerHTML = `<option selected>${timeout_s} segundos</option>`;
+  if ($('cfgTokensMax')) $('cfgTokensMax').value = LIMITES.max_tokens_por_corrida || '';
   $('cfgGuardar').disabled = true;
 }
 function limitesCambiaron(){
-  $('cfgGuardar').disabled = Number($('cfgIntentos').value) === LIMITES.max_intentos;
+  const intentosActual = Number($('cfgIntentos').value);
+  const valTokens = $('cfgTokensMax') ? $('cfgTokensMax').value.trim() : '';
+  const tokensActual = valTokens ? Number(valTokens) : null;
+  const tokensOriginal = LIMITES.max_tokens_por_corrida || null;
+  $('cfgGuardar').disabled = (intentosActual === LIMITES.max_intentos && tokensActual === tokensOriginal);
   $('cfgLimitesEstado').textContent = '';
 }
 async function guardarLimites(){
-  const valor = Number($('cfgIntentos').value);
+  const valorIntentos = Number($('cfgIntentos').value);
+  const valTokens = $('cfgTokensMax') ? $('cfgTokensMax').value.trim() : '';
+  const valorTokens = valTokens ? Number(valTokens) : null;
   if(!hayApiLimites()){ toast('Disponible en la aplicación de escritorio.'); return; }
   $('cfgGuardar').disabled = true;
   let r;
-  try { r = await window.pywebview.api.guardar_limites(valor); }
+  try { r = await window.pywebview.api.guardar_limites(valorIntentos, valorTokens); }
   catch (err) { console.error('Error al guardar los límites:', err); r = {ok:false, mensaje:'No se pudo guardar la configuración.'}; }
   if(r.limites && r.limites.ok) LIMITES = r.limites;
   pintarLimites();

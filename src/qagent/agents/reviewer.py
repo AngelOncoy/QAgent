@@ -608,6 +608,7 @@ SALIDA DE PYTEST:
             tokens_salida=respuesta.tokens_salida,
             costo_usd=respuesta.costo_usd,
             es_simulado=self.es_simulado,
+            es_estimado=getattr(respuesta, "es_estimado", False),
         )
         decision = respuesta.contenido.strip().lower()
         if decision in {"error_test", "bug_codigo"}:

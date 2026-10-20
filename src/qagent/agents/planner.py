@@ -168,6 +168,7 @@ class PlannerAgent:
             tokens_salida=respuesta.tokens_salida,
             costo_usd=respuesta.costo_usd,
             es_simulado=self.es_simulado,
+            es_estimado=getattr(respuesta, "es_estimado", False),
         )
 
         try:
@@ -475,6 +476,7 @@ Ejemplo: {ejemplo}
             tokens_salida=respuesta.tokens_salida,
             costo_usd=respuesta.costo_usd,
             es_simulado=self.es_simulado,
+            es_estimado=getattr(respuesta, "es_estimado", False),
             funcion=f"{modulo['ruta']} (endpoints)",
         )
         propuesta = _leer_lista(respuesta.contenido)

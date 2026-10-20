@@ -18,63 +18,173 @@
     "es_simulado"
   ],
   "properties": {
-    "version": { "const": "1" },
-    "tipo": { "enum": ["log", "results"] },
+    "version": {
+      "const": "1"
+    },
+    "tipo": {
+      "enum": [
+        "log",
+        "results"
+      ]
+    },
     "run_id": {
       "type": "string",
       "pattern": "^[0-9]{8}-[0-9]{6}-[0-9a-f]{4}$",
       "description": "AAAAMMDD-HHMMSS-xxxx; es también el nombre de la carpeta de la corrida."
     },
-    "fecha": { "type": "string", "minLength": 1, "description": "Inicio de la corrida, ISO 8601." },
-    "proyecto": { "type": "string", "minLength": 1 },
-    "perfil": { "type": "string", "minLength": 1 },
+    "fecha": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Inicio de la corrida, ISO 8601."
+    },
+    "proyecto": {
+      "type": "string",
+      "minLength": 1
+    },
+    "perfil": {
+      "type": "string",
+      "minLength": 1
+    },
     "modelos": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["planner", "generator", "reviewer"],
+      "required": [
+        "planner",
+        "generator",
+        "reviewer"
+      ],
       "properties": {
-        "planner": { "$ref": "#/$defs/modelo" },
-        "generator": { "$ref": "#/$defs/modelo" },
-        "reviewer": { "$ref": "#/$defs/modelo" }
+        "planner": {
+          "$ref": "#/$defs/modelo"
+        },
+        "generator": {
+          "$ref": "#/$defs/modelo"
+        },
+        "reviewer": {
+          "$ref": "#/$defs/modelo"
+        }
       }
     },
-    "estado_final": { "enum": ["fin", "fallo_controlado"] },
-    "motivo_fallo": { "type": ["string", "null"] },
-    "es_simulado": { "type": "boolean", "description": "true si todas las llamadas usaron la IA simulada." },
-    "rama": { "type": ["string", "null"], "description": "HU-21. Rama Git del proyecto al iniciar la corrida; null si no es un repositorio." },
+    "estado_final": {
+      "enum": [
+        "fin",
+        "fallo_controlado"
+      ]
+    },
+    "motivo_fallo": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "es_simulado": {
+      "type": "boolean",
+      "description": "true si todas las llamadas usaron la IA simulada."
+    },
+    "rama": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "description": "HU-21. Rama Git del proyecto al iniciar la corrida; null si no es un repositorio."
+    },
+    "llamadas": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/llamada"
+      }
+    },
     "inicio": { "type": "string", "minLength": 1, "description": "#115. Inicio de la corrida en UTC (ISO 8601). Opcional en corridas anteriores." },
     "fin": { "type": "string", "minLength": 1, "description": "#115. Fin medido de la corrida en UTC (ISO 8601)." },
     "duracion_s": { "type": "number", "minimum": 0, "description": "#115. Duración total medida con reloj monotónico." },
     "duracion_etapas": { "$ref": "#/$defs/etapas" },
-    "llamadas": { "type": "array", "items": { "$ref": "#/$defs/llamada" } },
     "totales_por_agente": {
       "type": "object",
-      "propertyNames": { "$ref": "#/$defs/agente" },
-      "additionalProperties": { "$ref": "#/$defs/total_agente" }
+      "propertyNames": {
+        "$ref": "#/$defs/agente"
+      },
+      "additionalProperties": {
+        "$ref": "#/$defs/total_agente"
+      }
     },
-    "total_tokens": { "type": "integer", "minimum": 0 },
-    "total_costo_usd": { "type": "number", "minimum": 0 },
-    "objetivos": { "type": "array", "items": { "$ref": "#/$defs/objetivo" } },
-    "resumen": { "$ref": "#/$defs/resumen" }
+    "total_tokens": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "total_costo_usd": {
+      "type": "number",
+      "minimum": 0
+    },
+    "objetivos": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/objetivo"
+      }
+    },
+    "resumen": {
+      "$ref": "#/$defs/resumen"
+    },
+    "tokens_reales": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "tokens_estimados": {
+      "type": "integer",
+      "minimum": 0
+    }
   },
   "allOf": [
     {
-      "if": { "properties": { "tipo": { "const": "log" } } },
+      "if": {
+        "properties": {
+          "tipo": {
+            "const": "log"
+          }
+        }
+      },
       "then": {
-        "required": ["llamadas", "totales_por_agente", "total_tokens", "total_costo_usd"],
-        "properties": { "objetivos": false, "resumen": false }
+        "required": [
+          "llamadas",
+          "totales_por_agente",
+          "total_tokens",
+          "total_costo_usd"
+        ],
+        "properties": {
+          "objetivos": false,
+          "resumen": false
+        }
       }
     },
     {
-      "if": { "properties": { "tipo": { "const": "results" } } },
+      "if": {
+        "properties": {
+          "tipo": {
+            "const": "results"
+          }
+        }
+      },
       "then": {
-        "required": ["objetivos", "resumen"],
-        "properties": { "llamadas": false, "totales_por_agente": false, "total_tokens": false, "total_costo_usd": false }
+        "required": [
+          "objetivos",
+          "resumen"
+        ],
+        "properties": {
+          "llamadas": false,
+          "totales_por_agente": false,
+          "total_tokens": false,
+          "total_costo_usd": false
+        }
       }
     }
   ],
   "$defs": {
-    "agente": { "enum": ["planner", "generator", "reviewer"] },
+    "agente": {
+      "enum": [
+        "planner",
+        "generator",
+        "reviewer"
+      ]
+    },
     "etapas": {
       "type": "object",
       "additionalProperties": false,
@@ -91,55 +201,127 @@
       "type": "object",
       "description": "EN-09. Mutation testing (mutmut) de una función crítica aprobada en el perfil Profundo.",
       "additionalProperties": false,
-      "required": ["estado", "puntuacion", "detectados", "sobrevivientes", "mensaje"],
+      "required": [
+        "estado",
+        "puntuacion",
+        "detectados",
+        "sobrevivientes",
+        "mensaje"
+      ],
       "properties": {
         "estado": {
-          "enum": ["ok", "tiempo_agotado", "config_propia", "error"],
+          "enum": [
+            "ok",
+            "tiempo_agotado",
+            "config_propia",
+            "error"
+          ],
           "description": "ok: mutmut terminó; tiempo_agotado: superó [mutacion] de config.toml; config_propia: el proyecto tiene [tool.mutmut] y no se sobrescribe; error: mutmut no pudo ejecutarse."
         },
         "puntuacion": {
-          "type": ["number", "null"],
+          "type": [
+            "number",
+            "null"
+          ],
           "minimum": 0,
           "maximum": 100,
           "description": "Mutation Score = detectados ÷ (detectados + sobrevivientes) × 100. null si no hubo mutantes evaluables o el estado no es ok."
         },
-        "detectados": { "type": "integer", "minimum": 0, "description": "Mutantes que las pruebas detectaron (incluye timeouts)." },
+        "detectados": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Mutantes que las pruebas detectaron (incluye timeouts)."
+        },
         "sobrevivientes": {
           "type": "array",
           "items": {
             "type": "object",
             "additionalProperties": false,
-            "required": ["mutante", "linea", "cambio"],
+            "required": [
+              "mutante",
+              "linea",
+              "cambio"
+            ],
             "properties": {
-              "mutante": { "type": "string", "minLength": 1 },
-              "linea": { "type": ["integer", "null"], "minimum": 1 },
-              "cambio": { "type": "string" }
+              "mutante": {
+                "type": "string",
+                "minLength": 1
+              },
+              "linea": {
+                "type": [
+                  "integer",
+                  "null"
+                ],
+                "minimum": 1
+              },
+              "cambio": {
+                "type": "string"
+              }
             }
           }
         },
-        "mensaje": { "type": ["string", "null"], "description": "Explicación cuando el estado no es ok o no hay puntuación." },
-        "reutilizada": { "type": "boolean", "description": "#70. El resultado se tomó de .qagent/mutacion/ porque ni la función ni sus pruebas cambiaron." },
-        "run_origen": { "type": "string", "pattern": "^\\d{8}-\\d{6}-[0-9a-f]{4}$", "description": "#70. Corrida que calculó el resultado reutilizado." }
+        "mensaje": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Explicación cuando el estado no es ok o no hay puntuación."
+        },
+        "reutilizada": {
+          "type": "boolean",
+          "description": "#70. El resultado se tomó de .qagent/mutacion/ porque ni la función ni sus pruebas cambiaron."
+        },
+        "run_origen": {
+          "type": "string",
+          "pattern": "^\\d{8}-\\d{6}-[0-9a-f]{4}$",
+          "description": "#70. Corrida que calculó el resultado reutilizado."
+        }
       }
     },
     "tokens": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["prompt_tokens", "completion_tokens"],
+      "required": [
+        "prompt_tokens",
+        "completion_tokens"
+      ],
       "properties": {
-        "prompt_tokens": { "type": "integer", "minimum": 0 },
-        "completion_tokens": { "type": "integer", "minimum": 0 }
+        "prompt_tokens": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "completion_tokens": {
+          "type": "integer",
+          "minimum": 0
+        }
       }
     },
     "modelo": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["proveedor", "modelo", "precio_entrada_usd_m", "precio_salida_usd_m"],
+      "required": [
+        "proveedor",
+        "modelo",
+        "precio_entrada_usd_m",
+        "precio_salida_usd_m"
+      ],
       "properties": {
-        "proveedor": { "type": "string", "minLength": 1 },
-        "modelo": { "type": "string", "minLength": 1 },
-        "precio_entrada_usd_m": { "type": "number", "minimum": 0 },
-        "precio_salida_usd_m": { "type": "number", "minimum": 0 }
+        "proveedor": {
+          "type": "string",
+          "minLength": 1
+        },
+        "modelo": {
+          "type": "string",
+          "minLength": 1
+        },
+        "precio_entrada_usd_m": {
+          "type": "number",
+          "minimum": 0
+        },
+        "precio_salida_usd_m": {
+          "type": "number",
+          "minimum": 0
+        }
       }
     },
     "llamada": {
@@ -157,53 +339,181 @@
         "hora"
       ],
       "properties": {
-        "agente": { "$ref": "#/$defs/agente" },
-        "funcion": { "type": ["string", "null"], "description": "null en las llamadas del Planner (planifica el módulo completo)." },
-        "intento": { "type": ["integer", "null"], "minimum": 1, "maximum": 3 },
-        "modelo": { "type": "string", "minLength": 1 },
-        "prompt_tokens": { "type": "integer", "minimum": 0 },
-        "completion_tokens": { "type": "integer", "minimum": 0 },
-        "costo_usd": { "type": "number", "minimum": 0 },
-        "es_simulado": { "type": "boolean" },
-        "hora": { "type": "string", "minLength": 1 }
+        "agente": {
+          "$ref": "#/$defs/agente"
+        },
+        "funcion": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "null en las llamadas del Planner (planifica el módulo completo)."
+        },
+        "intento": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 1,
+          "maximum": 3
+        },
+        "modelo": {
+          "type": "string",
+          "minLength": 1
+        },
+        "prompt_tokens": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "completion_tokens": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "costo_usd": {
+          "type": "number",
+          "minimum": 0
+        },
+        "es_simulado": {
+          "type": "boolean"
+        },
+        "hora": {
+          "type": "string",
+          "minLength": 1
+        },
+        "es_estimado": {
+          "type": "boolean"
+        }
       }
     },
     "total_agente": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["prompt_tokens", "completion_tokens", "costo_usd", "llamadas"],
+      "required": [
+        "prompt_tokens",
+        "completion_tokens",
+        "costo_usd",
+        "llamadas"
+      ],
       "properties": {
-        "prompt_tokens": { "type": "integer", "minimum": 0 },
-        "completion_tokens": { "type": "integer", "minimum": 0 },
-        "costo_usd": { "type": "number", "minimum": 0 },
-        "llamadas": { "type": "integer", "minimum": 0 }
+        "prompt_tokens": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "completion_tokens": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "costo_usd": {
+          "type": "number",
+          "minimum": 0
+        },
+        "llamadas": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "tokens_reales": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "tokens_estimados": {
+          "type": "integer",
+          "minimum": 0
+        }
       }
     },
     "objetivo": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["modulo", "funcion", "critical", "decision", "motivo_estancado", "metricas"],
+      "required": [
+        "modulo",
+        "funcion",
+        "critical",
+        "decision",
+        "motivo_estancado",
+        "metricas"
+      ],
       "allOf": [
         {
           "description": "Una prueba estancada siempre dice por qué se cortó; las demás no tienen motivo (HU-14).",
-          "if": { "properties": { "decision": { "const": "stalled" } } },
-          "then": { "properties": { "motivo_estancado": { "enum": ["limite_intentos", "error_repetido"] } } },
-          "else": { "properties": { "motivo_estancado": { "const": null } } }
+          "if": {
+            "properties": {
+              "decision": {
+                "const": "stalled"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "motivo_estancado": {
+                "enum": [
+                  "limite_intentos",
+                  "error_repetido",
+                  "limite_tokens"
+                ]
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "motivo_estancado": {
+                "const": null
+              }
+            }
+          }
         }
       ],
       "properties": {
-        "modulo": { "type": "string", "minLength": 1 },
-        "funcion": { "type": "string", "minLength": 1 },
-        "tipo": { "enum": ["funcion", "endpoint"], "description": "EN-16. Qué se probó; en un endpoint, funcion es \"MÉTODO /ruta\". Si falta, es una función." },
-        "critical": { "type": "boolean" },
+        "modulo": {
+          "type": "string",
+          "minLength": 1
+        },
+        "funcion": {
+          "type": "string",
+          "minLength": 1
+        },
+        "tipo": {
+          "enum": [
+            "funcion",
+            "endpoint"
+          ],
+          "description": "EN-16. Qué se probó; en un endpoint, funcion es \"MÉTODO /ruta\". Si falta, es una función."
+        },
+        "critical": {
+          "type": "boolean"
+        },
         "decision": {
-          "enum": ["accept", "bug_detectado", "stalled", "requiere_corrida_nueva", null],
+          "enum": [
+            "accept",
+            "bug_detectado",
+            "stalled",
+            "requiere_corrida_nueva",
+            null
+          ],
           "description": "null si la corrida terminó en fallo controlado antes del veredicto."
         },
-        "laundering_detectado": { "type": "boolean", "description": "HU-16/HU-18. Algún intento fue rechazado por debilitar las aserciones." },
-        "reutilizada": { "type": "boolean", "description": "HU-25. Prueba aprobada reejecutada sin IA." },
-        "motivo_regresion": { "enum": ["huella_ausente", "huella_distinta", "objetivo_ausente", "prueba_ausente", "metadatos_corruptos", null] },
-        "duracion_s": { "type": "number", "minimum": 0, "description": "HU-18. Segundos desde el primer intento hasta el veredicto." },
+        "laundering_detectado": {
+          "type": "boolean",
+          "description": "HU-16/HU-18. Algún intento fue rechazado por debilitar las aserciones."
+        },
+        "reutilizada": {
+          "type": "boolean",
+          "description": "HU-25. Prueba aprobada reejecutada sin IA."
+        },
+        "motivo_regresion": {
+          "enum": [
+            "huella_ausente",
+            "huella_distinta",
+            "objetivo_ausente",
+            "prueba_ausente",
+            "metadatos_corruptos",
+            null
+          ]
+        },
+        "duracion_s": {
+          "type": "number",
+          "minimum": 0,
+          "description": "HU-18. Segundos desde el primer intento hasta el veredicto."
+        },
         "inicio": { "type": ["string", "null"], "description": "#115. Marca UTC del primer intento." },
         "fin": { "type": ["string", "null"], "description": "#115. Marca UTC del veredicto." },
         "duracion_generacion_s": { "type": "number", "minimum": 0 },
@@ -230,26 +540,67 @@
           "type": "object",
           "description": "HU-21. Checklist del último intento: true cumple, false no cumple, null sin dato o no aplica.",
           "additionalProperties": false,
-          "required": ["sintaxis", "sandbox", "aserciones", "cobertura", "mutation"],
+          "required": [
+            "sintaxis",
+            "sandbox",
+            "aserciones",
+            "cobertura",
+            "mutation"
+          ],
           "properties": {
-            "sintaxis": { "type": ["boolean", "null"] },
-            "sandbox": { "type": ["boolean", "null"] },
-            "aserciones": { "type": ["boolean", "null"] },
-            "cobertura": { "type": ["boolean", "null"] },
-            "mutation": { "type": ["boolean", "null"] }
+            "sintaxis": {
+              "type": [
+                "boolean",
+                "null"
+              ]
+            },
+            "sandbox": {
+              "type": [
+                "boolean",
+                "null"
+              ]
+            },
+            "aserciones": {
+              "type": [
+                "boolean",
+                "null"
+              ]
+            },
+            "cobertura": {
+              "type": [
+                "boolean",
+                "null"
+              ]
+            },
+            "mutation": {
+              "type": [
+                "boolean",
+                "null"
+              ]
+            }
           }
         },
-        "mutacion": { "$ref": "#/$defs/mutacion" },
+        "mutacion": {
+          "$ref": "#/$defs/mutacion"
+        },
         "casos_por_categoria": {
           "$ref": "#/$defs/casos_por_categoria",
           "description": "#76. Casos del contrato del objetivo por categoría. Opcional: las corridas anteriores no lo tienen."
         },
         "motivo_sin_veredicto": {
-          "enum": ["tiempo_agotado", null],
+          "enum": [
+            "tiempo_agotado",
+            null
+          ],
           "description": "Por qué un objetivo quedó sin veredicto (decision null) sin detener el módulo: tiempo_agotado (un agente o el proveedor de IA no respondió a tiempo). Opcional: las corridas anteriores no lo tienen."
         },
         "motivo_estancado": {
-          "enum": ["limite_intentos", "error_repetido", null],
+          "enum": [
+            "limite_intentos",
+            "error_repetido",
+            "limite_tokens",
+            null
+          ],
           "description": "Por qué se cortó una prueba stalled: limite_intentos (3 intentos) o error_repetido (mismo hash de error dos veces seguidas). El intento del corte es metricas.iteraciones."
         },
         "metricas": {
@@ -264,17 +615,45 @@
             "mutation_score"
           ],
           "properties": {
-            "paso": { "type": "boolean", "description": "Pass Rate de la función: el último test corrió sin error en el sandbox." },
-            "cobertura_lineas": { "type": ["number", "null"], "minimum": 0, "maximum": 100 },
-            "cobertura_ramas": { "type": ["number", "null"], "minimum": 0, "maximum": 100 },
-            "iteraciones": { "type": "integer", "minimum": 0, "maximum": 3 },
+            "paso": {
+              "type": "boolean",
+              "description": "Pass Rate de la función: el último test corrió sin error en el sandbox."
+            },
+            "cobertura_lineas": {
+              "type": [
+                "number",
+                "null"
+              ],
+              "minimum": 0,
+              "maximum": 100
+            },
+            "cobertura_ramas": {
+              "type": [
+                "number",
+                "null"
+              ],
+              "minimum": 0,
+              "maximum": 100
+            },
+            "iteraciones": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 3
+            },
             "tokens_por_agente": {
               "type": "object",
-              "propertyNames": { "$ref": "#/$defs/agente" },
-              "additionalProperties": { "$ref": "#/$defs/tokens" }
+              "propertyNames": {
+                "$ref": "#/$defs/agente"
+              },
+              "additionalProperties": {
+                "$ref": "#/$defs/tokens"
+              }
             },
             "mutation_score": {
-              "type": ["number", "null"],
+              "type": [
+                "number",
+                "null"
+              ],
               "minimum": 0,
               "maximum": 100,
               "description": "EN-09. Solo funciones critical: true aprobadas en el perfil Profundo; null si no se ejecutó mutmut o no hubo puntuación."
@@ -286,11 +665,24 @@
     "casos_por_categoria": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["normal", "limite", "error"],
+      "required": [
+        "normal",
+        "limite",
+        "error"
+      ],
       "properties": {
-        "normal": { "type": "integer", "minimum": 0 },
-        "limite": { "type": "integer", "minimum": 0 },
-        "error": { "type": "integer", "minimum": 0 }
+        "normal": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "limite": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "error": {
+          "type": "integer",
+          "minimum": 0
+        }
       }
     },
     "resumen": {
@@ -307,42 +699,133 @@
         "costo_total_usd"
       ],
       "properties": {
-        "total_funciones": { "type": "integer", "minimum": 0 },
-        "aceptadas": { "type": "integer", "minimum": 0 },
-        "bugs_detectados": { "type": "integer", "minimum": 0 },
-        "stalled": { "type": "integer", "minimum": 0 },
-        "sin_veredicto": { "type": "integer", "minimum": 0 },
-        "requieren_corrida_nueva": { "type": "integer", "minimum": 0 },
-        "pass_rate": { "type": "number", "minimum": 0, "maximum": 100, "description": "% de funciones cuyo último test pasó." },
+        "total_funciones": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "aceptadas": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "bugs_detectados": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "stalled": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "sin_veredicto": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "requieren_corrida_nueva": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "pass_rate": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100,
+          "description": "% de funciones cuyo último test pasó."
+        },
         "duracion_s": { "type": "number", "minimum": 0, "description": "#115. Duración total medida de la corrida." },
         "inicio": { "type": ["string", "null"], "description": "#115. Inicio de la corrida en UTC." },
         "fin": { "type": ["string", "null"], "description": "#115. Fin de la corrida en UTC." },
         "duracion_etapas": { "$ref": "#/$defs/etapas" },
-        "cobertura_lineas_promedio": { "type": ["number", "null"], "minimum": 0, "maximum": 100 },
-        "cobertura_ramas_promedio": { "type": ["number", "null"], "minimum": 0, "maximum": 100, "description": "HU-18. Opcional: las corridas anteriores no lo tienen." },
+        "cobertura_lineas_promedio": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 100
+        },
+        "cobertura_ramas_promedio": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 100,
+          "description": "HU-18. Opcional: las corridas anteriores no lo tienen."
+        },
         "casos_por_categoria": {
           "$ref": "#/$defs/casos_por_categoria",
           "description": "#76. Total de casos de la corrida por categoría. Opcional: las corridas anteriores no lo tienen."
         },
-        "iteraciones_promedio": { "type": ["number", "null"], "minimum": 0, "maximum": 3, "description": "HU-18. Intentos promedio de las funciones con veredicto." },
-        "costo_total_usd": { "type": "number", "minimum": 0 },
+        "iteraciones_promedio": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 3,
+          "description": "HU-18. Intentos promedio de las funciones con veredicto."
+        },
+        "costo_total_usd": {
+          "type": "number",
+          "minimum": 0
+        },
         "por_agente": {
           "type": "object",
           "description": "HU-18. Tokens y costo de cada agente en la corrida (igual que totales_por_agente de log.json).",
-          "propertyNames": { "$ref": "#/$defs/agente" },
-          "additionalProperties": { "$ref": "#/$defs/total_agente" }
+          "propertyNames": {
+            "$ref": "#/$defs/agente"
+          },
+          "additionalProperties": {
+            "$ref": "#/$defs/total_agente"
+          }
         },
         "metas": {
           "type": "object",
           "description": "HU-18. Metas de la carta ([umbrales] de config.toml) y tope de gasto vigentes en la corrida.",
           "additionalProperties": false,
-          "required": ["pass_rate_min", "cobertura_lineas_min", "iteraciones_promedio_max", "tope_por_corrida_usd"],
+          "required": [
+            "pass_rate_min",
+            "cobertura_lineas_min",
+            "iteraciones_promedio_max",
+            "tope_por_corrida_usd"
+          ],
           "properties": {
-            "pass_rate_min": { "type": "number", "minimum": 0, "maximum": 100 },
-            "cobertura_lineas_min": { "type": "number", "minimum": 0, "maximum": 100 },
-            "iteraciones_promedio_max": { "type": "number", "minimum": 0 },
-            "tope_por_corrida_usd": { "type": "number", "minimum": 0 }
+            "pass_rate_min": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 100
+            },
+            "cobertura_lineas_min": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 100
+            },
+            "iteraciones_promedio_max": {
+              "type": "number",
+              "minimum": 0
+            },
+            "tope_por_corrida_usd": {
+              "type": "number",
+              "minimum": 0
+            },
+            "tope_tokens_por_corrida": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "minimum": 0
+            }
           }
+        },
+        "total_tokens": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "tokens_reales": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "tokens_estimados": {
+          "type": "integer",
+          "minimum": 0
         }
       }
     }

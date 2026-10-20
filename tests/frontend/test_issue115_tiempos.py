@@ -20,6 +20,25 @@ def test_monitor_reancla_el_reloj_con_el_tiempo_del_backend() -> None:
     assert "duracionTexto" in monitor
 
 
+def test_monitor_combina_tokens_alertas_y_tiempos_en_el_mismo_evento() -> None:
+    monitor = _texto("monitor/monitor.js")
+    bloque = monitor.split("function monitorEventoReal", 1)[1].split(
+        "function monitorFinReal", 1
+    )[0]
+
+    assert "d.tokens_acumulados" in bloque
+    assert "d.limite_tokens" in bloque
+    assert "d.alerta_presupuesto" in bloque
+    assert "transcurrido_s" in bloque
+    assert "duracion_objetivo_s" in bloque
+    assert "Number.isFinite" in bloque
+
+    fin = monitor.split("function monitorFinReal", 1)[1]
+    assert "runDone = true" in fin
+    assert "clearInterval(agoTimer)" in fin
+    assert "r.duracion_s" in fin
+
+
 def test_ejecucion_usa_el_total_medido_y_el_desglose() -> None:
     ejecucion = _texto("ejecucion/ejecucion.js")
 

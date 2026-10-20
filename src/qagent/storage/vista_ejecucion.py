@@ -305,11 +305,25 @@ def _costo(objetivos, resumen, metas) -> dict[str, Any]:
         }
     costo = resumen["costo_total_usd"]
     tope = metas["tope_por_corrida_usd"] if metas else None
+    tope_tokens = metas.get("tope_tokens_por_corrida") if metas else None
+    tokens_total = resumen.get(
+        "total_tokens", sum(a["tokens"] for a in agentes.values())
+    )
+    tokens_reales = resumen.get(
+        "tokens_reales",
+        sum(a.get("tokens_reales", a["tokens"]) for a in agentes.values()),
+    )
+    tokens_estimados = resumen.get(
+        "tokens_estimados", sum(a.get("tokens_estimados", 0) for a in agentes.values())
+    )
     return {
         "por_agente": agentes,
-        "tokens_total": sum(a["tokens"] for a in agentes.values()),
+        "tokens_total": tokens_total,
+        "tokens_reales": tokens_reales,
+        "tokens_estimados": tokens_estimados,
         "costo_total_usd": costo,
         "tope_usd": tope,
+        "tope_tokens": tope_tokens,
         "cumple": None if tope is None else costo <= tope,
     }
 

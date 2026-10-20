@@ -158,6 +158,7 @@ def ejecutar_regresion(
     mutador: Any = None,
     reloj: Any = time.monotonic,
     ahora: Any = iso_utc,
+    cancelado: Any = None,
 ) -> Any:
     """Reejecuta una vez cada prueba aprobada vigente; nunca crea clientes LLM.
 
@@ -259,6 +260,11 @@ def ejecutar_regresion(
         emitir("Regresion sin IA: comprobando huellas de pruebas aprobadas")
         imagen: str | None = None
         for spec in specs:
+            if cancelado is not None and cancelado():
+                resumen.estado = "fallo_controlado"
+                resumen.motivo = "Corrida detenida por el usuario."
+                emitir(resumen.motivo, tipo="fallo")
+                break
             contrato = spec["contrato"]
             modulo, objetivo = contrato["modulo"], contrato["objetivo"]
             objetivo_inicio_reloj = reloj()
@@ -405,7 +411,7 @@ def ejecutar_regresion(
                 "veredicto",
                 {"decision": decision, "intento": 1, "objetivo": objetivo},
             )
-        if perfil == PERFIL_REGRESION_PROFUNDA:
+        if perfil == PERFIL_REGRESION_PROFUNDA and resumen.estado == "fin":
             _mutar_criticas(
                 raiz,
                 imagen,

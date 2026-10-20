@@ -121,3 +121,53 @@ def test_reemplazar_agrega_la_seccion_al_final_si_falta() -> None:
     nuevo = reemplazar_seccion_reintentos(texto, 2)
     assert nuevo.startswith("# encabezado\n[agentes.planner]")
     assert tomllib.loads(nuevo)["reintentos"]["max_intentos"] == 2
+
+
+def test_guardar_max_tokens_crea_seccion_presupuesto(
+    rutas: tuple[Path, Path],
+) -> None:
+    from qagent.config.limites import guardar_max_tokens
+
+    equipo, local = rutas
+    resultado = guardar_max_tokens(50000, local)
+    assert resultado["ok"] is True
+    datos = tomllib.loads(local.read_text(encoding="utf-8"))
+    assert datos["presupuesto"]["max_tokens_por_corrida"] == 50000
+    limites = leer_limites(equipo, local)
+    assert limites["max_tokens_por_corrida"] == 50000
+
+
+def test_guardar_max_tokens_cero_o_none_elimina_limite(
+    rutas: tuple[Path, Path],
+) -> None:
+    from qagent.config.limites import guardar_max_tokens
+
+    equipo, local = rutas
+    guardar_max_tokens(10000, local)
+    assert leer_limites(equipo, local)["max_tokens_por_corrida"] == 10000
+
+    resultado = guardar_max_tokens(0, local)
+    assert resultado["ok"] is True
+    assert leer_limites(equipo, local)["max_tokens_por_corrida"] is None
+
+
+@pytest.mark.parametrize("valor", [-10, "5000", 12.5, True])
+def test_guardar_max_tokens_invalido(rutas: tuple[Path, Path], valor: object) -> None:
+    from qagent.config.limites import guardar_max_tokens
+
+    _, local = rutas
+    res = guardar_max_tokens(valor, local)
+    assert res["ok"] is False
+
+
+def test_guardar_limites_guarda_intentos_y_tokens(
+    rutas: tuple[Path, Path],
+) -> None:
+    from qagent.config.limites import guardar_limites
+
+    equipo, local = rutas
+    res = guardar_limites(max_intentos=2, max_tokens=75000, ruta_local=local)
+    assert res["ok"] is True
+    limites = leer_limites(equipo, local)
+    assert limites["max_intentos"] == 2
+    assert limites["max_tokens_por_corrida"] == 75000

@@ -24,6 +24,7 @@ class DesktopAPI:
     def __init__(self) -> None:
         self._window: webview.Window | None = None
         self._corrida: threading.Thread | None = None  # corrida real en curso
+        self._cancelar_corrida = threading.Event()
 
     def set_window(self, window: webview.Window) -> None:
         """Asigna la instancia de la ventana activa."""
@@ -342,20 +343,37 @@ class DesktopAPI:
 
         return leer_limites()
 
-    def guardar_limites(self, max_intentos: int) -> dict:
-        """Guarda los intentos por función en el `config.local.toml` del usuario.
+    def guardar_limites(self, max_intentos: int, max_tokens: int | None = None) -> dict:
+        """Guarda los intentos y el presupuesto de tokens en el `config.local.toml`.
 
         El tiempo máximo por prueba no se guarda: `[sandbox]` lo define solo el equipo.
 
         Returns:
             dict: ``{"ok", "mensaje", "limites"}``.
         """
-        from qagent.config.limites import guardar_max_intentos, leer_limites
+        from qagent.config.limites import (
+            guardar_limites as config_guardar_limites,
+        )
+        from qagent.config.limites import (
+            leer_limites,
+        )
 
-        resultado = guardar_max_intentos(max_intentos)
+        resultado = config_guardar_limites(
+            max_intentos=max_intentos, max_tokens=max_tokens
+        )
         if resultado["ok"]:
-            bitacora.registro.info("Intentos por función: %s", max_intentos)
+            bitacora.registro.info(
+                "Límites actualizados: intentos=%s, tokens=%s", max_intentos, max_tokens
+            )
         return {**resultado, "limites": leer_limites()}
+
+    def detener_corrida(self) -> dict:
+        """Detiene de forma controlada la corrida en curso."""
+        if self._corrida is not None and self._corrida.is_alive():
+            self._cancelar_corrida.set()
+            bitacora.registro.info("Solicitud de detención de corrida recibida.")
+            return {"ok": True, "mensaje": "Deteniendo corrida de forma controlada..."}
+        return {"ok": False, "mensaje": "No hay una corrida en ejecución."}
 
     def obtener_tema(self) -> dict:
         """Tema visual vigente (oscuro o claro) para la interfaz de escritorio."""
@@ -640,6 +658,7 @@ class DesktopAPI:
                 "Docker no está listo: la pantalla muestra la demostración y no se "
                 "ejecuta el pipeline."
             )
+        self._cancelar_corrida.clear()
         run_id = _registrar_run(folder_path, usa_docker=modo == "real")
         # Emite un evento hacia la interfaz JS
         self.emit_event("log", {"message": f"Corrida iniciada en perfil '{profile}'"})
@@ -702,11 +721,23 @@ class DesktopAPI:
                 total_funciones=0,
             )
         else:
+            import inspect
+
             opciones_corrida: dict[str, Any] = {
                 "simulado": simulado,
                 "al_evento": self._reenviar_evento,
                 "run_id": run_id,
             }
+            try:
+                sig = inspect.signature(ejecutar_corrida)
+                if "cancelado" in sig.parameters or any(
+                    p.kind == inspect.Parameter.VAR_KEYWORD
+                    for p in sig.parameters.values()
+                ):
+                    opciones_corrida["cancelado"] = self._cancelar_corrida.is_set
+            except (ValueError, TypeError):
+                opciones_corrida["cancelado"] = self._cancelar_corrida.is_set
+
             if seleccion is not None:
                 opciones_corrida["seleccion"] = seleccion
             resumen = ejecutar_corrida(

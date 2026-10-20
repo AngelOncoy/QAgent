@@ -121,10 +121,11 @@ _NOMBRE_ENV = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 
 @dataclass(frozen=True)
 class Presupuesto:
-    """Topes de gasto en US$."""
+    """Topes de gasto en US$ y presupuesto de tokens."""
 
     tope_por_corrida_usd: float
     tope_semestre_usd: float
+    max_tokens_por_corrida: int | None = None
 
 
 @dataclass(frozen=True)
@@ -581,7 +582,22 @@ def _leer_presupuesto(
     semestre = _numero(tabla, "tope_semestre_usd", "presupuesto", avisos)
     if corrida is None or semestre is None:
         return None
-    return Presupuesto(corrida, semestre)
+    max_tokens = None
+    if "max_tokens_por_corrida" in tabla:
+        val = tabla["max_tokens_por_corrida"]
+        if val is not None:
+            if (
+                isinstance(val, bool)
+                or not isinstance(val, (int, float))
+                or val < 0
+                or int(val) != val
+            ):
+                avisos.append(
+                    "max_tokens_por_corrida en [presupuesto] debe ser un número entero mayor o igual que 0."
+                )
+                return None
+            max_tokens = int(val) if int(val) > 0 else None
+    return Presupuesto(corrida, semestre, max_tokens)
 
 
 def _leer_reintentos(tabla: Mapping[str, Any], avisos: list[str]) -> int | None:

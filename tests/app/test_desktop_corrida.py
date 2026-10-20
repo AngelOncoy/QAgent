@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import threading
+from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -154,3 +155,39 @@ def test_el_hilo_envia_las_filas_y_el_resumen(api, monkeypatch) -> None:
     assert eventos[0][1]["a"] == "reviewer"
     assert eventos[1][1]["aceptadas"] == 1
     assert eventos[1][1]["run_id"] == "20261010-020000-abcd"
+
+
+def test_detener_corrida_activa_evento_cancelacion(api: DesktopAPI) -> None:
+    api._cancelar_corrida.clear()
+    # Sin corrida activa
+    res_inactiva = api.detener_corrida()
+    assert res_inactiva["ok"] is False
+
+    # Con corrida activa
+    api._corrida = MagicMock(is_alive=lambda: True)
+    res_activa = api.detener_corrida()
+    assert res_activa["ok"] is True
+    assert api._cancelar_corrida.is_set()
+
+
+def test_start_run_reinicia_evento_cancelacion(
+    api: DesktopAPI, monkeypatch: pytest.MonkeyPatch, corridas_lanzadas: list
+) -> None:
+    api._cancelar_corrida.set()
+    monkeypatch.setenv("QAGENT_FAKE_LLM", "1")
+    monkeypatch.setattr(DesktopAPI, "_sandbox_listo", lambda self: True)
+
+    resultado = api.start_run("C:/proyecto", "deep")
+    assert resultado["status"] == "started"
+    # El evento debe haberse limpiado al iniciar
+    assert not api._cancelar_corrida.is_set()
+
+
+def test_guardar_limites_con_max_tokens(api: DesktopAPI, tmp_path: Path) -> None:
+    local = tmp_path / "config.local.toml"
+    with patch("qagent.config.limites.config_carga.RUTA_CONFIG_LOCAL", local):
+        res = api.guardar_limites(max_intentos=3, max_tokens=85000)
+        assert res["ok"] is True
+        limites = api.obtener_limites()
+        assert limites["max_intentos"] == 3
+        assert limites["max_tokens_por_corrida"] == 85000
