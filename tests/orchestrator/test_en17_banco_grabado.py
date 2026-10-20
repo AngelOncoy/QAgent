@@ -28,7 +28,9 @@ IMAGEN = "grabacion-local (sin Docker)"
 @pytest.fixture(scope="module")
 def corrida(tmp_path_factory):
     carpeta = tmp_path_factory.mktemp("banco") / "banco"
-    shutil.copytree(BANCO, carpeta, ignore=shutil.ignore_patterns("*.md", "*.json"))
+    shutil.copytree(
+        BANCO, carpeta, ignore=shutil.ignore_patterns("*.md", "*.json", ".qagent")
+    )
     almacen = AlmacenProyecto(carpeta)
     almacen.inicializar()
     config = cargar_configuracion(RUTA_CONFIG, "no-existe.env", simulado=True).config

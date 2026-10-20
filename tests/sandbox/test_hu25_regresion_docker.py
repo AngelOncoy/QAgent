@@ -125,7 +125,9 @@ def test_flujo_real_generacion_regresion_y_funcion_modificada(
 ):
     """Escenarios A-C completos: Generator simulado y todas las ejecuciones en Docker."""
     raiz = tmp_path / "banco"
-    shutil.copytree(BANCO, raiz, ignore=shutil.ignore_patterns("*.md", "*.json"))
+    shutil.copytree(
+        BANCO, raiz, ignore=shutil.ignore_patterns("*.md", "*.json", ".qagent")
+    )
     almacen = AlmacenProyecto(raiz)
     almacen.inicializar()
     config = cargar_configuracion(RUTA_CONFIG, "no-existe.env", simulado=True).config

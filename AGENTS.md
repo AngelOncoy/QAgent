@@ -32,7 +32,7 @@ pytest                          # solo pytest (con IA simulada: QAGENT_FAKE_LLM=
 ruff check . && ruff format .   # lint y formato (bench/ está excluido a propósito)
 qagent                          # abre la aplicación de escritorio (o: python -m qagent; qagent --version)
 python scripts/verificar_paquete.py  # construye el paquete, lo instala limpio fuera del repo y lo prueba (TA-06)
-python scripts/construir_windows.py  # QAgent.exe + instalador (Windows; pip install -e .[dev,empaquetar] e Inno Setup 6)
+python scripts/construir_windows.py  # QAgent.exe + instalador (Windows; pip install -e .[dev,empaquetar] e Inno Setup 6.6 o superior)
 ```
 
 La interfaz, los contratos y `config.toml` viajan dentro del paquete (`src/qagent/`), así que el programa también funciona instalado sin `-e` (TA-06). Para desarrollar se usa la instalación editable.
@@ -59,7 +59,7 @@ La interfaz, los contratos y `config.toml` viajan dentro del paquete (`src/qagen
 | `CLAUDE.md` | Guía específica para Claude Code (importa este archivo) |
 | `docs/arquitectura.md` | Arquitectura del sistema y modelo GAIA |
 | `docs/decisiones/` | ADR (decisiones técnicas): ADR-001 modelos por agente, ADR-002 análisis con `ast`, ADR-003 frontend modular, ADR-004 nombre único QAgent, ADR-005 distribución (instalador y PyPI) |
-| `packaging/windows/` | Ejecutable e instalador de Windows: receta de PyInstaller (`qagent.spec`), instalador de Inno Setup (`qagent.iss`), ícono y requisitos que ve quien instala. Se construye con `scripts/construir_windows.py` |
+| `packaging/windows/` | Ejecutable e instalador de Windows: receta de PyInstaller (`qagent.spec`), instalador de Inno Setup (`qagent.iss`), ícono, imágenes del asistente (`asistente/`) y requisitos que ve quien instala. Se construye con `scripts/construir_windows.py` |
 | `scripts/` | Herramientas del equipo: verificar el paquete instalado y construir el ejecutable de Windows |
 | `docs/desarrollo.md` | Guía del equipo: entorno, pruebas, sandbox, distribución y estructura del repositorio (el README es la portada para usuarios) |
 | `docs/evidencias/` | Salidas y mediciones de los spikes (ej. `spk-02/`) |

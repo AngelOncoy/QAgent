@@ -31,6 +31,11 @@ OutputBaseFilename=QAgent-{#Version}-instalador
 Compression=lzma2
 SolidCompression=yes
 WizardStyle=modern
+; Imágenes del asistente (Inno Setup 6.6 o superior): panel izquierdo de las páginas de
+; bienvenida y fin, e imagen pequeña de las demás. Un archivo por escala de pantalla
+; (100 % a 250 %); Setup elige el que mejor encaja.
+WizardImageFile=asistente\panel-100.png,asistente\panel-125.png,asistente\panel-150.png,asistente\panel-175.png,asistente\panel-200.png,asistente\panel-225.png,asistente\panel-250.png
+WizardSmallImageFile=asistente\pequena-100.png,asistente\pequena-125.png,asistente\pequena-150.png,asistente\pequena-175.png,asistente\pequena-200.png,asistente\pequena-225.png,asistente\pequena-250.png
 
 [Languages]
 Name: "spanish"; MessagesFile: "compiler:Languages\Spanish.isl"
