@@ -165,6 +165,8 @@ function cargarDatosVistaPrevia(res) {
       status_code_declarado: !!e.status_code_declarado,
       excepciones_http: (e.excepciones_http || []).map(x => ({ ...x })),
       dependencias: (e.dependencias || []).map(d => d.funcion).filter(Boolean),
+      // issue 114: solo se sabe si tiene docstring cuando el análisis trae el dato.
+      doc: 'docstring' in e ? (e.docstring ? 1 : 0) : null,
       br: decisiones,
       crit: e.critica_propuesta ?? ((decisiones ?? 0) > 0),
       inc: true
@@ -377,6 +379,16 @@ function iniciarTooltips(){
     el.addEventListener('focus', () => mostrarTooltip(el));
     el.addEventListener('blur', ocultarTooltip);
   });
+  // issue 114: la etiqueta «Sin docstring» aparece en filas que se vuelven a pintar y en otras
+  // pantallas (En curso, Resultados). El tooltip pasa al body y se delega en el documento.
+  const tip = $('tipFlotante');
+  if(tip) document.body.appendChild(tip);
+  const etiqueta = ev => ev.target && ev.target.closest ? ev.target.closest('.etq-sin-doc') : null;
+  document.addEventListener('mouseover', ev => { const el = etiqueta(ev); if(el) mostrarTooltip(el); });
+  document.addEventListener('mouseout', ev => { if(etiqueta(ev)) ocultarTooltip(); });
+  document.addEventListener('focusin', ev => { const el = etiqueta(ev); if(el) mostrarTooltip(el); });
+  document.addEventListener('focusout', ev => { if(etiqueta(ev)) ocultarTooltip(); });
+  document.addEventListener('keydown', ev => { if(ev.key === 'Escape') ocultarTooltip(); });
 }
 
 // Se llama desde main.js cuando el HTML del componente ya está montado.
@@ -558,7 +570,7 @@ function renderEndpoints(){
     const detalle = `Función ${e.manejador ? escHtml(e.manejador) : '—'} · Estado ${estado}${e.status_code_declarado ? '' : ' (por defecto)'} · Respuesta ${respuesta} · ${tipErr} · ${escHtml(simula)}`;
     return `<tr class="${elegible ? '' : 'ep-no-resuelta'}">
       <td class="col-incl"><input type="checkbox" class="exp-caja" aria-label="Incluir endpoint: ${nombreEp}" ${e.inc ? 'checked' : ''} ${elegible ? '' : 'disabled'} title="${elegible ? '' : 'Ruta no disponible: no se puede probar'}" onchange="toggleEndpoint(${mi},${ei})"></td>
-      <td class="fn" title="${detalle}"><span class="endpoint-method">${e.metodo ? escHtml(e.metodo) : 'SIN MÉTODO'}</span> <span class="endpoint-route">${e.ruta ? escHtml(e.ruta) : 'Ruta no disponible'}</span><div class="sub">${escHtml(m.path)}</div></td>
+      <td class="fn" title="${detalle}"><span class="endpoint-method">${e.metodo ? escHtml(e.metodo) : 'SIN MÉTODO'}</span> <span class="endpoint-route">${e.ruta ? escHtml(e.ruta) : 'Ruta no disponible'}</span>${tieneDocstring(e) === false ? etiquetaSinDocstring('endpoint') : ''}<div class="sub">${escHtml(m.path)}</div></td>
       <td>${textoComplejidad(e.br)}</td>
       <td>${textoDesdeUltimaVez(m)}</td>
       <td class="col-prof"><input type="checkbox" class="exp-caja" aria-label="Profundizar: ${nombreEp}" ${e.crit ? 'checked' : ''} ${elegible ? '' : 'disabled'} title="Profundizar: solicita un análisis más exhaustivo del endpoint. Se aplica si activas Profundizar en la configuración de pruebas." onchange="toggleEndpointCrit(${mi},${ei})"></td>
@@ -571,7 +583,7 @@ function renderFns(){
   const fnsVis = fns.filter(funcionVisible);
   $('fnTable').innerHTML = fnsVis.map(({m, mi, f, fi}) => `<tr>
       <td class="col-incl"><input type="checkbox" class="exp-caja" aria-label="Incluir función: ${escHtml(f.n)}" ${f.inc ? 'checked' : ''} onchange="toggle(${mi},${fi},'inc')"></td>
-      <td class="fn" title="${escHtml(f.n + f.sig)}">${escHtml(f.n)}<div class="sub">${escHtml(m.path)}</div></td>
+      <td class="fn" title="${escHtml(f.n + f.sig)}">${escHtml(f.n)}${tieneDocstring(f) === false ? etiquetaSinDocstring('funcion') : ''}<div class="sub">${escHtml(m.path)}</div></td>
       <td>${textoComplejidad(f.br)}</td>
       <td>${textoDesdeUltimaVez(m)}</td>
       <td class="col-prof"><input type="checkbox" class="exp-caja" aria-label="Profundizar: ${escHtml(f.n)}" ${f.crit ? 'checked' : ''} title="Profundizar: solicita un análisis más exhaustivo de la función. Se aplica si activas Profundizar en la configuración de pruebas." onchange="toggle(${mi},${fi},'crit')"></td>
