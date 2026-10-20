@@ -529,3 +529,54 @@ def test_groq_se_ofrece_y_se_guarda_con_su_variable(rutas):
 
     assert r["ok"]
     assert leer_env(rutas[1])["GROQ_API_KEY_GENERATOR"] == CLAVE_OPENAI
+
+
+# --- DeepSeek (HU-36) -----------------------------------------------------------------
+
+CLAVE_DEEPSEEK = "clave-deepseek-" + "D" * 20
+
+
+def test_deepseek_se_ofrece_en_la_interfaz_con_sus_modelos():
+    """HU-36, criterios 1 y 2: lo que recibe el formulario de Configuración."""
+    [deepseek] = [p for p in listar_proveedores() if p["id"] == "deepseek"]
+
+    assert deepseek["nombre"] == "DeepSeek" and deepseek["genera_texto"]
+    assert [(m["id"], m["nombre"]) for m in deepseek["modelos"]] == [
+        ("deepseek-flash", "DeepSeek V4.1 Flash"),
+        ("deepseek-v4-pro", "DeepSeek V4 Pro"),
+    ]
+    assert deepseek["variables"]["planner"] == "DEEPSEEK_API_KEY_PLANNER"
+
+
+def test_deepseek_se_guarda_con_su_variable_y_sin_mostrar_la_key(rutas):
+    r = _guardar(rutas, "planner", "deepseek", "deepseek-flash", CLAVE_DEEPSEEK)
+
+    assert r["ok"]
+    assert leer_env(rutas[1])["DEEPSEEK_API_KEY_PLANNER"] == CLAVE_DEEPSEEK
+    assert CLAVE_DEEPSEEK not in repr(r)
+    assert CLAVE_DEEPSEEK not in rutas[0].read_text(encoding="utf-8")
+    planner = _roles(rutas)["planner"]
+    assert (planner["proveedor"], planner["modelo"]) == ("deepseek", "deepseek-flash")
+    assert CLAVE_DEEPSEEK not in repr(planner)
+
+
+def test_deepseek_con_key_invalida_muestra_el_aviso_existente(rutas):
+    """HU-36, criterio 6: el mismo «Key inválida» que los demás y no se guarda nada."""
+    config, env = rutas
+    antes = (config.read_text(encoding="utf-8"), env.read_text(encoding="utf-8"))
+
+    r = _guardar(
+        rutas,
+        "generator",
+        "deepseek",
+        "deepseek-v4-pro",
+        CLAVE_DEEPSEEK,
+        Transporte(ErrorLLM("HTTP 401 Authentication Fails", codigo=401)),
+    )
+
+    assert not r["ok"] and r["mensaje"] == "Key inválida"
+    assert CLAVE_DEEPSEEK not in repr(r)
+    assert (
+        config.read_text(encoding="utf-8"),
+        env.read_text(encoding="utf-8"),
+    ) == antes

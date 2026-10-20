@@ -14,6 +14,7 @@ from qagent.llm.proveedores import (
     KEY_INVALIDA,
     LIMITE_DE_USO,
     MODELO_NO_DISPONIBLE,
+    RUTA_CATALOGO,
     SATURADO,
     SIN_CONEXION,
     SIN_CREDITO,
@@ -40,6 +41,7 @@ PROVEEDORES_HU30 = [
     "openrouter",
     "gemini",
     "groq",
+    "deepseek",  # HU-36
 ]
 
 #: Proveedor de voz armado en la prueba: el catálogo ya no trae ninguno (BU-01), pero
@@ -72,7 +74,7 @@ class Transporte:
 # --- Catálogo ------------------------------------------------------------------------
 
 
-def test_el_catalogo_ofrece_los_seis_proveedores():
+def test_el_catalogo_ofrece_los_proveedores_visibles():
     visibles = [pid for pid, p in catalogo().items() if p.visible]
     assert visibles == PROVEEDORES_HU30
 
@@ -107,6 +109,41 @@ def test_groq_ofrece_solo_sus_modelos_gratuitos_de_texto():
 
 def test_openrouter_usa_nombres_completos():
     assert all("/" in m.id for m in catalogo()["openrouter"].modelos)
+
+
+def test_deepseek_aparece_en_los_proveedores_disponibles():
+    """HU-36, criterio 1."""
+    deepseek = catalogo()["deepseek"]
+
+    assert deepseek.visible and deepseek.genera_texto
+    assert deepseek.nombre == "DeepSeek"
+    assert deepseek.variable == "DEEPSEEK_API_KEY"
+    assert deepseek.endpoint == "https://api.deepseek.com/chat/completions"
+
+
+def test_deepseek_ofrece_sus_dos_modelos_iniciales():
+    """HU-36, criterio 2: IDs que acepta la API, con el nombre visible del criterio."""
+    modelos = catalogo()["deepseek"].modelos
+
+    assert [(m.id, m.nombre) for m in modelos] == [
+        ("deepseek-flash", "DeepSeek V4.1 Flash"),
+        ("deepseek-v4-pro", "DeepSeek V4 Pro"),
+    ]
+    assert all(m.precio_confirmado and m.entrada_usd_m > 0 for m in modelos)
+
+
+def test_los_modelos_de_deepseek_se_cambian_solo_en_el_catalogo(tmp_path):
+    """HU-36, criterio 3: agregar o quitar un modelo es editar el TOML, no el código."""
+    texto = RUTA_CATALOGO.read_text(encoding="utf-8")
+    pro = next(linea for linea in texto.splitlines() if '"deepseek-v4-pro"' in linea)
+    nuevo = '  { id = "deepseek-nuevo", nombre = "DeepSeek Nuevo" },'
+    ruta = tmp_path / "proveedores.toml"
+    ruta.write_text(texto.replace(pro, nuevo), encoding="utf-8")
+
+    deepseek = cargar_catalogo(ruta)["deepseek"]
+
+    assert [m.id for m in deepseek.modelos] == ["deepseek-flash", "deepseek-nuevo"]
+    assert not deepseek.modelo("deepseek-nuevo").precio_confirmado
 
 
 def test_un_modelo_sin_precio_queda_sin_confirmar():
@@ -225,6 +262,20 @@ def test_motivo_de_error(error, motivo):
 
 def test_otro_codigo_indica_el_http():
     assert "HTTP 500" in motivo_de_error(ErrorLLM("x", codigo=500)).mensaje
+
+
+def test_deepseek_con_key_invalida_da_el_aviso_de_siempre():
+    """HU-36, criterio 6: el 401 de DeepSeek se traduce al mismo «Key inválida»."""
+    transporte = Transporte(ErrorLLM(f"HTTP 401 rechazada {CLAVE}", codigo=401))
+
+    r = cliente_de("deepseek", transporte).validar(CLAVE, "deepseek-flash")
+
+    assert not r.ok and r.mensaje == KEY_INVALIDA
+    assert CLAVE not in r.detalle
+    [envio] = transporte.envios
+    assert envio["url"] == "https://api.deepseek.com/chat/completions"
+    assert envio["cabeceras"]["Authorization"] == f"Bearer {CLAVE}"
+    assert envio["datos"]["model"] == "deepseek-flash"
 
 
 def test_el_detalle_nunca_lleva_la_key():

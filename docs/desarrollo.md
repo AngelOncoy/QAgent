@@ -21,7 +21,7 @@ python test.py
 
 | Archivo | Para qué sirve |
 |---|---|
-| `.env` | Claves de API (una variable por agente, p. ej. `GEMINI_API_KEY_PLANNER`). Se crea solo, vacío, la primera vez. |
+| `.env` | Claves de API (una variable por agente, p. ej. `GEMINI_API_KEY_PLANNER`). Se crea solo, vacío, la primera vez. `.env.example`, en la raíz del repositorio, lista las variables de cada proveedor sin valores. |
 | `config.local.toml` | Modelos que eligió cada uno en la pantalla Configuración; reemplazan a los del `config.toml` del equipo. |
 | `recientes.json` | Proyectos recientes de la pantalla de inicio. |
 | `registro.log` | Bitácora de la corrida cuando la app se abre sin consola (el ejecutable de Windows). |

@@ -23,7 +23,7 @@
   background:var(--hundido);border:var(--borde-ancho) solid var(--borde);color:var(--prov-otro)}
 .prov-logo img{display:block;border-radius:4px}
 .prov-anthropic{color:var(--prov-anthropic)} .prov-openrouter{color:var(--prov-openrouter)}
-.prov-gemini{color:var(--prov-gemini)} .prov-groq{color:var(--prov-groq)} .prov-otro{color:var(--prov-otro)}
+.prov-gemini{color:var(--prov-gemini)} .prov-groq{color:var(--prov-groq)} .prov-deepseek{color:var(--prov-deepseek)} .prov-otro{color:var(--prov-otro)}
 
 /* Límites de verificación: dos selectores lado a lado, como la maqueta */
 .cfg-limites{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--esp-4);width:100%}

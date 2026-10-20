@@ -638,6 +638,24 @@ def test_config_local_pide_la_clave_de_su_proveedor(tmp_path, env_completo):
     assert any("GROQ_API_KEY" in a for a in carga.avisos_claves)
 
 
+def test_sin_la_key_de_deepseek_aparece_el_aviso_de_siempre(tmp_path, env_completo):
+    """HU-36, criterio 6: falta DEEPSEEK_API_KEY → el aviso de claves que ya existe."""
+    local = tmp_path / "config.local.toml"
+    local.write_text(
+        GENERATOR_GRATIS.replace('"groq"', '"deepseek"').replace(
+            "openai/gpt-oss-120b", "deepseek-flash"
+        ),
+        encoding="utf-8",
+    )
+
+    carga = cargar_configuracion(
+        RUTA_CONFIG, env_completo, simulado=False, ruta_local=local
+    )
+
+    assert carga.config.agentes["generator"].proveedor == "deepseek"
+    assert any("DEEPSEEK_API_KEY" in a for a in carga.avisos_claves)
+
+
 def test_sin_config_local_se_usa_la_del_equipo(tmp_path, env_completo):
     carga = cargar_configuracion(
         RUTA_CONFIG, env_completo, simulado=True, ruta_local=tmp_path / "no-existe.toml"
