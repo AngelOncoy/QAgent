@@ -1,0 +1,68 @@
+RESULTADOS DE PRUEBAS — ISSUE #115 + ISSUE #114
+Fecha: 20 de octubre de 2026
+Variable obligatoria: QAGENT_FAKE_LLM=1
+
+1. Pruebas frontend obligatorias
+Comando:
+  python -m pytest tests/frontend/test_issue114_sin_docstring.py tests/frontend/test_issue115_tiempos.py -q
+Resultado:
+  15 passed in 0.78s
+
+2. Suite focalizada de integración
+Cobertura:
+  orquestador #115, regresión HU-25, storage #115, sandbox #115, vistas,
+  reportes, eventos del Monitor, Historial y regresiones frontend.
+Resultado:
+  94 passed in 5.84s
+
+3. Sintaxis JavaScript
+Archivos:
+  src/qagent/frontend/componentes/ejecucion/ejecucion.js
+  src/qagent/frontend/componentes/monitor/monitor.js
+  src/qagent/frontend/componentes/vista-previa/vista-previa.js
+  src/qagent/frontend/js/utils.js
+Resultado:
+  node --check: OK en los cuatro archivos
+
+4. Suite completa del repositorio
+Comando:
+  python test.py
+Resultado:
+  Ruff check: All checks passed!
+  Ruff format --check: 223 files already formatted
+  pytest: 1511 passed in 182.52s
+  fase total de pruebas: 183.3s
+  fallos: 0
+  omitidas: 0
+
+5. Validaciones Git y seguridad
+  git diff --check: limpio antes del commit de integración
+  marcadores de conflicto: ninguno
+  llamadas LLM reales: ninguna
+
+NOTA HISTÓRICA
+La ejecución anterior, sobre #115 antes de integrar develop/#114, produjo
+1476 passed y 23 skipped in 53.76s. La captura prueba-1-pruebas.png corresponde
+a ese antecedente. El resultado vigente de la combinación es 1511 passed.
+
+6. Validación vigente tras integrar PR #121
+Variable obligatoria:
+  QAGENT_FAKE_LLM=1
+Resultados:
+  pruebas nuevas de integración/storage: 12 passed in 0.74s
+  suite focalizada combinada: 216 passed in 7.75s
+  Ruff check: All checks passed!
+  Ruff format --check: 226 files already formatted
+  pytest completo: 1540 passed in 186.38s
+  fase total de pruebas: 187.1s
+  fallos: 0
+  omitidas: 0
+  llamadas LLM reales: ninguna
+
+Validaciones adicionales:
+  JSON Schema Draft 2020-12: válido
+  node --check (monitor, ejecución, vista previa y utils): OK
+  git diff --check y marcadores de conflicto: limpios
+  auditoría oficial de secretos: sin patrones de clave
+
+El resultado vigente de #114 + #115 + #121 es 1540 passed.

@@ -1040,6 +1040,10 @@ def datos_informe(
         "es_simulado": results["es_simulado"],
         "estado_final": results["estado_final"],
         "motivo_fallo": results["motivo_fallo"],
+        "inicio": vista.get("inicio"),
+        "fin": vista.get("fin"),
+        "duracion_total_s": vista.get("duracion_total_s"),
+        "duracion_etapas": vista.get("duracion_etapas"),
         "total_funciones": results["resumen"]["total_funciones"],
         "criticas": sum(1 for o in results["objetivos"] if o.get("critical")),
         "modelos": copy.deepcopy(results["modelos"]),
@@ -1101,8 +1105,14 @@ def construir_markdown_informe(
         f"**Fecha:** {datos['fecha']}",
         f"**Perfil:** {datos['perfil']}",
         f"**Funciones evaluadas:** {datos['total_funciones']} ({datos['criticas']} críticas)",
+        (
+            f"**Duración total medida:** {_fmt_duracion(datos.get('duracion_total_s'))}"
+            if datos.get("duracion_total_s") is not None
+            else None
+        ),
         "**Generado por:** QAgent",
     ]
+    meta_parts = [parte for parte in meta_parts if parte is not None]
     if datos.get("es_simulado"):
         meta_parts.append("**Modo:** IA simulada")
 
@@ -1243,6 +1253,20 @@ def construir_markdown_informe(
         lineas.append(f"- **Trabajo del análisis:** {specs_sin_ruta}")
     if datos.get("texto_categorias"):
         lineas.append(f"- **Casos planificados:** {datos['texto_categorias']}")
+    etapas = datos.get("duracion_etapas") or {}
+    if etapas:
+        nombres = {
+            "planner": "Planner",
+            "generator": "Generator",
+            "reviewer": "Reviewer (incluye sandbox)",
+            "sandbox": "Sandbox",
+            "pytest": "pytest",
+        }
+        detalle = " · ".join(
+            f"{nombres.get(clave, clave)} {_fmt_duracion(valor)}"
+            for clave, valor in etapas.items()
+        )
+        lineas.append(f"- **Tiempo medido por etapa:** {detalle}")
     lineas.append(
         f"- **Funciones y endpoints:** {datos.get('total_funciones', 0)} revisados · {datos.get('criticas', 0)} críticos"
     )
@@ -1650,6 +1674,11 @@ def construir_html_informe(
     proyecto = esc(datos["proyecto"])
     rama = esc(datos.get("rama") or "sin repositorio Git")
     fecha = esc(str(datos.get("fecha") or "")[:16].replace("T", " "))
+    duracion = (
+        f" · Duración: <b>{esc(_fmt_duracion(datos['duracion_total_s']))}</b>"
+        if datos.get("duracion_total_s") is not None
+        else ""
+    )
     perfil = esc(datos["perfil"])
     total_fn = int(datos["total_funciones"])
     criticas = int(datos["criticas"])
@@ -2112,7 +2141,7 @@ code{{font-family:ui-monospace,SFMono-Regular,Consolas,monospace}}
       <h1 class="header-title">QAgent · Informe de pruebas — Corrida #{run_id}</h1>
     </div>
     <div class="respuesta">{respuesta}</div>
-    <p class="header-meta">Proyecto: <b>{proyecto}</b> · Rama: <b>{rama}</b> · Fecha: <b>{fecha}</b> · Perfil: <b>{perfil}</b> · Funciones: <b>{total_fn}</b> ({criticas} críticas)</p>
+    <p class="header-meta">Proyecto: <b>{proyecto}</b> · Rama: <b>{rama}</b> · Fecha: <b>{fecha}</b> · Perfil: <b>{perfil}</b> · Funciones: <b>{total_fn}</b> ({criticas} críticas){duracion}</p>
     <p class="header-meta"><small>Etapas: {modelos_str} · Specs: {specs_txt}</small></p>
     <div class="cifras-grid">
       <div class="cifra-card">
@@ -2315,6 +2344,15 @@ def verificar_archivo_sin_claves(ruta: str | Path) -> list[Hallazgo]:
 
 def _fmt_pct(valor: float | None) -> str:
     return "—" if valor is None else f"{valor:.1f}%"
+
+
+def _fmt_duracion(valor: Any) -> str:
+    """Duración legible: ms por debajo de 1 s, segundos con un decimal."""
+    if isinstance(valor, bool) or not isinstance(valor, (int, float)):
+        return "—"
+    if valor < 1:
+        return f"{round(valor * 1000)} ms"
+    return f"{float(valor):.1f} s"
 
 
 def _escribir_bytes_atomico(ruta: Path, datos: bytes) -> None:

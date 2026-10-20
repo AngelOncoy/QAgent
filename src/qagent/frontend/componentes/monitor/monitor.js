@@ -105,18 +105,26 @@ function reiniciarProgreso(){
   $('prgAlerta').classList.add('hide');
 }
 const horaCorta = t => new Date(t).toLocaleTimeString('es-PE', {hour:'2-digit', minute:'2-digit', second:'2-digit'});
+const duracionTexto = s => s === null || s === undefined ? '—' : (s >= 60 ? `${Math.floor(s / 60)} min ${Math.round(s % 60)} s` : s < 1 ? Math.round(s * 1000) + ' ms' : Number(s).toFixed(1) + ' s');
 function transcurrido(){
   const s = Math.floor(((PRG.fin ? PRG.fin.t : Date.now()) - PRG.inicio) / 1000);
   return `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')} transcurridos`;
 }
 
 // Registra una fila (real o de la demostración) y vuelve a pintar la pantalla.
-function registrarPaso({a, f, fn, t, guard, hechos, total, tipo_objetivo}){
+function registrarPaso({a, f, fn, t, guard, hechos, total, tipo_objetivo, transcurrido_s, duracion_objetivo_s}){
+  // El backend es la fuente de verdad del tiempo; este reloj solo interpola
+  // entre eventos. Si llega el tiempo medido, se reancla el inicio local.
+  if (typeof transcurrido_s === 'number' && isFinite(transcurrido_s)) {
+    PRG.inicio = Date.now() - Math.max(0, transcurrido_s) * 1000;
+    PRG.medido = true;
+  }
   const etapa = ETAPA_DE[a] || null, clave = [f, fn].filter(Boolean).join('::');
   if (etapa) { PRG.etapa = etapa; if (clave) PRG.porEtapa[etapa].add(clave); }
   if (a === 'reuse' && clave) PRG.reuso.add(clave);
   if (typeof hechos === 'number' && total) { PRG.hechos = hechos; PRG.total = total; }
-  if (fn) PRG.actual = {fn, f, tipo: tipo_objetivo, etapa: etapa || PRG.etapa, texto: t, pasos: (PRG.actual && PRG.actual.fn === fn ? PRG.actual.pasos : 0) + 1};
+  if (fn) PRG.actual = {fn, f, tipo: tipo_objetivo, etapa: etapa || PRG.etapa, texto: t, pasos: (PRG.actual && PRG.actual.fn === fn ? PRG.actual.pasos : 0) + 1,
+    duracion: typeof duracion_objetivo_s === 'number' ? duracion_objetivo_s : (PRG.actual && PRG.actual.fn === fn ? PRG.actual.duracion : null)};
   // Al preparar el entorno aislado se instalan las dependencias del proyecto (solo la primera vez
   // con ese requirements.txt). El backend no informa avance en ese paso: se explica la espera.
   // El backend informa cada paso de la instalación («Descargando torch (821.0 MB)»): el aviso sigue
@@ -171,7 +179,7 @@ function pintarProgreso(){
       <div class="prg-actual-cab"><span><span class="prg-actual-nombre">${escHtml(a.fn)}</span>${docstringDeObjetivo(a.f, a.fn) === false ? etiquetaSinDocstring(a.tipo === 'endpoint' ? 'endpoint' : 'funcion') : ''}</span>
         ${PRG.fin ? '' : `<span class="np-chip np-chip-progreso">${ICO_GIRANDO}${(ETAPAS_PRG.find(e => e.k === a.etapa) || {t:'En curso'}).t}</span>`}</div>
       <span class="bnj-ruta">${escHtml(a.f || '')}${a.tipo === 'endpoint' ? ' · Endpoint' : ''}</span>
-      <span class="np-meta">${a.pasos} ${a.pasos === 1 ? 'paso registrado' : 'pasos registrados'} en esta función</span>
+      <span class="np-meta">${a.pasos} ${a.pasos === 1 ? 'paso registrado' : 'pasos registrados'} en esta función${a.duracion !== null && a.duracion !== undefined ? ` · ${duracionTexto(a.duracion)} medidos` : ''}</span>
       ${a.texto ? `<p class="np-texto">${escHtml(textoPlano(a.texto))}</p>` : ''}`;
 
   // Actividad reciente (lo más nuevo arriba)
@@ -301,14 +309,14 @@ function monitorEventoReal(d){
   if(!modoReal || runDone || !d) return;
   if(d.tokens_acumulados !== undefined && d.tokens_acumulados !== null && $('prgTokens')){
     const tok = Number(d.tokens_acumulados);
-    $('prgTokens').textContent = tok.toLocaleString('es-PE');
+    if(Number.isFinite(tok)) $('prgTokens').textContent = tok.toLocaleString('es-PE');
     const reales = Number(d.tokens_reales || 0);
     const estimados = Number(d.tokens_estimados || 0);
-    if(estimados > 0){
+    if(Number.isFinite(estimados) && estimados > 0){
       $('prgTokensSub').textContent = `${reales.toLocaleString('es-PE')} reales · ${estimados.toLocaleString('es-PE')} estimados`;
     } else if(d.limite_tokens){
       const lim = Number(d.limite_tokens);
-      $('prgTokensSub').textContent = `de ${lim.toLocaleString('es-PE')} configurados`;
+      if(Number.isFinite(lim)) $('prgTokensSub').textContent = `de ${lim.toLocaleString('es-PE')} configurados`;
     } else {
       $('prgTokensSub').textContent = 'Tokens acumulados';
     }
@@ -317,13 +325,17 @@ function monitorEventoReal(d){
     PRG.alerta = {titulo:'Presupuesto de tokens', texto: d.t || 'Se ha alcanzado un umbral alto de consumo de tokens.'};
     if($('prgAlerta')) $('prgAlerta').classList.remove('hide');
   }
-  registrarPaso({a:d.a, f:d.f, fn:d.identificador || d.fn, t:d.t || '', guard:d.guard, hechos:d.total ? Number(d.hechos) : undefined, total:Number(d.total) || null, tipo_objetivo:d.tipo_objetivo});
+  registrarPaso({a:d.a, f:d.f, fn:d.identificador || d.fn, t:d.t || '', guard:d.guard, hechos:d.total ? Number(d.hechos) : undefined, total:Number(d.total) || null, tipo_objetivo:d.tipo_objetivo,
+    transcurrido_s: typeof d.transcurrido_s === 'number' ? d.transcurrido_s : undefined,
+    duracion_objetivo_s: typeof d.duracion_objetivo_s === 'number' ? d.duracion_objetivo_s : undefined});
 }
 function monitorFinReal(r){
   if(!modoReal || !r) return;
   runDone = true; modoReal = false; clearInterval(agoTimer);
   const ok = r.estado === 'fin';
-  PRG.fin = {ok, t: Date.now(), runId: r.run_id && r.carpeta ? r.run_id : null};
+  const duracion = typeof r.duracion_s === 'number' && isFinite(r.duracion_s) && r.duracion_s >= 0 ? r.duracion_s : null;
+  if (duracion !== null) PRG.inicio = Date.now() - duracion * 1000;
+  PRG.fin = {ok, t: Date.now(), runId: r.run_id && r.carpeta ? r.run_id : null, duracion};
   // Resumen final: aprobadas, posibles bugs y tokens (sin costos).
   $('prgTokens').textContent = Number(r.tokens || 0).toLocaleString('es-PE');
   $('prgTokensSub').textContent = `${Number(r.aceptadas)} ${Number(r.aceptadas) === 1 ? 'aprobada' : 'aprobadas'} · ${Number(r.bugs_detectados)} ${Number(r.bugs_detectados) === 1 ? 'posible bug' : 'posibles bugs'} · ${Number(r.estancadas)} sin prueba`;

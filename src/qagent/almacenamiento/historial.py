@@ -38,6 +38,9 @@ def _fila_corrida(almacen: AlmacenProyecto, run: dict[str, Any]) -> dict[str, An
     return {
         "run_id": run["run_id"],
         "fecha": results.get("fecha", run["inicio"]),
+        "inicio": results.get("inicio", run.get("inicio")),
+        "fin": results.get("fin", run.get("fin")),
+        "duracion_s": _duracion(results, run),
         "perfil": results.get("perfil"),
         "perfil_nombre": nombre_perfil(results.get("perfil")),
         "estado": run["estado"],
@@ -71,6 +74,30 @@ def _fila_corrida(almacen: AlmacenProyecto, run: dict[str, Any]) -> dict[str, An
         "cobertura_lineas": resumen.get("cobertura_lineas_promedio"),
         "es_simulado": bool(results.get("es_simulado", False)),
     }
+
+
+def _duracion(results: dict[str, Any], run: dict[str, Any]) -> float | None:
+    """Duración medida de la corrida; None en corridas anteriores a #115.
+
+    No se deriva de las marcas de inicio y fin: una corrida antigua no midió su
+    duración y el Historial debe mostrar «—», no un valor inventado.
+    """
+    resumen = results.get("resumen") or {}
+    for valor in (
+        results.get("duracion_s"),
+        resumen.get("duracion_s"),
+        run.get("duracion_s"),
+    ):
+        if _numero(valor) is not None:
+            return _numero(valor)
+    return None
+
+
+def _numero(valor: Any) -> float | None:
+    """Número no negativo o None (los datos viejos pueden no tenerlo)."""
+    if isinstance(valor, bool) or not isinstance(valor, (int, float)):
+        return None
+    return round(max(0.0, float(valor)), 3)
 
 
 def _fila_spec(plan: dict[str, Any]) -> dict[str, Any]:

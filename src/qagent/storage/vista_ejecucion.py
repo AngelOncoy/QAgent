@@ -132,6 +132,13 @@ def vista_ejecucion(results: dict[str, Any]) -> dict[str, Any]:
         "es_simulado": results["es_simulado"],
         "estado_final": results["estado_final"],
         "motivo_fallo": results["motivo_fallo"],
+        "inicio": results.get("inicio"),
+        "fin": results.get("fin"),
+        "duracion_total_s": _numero(
+            results.get("duracion_s", resumen.get("duracion_s"))
+        ),
+        "duracion_etapas": results.get("duracion_etapas")
+        or resumen.get("duracion_etapas"),
         "total_funciones": resumen["total_funciones"],
         "total_objetivos": len(objetivos),
         "metas_registradas": metas is not None,
@@ -167,6 +174,13 @@ def vista_ejecucion(results: dict[str, Any]) -> dict[str, Any]:
         ],
         "modulos": _por_modulo(objetivos, estados),
     }
+
+
+def _numero(valor: Any) -> float | None:
+    """Duración numérica o None (compatible con corridas anteriores a #115)."""
+    if isinstance(valor, bool) or not isinstance(valor, (int, float)):
+        return None
+    return round(max(0.0, float(valor)), 3)
 
 
 def categorias_de(objetivo: dict[str, Any]) -> dict[str, int] | None:
@@ -372,6 +386,16 @@ def _por_modulo(objetivos, estados) -> list[dict[str, Any]]:
                 "estado": estado,
                 "intento_final": metricas["iteraciones"],
                 "duracion_s": objetivo.get("duracion_s"),
+                **{
+                    campo: objetivo[campo]
+                    for campo in (
+                        "duracion_generacion_s",
+                        "duracion_revision_s",
+                        "duracion_sandbox_s",
+                        "duracion_pytest_s",
+                    )
+                    if objetivo.get(campo) is not None
+                },
                 "cobertura_lineas": metricas["cobertura_lineas"],
                 "cobertura_ramas": metricas["cobertura_ramas"],
                 "motivo_estancado": objetivo["motivo_estancado"],

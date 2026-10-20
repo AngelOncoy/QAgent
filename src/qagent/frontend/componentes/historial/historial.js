@@ -50,7 +50,7 @@ registrarComponente('historial/historial', `<!-- ===== HISTORIAL (por proyecto) 
     <!-- Con datos -->
     <div class="hst-datos hide" id="histDatos">
       <div class="table-scroll hst-tabla-marco"><table class="hst-tabla">
-        <thead><tr><th>Fecha</th><th>Tipo</th><th>Resultado</th><th>Pasan</th><th>Tokens</th><th>Resultados</th></tr></thead>
+        <thead><tr><th>Fecha</th><th>Tipo</th><th>Resultado</th><th>Duración</th><th>Pasan</th><th>Tokens</th><th>Resultados</th></tr></thead>
         <tbody id="histTable"></tbody>
       </table></div>
       <p class="np-meta hide" id="histSinFiltro">Ninguna corrida coincide con los filtros.</p>
@@ -73,9 +73,9 @@ let histSel = null;          // run_id de la corrida elegida en la tabla
 const HISTORIAL_DEMO = {
   demo: true,
   corridas: [
-    {run_id:'8841-B', fecha:'2026-09-25T14:32:00', perfil:'deep', perfil_nombre:'Estándar + profundizar', posibles_bugs:1, pasaron:6, total_objetivos:9, cobertura_lineas:84, total_tokens:142500, tokens_planner:21400, resumen_specs:{reutilizado:4, regenerado:2}, requieren_corrida_nueva:0},
-    {run_id:'8791-A', fecha:'2026-09-19T16:40:00', perfil:'reg', perfil_nombre:'Repetir pruebas guardadas', posibles_bugs:0, pasaron:6, total_objetivos:6, cobertura_lineas:80, total_tokens:0, tokens_planner:0, resumen_specs:{}, requieren_corrida_nueva:0},
-    {run_id:'8730-A', fecha:'2026-09-12T10:05:00', perfil:'deep', perfil_nombre:'Estándar + profundizar', posibles_bugs:3, pasaron:5, total_objetivos:9, cobertura_lineas:78, total_tokens:171300, tokens_planner:48000, resumen_specs:{generado:6}, requieren_corrida_nueva:0},
+    {run_id:'8841-B', fecha:'2026-09-25T14:32:00', perfil:'deep', perfil_nombre:'Estándar + profundizar', posibles_bugs:1, pasaron:6, total_objetivos:9, duracion_s:154.2, cobertura_lineas:84, total_tokens:142500, tokens_planner:21400, resumen_specs:{reutilizado:4, regenerado:2}, requieren_corrida_nueva:0},
+    {run_id:'8791-A', fecha:'2026-09-19T16:40:00', perfil:'reg', perfil_nombre:'Repetir pruebas guardadas', posibles_bugs:0, pasaron:6, total_objetivos:6, duracion_s:62.0, cobertura_lineas:80, total_tokens:0, tokens_planner:0, resumen_specs:{}, requieren_corrida_nueva:0},
+    {run_id:'8730-A', fecha:'2026-09-12T10:05:00', perfil:'deep', perfil_nombre:'Estándar + profundizar', posibles_bugs:3, pasaron:5, total_objetivos:9, duracion_s:181.5, cobertura_lineas:78, total_tokens:171300, tokens_planner:48000, resumen_specs:{generado:6}, requieren_corrida_nueva:0},
   ],
   specs: [
     {archivo:'pricing.spec.json', modulo:'services/pricing.py', ultima_accion:'reutilizado'},
@@ -103,6 +103,11 @@ async function renderHistory(){
 
 const numero = v => Number(v || 0).toLocaleString('es-PE');
 const fechaCorta = f => { const d = new Date(f); return isNaN(d) ? String(f || '—') : d.toLocaleString('es-PE', {day:'numeric', month:'short', hour:'2-digit', minute:'2-digit'}); };
+const duracionCorta = s => {
+  if (s === null || s === undefined || !isFinite(Number(s))) return '—';
+  const v = Number(s);
+  return v < 1 ? Math.round(v * 1000) + ' ms' : v >= 60 ? Math.floor(v / 60) + ' min ' + Math.round(v % 60) + ' s' : Number(v).toFixed(1) + ' s';
+};
 const conSigno = (v, texto) => (v > 0 ? '+' : v < 0 ? '−' : '') + texto;
 
 function renderHistoryReal(datos){
@@ -145,6 +150,7 @@ function renderHistoryReal(datos){
       <td>${escHtml(fechaCorta(h.fecha))}</td>
       <td>${escHtml(nomPerfil)}</td>
       <td>${chipResultadoHistorial(h)}</td>
+      <td class="np-mono" title="${h.duracion_s === null || h.duracion_s === undefined ? 'Corrida anterior a la medición de duración' : 'Duración medida de la corrida'}">${duracionCorta(h.duracion_s)}</td>
       <td class="np-mono">${h.pasaron === null || h.pasaron === undefined ? '—' : `${h.pasaron} / ${h.total_objetivos}`}</td>
       <td class="np-mono" title="${sinIA ? 'Repetir pruebas guardadas no llama a la IA' : 'Analizando: ' + numero(h.tokens_planner) + ' tokens'}">${tokens}</td>
       <td><button type="button" class="ini-enlace" onclick="event.stopPropagation();${abrir}">Abrir</button></td></tr>`;

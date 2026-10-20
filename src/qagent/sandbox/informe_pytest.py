@@ -311,6 +311,7 @@ def resumir_ejecucion(
     return {
         "exit_code": resultado.exit_code,
         "duracion_s": resultado.duracion_s,
+        "duracion_pytest_s": informe.duracion_s if resultado.junit_xml else None,
         "timeout": resultado.timed_out,
         "oom": resultado.oom_killed,
         "salida": recortar_salida(salida),

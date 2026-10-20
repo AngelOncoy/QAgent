@@ -1,0 +1,80 @@
+AUDITORÍA FINAL — ISSUE #115 INTEGRADA CON ISSUE #114
+Fecha: 20 de octubre de 2026
+Rama: feat/issue-115-tiempo-ejecucion
+
+GIT
+- Base inicial: 6c4bd50aebbc10e5e5d4f7a2aaf293beb93ac880
+- Protección #115: de128450f3ca8e96a08ffc2efabcfb964650bd91
+- origin/develop incorporado: 24cf16a5860289ea975b885e002d5e148cb3fa3b
+- Commit de #114 incorporado: e3b0bbd7a81c8206d1c76d8ffb980caa1a46ee01
+- Merge validado: 562f7ed293a8233e3cc403af18474c2238902e25
+- Sin rebase, reset, clean, stash, push ni Pull Request.
+
+CONFLICTO
+- Único conflicto textual: src/qagent/frontend/componentes/ejecucion/ejecucion.js.
+- Resolución: conservar sinDocstring y las duraciones de Generator, sandbox y pytest
+  en el mismo objeto real.
+- Sin propiedades duplicadas ni marcadores pendientes.
+- monitor.js no tuvo conflicto textual; la integración semántica fue revisada y conserva
+  las funciones de #114 y #115.
+
+PRUEBAS POSTERIORES AL MERGE (QAGENT_FAKE_LLM=1)
+- Frontend #114 + #115: 15 passed in 0.78s.
+- Suite focalizada de módulos afectados: 94 passed in 5.84s.
+- Suite completa: 1511 passed in 182.52s; 0 failed; 0 skipped.
+- python test.py: Ruff check OK; Ruff format --check OK; 223 archivos formateados.
+- Sintaxis JavaScript con Node: OK en ejecucion.js, monitor.js, vista-previa.js y utils.js.
+- No hubo llamadas LLM reales.
+
+VALIDACIÓN FUNCIONAL #115
+- Duración total, por objetivo y por intento: correcta.
+- Planner, Generator, Reviewer, sandbox y pytest: registrados cuando están disponibles.
+- Reintentos: conservados y contabilizados una sola vez.
+- Error/cancelación: fin y duración se conservan mediante cierre garantizado.
+- Historial: persistencia correcta; corridas antiguas muestran —.
+- Monitor: reanclaje por transcurrido_s, duración final del backend e intervalos detenidos.
+- Reportes Markdown, HTML y PDF: duración total y desglose validados.
+- Criterios de aceptación: 11/11.
+
+VALIDACIÓN VISUAL
+- Frontend real renderizado con Playwright a 1024 × 700 usando fixtures con forma de
+  backend; no se abrió una ventana pywebview.
+- Monitor: Sin docstring, objetivo, tiempo transcurrido y duración del objetivo.
+- Resultados: Sin docstring, total, etapas y duraciones de reintentos.
+- Historial: duración visible; compatibilidad sin dato cubierta por prueba automatizada.
+- Sin undefined, NaN, errores de consola/página ni overflow horizontal.
+
+DOCKER
+- Antecedente: 22 passed y 1 fallo ambiental por contenedor detenido preexistente;
+  comprobación real aislada aprobada (sandbox 1.415 s; pytest 0.254 s).
+- Validación integrada: suite completa sin skips ni fallos con Docker disponible.
+- Estado final: ningún contenedor con etiqueta qagent=sandbox.
+- No se eliminó manualmente ningún contenedor durante esta integración.
+
+SEGURIDAD Y ALCANCE
+- Ningún proceso pytest/test.py quedó activo.
+- Evidencias limitadas a docs/evidencias/issue-115-tiempo-ejecucion/.
+- Auditoría de secretos y manifiesto SHA-256 se verifican antes del commit documental.
+- No existe informe separado para Notion en el paquete.
+
+CONCLUSIÓN
+Las funcionalidades de #114 y #115 coexisten, la suite completa pasa y los 11 criterios
+de aceptación de #115 permanecen satisfechos.
+
+ACTUALIZACIÓN FINAL — INTEGRACIÓN CON PR #121
+- origin/develop incorporado: ba23ac511b2661547a97fab61a28902e16d6d144.
+- Merge #114 + #115 + #121: 8f765496b62e8419de6b5d012ce526ff8c221ee0.
+- Cinco conflictos resueltos sin perder tiempos, Sin docstring ni límites de tokens.
+- Auto-merges semánticos auditados: ejecucion.js, registro.py y vista_ejecucion.py.
+- Correcciones de borde: límite en el último objetivo y cancelación en regresión.
+- Suite focalizada combinada: 216 passed in 7.75s.
+- Suite completa: 1540 passed in 186.38s; 0 failed; 0 skipped.
+- Ruff check y formato: OK (226 archivos); JavaScript y schema JSON: OK.
+- Docker disponible y cubierto por la suite completa, sin pruebas omitidas.
+- QA visual: cuatro capturas del frontend real con fixtures de backend; sin errores,
+  NaN, undefined ni overflow horizontal. Playwright fue el fallback porque el entorno
+  no ofrecía Browser plugin; no se recorrió pywebview.
+- Compatibilidad antigua, cancelaciones, errores, reintentos, reportes e Historial: OK.
+- Criterios de aceptación de #115: 11/11.
+- Auditoría de secretos: sin patrones de clave.
+- No se hizo push ni se creó Pull Request.

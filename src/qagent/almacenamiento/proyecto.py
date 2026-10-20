@@ -258,6 +258,8 @@ class AlmacenProyecto:
         datos = {c: run[c] for c in CAMPOS_RUN}
         if "specs" in run:
             datos["specs"] = run["specs"]
+        if run.get("duracion_s") is not None:
+            datos["duracion_s"] = run["duracion_s"]
         escribir_json_atomico(ruta, datos)
         return ruta
 
@@ -269,6 +271,7 @@ class AlmacenProyecto:
         fallaron: int,
         tipos_prueba: Iterable[str] | None = None,
         ahora: datetime | None = None,
+        duracion_s: float | None = None,
     ) -> dict[str, Any]:
         """Marca el fin de una corrida con su estado final y el resumen.
 
@@ -287,6 +290,8 @@ class AlmacenProyecto:
         )
         if tipos_prueba is not None:
             run["tipos_prueba"] = list(tipos_prueba)
+        if duracion_s is not None:
+            run["duracion_s"] = round(float(duracion_s), 3)
         self.guardar_run(run)
         return run
 
@@ -705,6 +710,13 @@ def _validar_run(run: dict[str, Any]) -> None:
         raise ErrorAlmacen("resumen debe ser {pasaron, fallaron} o null.")
     if "specs" in run:
         _validar_registros_specs(run["specs"])
+    duracion = run.get("duracion_s")
+    if duracion is not None and (
+        isinstance(duracion, bool)
+        or not isinstance(duracion, (int, float))
+        or duracion < 0
+    ):
+        raise ErrorAlmacen("duracion_s debe ser un número no negativo o null.")
 
 
 def _validar_spec(spec: dict[str, Any]) -> None:
