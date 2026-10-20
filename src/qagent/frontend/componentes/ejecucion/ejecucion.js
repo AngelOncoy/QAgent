@@ -279,6 +279,7 @@ function renderCabeceraBandeja(todos, v){
   if (duracion) partes.push('Duración ' + (duracion >= 60 ? `${Math.floor(duracion / 60)} min ${Math.round(duracion % 60)} s` : `${Math.round(duracion)} s`));
   if (v && v.es_simulado) partes.push('IA simulada');
   if (v && v.es_humo) partes.push('Corrida Humo: lo principal es cuántas pruebas pasan');   // #75
+  if (v && v.motivo_fallo) partes.push('Detención: ' + v.motivo_fallo);
   $('bnjSub').textContent = partes.filter(Boolean).join(' · ');
 
   // Cifras: pruebas que pasan, posibles bugs, cobertura y tokens (nunca costos).
@@ -287,11 +288,18 @@ function renderCabeceraBandeja(todos, v){
   const cobertura = k ? k.cobertura.lineas : (total ? todos.reduce((s, e) => s + (Number(e.cobLineas) || 0), 0) / total : null);
   const ramas = k ? k.cobertura.ramas : null;
   const tokens = k ? k.costo.tokens_total : null;
+  const reales = k && k.costo ? k.costo.tokens_reales : null;
+  const estimados = k && k.costo ? k.costo.tokens_estimados : null;
+  const subTokens = tokens === null
+    ? 'Disponible en la app de escritorio'
+    : (estimados > 0)
+    ? `${Number(reales || 0).toLocaleString('es-PE')} reales · ${Number(estimados).toLocaleString('es-PE')} estimados`
+    : 'Sumando las tres etapas';
   $('kpis').innerHTML = `
     <div class="exp-cifra"><span class="exp-cifra-etq">Pasaron</span><b>${pasaron} / ${total}</b><span class="exp-cifra-sub">${total - pasaron} con algo por revisar</span></div>
     <div class="exp-cifra"><span class="exp-cifra-etq">Posibles bugs</span><b class="${bugs.length ? 'bnj-cifra-bug' : ''}">${bugs.length}</b><span class="exp-cifra-sub">En ${bugs.length} de ${total} funciones o endpoints</span></div>
     <div class="exp-cifra"><span class="exp-cifra-etq" title="Porcentaje de líneas del código que ejecutaron las pruebas">Cobertura ⓘ</span><b>${pctTexto(cobertura)}</b><span class="exp-cifra-sub">${k && k.cobertura.exige_ramas === false ? 'Ramas no exigidas en Humo' : ramas !== null && ramas !== undefined ? pctTexto(ramas) + ' de las ramas' : 'De las líneas del código'}</span></div>
-    <div class="exp-cifra"><span class="exp-cifra-etq">Tokens de la corrida</span><b>${tokens === null ? '—' : Number(tokens).toLocaleString('es-PE')}</b><span class="exp-cifra-sub">${tokens === null ? 'Disponible en la app de escritorio' : 'Sumando las tres etapas'}</span></div>`;
+    <div class="exp-cifra"><span class="exp-cifra-etq">Tokens de la corrida</span><b>${tokens === null ? '—' : Number(tokens).toLocaleString('es-PE')}</b><span class="exp-cifra-sub">${subTokens}</span></div>`;
   $('bnjResumen').textContent = `${total} ${total === 1 ? 'función o endpoint' : 'funciones y endpoints'}: ` +
     BANDEJAS.map(b => [n(b.k), b.t.toLowerCase()]).filter(([c]) => c).map(([c, t]) => `${c} ${t}`).join(' · ');
 }

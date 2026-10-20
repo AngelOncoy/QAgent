@@ -27,6 +27,7 @@
 
 /* Límites de verificación: dos selectores lado a lado, como la maqueta */
 .cfg-limites{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--esp-4);width:100%}
+.cfg-campo-ancho{grid-column:1/-1}
 .cfg-campo{display:flex;flex-direction:column;gap:var(--esp-2);min-width:0}
 .cfg-select select{appearance:none;-webkit-appearance:none;padding-right:var(--esp-6);cursor:pointer}
 .cfg-select select:disabled{cursor:not-allowed}

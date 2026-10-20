@@ -78,6 +78,8 @@ class ResumenCorrida:
     estancadas: int = 0
     sin_veredicto: int = 0
     tokens: int = 0
+    tokens_reales: int = 0
+    tokens_estimados: int = 0
     costo_usd: float = 0.0
     carpeta: str | None = None
     duracion_s: float = 0.0
@@ -102,6 +104,7 @@ def ejecutar_corrida(
     timeout_paso_s: float | None = None,
     seleccion: list[dict[str, Any]] | None = None,
     mutador: Mutador = ejecutar_mutacion,
+    cancelado: Callable[[], bool] | None = None,
 ) -> ResumenCorrida:
     """Ejecuta la corrida completa de un proyecto y devuelve su resumen.
 
@@ -159,7 +162,32 @@ def ejecutar_corrida(
         if evento.tipo == "veredicto":
             progreso["hechos"] += 1
         if al_evento is not None:
-            al_evento({**evento.a_dict(), "progreso": dict(progreso)})
+            datos_evento = dict(evento.datos or {})
+            if "tracker" in locals():
+                datos_evento.setdefault("tokens_acumulados", tracker.total_tokens)
+                datos_evento.setdefault("tokens_reales", tracker.total_tokens_reales)
+                datos_evento.setdefault(
+                    "tokens_estimados", tracker.total_tokens_estimados
+                )
+            if "tope_tokens" in locals() and tope_tokens:
+                datos_evento.setdefault("limite_tokens", tope_tokens)
+            al_evento(
+                {
+                    **evento.a_dict(),
+                    "datos": datos_evento,
+                    "progreso": dict(progreso),
+                    "tokens_acumulados": tracker.total_tokens
+                    if "tracker" in locals()
+                    else 0,
+                    "tokens_reales": tracker.total_tokens_reales
+                    if "tracker" in locals()
+                    else 0,
+                    "tokens_estimados": tracker.total_tokens_estimados
+                    if "tracker" in locals()
+                    else 0,
+                    "limite_tokens": tope_tokens if "tope_tokens" in locals() else None,
+                }
+            )
 
     def avisar(mensaje: str, tipo: str = "agente", archivo: str | None = None) -> None:
         emitir(Evento("orquestador", archivo, None, mensaje, "preparacion", tipo))
@@ -220,11 +248,14 @@ def ejecutar_corrida(
         bus = BusEventos()
         bus.suscribir(emitir)
         limites = getattr(configuracion, "sandbox", LIMITES_POR_DEFECTO)
+        tope_tokens = getattr(configuracion.presupuesto, "max_tokens_por_corrida", None)
         opciones: dict[str, Any] = {
             "max_intentos": configuracion.max_intentos,
             "timeout_paso_s": timeout_paso_s
             if timeout_paso_s is not None
             else timeout_paso_para(limites.timeout_s),
+            "limite_tokens": tope_tokens,
+            "cancelado": cancelado,
         }
         orquestador = Orquestador(
             PlannerAgent(
@@ -254,10 +285,23 @@ def ejecutar_corrida(
         huellas = huellas_de_objetivos(ruta) if perfil == PERFIL_PROFUNDO else None
         tope = configuracion.presupuesto.tope_por_corrida_usd
         for modulo in modulos:
+            if cancelado is not None and cancelado():
+                resumen.estado = FALLO
+                resumen.motivo = "Corrida detenida por el usuario."
+                avisar(resumen.motivo, "fallo")
+                break
             if tracker.total_costo_usd >= tope:
                 resumen.estado = FALLO
                 resumen.motivo = (
                     f"Se alcanzó el tope de gasto por corrida (US$ {tope:.2f}); "
+                    "los módulos restantes no se revisaron."
+                )
+                avisar(resumen.motivo, "fallo")
+                break
+            if tope_tokens is not None and tracker.total_tokens >= tope_tokens:
+                resumen.estado = FALLO
+                resumen.motivo = (
+                    f"Se alcanzó el presupuesto de tokens por corrida ({tope_tokens} tokens); "
                     "los módulos restantes no se revisaron."
                 )
                 avisar(resumen.motivo, "fallo")
@@ -473,6 +517,8 @@ def _contar(
     resumen.estancadas = decisiones.count("stalled")
     resumen.sin_veredicto = decisiones.count(None)
     resumen.tokens = tracker.total_tokens
+    resumen.tokens_reales = tracker.total_tokens_reales
+    resumen.tokens_estimados = tracker.total_tokens_estimados
     resumen.costo_usd = round(tracker.total_costo_usd, 8)
 
 
@@ -601,15 +647,19 @@ def _existe_plan_modulo(almacen: AlmacenProyecto, modulo: str) -> bool:
     return True
 
 
-def metas_de(configuracion: Any) -> dict[str, float]:
+def metas_de(configuracion: Any) -> dict[str, Any]:
     """Metas de la carta (`[umbrales]`) y tope de gasto por corrida de config.toml."""
     umbrales = configuracion.umbrales
-    return {
+    metas: dict[str, Any] = {
         "pass_rate_min": umbrales.pass_rate_min,
         "cobertura_lineas_min": umbrales.cobertura_lineas_min,
         "iteraciones_promedio_max": umbrales.iteraciones_promedio_max,
         "tope_por_corrida_usd": configuracion.presupuesto.tope_por_corrida_usd,
     }
+    tope_tokens = getattr(configuracion.presupuesto, "max_tokens_por_corrida", None)
+    if tope_tokens is not None:
+        metas["tope_tokens_por_corrida"] = tope_tokens
+    return metas
 
 
 def _con_fuente(ruta: Path, modulo: dict[str, Any]) -> dict[str, Any]:

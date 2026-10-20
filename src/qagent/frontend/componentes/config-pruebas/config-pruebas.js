@@ -217,7 +217,8 @@ function renderComprobaciones(lista){
 function textoLimites(){
   const lim = typeof LIMITES !== 'undefined' ? LIMITES : {max_intentos: 3, timeout_s: 120};
   const n = lim.max_intentos;
-  return `Hasta ${n} ${n === 1 ? 'intento' : 'intentos'} por función · tiempo máximo ${lim.timeout_s} s por prueba`;
+  const tok = lim.max_tokens_por_corrida ? ` · presupuesto máx. ${Number(lim.max_tokens_por_corrida).toLocaleString('es-PE')} tokens` : '';
+  return `Hasta ${n} ${n === 1 ? 'intento' : 'intentos'} por función · tiempo máximo ${lim.timeout_s} s por prueba${tok}`;
 }
 function renderDetallesCorrida(e, bloqueado, prioritarias, epsPrioritarios = 0){
   const {p, reused, tok} = e;

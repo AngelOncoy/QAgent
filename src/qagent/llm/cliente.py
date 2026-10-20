@@ -15,6 +15,13 @@ from qagent.llm.fake import FakeLLMClient
 from qagent.llm.modelos import ClienteLLM, RespuestaLLM
 
 
+def estimar_tokens(texto: str) -> int:
+    """Estimación heurística de tokens cuando el proveedor no los reporta (~4 caracteres por token)."""
+    if not texto or not texto.strip():
+        return 0
+    return max(1, (len(texto) + 3) // 4)
+
+
 class ErrorLLM(RuntimeError):
     """Error controlado durante una llamada a un proveedor LLM.
 
@@ -320,7 +327,7 @@ class ClienteLLMReal:
 
         try:
             respuesta = self._enviar_con_reintentos(cabeceras, datos)
-            return self._convertir_respuesta(respuesta)
+            return self._convertir_respuesta(respuesta, prompt=prompt)
         except Exception as error:
             mensaje = str(error).replace(self._clave, "***")
             if isinstance(error, ErrorLLM):
@@ -362,7 +369,9 @@ class ClienteLLMReal:
                 self._esperar(espera)
         raise AssertionError("inalcanzable")  # pragma: no cover
 
-    def _convertir_respuesta(self, datos: dict[str, Any]) -> RespuestaLLM:
+    def _convertir_respuesta(
+        self, datos: dict[str, Any], prompt: str = ""
+    ) -> RespuestaLLM:
         """Convierte la respuesta del proveedor al formato común de QAgent."""
         try:
             contenido = datos["choices"][0]["message"]["content"]
@@ -378,8 +387,15 @@ class ClienteLLMReal:
         if not isinstance(uso, dict):
             uso = {}
 
-        tokens_entrada = self._entero_no_negativo(uso.get("prompt_tokens", 0))
-        tokens_salida = self._entero_no_negativo(uso.get("completion_tokens", 0))
+        es_estimado = False
+        tiene_tokens = "prompt_tokens" in uso or "completion_tokens" in uso
+        if tiene_tokens:
+            tokens_entrada = self._entero_no_negativo(uso.get("prompt_tokens", 0))
+            tokens_salida = self._entero_no_negativo(uso.get("completion_tokens", 0))
+        else:
+            tokens_entrada = estimar_tokens(prompt)
+            tokens_salida = estimar_tokens(contenido)
+            es_estimado = True
 
         modelo_respuesta = datos.get("model", self.modelo)
         if not isinstance(modelo_respuesta, str) or not modelo_respuesta:
@@ -391,6 +407,7 @@ class ClienteLLMReal:
             tokens_salida=tokens_salida,
             costo_usd=0.0,
             modelo=modelo_respuesta,
+            es_estimado=es_estimado,
             datos_json=datos,
         )
 

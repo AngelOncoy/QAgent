@@ -16,6 +16,7 @@ class RespuestaLLM:
         tokens_salida: tokens generados en la respuesta.
         costo_usd: costo informado o calculado para la llamada.
         modelo: identificador del modelo utilizado.
+        es_estimado: True si los tokens fueron estimados al no reportarlos el proveedor.
         datos_json: respuesta JSON original, si se necesita conservar.
     """
 
@@ -24,6 +25,7 @@ class RespuestaLLM:
     tokens_salida: int
     costo_usd: float
     modelo: str
+    es_estimado: bool = False
     datos_json: dict[str, Any] | None = None
 
 

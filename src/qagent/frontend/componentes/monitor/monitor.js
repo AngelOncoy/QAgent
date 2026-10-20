@@ -5,6 +5,7 @@
 // en el navegador se reproduce la demostración (EVENTS). Los íconos ICO_* vienen de inicio/ y ejecucion/.
 const ICO_ANALIZAR = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="11" cy="11" r="6"/><path d="m20 20-4.5-4.5"/></svg>';
 const ICO_ESCRIBIR = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="m8 8-4 4 4 4M16 8l4 4-4 4"/></svg>';
+const ICO_DETENER = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>';
 const ICO_ESCUDO_ALERTA = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M12 3 5 6v6c0 4 3 7 7 9 4-2 7-5 7-9V6z"/><path d="M12 8v5M12 16h.01"/></svg>';
 
 registrarComponente('monitor/monitor', `<!-- ===== 4. EN CURSO: PROGRESO EN VIVO ===== -->
@@ -196,9 +197,11 @@ function pintarAccionesProgreso(){
       : '';
     return;
   }
-  // Pausar solo existe en la demostración (HU-10): en una corrida real no se ofrece.
-  $('prgAcciones').innerHTML = modoReal ? ''
-    : `<button type="button" class="ini-btn ini-btn-principal" onclick="togglePause();pintarAccionesProgreso()">${paused ? ICO_INICIAR + 'Reanudar corrida' : ICO_PAUSA_PREP + 'Pausar corrida'}</button>`;
+  if (modoReal) {
+    $('prgAcciones').innerHTML = `<button type="button" class="ini-btn" id="btnDetenerCorrida" onclick="detenerCorridaReal()">${ICO_DETENER}Detener corrida</button>`;
+    return;
+  }
+  $('prgAcciones').innerHTML = `<button type="button" class="ini-btn ini-btn-principal" onclick="togglePause();pintarAccionesProgreso()">${paused ? ICO_INICIAR + 'Reanudar corrida' : ICO_PAUSA_PREP + 'Pausar corrida'}</button>`;
 }
 let modoRealUsado = false;
 function verResultadosDeCorrida(){
@@ -278,8 +281,42 @@ function iniciarMonitorReal(){
   go('monitor');
   pintarProgreso(); iniciarRelojProgreso();
 }
+async function detenerCorridaReal(){
+  const btn = $('btnDetenerCorrida');
+  if (btn) {
+    btn.disabled = true;
+    btn.textContent = 'Deteniendo corrida…';
+  }
+  if (window.pywebview && window.pywebview.api && window.pywebview.api.detener_corrida) {
+    try {
+      const res = await window.pywebview.api.detener_corrida();
+      if (typeof toast === 'function') toast(res.mensaje || 'Deteniendo corrida de forma controlada…');
+    } catch (err) {
+      console.error('Error al detener la corrida:', err);
+    }
+  }
+}
+
 function monitorEventoReal(d){
   if(!modoReal || runDone || !d) return;
+  if(d.tokens_acumulados !== undefined && d.tokens_acumulados !== null && $('prgTokens')){
+    const tok = Number(d.tokens_acumulados);
+    $('prgTokens').textContent = tok.toLocaleString('es-PE');
+    const reales = Number(d.tokens_reales || 0);
+    const estimados = Number(d.tokens_estimados || 0);
+    if(estimados > 0){
+      $('prgTokensSub').textContent = `${reales.toLocaleString('es-PE')} reales · ${estimados.toLocaleString('es-PE')} estimados`;
+    } else if(d.limite_tokens){
+      const lim = Number(d.limite_tokens);
+      $('prgTokensSub').textContent = `de ${lim.toLocaleString('es-PE')} configurados`;
+    } else {
+      $('prgTokensSub').textContent = 'Tokens acumulados';
+    }
+  }
+  if(d.alerta_presupuesto && PRG){
+    PRG.alerta = {titulo:'Presupuesto de tokens', texto: d.t || 'Se ha alcanzado un umbral alto de consumo de tokens.'};
+    if($('prgAlerta')) $('prgAlerta').classList.remove('hide');
+  }
   registrarPaso({a:d.a, f:d.f, fn:d.identificador || d.fn, t:d.t || '', guard:d.guard, hechos:d.total ? Number(d.hechos) : undefined, total:Number(d.total) || null, tipo_objetivo:d.tipo_objetivo});
 }
 function monitorFinReal(r){

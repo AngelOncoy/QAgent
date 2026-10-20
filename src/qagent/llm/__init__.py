@@ -5,6 +5,7 @@ from qagent.llm.cliente import (
     ErrorLLM,
     TransporteHTTP,
     es_modo_simulado,
+    estimar_tokens,
     obtener_cliente_llm,
 )
 from qagent.llm.fabrica import (
@@ -32,5 +33,6 @@ __all__ = [
     "cargar_precios",
     "crear_cliente",
     "es_modo_simulado",
+    "estimar_tokens",
     "obtener_cliente_llm",
 ]

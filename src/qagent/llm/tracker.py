@@ -30,6 +30,7 @@ class RegistroLlamada:
     tokens_salida: int
     costo_usd: float
     es_simulado: bool
+    es_estimado: bool = False
     funcion: str | None = None
     intento: int | None = None
     hora: str = field(default_factory=_ahora)
@@ -45,6 +46,7 @@ class RegistroLlamada:
             "completion_tokens": self.tokens_salida,
             "costo_usd": self.costo_usd,
             "es_simulado": self.es_simulado,
+            "es_estimado": self.es_estimado,
             "hora": self.hora,
         }
 
@@ -91,6 +93,7 @@ class TokenTracker:
         tokens_salida: int,
         costo_usd: float = 0.0,
         es_simulado: bool = False,
+        es_estimado: bool = False,
         funcion: str | None = None,
         intento: int | None = None,
     ) -> RegistroLlamada:
@@ -105,6 +108,7 @@ class TokenTracker:
             tokens_salida=tokens_salida,
             costo_usd=costo_usd,
             es_simulado=es_simulado,
+            es_estimado=es_estimado,
             funcion=funcion if funcion is not None else self.contexto_actual()[0],
             intento=intento if intento is not None else self.contexto_actual()[1],
         )
@@ -116,6 +120,24 @@ class TokenTracker:
     def total_tokens(self) -> int:
         """Suma de tokens de entrada y salida de todas las llamadas."""
         return sum(ll.tokens_entrada + ll.tokens_salida for ll in self.llamadas)
+
+    @property
+    def total_tokens_reales(self) -> int:
+        """Suma de tokens reportados de forma real por el proveedor."""
+        return sum(
+            ll.tokens_entrada + ll.tokens_salida
+            for ll in self.llamadas
+            if not ll.es_estimado
+        )
+
+    @property
+    def total_tokens_estimados(self) -> int:
+        """Suma de tokens calculados de forma estimada."""
+        return sum(
+            ll.tokens_entrada + ll.tokens_salida
+            for ll in self.llamadas
+            if ll.es_estimado
+        )
 
     @property
     def total_costo_usd(self) -> float:
@@ -131,12 +153,18 @@ class TokenTracker:
                 {
                     "prompt_tokens": 0,
                     "completion_tokens": 0,
+                    "tokens_reales": 0,
+                    "tokens_estimados": 0,
                     "costo_usd": 0.0,
                     "llamadas": 0,
                 },
             )
             fila["prompt_tokens"] += ll.tokens_entrada
             fila["completion_tokens"] += ll.tokens_salida
+            if ll.es_estimado:
+                fila["tokens_estimados"] += ll.tokens_entrada + ll.tokens_salida
+            else:
+                fila["tokens_reales"] += ll.tokens_entrada + ll.tokens_salida
             fila["costo_usd"] = round(fila["costo_usd"] + ll.costo_usd, 8)
             fila["llamadas"] += 1
         return totales
@@ -165,6 +193,8 @@ class TokenTracker:
         resumen = {
             "total_llamadas": len(self.llamadas),
             "total_tokens": self.total_tokens,
+            "tokens_reales": self.total_tokens_reales,
+            "tokens_estimados": self.total_tokens_estimados,
             "total_costo_usd": round(self.total_costo_usd, 6),
             "es_simulado": all(ll.es_simulado for ll in self.llamadas)
             if self.llamadas
