@@ -60,3 +60,21 @@ SEGURIDAD Y ALCANCE
 CONCLUSIÓN
 Las funcionalidades de #114 y #115 coexisten, la suite completa pasa y los 11 criterios
 de aceptación de #115 permanecen satisfechos.
+
+ACTUALIZACIÓN FINAL — INTEGRACIÓN CON PR #121
+- origin/develop incorporado: ba23ac511b2661547a97fab61a28902e16d6d144.
+- Merge #114 + #115 + #121: 8f765496b62e8419de6b5d012ce526ff8c221ee0.
+- Cinco conflictos resueltos sin perder tiempos, Sin docstring ni límites de tokens.
+- Auto-merges semánticos auditados: ejecucion.js, registro.py y vista_ejecucion.py.
+- Correcciones de borde: límite en el último objetivo y cancelación en regresión.
+- Suite focalizada combinada: 216 passed in 7.75s.
+- Suite completa: 1540 passed in 186.38s; 0 failed; 0 skipped.
+- Ruff check y formato: OK (226 archivos); JavaScript y schema JSON: OK.
+- Docker disponible y cubierto por la suite completa, sin pruebas omitidas.
+- QA visual: cuatro capturas del frontend real con fixtures de backend; sin errores,
+  NaN, undefined ni overflow horizontal. Playwright fue el fallback porque el entorno
+  no ofrecía Browser plugin; no se recorrió pywebview.
+- Compatibilidad antigua, cancelaciones, errores, reintentos, reportes e Historial: OK.
+- Criterios de aceptación de #115: 11/11.
+- Auditoría de secretos: sin patrones de clave.
+- No se hizo push ni se creó Pull Request.

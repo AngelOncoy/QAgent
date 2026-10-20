@@ -44,3 +44,25 @@ NOTA HISTÓRICA
 La ejecución anterior, sobre #115 antes de integrar develop/#114, produjo
 1476 passed y 23 skipped in 53.76s. La captura prueba-1-pruebas.png corresponde
 a ese antecedente. El resultado vigente de la combinación es 1511 passed.
+
+6. Validación vigente tras integrar PR #121
+Variable obligatoria:
+  QAGENT_FAKE_LLM=1
+Resultados:
+  pruebas nuevas de integración/storage: 12 passed in 0.74s
+  suite focalizada combinada: 216 passed in 7.75s
+  Ruff check: All checks passed!
+  Ruff format --check: 226 files already formatted
+  pytest completo: 1540 passed in 186.38s
+  fase total de pruebas: 187.1s
+  fallos: 0
+  omitidas: 0
+  llamadas LLM reales: ninguna
+
+Validaciones adicionales:
+  JSON Schema Draft 2020-12: válido
+  node --check (monitor, ejecución, vista previa y utils): OK
+  git diff --check y marcadores de conflicto: limpios
+  auditoría oficial de secretos: sin patrones de clave
+
+El resultado vigente de #114 + #115 + #121 es 1540 passed.

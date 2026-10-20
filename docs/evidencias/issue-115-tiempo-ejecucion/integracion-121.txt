@@ -1,0 +1,32 @@
+BITÁCORA DE INTEGRACIÓN SEGURA — PR #121 CON ISSUES #114 Y #115
+Fecha: 20 de octubre de 2026
+Rama: feat/issue-115-tiempo-ejecucion
+
+1. Se recuperó el avance existente sin reiniciar ni repetir la implementación.
+2. El HEAD previo era 8e609cb254725703566bd7e78b6c5fe866a023b1 y el árbol estaba limpio.
+3. Se confirmó origin/develop en ba23ac511b2661547a97fab61a28902e16d6d144 (PR #121).
+4. Se ejecutó merge normal --no-commit --no-ff; no se usó rebase, reset, clean ni stash.
+5. Conflictos resueltos:
+   - src/qagent/app/monitor_eventos.py
+   - src/qagent/contracts/run_log.schema.json
+   - src/qagent/frontend/componentes/monitor/monitor.js
+   - src/qagent/orchestrator/corrida.py
+   - src/qagent/orchestrator/orquestador.py
+6. Se conservaron tiempos de #115, Sin docstring de #114 y límites/alertas de #121.
+7. Se revisaron los auto-merges de ejecucion.js, registro.py y vista_ejecucion.py.
+8. Se corrigieron dos casos de borde: límite al terminar el último objetivo y
+   cancelación durante regresión con persistencia de resultados parciales.
+9. Se agregaron casos combinados A-F para ejecución normal, presupuesto, agotamiento,
+   reintentos, persistencia antigua y error técnico.
+10. Validación focalizada: 216 passed in 7.75s.
+11. Validación completa: 1540 passed in 186.38s; 0 failed; 0 skipped.
+12. Ruff, formato, JavaScript, schema, diff y auditoría de secretos aprobaron.
+13. Docker estuvo disponible; la suite completa ejecutó sus pruebas sin omisiones.
+14. QA visual del frontend real a 1024 x 700: Monitor, Resultados, detalle e Historial
+    correctos; sin errores de consola/página, NaN, undefined ni overflow horizontal.
+15. Las cifras visuales son fixtures con forma de backend, no una corrida productiva;
+    Playwright fue el fallback al no estar disponible Browser plugin ni pywebview.
+16. Merge commit: 8f765496b62e8419de6b5d012ce526ff8c221ee0.
+17. Los 11/11 criterios de aceptación de #115 permanecen cumplidos.
+
+No se hizo push, no se creó Pull Request y no se modificó develop directamente.

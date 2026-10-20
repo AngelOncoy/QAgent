@@ -123,3 +123,45 @@ detalle por función con sus tramos.
 - No existe un informe separado para Notion dentro de este paquete de evidencias.
 
 No se realizó push, no se creó Pull Request y no se modificó `develop` directamente.
+
+## Actualización: integración con PR #121
+
+Se incorporó `origin/develop` en `ba23ac511b2661547a97fab61a28902e16d6d144`
+(PR #121, límites y alertas de consumo de tokens) mediante merge normal. El commit de
+integración es `8f765496b62e8419de6b5d012ce526ff8c221ee0`.
+
+Se resolvieron cinco conflictos conservando simultáneamente:
+
+- los tiempos monotónicos de corrida, objetivo, etapas e intentos de #115;
+- la etiqueta **Sin docstring** de #114;
+- el consumo real/estimado, límite, alerta y detención controlada de #121.
+
+También se auditaron los tres archivos compartidos fusionados automáticamente
+(`ejecucion.js`, `registro.py` y `vista_ejecucion.py`). La auditoría detectó y corrigió
+dos bordes semánticos: un límite alcanzado en el último objetivo ahora deja la corrida
+global en fallo controlado, y una cancelación durante regresión ya no se pierde y
+conserva los resultados parciales.
+
+La validación focalizada combinada produjo **216 passed in 7.75s**. La validación
+completa con `QAGENT_FAKE_LLM=1` produjo Ruff correcto, 226 archivos con formato
+correcto y **1540 passed in 186.38s**, sin fallos ni omisiones; la fase total duró
+187.1 s. Docker estuvo disponible y sus pruebas reales se ejecutaron dentro de esa
+suite. No hubo llamadas LLM reales.
+
+Los **11/11 criterios de aceptación de #115** siguen cumplidos. Los casos combinados
+comprueban corrida normal, presupuesto suficiente, agotamiento, reintentos sin doble
+conteo, persistencia/compatibilidad antigua, error técnico y cancelación.
+
+La QA visual adicional renderizó el frontend real a 1024 × 700 con Playwright e
+inyectó fixtures con la forma exacta de eventos/resultados del backend. Confirmó Monitor,
+Resultados, detalle de reintentos e Historial con tiempos, **Sin docstring** y tokens;
+la corrida antigua muestra `–`. No hubo `undefined`, `NaN`, errores de consola/página
+ni desbordamiento horizontal. No se probó el puente pywebview en esta pasada.
+
+![Monitor con tiempo, etiqueta y alerta de tokens](img/integracion-121-monitor.png)
+
+![Resultados con duración y consumo](img/integracion-121-resultados.png)
+
+![Detalle con etapas y reintentos](img/integracion-121-resultados-detalle.png)
+
+![Historial compatible con corridas antiguas](img/integracion-121-historial.png)
