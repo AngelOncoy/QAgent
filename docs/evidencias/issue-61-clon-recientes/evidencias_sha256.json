@@ -1,0 +1,56 @@
+{
+  "algoritmo": "SHA-256",
+  "fecha_validacion": "2026-10-16",
+  "archivos": [
+    {
+      "ruta": "img/CAP-01-inicio-antes-clonacion.png",
+      "sha256": "39c955c0b45ba4a81394583c6964cd256ea4dfcfd18bb08e5f129a542068ce87",
+      "bytes": 54411
+    },
+    {
+      "ruta": "img/CAP-02-configuracion-clonacion.png",
+      "sha256": "b627645602c8d89d820d121c1b3c032d757519dd4d94ad5c0d9bcb4e6ddf1fbc",
+      "bytes": 68208
+    },
+    {
+      "ruta": "img/CAP-03-clonacion-exitosa.png",
+      "sha256": "ca1b0e315837994867b98a8b8b71c9df461e33f7b8bd48072ad034260fbf6b88",
+      "bytes": 137179
+    },
+    {
+      "ruta": "img/CAP-04-proyecto-registrado-automaticamente.png",
+      "sha256": "64c7f3c595b4d64421fb6540de1766e3b342b5a0082462dbb5de83c1bf9f2572",
+      "bytes": 69578
+    },
+    {
+      "ruta": "img/CAP-05-contador-actualizado.png",
+      "sha256": "86189249f01aedeb2acc1496ceb2ca2a8e06693783ca5aeb59ebf7215bba8178",
+      "bytes": 19657
+    },
+    {
+      "ruta": "img/CAP-06-persistencia-despues-reinicio.png",
+      "sha256": "64c7f3c595b4d64421fb6540de1766e3b342b5a0082462dbb5de83c1bf9f2572",
+      "bytes": 69578
+    },
+    {
+      "ruta": "img/CAP-07-sin-duplicados.png",
+      "sha256": "64c7f3c595b4d64421fb6540de1766e3b342b5a0082462dbb5de83c1bf9f2572",
+      "bytes": 69578
+    },
+    {
+      "ruta": "img/CAP-08-pruebas-backend.png",
+      "sha256": "365ba219f07b0858c1c98bf1cc7674ef18ffb68f01135f339943c74f62496419",
+      "bytes": 19887
+    },
+    {
+      "ruta": "img/CAP-09-pruebas-frontend.png",
+      "sha256": "a345df5f837c624a70366aa59e656b9a25e90b9c67aa9c55f1153d91177a2f93",
+      "bytes": 40822
+    },
+    {
+      "ruta": "img/CAP-10-verificaciones-finales.png",
+      "sha256": "584399b8139f72a4cddc7cb712e39f2798f2d01d6bc1e9b412c6c5d06d994a94",
+      "bytes": 30649
+    }
+  ]
+}

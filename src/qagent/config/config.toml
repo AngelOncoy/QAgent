@@ -1,0 +1,65 @@
+# QAgent — configuración del equipo (este archivo se versiona y lo comparte todo el equipo)
+# Las claves NO van aquí: van en .env, que no se sube al repositorio
+# Fuente de modelos y precios: docs/decisiones/ADR-001-modelos.md
+
+[presupuesto]
+tope_por_corrida_usd = 1.00      # banco propio; subir a 7.00 para repositorios externos
+tope_semestre_usd = 25.00
+
+[reintentos]
+max_intentos = 3
+
+# Metas de calidad por corrida (ADR-001: Pass Rate 70–80 %, cobertura de líneas ≥ 60 %,
+# iteraciones promedio < 2)
+[umbrales]
+pass_rate_min = 70               # % de pruebas aprobadas
+cobertura_lineas_min = 60        # % de líneas cubiertas
+iteraciones_promedio_max = 2.0   # intentos promedio por prueba
+
+# Mutation testing (EN-09): mutmut solo corre sobre las funciones marcadas para
+# profundizar, nunca sobre el repositorio completo. Si se agota el tiempo, la función
+# queda como «tiempo agotado» sin Mutation Score y la corrida sigue.
+[mutacion]
+tiempo_maximo_por_funcion_s = 120   # segundos por función crítica
+
+# Límites de cada contenedor del sandbox Docker (EN-03). Si Docker Desktop tiene menos
+# CPU asignados que `cpus`, se usan los que tenga. La memoria es también el tope de swap.
+# Solo los cambia el equipo aquí: ~/.qagent/config.local.toml no puede tocarlos.
+[sandbox]
+cpus = 4
+memoria = "3g"                   # formato Docker: "512m", "2g", "3g"...
+timeout_s = 120                  # segundos por ejecución; el paso del orquestador espera más
+
+# Cada agente usa la URL de chat de su proveedor (src/qagent/llm/fabrica.py).
+# Para otra URL agrega:  endpoint = "https://.../v1/chat/completions"
+# `esfuerzo` se envía como `reasoning_effort`; quítalo si el proveedor no lo acepta.
+[agentes.planner]
+
+proveedor = "xiaomi"
+modelo = "mimo-v2.6-pro"         # verificar el ID exacto en la consola de Xiaomi
+precio_entrada_usd_m = 0.435
+precio_salida_usd_m = 0.87
+precio_cache_lectura_usd_m = 0.0036
+
+# proveedor = "anthropic"
+# modelo = "claude-opus-5-5"
+# esfuerzo = "max"
+# precio_entrada_usd_m = 4.00
+# precio_salida_usd_m = 20.00
+# precio_cache_lectura_usd_m = 0.20
+
+[agentes.generator]
+proveedor = "xiaomi"
+modelo = "mimo-v2.6-pro"
+precio_entrada_usd_m = 0.435
+precio_salida_usd_m = 0.87
+precio_cache_lectura_usd_m = 0.0036
+
+[agentes.reviewer]
+proveedor = "openai"
+modelo = "gpt-6-luna"            # confirmar el ID exacto en la documentación de OpenAI
+esfuerzo = "max"
+precio_entrada_usd_m = 0.10
+precio_salida_usd_m = 0.50
+precio_cache_lectura_usd_m = 0.01
+# Si la entrada supera 272K tokens, toda la petición cuesta 0.20 / 0.75

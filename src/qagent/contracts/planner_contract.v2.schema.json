@@ -1,0 +1,170 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "planner_contract.v2.schema.json",
+  "title": "planner_contract.v2",
+  "description": "Contrato del Planner para UNA función o endpoint. El Planner devuelve una lista de estos contratos por módulo; el Generator recibe uno solo.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "modulo", "huella", "tipo", "objetivo", "firma", "critical", "casos"],
+  "properties": {
+    "version": { "const": "2" },
+    "modulo": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Ruta del módulo relativa a la raíz del proyecto, ej. tienda/precios.py."
+    },
+    "huella": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$",
+      "description": "SHA-256 del módulo calculado por el analizador (EN-02). Sirve para la caché de specs (HU-24)."
+    },
+    "tipo": { "enum": ["funcion", "endpoint"] },
+    "objetivo": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Nombre de la función (calcular_descuento) o método y ruta del endpoint (GET /items/{id})."
+    },
+    "manejador": {
+      "type": "string",
+      "pattern": "^[A-Za-z_][A-Za-z0-9_]*$",
+      "description": "Endpoints (EN-14): función que atiende la ruta. Sirve para medir la cobertura de su cuerpo."
+    },
+    "aplicacion": {
+      "type": "string",
+      "pattern": "^[A-Za-z_][A-Za-z0-9_]*$",
+      "description": "Símbolo FastAPI que TestClient debe importar del módulo del endpoint."
+    },
+    "dependencias": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/dependencia" },
+      "uniqueItems": true,
+      "description": "Depends que el test reemplaza y callable de prueba importable desde el módulo."
+    },
+    "firma": { "type": "string", "minLength": 1 },
+    "critical": {
+      "type": "boolean",
+      "description": "true = se aplica mutation testing (mutmut) a este objetivo."
+    },
+    "llama_a": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "uniqueItems": true,
+      "description": "Funciones del proyecto que el objetivo llama; el Generator las simula con mocks."
+    },
+    "casos": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/caso" }
+    }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "tipo": { "const": "funcion" } } },
+      "then": { "properties": { "objetivo": { "pattern": "^[A-Za-z_][A-Za-z0-9_]*$" } } }
+    },
+    {
+      "if": { "properties": { "tipo": { "const": "endpoint" } } },
+      "then": {
+        "required": ["manejador", "aplicacion", "dependencias"],
+        "properties": {
+          "objetivo": { "pattern": "^(GET|POST|PUT|PATCH|DELETE) /" },
+          "casos": { "items": { "$ref": "#/$defs/caso_endpoint" } }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "dependencia": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["funcion", "reemplazo"],
+      "properties": {
+        "funcion": {
+          "type": "string",
+          "pattern": "^[A-Za-z_][A-Za-z0-9_]*$",
+          "description": "Callable usado dentro de Depends."
+        },
+        "reemplazo": {
+          "type": "string",
+          "pattern": "^[A-Za-z_][A-Za-z0-9_]*$",
+          "description": "Callable de prueba que se registra en app.dependency_overrides."
+        }
+      }
+    },
+    "caso_endpoint": {
+      "description": "Restricciones extra de un caso de endpoint (EN-14): la entrada es una petición HTTP y el valor esperado, la respuesta. Un endpoint no espera excepciones de Python: un error es un código de estado.",
+      "required": ["valor_esperado"],
+      "not": { "required": ["excepcion"] },
+      "properties": {
+        "entrada": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["metodo", "ruta"],
+          "properties": {
+            "metodo": { "enum": ["GET", "POST", "PUT", "PATCH", "DELETE"] },
+            "ruta": { "type": "string", "pattern": "^/", "description": "Ruta con los parámetros ya sustituidos, ej. /items/1." },
+            "query": { "type": "object", "description": "Parámetros de consulta (?clave=valor)." },
+            "json": { "description": "Cuerpo JSON de la petición." },
+            "headers": { "type": "object", "additionalProperties": { "type": "string" } },
+            "preparacion": {
+              "type": "array",
+              "items": { "$ref": "#/$defs/preparacion_endpoint" },
+              "description": "Estado inicial declarado que el doble de una dependencia necesita antes de la petición."
+            }
+          }
+        },
+        "valor_esperado": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["status_code"],
+          "not": { "required": ["json", "json_contiene"] },
+          "properties": {
+            "status_code": { "type": "integer", "minimum": 100, "maximum": 599 },
+            "json": { "description": "Cuerpo de la respuesta, comparado completo." },
+            "json_contiene": { "type": "object", "description": "Solo estos campos deben estar en la respuesta, con estos valores." }
+          }
+        }
+      }
+    },
+    "preparacion_endpoint": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["dependencia", "metodo", "modelo", "argumentos"],
+      "properties": {
+        "dependencia": { "type": "string", "pattern": "^[A-Za-z_][A-Za-z0-9_]*$" },
+        "metodo": { "type": "string", "pattern": "^[A-Za-z_][A-Za-z0-9_]*$" },
+        "modelo": { "type": "string", "pattern": "^[A-Za-z_][A-Za-z0-9_]*$" },
+        "argumentos": { "type": "object" }
+      }
+    },
+    "caso": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "entrada", "origen"],
+      "anyOf": [{ "required": ["valor_esperado"] }, { "required": ["excepcion"] }],
+      "properties": {
+        "id": { "type": "string", "pattern": "^[a-z0-9_]+$" },
+        "descripcion": { "type": "string" },
+        "entrada": {
+          "description": "Argumentos de la función, o método/ruta/body de la petición para un endpoint."
+        },
+        "valor_esperado": {
+          "description": "Valor esperado. Sale del contrato (oráculo), nunca de ejecutar el código."
+        },
+        "excepcion": {
+          "type": "string",
+          "pattern": "^[A-Za-z_][A-Za-z0-9_.]*$",
+          "description": "Excepción esperada (ej. ValueError) cuando el caso debe fallar."
+        },
+        "origen": {
+          "enum": ["firma", "tipo", "docstring", "response_model", "status_code", "modelo_pydantic"],
+          "description": "De dónde sale el valor esperado. No existe la opción 'ejecucion' a propósito."
+        },
+        "categoria": {
+          "enum": ["normal", "limite", "error"],
+          "description": "#76. normal: entrada válida típica; limite: valor en el borde de lo permitido según la especificación; error: entrada inválida que lanza una excepción o devuelve 4xx/5xx. Opcional: si falta, se infiere (error con excepcion o un 4xx/5xx; normal en los demás casos)."
+        }
+      }
+    }
+  }
+}

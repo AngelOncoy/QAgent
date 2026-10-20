@@ -1,0 +1,9 @@
+============================= test session starts =============================
+platform linux -- Python 3.11.9, pytest-9.1.1, pluggy-1.6.0
+rootdir: /work
+collected 2 items
+
+../tests/test_generado.py ..                                             [100%]
+
+- generated xml file: /work/out/junit.xml -
+============================== 2 passed in 0.11s ==============================

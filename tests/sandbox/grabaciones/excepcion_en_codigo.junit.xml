@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="1" skipped="0" tests="2" time="0.012" timestamp="2026-10-15T10:00:00.000000" hostname="sandbox"><testcase classname="tests.test_generado" name="test_dividir_normal" time="0.012" /><testcase classname="tests.test_generado" name="test_dividir_por_cero_devuelve_none" time="0.012"><failure message="ZeroDivisionError: division by zero">def test_dividir_por_cero_devuelve_none():
+&gt;       assert dividir(1, 0) is None
+
+../tests/test_generado.py:6: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+a = 1, b = 0
+
+    def dividir(a, b):
+&gt;       return a / b
+E       ZeroDivisionError: division by zero
+
+modulo.py:6: ZeroDivisionError</failure></testcase></testsuite></testsuites>

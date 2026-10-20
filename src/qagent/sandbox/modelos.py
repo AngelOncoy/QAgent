@@ -1,0 +1,103 @@
+"""Tipos de datos y errores del sandbox Docker (EN-03)."""
+
+from __future__ import annotations
+
+import shutil
+from dataclasses import dataclass
+from typing import Any
+
+REPOSITORIO = "qagent-sandbox"
+IMAGEN_BASE = f"{REPOSITORIO}:base"
+#: Etiqueta Docker de los contenedores del sandbox (para encontrarlos y limpiarlos).
+ETIQUETA_CONTENEDOR = {"qagent": "sandbox"}
+
+MENSAJE_NO_INSTALADO = "Docker no está instalado. Instala Docker Desktop para ejecutar las pruebas en el sandbox."
+MENSAJE_NO_INICIADO = "Docker Desktop no está iniciado. Ábrelo, espera a que termine de arrancar y vuelve a intentar."
+# HU-13 (criterio 3): texto exacto que ve el usuario si intenta iniciar una corrida sin Docker.
+MENSAJE_DOCKER_CERRADO = "Docker no está abierto: inícialo y vuelve a intentar"
+
+
+def clasificar_docker_caido() -> tuple[str, str]:
+    """Clasifica por qué Docker no responde, según si su ejecutable existe en el sistema.
+
+    Returns:
+        Tupla (estado, mensaje) con estado "no_instalado" o "no_iniciado".
+    """
+    if shutil.which("docker") is None:
+        return "no_instalado", MENSAJE_NO_INSTALADO
+    return "no_iniciado", MENSAJE_NO_INICIADO
+
+
+@dataclass(frozen=True)
+class LimitesSandbox:
+    """Límites de recursos de un contenedor del sandbox.
+
+    Atributos:
+        cpus: número de CPU disponibles para el contenedor. Antes de crearlo se
+            recorta a los CPU que tiene Docker (`NCPU`).
+        memoria: memoria máxima en formato Docker (ej. "3g"); también es el tope de swap.
+        timeout_s: segundos máximos de ejecución antes de matar el contenedor.
+
+    Los valores por defecto se pueden cambiar en `[sandbox]` de config.toml.
+    """
+
+    cpus: float = 4.0
+    memoria: str = "3g"
+    timeout_s: int = 120
+
+
+LIMITES_POR_DEFECTO = LimitesSandbox()
+
+
+@dataclass
+class ResultadoSandbox:
+    """Resultado de una ejecución dentro del sandbox.
+
+    Atributos:
+        exit_code: código de salida del proceso del contenedor.
+        stdout: salida estándar.
+        stderr: salida de error.
+        coverage: contenido de coverage.json, o None si no se generó.
+        timed_out: True si se excedió el timeout y se mató el contenedor.
+        oom_killed: True si el contenedor terminó por falta de memoria.
+        duracion_s: duración de la ejecución en segundos.
+        junit_xml: contenido de junit.xml (un registro por caso), o None si no se generó.
+        comando: el comando que de verdad se ejecutó, para el informe (EN-17).
+        limites: los límites que de verdad se aplicaron (con los CPU ya recortados a
+            los de Docker), o None si no se llegó a crear el contenedor.
+    """
+
+    exit_code: int
+    stdout: str
+    stderr: str
+    coverage: dict[str, Any] | None = None
+    timed_out: bool = False
+    oom_killed: bool = False
+    duracion_s: float = 0.0
+    junit_xml: str | None = None
+    comando: list[str] | None = None
+    limites: LimitesSandbox | None = None
+
+
+class ErrorSandbox(Exception):
+    """Error base del sandbox; su mensaje se puede mostrar al usuario."""
+
+
+class DockerNoDisponible(ErrorSandbox):
+    """Docker no está instalado o Docker Desktop no está iniciado."""
+
+
+class ImagenNoEncontrada(ErrorSandbox):
+    """La imagen base del sandbox no existe."""
+
+
+class ErrorConstruccionImagen(ErrorSandbox):
+    """Falló la construcción de una imagen (por ejemplo, pip install).
+
+    Atributos:
+        log: salida completa de la construcción, para diagnóstico.
+    """
+
+    def __init__(self, mensaje: str, log: str = "") -> None:
+        super().__init__(mensaje)
+        self.log = log

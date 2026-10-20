@@ -1,0 +1,59 @@
+{
+  "descripcion": "Casos que la IA simulada (QAGENT_FAKE_LLM=1) devuelve como Planner para bench/banco_mvp.py. Cada valor esperado sale del docstring de la función, nunca de ejecutarla. Clave: '<archivo>.py::<función>'. Los endpoints de bench_api/api_mvp.py usan la clave '<archivo>.py::<MÉTODO> <ruta>' (HU-27); su valor esperado sale del status_code, el response_model, los modelos Pydantic o el docstring.",
+  "casos": {
+    "banco_mvp.py::calcular_descuento": [
+      {"id": "descuento_normal", "descripcion": "100 con 20% de descuento queda en 80", "entrada": {"precio": 100.0, "porcentaje": 20.0}, "valor_esperado": 80.0, "origen": "docstring", "categoria": "normal"},
+      {"id": "sin_descuento", "descripcion": "0% deja el precio igual", "entrada": {"precio": 50.0, "porcentaje": 0.0}, "valor_esperado": 50.0, "origen": "docstring", "categoria": "limite"},
+      {"id": "precio_negativo", "entrada": {"precio": -1.0, "porcentaje": 10.0}, "excepcion": "ValueError", "origen": "docstring", "categoria": "error"},
+      {"id": "porcentaje_mayor_a_100", "entrada": {"precio": 100.0, "porcentaje": 150.0}, "excepcion": "ValueError", "origen": "docstring", "categoria": "error"}
+    ],
+    "banco_mvp.py::clasificar_edad": [
+      {"id": "menor_17", "entrada": {"edad": 17}, "valor_esperado": "menor", "origen": "docstring", "categoria": "normal"},
+      {"id": "adulto_18", "descripcion": "Límite: 18 ya es adulto", "entrada": {"edad": 18}, "valor_esperado": "adulto", "origen": "docstring", "categoria": "limite"},
+      {"id": "adulto_64", "entrada": {"edad": 64}, "valor_esperado": "adulto", "origen": "docstring", "categoria": "normal"},
+      {"id": "adulto_mayor_65", "entrada": {"edad": 65}, "valor_esperado": "adulto mayor", "origen": "docstring", "categoria": "limite"},
+      {"id": "edad_negativa", "entrada": {"edad": -1}, "excepcion": "ValueError", "origen": "docstring", "categoria": "error"}
+    ],
+    "banco_mvp.py::buscar_elemento_mayor": [
+      {"id": "positivos", "entrada": {"numeros": [1, 5, 3]}, "valor_esperado": 5, "origen": "docstring", "categoria": "normal"},
+      {"id": "solo_negativos", "entrada": {"numeros": [-5, -2, -9]}, "valor_esperado": -2, "origen": "docstring", "categoria": "normal"},
+      {"id": "lista_vacia", "entrada": {"numeros": []}, "excepcion": "ValueError", "origen": "docstring", "categoria": "error"}
+    ],
+    "banco_mvp.py::es_palindromo": [
+      {"id": "frase_palindromo", "descripcion": "Ignora mayúsculas y espacios", "entrada": {"texto": "Anita lava la tina"}, "valor_esperado": true, "origen": "docstring", "categoria": "normal"},
+      {"id": "no_palindromo", "entrada": {"texto": "hola"}, "valor_esperado": false, "origen": "docstring", "categoria": "normal"}
+    ],
+    "banco_mvp.py::invertir_palabras": [
+      {"id": "tres_palabras", "entrada": {"frase": "hola mundo feliz"}, "valor_esperado": "feliz mundo hola", "origen": "docstring", "categoria": "normal"}
+    ],
+    "banco_mvp.py::formatear_moneda": [
+      {"id": "simbolo_por_defecto", "entrada": {"cantidad": 12.5}, "valor_esperado": "$12.50", "origen": "docstring", "categoria": "normal"},
+      {"id": "otro_simbolo", "entrada": {"cantidad": 3, "simbolo": "S/"}, "valor_esperado": "S/3.00", "origen": "docstring", "categoria": "normal"}
+    ],
+    "api_mvp.py::GET /salud": [
+      {"id": "salud_ok", "entrada": {"metodo": "GET", "ruta": "/salud"}, "valor_esperado": {"status_code": 200, "json": {"estado": "ok"}}, "origen": "docstring", "categoria": "normal"}
+    ],
+    "api_mvp.py::POST /items": [
+      {"id": "crear_valido", "entrada": {"metodo": "POST", "ruta": "/items", "json": {"nombre": "lapiz", "precio": 2.5}}, "valor_esperado": {"status_code": 201, "json_contiene": {"nombre": "lapiz", "precio": 2.5}}, "origen": "status_code", "categoria": "normal"},
+      {"id": "precio_cero", "descripcion": "Field(gt=0) rechaza un precio de 0", "entrada": {"metodo": "POST", "ruta": "/items", "json": {"nombre": "lapiz", "precio": 0}}, "valor_esperado": {"status_code": 422}, "origen": "modelo_pydantic", "categoria": "error"},
+      {"id": "nombre_vacio", "descripcion": "Field(min_length=1) rechaza un nombre vacío", "entrada": {"metodo": "POST", "ruta": "/items", "json": {"nombre": "", "precio": 1.0}}, "valor_esperado": {"status_code": 422}, "origen": "modelo_pydantic", "categoria": "error"}
+    ],
+    "api_mvp.py::GET /items": [
+      {"id": "listar", "entrada": {"metodo": "GET", "ruta": "/items"}, "valor_esperado": {"status_code": 200}, "origen": "status_code", "categoria": "normal"}
+    ],
+    "api_mvp.py::GET /items/{item_id}": [
+      {"id": "obtener_existente", "descripcion": "Con el artículo 1 guardado (nombre lapiz, precio 2.5)", "entrada": {"metodo": "GET", "ruta": "/items/1", "preparacion": [{"dependencia": "obtener_repositorio", "metodo": "crear", "modelo": "ItemEntrada", "argumentos": {"nombre": "lapiz", "precio": 2.5}}]}, "valor_esperado": {"status_code": 200, "json": {"id": 1, "nombre": "lapiz", "precio": 2.5}}, "origen": "response_model", "categoria": "normal"},
+      {"id": "obtener_inexistente", "descripcion": "El docstring promete 404 si el artículo no existe", "entrada": {"metodo": "GET", "ruta": "/items/999"}, "valor_esperado": {"status_code": 404}, "origen": "docstring", "categoria": "error"},
+      {"id": "id_no_numerico", "entrada": {"metodo": "GET", "ruta": "/items/abc"}, "valor_esperado": {"status_code": 422}, "origen": "tipo", "categoria": "error"}
+    ],
+    "api_mvp.py::DELETE /items/{item_id}": [
+      {"id": "borrar_existente", "descripcion": "Con el artículo 1 guardado: responde 204 sin cuerpo", "entrada": {"metodo": "DELETE", "ruta": "/items/1", "preparacion": [{"dependencia": "obtener_repositorio", "metodo": "crear", "modelo": "ItemEntrada", "argumentos": {"nombre": "lapiz", "precio": 2.5}}]}, "valor_esperado": {"status_code": 204}, "origen": "status_code", "categoria": "normal"},
+      {"id": "borrar_inexistente", "entrada": {"metodo": "DELETE", "ruta": "/items/999"}, "valor_esperado": {"status_code": 404}, "origen": "docstring", "categoria": "error"},
+      {"id": "borrar_id_no_numerico", "entrada": {"metodo": "DELETE", "ruta": "/items/abc"}, "valor_esperado": {"status_code": 422}, "origen": "tipo", "categoria": "error"}
+    ],
+    "api_mvp.py::GET /descuento": [
+      {"id": "descuento_normal", "descripcion": "precio=100 y porcentaje=20 devuelve 80 (docstring)", "entrada": {"metodo": "GET", "ruta": "/descuento", "query": {"precio": 100, "porcentaje": 20}}, "valor_esperado": {"status_code": 200, "json": {"precio_final": 80.0}}, "origen": "docstring", "categoria": "normal"},
+      {"id": "precio_negativo", "descripcion": "Query(gt=0) rechaza un precio negativo", "entrada": {"metodo": "GET", "ruta": "/descuento", "query": {"precio": -1, "porcentaje": 20}}, "valor_esperado": {"status_code": 422}, "origen": "firma", "categoria": "error"}
+    ]
+  }
+}

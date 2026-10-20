@@ -1,0 +1,110 @@
+{
+  "version": "1",
+  "tipo": "log",
+  "run_id": "20261007-153012-a1b2",
+  "fecha": "2026-10-07T15:30:12-05:00",
+  "proyecto": "C:/Users/dev/tienda",
+  "perfil": "deep",
+  "modelos": {
+    "planner": {
+      "proveedor": "xiaomi",
+      "modelo": "mimo-v2.6-pro",
+      "precio_entrada_usd_m": 0.435,
+      "precio_salida_usd_m": 0.87
+    },
+    "generator": {
+      "proveedor": "xiaomi",
+      "modelo": "mimo-v2.6-pro",
+      "precio_entrada_usd_m": 0.435,
+      "precio_salida_usd_m": 0.87
+    },
+    "reviewer": {
+      "proveedor": "openai",
+      "modelo": "gpt-6-luna",
+      "precio_entrada_usd_m": 0.1,
+      "precio_salida_usd_m": 0.5
+    }
+  },
+  "estado_final": "fin",
+  "motivo_fallo": null,
+  "es_simulado": true,
+  "llamadas": [
+    {
+      "agente": "planner",
+      "funcion": null,
+      "intento": null,
+      "modelo": "mimo-v2.6-pro",
+      "prompt_tokens": 1500,
+      "completion_tokens": 400,
+      "costo_usd": 0.0010005,
+      "es_simulado": true,
+      "hora": "2026-10-07T15:30:12-05:00"
+    },
+    {
+      "agente": "generator",
+      "funcion": "duplicar",
+      "intento": 1,
+      "modelo": "mimo-v2.6-pro",
+      "prompt_tokens": 800,
+      "completion_tokens": 300,
+      "costo_usd": 0.000609,
+      "es_simulado": true,
+      "hora": "2026-10-07T15:30:12-05:00"
+    },
+    {
+      "agente": "reviewer",
+      "funcion": "duplicar",
+      "intento": 1,
+      "modelo": "gpt-6-luna",
+      "prompt_tokens": 600,
+      "completion_tokens": 100,
+      "costo_usd": 0.00011,
+      "es_simulado": true,
+      "hora": "2026-10-07T15:30:12-05:00"
+    },
+    {
+      "agente": "generator",
+      "funcion": "duplicar",
+      "intento": 2,
+      "modelo": "mimo-v2.6-pro",
+      "prompt_tokens": 800,
+      "completion_tokens": 300,
+      "costo_usd": 0.000609,
+      "es_simulado": true,
+      "hora": "2026-10-07T15:30:12-05:00"
+    },
+    {
+      "agente": "reviewer",
+      "funcion": "duplicar",
+      "intento": 2,
+      "modelo": "gpt-6-luna",
+      "prompt_tokens": 600,
+      "completion_tokens": 100,
+      "costo_usd": 0.00011,
+      "es_simulado": true,
+      "hora": "2026-10-07T15:30:12-05:00"
+    }
+  ],
+  "totales_por_agente": {
+    "planner": {
+      "prompt_tokens": 1500,
+      "completion_tokens": 400,
+      "costo_usd": 0.0010005,
+      "llamadas": 1
+    },
+    "generator": {
+      "prompt_tokens": 1600,
+      "completion_tokens": 600,
+      "costo_usd": 0.001218,
+      "llamadas": 2
+    },
+    "reviewer": {
+      "prompt_tokens": 1200,
+      "completion_tokens": 200,
+      "costo_usd": 0.00022,
+      "llamadas": 2
+    }
+  },
+  "total_tokens": 5500,
+  "total_costo_usd": 0.0024385
+}

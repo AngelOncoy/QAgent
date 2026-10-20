@@ -1,0 +1,42 @@
+# Construye el instalador de Windows y lo adjunta a la Release (TA-06).
+#
+# - Al publicar una Release: genera QAgent-<versión>-instalador.exe y lo sube a esa Release.
+# - A mano (Actions > Instalador de Windows > Run workflow): lo deja como artefacto
+#   descargable del workflow, para probarlo sin publicar nada.
+name: Instalador de Windows
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+permissions:
+  contents: write  # subir el instalador a la Release
+
+jobs:
+  instalador:
+    name: Construir el instalador
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Dependencias (con PyInstaller)
+        run: python -m pip install -e ".[empaquetar]"
+      - name: Inno Setup 6
+        run: choco install innosetup --no-progress -y
+      - name: QAgent.exe e instalador
+        run: python scripts/construir_windows.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: instalador-windows
+          path: dist/windows/*-instalador.exe
+      - name: Adjuntar a la Release
+        if: github.event_name == 'release'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          Get-ChildItem dist/windows/*-instalador.exe | ForEach-Object {
+            gh release upload "${{ github.ref_name }}" $_.FullName --clobber
+          }

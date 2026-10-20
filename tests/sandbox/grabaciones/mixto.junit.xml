@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="1" skipped="1" tests="3" time="0.012" timestamp="2026-10-15T10:00:00.000000" hostname="sandbox"><testcase classname="tests.test_generado" name="test_ok" time="0.012" /><testcase classname="tests.test_generado" name="test_omitido" time="0.012"><skipped type="pytest.skip" message="pendiente">/work/tests/test_generado.py:6: pendiente</skipped></testcase><testcase classname="tests.test_generado" name="test_falla" time="0.012"><failure message="assert 15 == 10&#10; +  where 15 = doble(5)">def test_falla():
+&gt;       assert doble(5) == 10
+E       assert 15 == 10
+E        +  where 15 = doble(5)
+
+../tests/test_generado.py:10: AssertionError</failure></testcase></testsuite></testsuites>

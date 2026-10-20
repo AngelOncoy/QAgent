@@ -1,0 +1,170 @@
+/* tokens.css — ÚNICA fuente de verdad visual de QAgent.
+   Para cambiar colores, tipografía o logo se edita solo este archivo.
+
+   Identidad «Precisión serena»: color con una función, no decoración.
+   - Grafito como base, un solo azul sólido reservado a la acción principal de cada pantalla.
+   - Cinco estados (éxito, posible bug, error de generación, aviso, en progreso), siempre con ícono y texto.
+   Orden del archivo: 1) tokens semánticos del sistema (lo que usan los componentes nuevos),
+   2) tema claro, 3) alias de la interfaz anterior (--bg, --panel, --blue…), 4) marca, tipografía,
+   espaciado y radios, 5) paleta heredada que aún usan los componentes sin migrar. */
+
+/* 1. Sistema: tema oscuro (por defecto) */
+:root{
+  /* Superficies */
+  --fondo:#1b1e23;            /* fondo / base: área principal */
+  --lateral:#1b1e23;          /* barra lateral (separada por --borde) */
+  --superficie:#24282e;       /* superficie / panel: tarjetas */
+  --superficie-2:#2b3037;     /* panel elevado: hover de filas, menús */
+  --hundido:#16191d;          /* campos de texto, bloques de código */
+  --borde:#343941;
+  --borde-fuerte:#464c55;
+  --velo:rgba(10,12,15,0.62); /* fondo detrás de un modal */
+
+  /* Texto */
+  --texto:#eceef1;
+  --texto-2:#a9afb8;          /* secundario: subtítulos, descripciones */
+  --texto-3:#7d848e;          /* terciario: metadatos, ayudas */
+  --texto-sobre-accion:#ffffff;
+
+  /* Acción y foco */
+  --accion:#0e3aae;           /* acción / principal: solo el botón principal de la pantalla */
+  --accion-hover:#1747c7;
+  --accion-suave:#263452;     /* seleccionado: ítem activo del menú, fila elegida */
+  --accion-borde:#3a5590;
+  --enlace:#9bb9ff;           /* foco / enlace */
+  --foco-anillo:rgba(155,185,255,0.45);
+
+  /* Estados: -t texto/ícono, -s fondo suave, -b borde */
+  --exito:#91d9ba;  --exito-t:#91d9ba;  --exito-s:#22362f;  --exito-b:#2f5a48;
+  --bug:#ffa7a7;    --bug-t:#ffa7a7;    --bug-s:#432a2d;    --bug-b:#6e3a3e;
+  --error:#d4b4ff;  --error-t:#d4b4ff;  --error-s:#33294a;  --error-b:#55437a;
+  --aviso:#eac68c;  --aviso-t:#eac68c;  --aviso-s:#3d3426;  --aviso-b:#6b5733;
+  --progreso:#9bb9ff; --progreso-t:#9bb9ff; --progreso-s:#25324d; --progreso-b:#3a5590;
+  --info-t:#9bb9ff; --info-s:#25324d; --info-b:#3a5590;
+
+  /* Código */
+  --codigo-fondo:var(--hundido);
+  --codigo-texto:#d6dae0;
+  --codigo-clave:#9bb9ff;
+  --codigo-cadena:#eac68c;
+  --codigo-comentario:#7d848e;
+  --codigo-linea-sin-probar:#3a3122;
+
+  --sombra-modal:0 18px 48px rgba(0,0,0,0.45);
+}
+
+/* 2. Tema claro: grafito sobre superficie clara. Se activa con <html data-theme="claro"> o data-tema="claro". */
+:root[data-theme="claro"],
+:root[data-tema="claro"]{
+  --fondo:#f3f5f8;
+  --lateral:#e9edf3;
+  --superficie:#ffffff;
+  --superficie-2:#f6f7f9;
+  --hundido:#eef1f5;
+  --borde:#dde1e7;
+  --borde-fuerte:#c5cbd4;
+  --velo:rgba(27,30,35,0.38);
+
+  --texto:#1b1e23;
+  --texto-2:#4a515b;
+  --texto-3:#6b727c;
+  --texto-sobre-accion:#ffffff;
+
+  --accion:#0e3aae;
+  --accion-hover:#1747c7;
+  --accion-suave:#e3eafc;
+  --accion-borde:#a9bdf0;
+  --enlace:#1e4fd1;
+  --foco-anillo:rgba(30,79,209,0.35);
+
+  --exito:#1c7a52;  --exito-t:#1c7a52;  --exito-s:#e6f4ec;  --exito-b:#b7dfc9;
+  --bug:#b42330;    --bug-t:#b42330;    --bug-s:#fbe9ea;    --bug-b:#f1c0c4;
+  --error:#6b3fb0;  --error-t:#6b3fb0;  --error-s:#f0e9fb;  --error-b:#d6c6f2;
+  --aviso:#8a5a0b;  --aviso-t:#8a5a0b;  --aviso-s:#fcf1dc;  --aviso-b:#ecd3a3;
+  --progreso:#1e4fd1; --progreso-t:#1e4fd1; --progreso-s:#e3eafc; --progreso-b:#a9bdf0;
+  --info-t:#1e4fd1; --info-s:#e3eafc; --info-b:#a9bdf0;
+
+  --codigo-fondo:#eef1f5;
+  --codigo-texto:#2b3037;
+  --codigo-clave:#1e4fd1;
+  --codigo-cadena:#8a5a0b;
+  --codigo-comentario:#6b727c;
+  --codigo-linea-sin-probar:#fcf1dc;
+
+  --sombra-modal:0 18px 48px rgba(27,30,35,0.18);
+  --fondo-marca:#f3f5f8;
+  --logo-icono:url('../assets/logo/qagent-icono-claro.svg');
+  --logo-completo:url('../assets/logo/qagent-logo-claro.svg');
+}
+
+/* 3. Marca: «una Q que verifica» (assets/logo/). El símbolo es de trazo, sin degradados.
+   Los SVG del logo llevan estos valores escritos: si cambian, actualizarlos también allí. */
+:root{
+  --marca-1:#f1f3f6;          /* blanco suave: símbolo sobre grafito */
+  --marca-2:#9bb9ff;          /* azul foco */
+  --marca-3:#0e3aae;          /* azul acción */
+  --marca-grafito:#1b1e23;    /* símbolo sobre superficie clara */
+  --marca-gradiente:linear-gradient(135deg,var(--marca-2),var(--marca-3));
+  --fondo-marca:#1b1e23;
+  --logo-icono:url('../assets/logo/qagent-icono.svg');
+  --logo-completo:url('../assets/logo/qagent-logo.svg');
+}
+
+/* 4. Ritmo: base 4 px. Tarjetas 10 px, controles 6 px, borde 1 px. */
+:root{
+  --esp-1:4px; --esp-2:8px; --esp-3:12px; --esp-4:16px; --esp-5:24px; --esp-6:32px; --esp-7:48px;
+  --radio-tarjeta:10px; --radio-control:6px; --radio-chip:6px; --radio-pildora:999px;
+  --borde-ancho:1px;
+  --control-alto:40px;        /* botones y campos: área cómoda para el clic */
+  --lateral-ancho:232px;      /* barra lateral expandida */
+  --lateral-plegada:64px;     /* barra lateral plegada: solo íconos */
+  --contenido-max:1600px;     /* ancho máximo del contenido; en pantallas más anchas se centra */
+}
+
+/* Proveedores de IA (HU-30): color de la insignia de cada uno en Configuración.
+   Las insignias son iniciales con color; no se incluyen logos de marca. */
+:root{
+  --prov-anthropic:var(--orange-400-c); --prov-xiaomi:var(--orange-500); --prov-openai:var(--emerald-400);
+  --prov-openrouter:var(--indigo-400); --prov-gemini:var(--blue-300); --prov-groq:var(--rose-400);
+  --prov-deepseek:var(--blue-500);
+  --prov-otro:var(--slate-500);
+}
+
+/* Tipografía: Inter para la interfaz, monoespaciada para código, funciones y datos técnicos.
+   Escala 28 / 20 / 16 / 14 / 12 px; pesos 400, 500 y 600. */
+:root{
+  --fuente-ui:'Inter',system-ui,sans-serif;
+  --fuente-mono:'JetBrains Mono',ui-monospace,Consolas,monospace;
+  --texto-titulo:28px;     /* título de pantalla: la respuesta («3 posibles bugs…») */
+  --texto-seccion:20px;    /* título de tarjeta grande, cifras */
+  --texto-cuerpo-l:16px;   /* subtítulos, opciones */
+  --texto-cuerpo:14px;     /* texto base */
+  --texto-meta:12px;       /* metadatos, ayudas, chips */
+  --peso-normal:400; --peso-medio:500; --peso-fuerte:600;
+  --interlineado:1.5;
+}
+
+/* 5. Paleta de demostración e insignias: valores requeridos por el catálogo de datos de la demo y proveedores. */
+:root{
+  --white:#ffffff;
+  --slate-500:#64748b;
+  --slate-950:#020617;
+  --rose-400:#fb7185;
+  --rose-500:#f43f5e;
+  --rose-500-a20:rgba(244,63,94,0.2);
+  --orange-400:#fb923c;
+  --orange-400-c:#d97757;
+  --orange-500:#f97316;
+  --orange-500-a20:rgba(249,115,22,0.2);
+  --amber-500:#f59e0b;
+  --amber-500-a20:rgba(245,158,11,0.2);
+  --emerald-400:#34d399;
+  --emerald-500:#10b981;
+  --emerald-500-a20:rgba(16,185,129,0.2);
+  --blue-300:#93c5fd;
+  --blue-500:#3b82f6;
+  --indigo-400:#818cf8;
+  --fuchsia-400:#e879f9;
+  --fuchsia-500:#d946ef;
+  --fuchsia-500-a20:rgba(217,70,239,0.2);
+}

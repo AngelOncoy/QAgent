@@ -1,0 +1,19 @@
+============================= test session starts =============================
+platform linux -- Python 3.11.9, pytest-9.1.1, pluggy-1.6.0
+rootdir: /work
+collected 1 item
+
+../tests/test_generado.py F                                              [100%]
+
+================================== FAILURES ===================================
+_________________________ test_suma_lanza_valueerror __________________________
+
+    def test_suma_lanza_valueerror():
+>       with pytest.raises(ValueError):
+E       Failed: DID NOT RAISE ValueError
+
+../tests/test_generado.py:5: Failed
+- generated xml file: /work/out/junit.xml -
+=========================== short test summary info ===========================
+FAILED ../tests/test_generado.py::test_suma_lanza_valueerror - Failed: DID NO...
+============================== 1 failed in 0.19s ==============================

@@ -1,0 +1,47 @@
+/* monitor.css — pantalla «En curso» (progreso en vivo): etapas, avance, función actual y actividad.
+   Solo tokens del sistema (css/tokens.css, sección 1). Barra, cabecera, tarjetas, avisos, chips y la
+   barra de progreso (.np-barra) se comparten con Inicio, Clonar y Pruebas. */
+#s-monitor{font-family:var(--fuente-ui);font-size:var(--texto-cuerpo);line-height:var(--interlineado);color:var(--texto);background:var(--fondo)}
+#s-monitor .page.prg{width:100%;max-width:var(--contenido-max);margin:0 auto;padding:var(--esp-6);gap:var(--esp-5)}
+.prg-acciones{display:flex;gap:var(--esp-3)}
+
+/* Tres etapas: hecha (verde), actual (azul) o pendiente */
+.prg-etapas{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:var(--esp-4)}
+.prg-etapa{display:flex;align-items:flex-start;gap:var(--esp-3);padding:var(--esp-4) var(--esp-5);border:var(--borde-ancho) solid var(--borde);border-radius:var(--radio-tarjeta);background:var(--superficie)}
+.prg-etapa b{display:block;font-weight:var(--peso-medio)}
+.prg-etapa-ico{display:grid;place-items:center;flex-shrink:0;margin-top:2px;color:var(--texto-3)}
+.prg-etapa-hecho .prg-etapa-ico{color:var(--exito-t)}
+.prg-etapa-actual{border-color:var(--accion-borde);background:var(--accion-suave)}
+.prg-etapa-actual .prg-etapa-ico,.prg-etapa-actual b{color:var(--enlace)}
+.prg-etapa-pendiente b{color:var(--texto-2)}
+
+/* Avance general */
+.prg-avance{display:flex;flex-direction:column;gap:var(--esp-2)}
+.prg-avance-cab{display:flex;justify-content:space-between;gap:var(--esp-3);color:var(--texto-2)}
+.prg-pct{color:var(--enlace);font-family:var(--fuente-mono)}
+.prg-barra i{background:var(--progreso)}
+
+/* Función actual y actividad reciente */
+.prg-rejilla{display:grid;grid-template-columns:minmax(0,1fr) minmax(260px,340px);gap:var(--esp-5);align-items:start}
+.prg-actual-cab{display:flex;align-items:center;justify-content:space-between;gap:var(--esp-3);width:100%}
+.prg-actual-nombre{font-family:var(--fuente-mono);font-size:20px;font-weight:var(--peso-medio);overflow-wrap:anywhere}
+.prg-actividad{list-style:none;display:flex;flex-direction:column;gap:var(--esp-4);width:100%}
+.prg-actividad li{display:grid;grid-template-columns:72px 20px minmax(0,1fr);gap:var(--esp-3);align-items:start}
+.prg-actividad b{display:block;font-weight:var(--peso-medio);overflow-wrap:anywhere}
+.prg-hora{font-family:var(--fuente-mono);font-size:var(--texto-meta);color:var(--texto-3);padding-top:2px}
+.prg-paso-ico{display:grid;place-items:center;color:var(--enlace);padding-top:2px}
+.prg-paso-alerta .prg-paso-ico{color:var(--aviso-t)}
+
+/* Cifras de la columna lateral */
+.prg-cifra{gap:var(--esp-1)}
+.prg-cifra b{font-size:var(--texto-titulo);font-weight:var(--peso-fuerte);line-height:1.2}
+
+@media(max-width:1100px){.prg-rejilla{grid-template-columns:minmax(0,1fr)}}
+@media(max-width:760px){
+  .prg-etapas{grid-template-columns:minmax(0,1fr)}
+  .prg-actividad li{grid-template-columns:20px minmax(0,1fr)}
+  .prg-hora{display:none}
+  #s-monitor .page.prg{padding-left:var(--esp-4);padding-right:var(--esp-4)}
+}
+.prg-entorno-paso{margin-top:var(--esp-2);font-family:var(--fuente-mono);font-size:var(--texto-meta);color:var(--texto)}
+.prg-entorno-paso:empty{display:none}

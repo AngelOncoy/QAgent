@@ -1,0 +1,75 @@
+{
+  "version": "2",
+  "modulo": "api_mvp.py",
+  "huella": "e41f30e4439f2090d17e3f5b41f1141cde98506e4ac12139a84001e76d87b5f3",
+  "tipo": "endpoint",
+  "objetivo": "POST /items",
+  "manejador": "crear_item",
+  "aplicacion": "app",
+  "dependencias": [
+    {
+      "funcion": "obtener_repositorio",
+      "reemplazo": "Repositorio"
+    }
+  ],
+  "firma": "(datos: ItemEntrada, repo: Repositorio=Depends(obtener_repositorio)) -> Item",
+  "critical": false,
+  "llama_a": [],
+  "casos": [
+    {
+      "id": "crear_valido",
+      "descripcion": "Un artículo válido se crea con estado 201 y vuelve con su id",
+      "entrada": {
+        "metodo": "POST",
+        "ruta": "/items",
+        "json": {
+          "nombre": "lapiz",
+          "precio": 2.5
+        }
+      },
+      "valor_esperado": {
+        "status_code": 201,
+        "json_contiene": {
+          "nombre": "lapiz",
+          "precio": 2.5
+        }
+      },
+      "origen": "status_code",
+      "categoria": "normal"
+    },
+    {
+      "id": "precio_cero",
+      "descripcion": "Field(gt=0): un precio de 0 se rechaza con 422",
+      "entrada": {
+        "metodo": "POST",
+        "ruta": "/items",
+        "json": {
+          "nombre": "lapiz",
+          "precio": 0
+        }
+      },
+      "valor_esperado": {
+        "status_code": 422
+      },
+      "origen": "modelo_pydantic",
+      "categoria": "error"
+    },
+    {
+      "id": "nombre_vacio",
+      "descripcion": "Field(min_length=1): un nombre vacío se rechaza con 422",
+      "entrada": {
+        "metodo": "POST",
+        "ruta": "/items",
+        "json": {
+          "nombre": "",
+          "precio": 1.0
+        }
+      },
+      "valor_esperado": {
+        "status_code": 422
+      },
+      "origen": "modelo_pydantic",
+      "categoria": "error"
+    }
+  ]
+}

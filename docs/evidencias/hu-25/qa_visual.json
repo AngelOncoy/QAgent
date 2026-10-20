@@ -1,0 +1,20 @@
+{
+  "fecha": "2026-10-13",
+  "navegador": "Google Chrome headless",
+  "viewport": "1440x900",
+  "metodo": "frontend real servido localmente; vistas Python reales inyectadas mediante un puente de captura del mismo origen",
+  "aclaracion": "No fue una validación manual dentro de la ventana nativa pywebview. Las capturas de soporte usan artefactos reales saneados.",
+  "consola": {"errores_observados": 0},
+  "capturas": [
+    "img/CAP-01-seleccion-regresion.png",
+    "img/CAP-02-pruebas-aprobadas.png",
+    "img/CAP-03-docker-real.png",
+    "img/CAP-04-historial-cero-tokens.png",
+    "img/CAP-05-cambio-huella.png",
+    "img/CAP-06-requiere-corrida-nueva.png",
+    "img/CAP-07-exclusion-no-aprobadas.png",
+    "img/CAP-08-varias-corridas.png",
+    "img/CAP-09-pruebas-automatizadas.png",
+    "img/CAP-10-consistencia-json.png"
+  ]
+}

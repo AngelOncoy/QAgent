@@ -1,0 +1,12 @@
+{
+  "CAP-01-archivo-sin-objetivos-deshabilitado.png": "fcd5931d0b155410a2b3af04489b7a2bafc750c2e509115c4968507631fe0e04",
+  "CAP-02-archivo-funciones-seleccionable.png": "7f115bfe235c5829eac76904d3d10dc082a9d6a07d71d5ea433488691974b504",
+  "CAP-03-archivo-endpoints-seleccionable.png": "80f9aedabf5b0340bfc78b7f74acae7ac31f1bfc7058f88e5438470f5a27276d",
+  "CAP-04-seleccionar-todos-contador.png": "51e448eb497ebaba11ff49425583cc206a632667b4d0a6a5056bc2bc0ad5b369",
+  "CAP-05-modal-clonar-boton-examinar.png": "cd29ee020d25fcccbcf900c0469d6ffdbda28f52d8e70e875fd6050e30571998",
+  "CAP-06-selector-nativo-carpetas.png": "d0a10d7697c93dcedf672c92ccaef8d083435392ad0fe02fa5e8bc913204af8b",
+  "CAP-07-directorio-final-completado.png": "0552cfac4982028d95b6b21490b292b9f30e5850fb75e587f9df255c8c983a7f",
+  "CAP-08-clonacion-controlada-correcta.png": "39fb19265a5abcd5a46cd6b8f4b30eed63d9a829088f25f6d9607813e8c9a54c",
+  "CAP-09-pruebas-automatizadas.png": "79b209d3e75ad5ec944798f8554f65f0b1dff7bb627e0e96c2221430baf7bf2c",
+  "CAP-10-ruff-verificaciones-finales.png": "b4457d5f2d0d9d347d5e7ed0b2927fee36b0194b15a67ab0ab5bf1d7d90b61d6"
+}

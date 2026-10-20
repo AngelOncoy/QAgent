@@ -1,0 +1,139 @@
+# Catálogo de proveedores y modelos de QAgent (HU-30).
+#
+# Es la ÚNICA fuente de la lista que ve el usuario en Configuración → «Modelo de cada
+# agente»: para agregar, quitar o renombrar un modelo se edita este archivo; la interfaz
+# no cambia. Las claves nunca van aquí: cada proveedor guarda la suya en `.env`, en la
+# variable `variable`.
+#
+# Campos de cada [proveedores.<id>]:
+#   nombre          nombre visible
+#   variable        variable de .env con la clave (una por proveedor)
+#   endpoint        URL de chat completions (API compatible con OpenAI)
+#   modelos_url     URL para consultar un modelo (`<modelos_url>/<id>`); valida los
+#                   modelos que no generan texto
+#   cabecera_clave  cabecera extra con la clave, además de `Authorization: Bearer`
+#   param_limite    parámetro que limita la salida en la llamada de prueba
+#   tipo            "texto" (sirve como agente), "voz" (texto → voz) o "audio"
+#                   (audio → texto)
+#   visible         false = se acepta en config.toml pero no se ofrece en la interfaz
+#   modelos         lista de { id, nombre, entrada, salida } con precios en US$ por
+#                   millón de tokens. Sin precio = «precio sin confirmar» (se usa 0).
+#
+# Los IDs marcados «verificar» deben confirmarse en la consola de cada proveedor.
+
+[proveedores.anthropic]
+nombre = "Anthropic"
+variable = "ANTHROPIC_API_KEY"
+endpoint = "https://api.anthropic.com/v1/chat/completions"
+modelos_url = "https://api.anthropic.com/v1/models"
+cabecera_clave = "x-api-key"
+tipo = "texto"
+modelos = [
+  { id = "claude-opus-5-5", nombre = "Claude Opus 5.5", entrada = 4.00, salida = 20.00 },
+  { id = "claude-sonnet-5-5", nombre = "Claude Sonnet 5.5" },
+  { id = "claude-haiku-5-5", nombre = "Claude Haiku 5.5" },
+  { id = "claude-fable-5-1", nombre = "Claude Fable 5.1" },
+]
+
+[proveedores.xiaomi]
+nombre = "Xiaomi MiMo"
+variable = "XIAOMI_API_KEY"
+endpoint = "https://api.xiaomimimo.com/v1/chat/completions"
+modelos_url = "https://api.xiaomimimo.com/v1/models"
+cabecera_clave = "api-key"
+tipo = "texto"
+modelos = [
+  { id = "mimo-v2.6-pro", nombre = "MiMo v2.6 Pro", entrada = 0.435, salida = 0.87 },
+  { id = "mimo-v2.6-flash", nombre = "MiMo v2.6 Flash (verificar)" },
+]
+
+[proveedores.openai]
+nombre = "OpenAI"
+variable = "OPENAI_API_KEY"
+endpoint = "https://api.openai.com/v1/chat/completions"
+modelos_url = "https://api.openai.com/v1/models"
+param_limite = "max_completion_tokens"
+tipo = "texto"
+modelos = [
+  { id = "gpt-6-luna", nombre = "GPT-6 Luna (verificar)", entrada = 0.10, salida = 0.50 },
+  { id = "gpt-5", nombre = "GPT-5" },
+  { id = "gpt-5-mini", nombre = "GPT-5 mini" },
+  { id = "gpt-4.1-mini", nombre = "GPT-4.1 mini" },
+]
+
+# API compatible con OpenAI: se reutiliza esa integración. Los modelos llevan el
+# nombre completo de OpenRouter (`<empresa>/<modelo>`).
+# Solo modelos gratuitos (`:free`), que no piden crédito en la cuenta. Revisados el
+# 2026-10-17 en https://openrouter.ai/api/v1/models (16 `:free`); la lista cambia
+# seguido: `python -m qagent.llm.validar --gratis` muestra la de hoy. Quedan fuera los
+# que no sirven como agente: el de moderación (nemotron-3.5-content-safety), uno
+# demasiado chico para escribir pruebas (liquid/lfm-2.5-2.6b) y el enrutador
+# `openrouter/free`, que elige el modelo solo y no deja saber cuál respondió.
+# Los Gemma 4 (google/gemma-4-*) siguen en la lista pública pero no respondían: se
+# quitaron para no confundir.
+# Todos razonan antes de responder: son más lentos que un modelo sin razonamiento.
+[proveedores.openrouter]
+nombre = "OpenRouter"
+variable = "OPENROUTER_API_KEY"
+endpoint = "https://openrouter.ai/api/v1/chat/completions"
+modelos_url = "https://openrouter.ai/api/v1/models"
+tipo = "texto"
+modelos = [
+  { id = "nvidia/nemotron-3-super-120b-a12b:free", nombre = "Nemotron 3 Super 120B (gratis)", entrada = 0, salida = 0 },
+  { id = "nvidia/nemotron-3-ultra-550b-a55b:free", nombre = "Nemotron 3 Ultra 550B (gratis)", entrada = 0, salida = 0 },
+  { id = "nvidia/nemotron-3.5-lightning:free", nombre = "Nemotron 3.5 Lightning (gratis)", entrada = 0, salida = 0 },
+  { id = "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free", nombre = "Nemotron 3 Nano Omni 30B (gratis)", entrada = 0, salida = 0 },
+  { id = "nvidia/nemotron-3.5-super-vl:free", nombre = "Nemotron 3.5 Super VL (gratis)", entrada = 0, salida = 0 },
+  { id = "cohere/north-mini-code:free", nombre = "Cohere North Mini Code (gratis)", entrada = 0, salida = 0 },
+  { id = "poolside/laguna-s-2.1:free", nombre = "Poolside Laguna S 2.1 (gratis)", entrada = 0, salida = 0 },
+  { id = "poolside/laguna-xs-2.1:free", nombre = "Poolside Laguna XS 2.1 (gratis)", entrada = 0, salida = 0 },
+  { id = "thinkingmachines/inkling:free", nombre = "Thinking Machines Inkling (gratis)", entrada = 0, salida = 0 },
+  { id = "thinkingmachines/inkling-small:free", nombre = "Thinking Machines Inkling Small (gratis)", entrada = 0, salida = 0 },
+  { id = "xingchen-agi/xing4.0-29b-a4b:free", nombre = "XingChen Xing4.0 29B A4B (gratis)", entrada = 0, salida = 0 },
+  { id = "dots-studio/dots-3-note-preview:free", nombre = "Dots3-Note Preview (gratis)", entrada = 0, salida = 0 },
+]
+
+[proveedores.gemini]
+nombre = "Google Gemini"
+variable = "GEMINI_API_KEY"
+endpoint = "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions"
+modelos_url = "https://generativelanguage.googleapis.com/v1beta/openai/models"
+tipo = "texto"
+modelos = [
+  { id = "gemini-3.8-flash", nombre = "Gemini 3.8 Flash (verificar)" },
+  { id = "gemini-2.5-flash", nombre = "Gemini 2.5 Flash" },
+  { id = "gemini-2.5-flash-lite", nombre = "Gemini 2.5 Flash-Lite" },
+]
+
+# Groq: solo los modelos de texto de su capa gratuita (Free Plan), revisados el
+# 2026-10-14 en https://console.groq.com/docs/rate-limits. Los Llama pasaron a
+# Enterprise y no están en la capa gratuita; los modelos de moderación (prompt-guard,
+# safeguard), de voz (Orpheus) y de audio (Whisper) no sirven como agente.
+[proveedores.groq]
+nombre = "Groq"
+variable = "GROQ_API_KEY"
+endpoint = "https://api.groq.com/openai/v1/chat/completions"
+modelos_url = "https://api.groq.com/openai/v1/models"
+tipo = "texto"
+modelos = [
+  { id = "openai/gpt-oss-120b", nombre = "GPT-OSS 120B (gratis)", entrada = 0, salida = 0 },
+  { id = "openai/gpt-oss-20b", nombre = "GPT-OSS 20B (gratis)", entrada = 0, salida = 0 },
+  { id = "qwen/qwen3.8-27b", nombre = "Qwen 3.8 27B (gratis)", entrada = 0, salida = 0 },
+]
+
+# DeepSeek (HU-36): alternativa económica. Revisado el 2026-10-19 en
+# https://api-docs.deepseek.com/quick_start/pricing. El `id` es el nombre que acepta la
+# API (`deepseek-flash` sirve hoy la versión DeepSeek-V4.1-Flash-1017 y
+# `deepseek-v4-pro` la V4-Pro-0813), no la versión fechada. DeepSeek cobra la mitad
+# fuera de hora punta; aquí va el precio de hora punta para que el tope por corrida no
+# se quede corto.
+[proveedores.deepseek]
+nombre = "DeepSeek"
+variable = "DEEPSEEK_API_KEY"
+endpoint = "https://api.deepseek.com/chat/completions"
+modelos_url = "https://api.deepseek.com/models"
+tipo = "texto"
+modelos = [
+  { id = "deepseek-flash", nombre = "DeepSeek V4.1 Flash", entrada = 0.30, salida = 1.20 },
+  { id = "deepseek-v4-pro", nombre = "DeepSeek V4 Pro", entrada = 1.32, salida = 3.96 },
+]

@@ -1,0 +1,68 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "detalle.schema.json",
+  "title": "detalle",
+  "description": "detalle.json de una corrida (HU-21, EN-17): por cada función, el contrato, el último test, la traza y cada intento con sus casos de pytest, su salida y el entorno. Las cifras de la corrida siguen en results.json.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "tipo", "run_id", "entorno", "totales_casos", "funciones"],
+  "properties": {
+    "version": { "const": "1" },
+    "tipo": { "const": "detalle" },
+    "run_id": { "type": "string", "minLength": 1 },
+    "entorno": {
+      "description": "Imagen, comando, versiones y límites del sandbox; null si ningún test llegó a ejecutarse.",
+      "type": ["object", "null"]
+    },
+    "totales_casos": {
+      "description": "Casos de pytest del último intento de cada función, sumados.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["total", "pasaron", "fallaron", "errores", "omitidos"],
+      "properties": {
+        "total": { "type": "integer", "minimum": 0 },
+        "pasaron": { "type": "integer", "minimum": 0 },
+        "fallaron": { "type": "integer", "minimum": 0 },
+        "errores": { "type": "integer", "minimum": 0 },
+        "omitidos": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "funciones": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["modulo", "funcion", "contrato", "codigo", "traza", "intentos"],
+        "properties": {
+          "modulo": { "type": "string" },
+          "funcion": { "type": "string" },
+          "contrato": { "type": ["object", "null"] },
+          "codigo": { "type": ["string", "null"] },
+          "traza": { "type": ["string", "null"] },
+          "intentos": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["intento", "decision", "estado_sandbox", "tipo_fallo", "laundering_detectado"],
+              "properties": {
+                "intento": { "type": "integer", "minimum": 1, "maximum": 3 },
+                "decision": { "enum": ["accept", "retry", "bug_detectado", "stalled"] },
+                "estado_sandbox": { "enum": ["ok", "fallo", "timeout", "oom", "error"] },
+                "tipo_fallo": { "enum": ["error_test", "bug_codigo", null] },
+                "laundering_detectado": { "type": "boolean" },
+                "feedback": { "type": "string" },
+                "hash_error": { "type": ["string", "null"] },
+                "cobertura": { "type": ["object", "null"] },
+                "ejecucion": {
+                  "description": "Misma forma que `ejecucion` de review_result (ya validada allí); null si el test no llegó al sandbox.",
+                  "type": ["object", "null"]
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

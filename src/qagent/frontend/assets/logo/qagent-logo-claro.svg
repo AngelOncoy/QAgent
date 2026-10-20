@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 150 32" fill="none" role="img" aria-label="QAgent">
+  <!-- Logo completo: símbolo oficial + nombre. Grafito sobre superficie clara. -->
+  <g transform="translate(1 1) scale(0.3)">
+    <path d="M70.4002 9.46875H25.8076L8.17798 27.3188V65.1188L25.8076 82.9688H62.1039L69.2248 74.9349M69.2248 74.9349L81.6039 60.9688M69.2248 74.9349L61 67M69.2248 74.9349L85.3909 90.5312M40 46L55.8909 62L91.8219 24.5" stroke-width="7.63636" stroke-linecap="square" stroke="#1B1E23"/>
+  </g>
+  <text x="38" y="23" fill="#1B1E23" font-family="Inter, 'Segoe UI', system-ui, sans-serif" font-size="20" font-weight="400" letter-spacing="-0.2">QAgent</text>
+</svg>

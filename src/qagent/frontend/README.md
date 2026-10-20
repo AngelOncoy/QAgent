@@ -1,0 +1,142 @@
+# Frontend de QAgent
+
+Interfaz de la aplicación de escritorio: HTML, CSS y JavaScript **sin paso de compilación ni dependencias**. La carga pywebview (`src/qagent/app/desktop.py`); sin pywebview funciona igual en modo demostración, con datos simulados.
+
+Decisión de diseño: [ADR-003](../docs/decisiones/ADR-003-frontend-modular.md).
+
+## Probarlo
+
+| Qué | Cómo |
+|---|---|
+| Aplicación real | `qagent` (o `python -m qagent`), tras `pip install -e .[dev]` en la raíz |
+| Solo la interfaz, en modo demo | Abrir `src/qagent/frontend/index.html` en el navegador (no necesita servidor) |
+| Verificar la estructura | `python test.py` (incluye `tests/frontend/`) |
+
+## Estructura
+
+```text
+src/qagent/frontend/
+├── index.html            Esqueleto: <div data-componente="..."> y la lista de <link>/<script>
+├── assets/
+│   ├── logo/             qagent-icono.svg (solo el hexágono) · qagent-logo.svg (completo)
+│   └── fuentes/          Inter y JetBrains Mono (woff2, subconjunto latino) con sus licencias OFL
+├── css/
+│   ├── fuentes.css       @font-face de las fuentes locales (se carga antes que tokens.css)
+│   ├── tokens.css        Colores, tipografía y logo: la única fuente de verdad visual
+│   ├── layout.css        Reset, área principal, barra superior, botones y logo
+│   └── componentes.css   Piezas compartidas: modales, tarjetas, tablas, pills, toast
+├── js/
+│   ├── utils.js          $, escHtml, toast
+│   ├── estado.js         Estado compartido y datos de demostración
+│   ├── cargador.js       registrarComponente() y montarComponentes()
+│   ├── navegacion.js     go(pantalla), abrir/cerrar modales
+│   ├── iconos.js         Catálogo de íconos SVG y paintIcons()
+│   ├── datos-corrida.js  Datos de la corrida, métricas y catálogo de estados
+│   ├── puente-python.js  Recibe eventos de Python (window.onQAgentEvent)
+│   └── main.js           Arranque
+└── componentes/          Un componente por pantalla o modal
+    ├── sidebar/          Barra lateral retráctil (Ctrl+B): Inicio, Proyecto actual, Historial, Configuración y estado del motor
+    ├── pasos-proyecto/   Pasos del proyecto abierto (Explorar → Preparar → En curso → Pruebas → Resultados) y su desbloqueo
+    ├── inicio/           Inicio y recientes · pantallas «Abrir proyecto» (modal-abrir.js) y «Clonar proyecto» (modal-clonar.js); los archivos conservan el nombre de cuando eran modales
+    ├── vista-previa/     Pantalla «Explorar»: cifras, carpetas incluidas, tabla compacta de funciones y endpoints con buscador y avisos
+    ├── config-pruebas/   Pantalla «Preparar»: qué hacer (nuevas, volver a correr, análisis a fondo), tipos de prueba, críticas y comprobaciones previas
+    ├── monitor/          Pantalla «En curso»: progreso en vivo (etapas, avance, función actual y actividad reciente)
+    ├── ejecucion/        Pantalla «Resultados»: bandeja de problemas con la evidencia de auditoría de cada función
+    ├── exportar/         Pantalla «Exportar informe»: formato, qué incluir y dónde guardarlo (el archivo lo genera Python)
+    ├── configuracion/    Pantalla «Configuración»: conexión de IA por etapa (modal-api), motor de ejecución, límites y apariencia
+    └── historial/        Pantalla «Historial»: corridas del proyecto, comparación con la anterior y pruebas guardadas
+```
+
+## Cómo arranca
+
+1. `index.html` carga los CSS y luego los scripts, en un orden que **importa**: `utils` → `estado` → `cargador` → `navegacion` → `iconos` → `datos-corrida` → componentes → `puente-python` → `main`.
+2. Cada componente, al cargarse, llama a `registrarComponente('carpeta/nombre', html)`.
+3. `main.js` ejecuta `montarComponentes()`, que reemplaza cada marcador `data-componente` por el HTML registrado, y después las funciones `iniciar…()` de los componentes que necesitan cablear eventos tras el montaje. Termina con `go('welcome')`.
+
+Son scripts clásicos que comparten el ámbito global (por eso los `onclick="…"` del HTML pueden llamar a las funciones). No hay `import`/`export`, ni `fetch` de HTML, ni bundler: así funciona con `file://` y con pywebview sin servidor propio.
+
+**La ventana carga `index.html` como URL `file://`** (`desktop.py`, `FRONTEND_DIR.../index.html` con `.as_uri()`). No hay que pasar la ruta como texto ni activar `http_server`: el servidor HTTP interno de pywebview tiene una cola de 5 conexiones y, al abrir la ventana (decenas de CSS, JS y fuentes a la vez), rechaza peticiones al azar; la interfaz queda sin estilos o sin scripts de forma intermitente. `tests/app/test_desktop_arranque.py` lo vigila.
+
+## Anatomía de un componente
+
+```text
+componentes/<carpeta>/<nombre>.js     HTML (plantilla) + registro + lógica
+componentes/<carpeta>/<nombre>.css    Estilos propios (opcional)
+```
+
+El inicio de `<nombre>.js` registra el HTML:
+
+```js
+// <nombre>.js — qué hace el componente
+registrarComponente('<carpeta>/<nombre>', `<section id="s-algo" class="hide">…</section>`);
+
+function renderAlgo(){ … }
+function iniciarAlgo(){ … }   // solo si necesita cablear eventos una vez montado
+```
+
+### Agregar un componente
+
+1. Crear `componentes/<carpeta>/<nombre>.js` (y `.css` si hace falta) como arriba.
+2. En `index.html`, poner el marcador donde va: `<div data-componente="<carpeta>/<nombre>"></div>`.
+3. Enlazar el CSS (en `<head>`) y el script (antes de `puente-python.js`) en `index.html`.
+4. Si es una pantalla: usar `id="s-<clave>"`, sumar la clave a la lista de `go()` en `navegacion.js` y llamar a su `render…` desde `go()`.
+5. Si necesita cablear eventos tras montarse: crear `iniciar<Nombre>()` y llamarlo desde `main.js`.
+6. Ejecutar `python test.py`: `tests/frontend/test_estructura.py` avisa si falta el marcador, el registro, el enlace o un archivo.
+
+Cuidado con el HTML dentro de la plantilla JS: hay que escapar `` ` `` y `${` si aparecen.
+
+## Colores, tipografía y logo
+
+Todo lo visual se cambia en **`css/tokens.css`**:
+
+Identidad «Precisión serena»: grafito de base, un solo azul sólido para la acción principal de cada pantalla y cinco estados que siempre van con ícono y texto. Los componentes nuevos o migrados usan **solo los tokens del sistema** (primeras filas); los alias y la paleta heredada existen para las pantallas que aún no se migran.
+
+| Grupo | Variables | Uso |
+|---|---|---|
+| Superficies | `--fondo`, `--lateral`, `--superficie`, `--superficie-2`, `--hundido`, `--borde`, `--borde-fuerte`, `--velo` | Fondos, tarjetas, campos y bordes |
+| Texto | `--texto`, `--texto-2`, `--texto-3`, `--texto-sobre-accion` | Principal, secundario y terciario |
+| Acción y foco | `--accion` (solo el botón principal), `--accion-hover`, `--accion-suave` (seleccionado), `--accion-borde`, `--enlace`, `--foco-anillo` | Botón principal, ítem activo, enlaces y foco |
+| Estados | `--exito`, `--bug`, `--error` (no se pudo generar), `--aviso` (tiempo agotado, advertencias), `--progreso`, `--info`, cada uno con `-t`, `-s` y `-b` | Chips, avisos y resultados |
+| Código | `--codigo-fondo`, `--codigo-texto`, `--codigo-clave`, `--codigo-cadena`, `--codigo-comentario`, `--codigo-linea-sin-probar` | Pruebas generadas y líneas sin probar |
+| Ritmo | `--esp-1`…`--esp-7` (base 4 px), `--radio-tarjeta` (10 px), `--radio-control` (6 px), `--control-alto`, `--lateral-ancho` | Espaciado y radios |
+| Tipografía | `--fuente-ui`, `--fuente-mono`, `--texto-titulo`…`--texto-meta` (28/20/16/14/12 px), `--peso-*` | Texto de interfaz y de código |
+| Marca y logo | `--marca-1`, `--marca-2`, `--marca-3`, `--marca-grafito`, `--marca-gradiente`, `--fondo-marca`, `--logo-icono`, `--logo-completo` | Símbolo «Q que verifica» y rutas a `assets/logo/` |
+| Alias heredados | `--bg`, `--side`, `--panel`, `--panel2`, `--inset`, `--line`, `--line2`, `--txt`, `--mut`, `--dim`, `--blue`, `--purple`, `--green`, `--red`, `--amber` (con `-t`, `-s`, `-b`) | Apuntan a los tokens del sistema; no usarlos en código nuevo |
+| Paleta heredada | `--<familia>-<tono>` (`--emerald-400`, `--rose-500`…), más `-aNN` y `-c` (ver abajo) | Colores de los componentes sin migrar |
+
+**Tema claro:** `<html data-theme="claro">` redefine los tokens del sistema (y, por los alias, los heredados). Las pantallas que usan la paleta heredada directamente no se adaptan hasta migrarlas, así que el selector de tema se habilita cuando todas estén migradas.
+
+**Cambiar el logo:** reemplazar los SVG de `assets/logo/` (mismos nombres) o cambiar las rutas en `tokens.css`. El símbolo es de trazo (retícula 24 × 24, trazo 2) en blanco suave `#ECEEF1`; los SVG llevan el color escrito, así que si cambia la marca hay que actualizarlos junto con `--marca-*`. La barra lateral lo usa con `.logo`, que **debe seguir en `css/layout.css`**: la ruta de `--logo-icono` es relativa a `css/`, y si esa regla se mueve a la carpeta de un componente la imagen deja de resolverse. En `qagent-logo.svg` el texto usa Inter si está instalada en el sistema (el SVG se dibuja como imagen y no hereda las fuentes de la página): sin ella cae a Segoe UI.
+
+**Cambiar la tipografía:** las fuentes van incluidas en el proyecto (`assets/fuentes/`, unos 140 KB, licencia OFL): la interfaz no depende de internet. Para cambiar de fuente, reemplazar los `woff2`, actualizar los `@font-face` de `css/fuentes.css` y el nombre de la familia en `--fuente-ui` / `--fuente-mono` de `tokens.css`. Hoy se incluyen Inter (400, 500, 600, 700) y JetBrains Mono (400, 600), con el subconjunto latino, que cubre el español; otro alfabeto requeriría añadir su subconjunto. Un peso que no esté incluido (el 800, por ejemplo) se resuelve al más cercano.
+
+### Reglas para los colores
+
+Ningún CSS, JS ni HTML de la interfaz contiene colores literales (`#34d399`, `rgba(…)`): todos son `var(--token)`, y los valores viven solo en `css/tokens.css`. Cambiar un token cambia ese color en toda la aplicación. `tests/frontend/` lo exige: falla si aparece un color suelto o si se usa un `var(--x)` que no está definido.
+
+- **Nombres.** `--<familia>-<tono>` sigue la escala de Tailwind (`--emerald-400`). `-aNN` es el mismo color con NN % de opacidad (`--rose-950-a60`). `-b` es el borde de un estado (`--green-b`, `--red-b`, `--amber-b`, `--blue-b`, `--purple-b`, pareja de `-t` y `-s`). `-c` marca un valor propio del proyecto que no pertenece a la paleta de Tailwind.
+- **Color nuevo.** Antes de crearlo, buscar en `tokens.css` uno casi igual y reutilizarlo: la paleta ya se unificó y dos colores a menos de ΔE 3 (diferencia imperceptible sobre los fondos de la interfaz) no se distinguen. Si hace falta uno nuevo, declararlo en `tokens.css` y usar `var(--nombre)`; no escribir hexadecimales en los componentes.
+- **No concatenar texto a un color.** Un truco como `` `${color}33` `` (opacidad en hexadecimal) deja de ser válido con `var(--…)`. Usar un token con opacidad: por eso cada estado del catálogo `ST` (`js/datos-corrida.js`) trae su `halo` (`--rose-500-a20`).
+- **Atributos SVG.** `stroke="var(--x)"` y `fill="var(--x)"` funcionan en el navegador de pywebview, y los íconos (`I(nombre, color)`) reciben tokens como cualquier otro color.
+- **Excepción.** Los SVG de `assets/logo/` son archivos independientes y conservan sus propios colores; si cambia la marca hay que actualizarlos junto con `--marca-*`.
+
+## Nombres técnicos que no se renombran
+
+Los identificadores técnicos siguen el nombre del producto: la imagen Docker `qagent-sandbox:base`, la carpeta `.qagent/` (y `~/.qagent/`), el módulo `qagent` y la función `window.onQAgentEvent`, que invoca `desktop.py`. Las versiones anteriores usaban `pyagent`; ver `docs/decisiones/ADR-004-nombre-qagent.md`.
+
+## Datos reales y datos simulados
+
+La interfaz tiene un **modo demostración**: sin pywebview (abriendo `index.html` en el navegador) todo funciona con datos de ejemplo. En la aplicación de escritorio, lo que se muestra sale del backend o no se muestra:
+
+| Pantalla | Con pywebview (aplicación real) | Sin pywebview (demostración) |
+|---|---|---|
+| Inicio | Proyectos recientes reales (`~/.qagent/recientes.json`) | Lista simulada de 11 proyectos |
+| Vista previa | Nombre, rama (solo si hay Git), módulos, funciones y consistencias del análisis AST. Si el análisis falla, aviso de error y lista vacía | Proyecto de ejemplo `ecommerce-core` |
+| Entorno | Verificación real de EN-06: `config.toml`, claves de `.env`, Docker y Git (con la IA simulada no se piden las claves y Docker es opcional). Si falla, bloquea «Continuar» en la configuración de pruebas y el arranque de la corrida | «Modo demostración» |
+| Configuración de pruebas | «Repetir pruebas guardadas» (perfil Regresión) solo está disponible si el proyecto ya tuvo una corrida | Disponible |
+| Controles «reiniciar demo» y «completar corrida» | Ocultos | Visibles |
+| Monitor, Ejecución, Informe, Historial y Configuración del sistema | **Datos simulados** (ver abajo) | Datos simulados |
+
+Cada paso del Monitor, la pausa y el fin de la corrida se envían además a la consola de Python (`registrar_evento` del puente), que los imprime con hora en la terminal donde se abrió la aplicación.
+
+**Pendiente:** Monitor, Ejecución, Informe, Historial y Configuración del sistema todavía se alimentan de datos simulados (`js/datos-corrida.js` y los `EVENTS` del monitor, la corrida «#8841-B», el historial de ejemplo, los precios de ejemplo de `AGENTS_CFG`), incluso en la aplicación real, porque el orquestador aún no está conectado a la interfaz: `start_run` solo comprueba Docker y emite un aviso. Conectarlos exige enviar eventos reales desde Python (`emit_event`) y leer las corridas guardadas en `.qagent/runs/`. `tests/frontend/` impide que los datos de ejemplo vuelvan a colarse en las pantallas del flujo real.

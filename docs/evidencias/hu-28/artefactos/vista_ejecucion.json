@@ -1,0 +1,195 @@
+{
+  "run_id": "20261013-101522-eb90",
+  "fecha": "2026-10-13T10:15:35-05:00",
+  "perfil": "deep",
+  "es_simulado": true,
+  "estado_final": "fin",
+  "motivo_fallo": null,
+  "total_funciones": 6,
+  "total_objetivos": 6,
+  "metas_registradas": true,
+  "indicadores": {
+    "pass_rate": {
+      "valor": 50.0,
+      "pasaron": 3,
+      "total": 6,
+      "meta": 70.0,
+      "cumple": false
+    },
+    "cobertura": {
+      "lineas": 100.0,
+      "ramas": 100.0,
+      "meta_lineas": 60.0,
+      "cumple": true
+    },
+    "iteraciones": {
+      "valor": 1.0,
+      "tope": 3,
+      "meta_max": 2.0,
+      "cumple": true
+    },
+    "costo": {
+      "por_agente": {
+        "planner": {
+          "tokens": 0,
+          "costo_usd": 0.0,
+          "llamadas": 2
+        },
+        "generator": {
+          "tokens": 0,
+          "costo_usd": 0.0,
+          "llamadas": 6
+        },
+        "reviewer": {
+          "tokens": 0,
+          "costo_usd": 0.0,
+          "llamadas": 0
+        }
+      },
+      "tokens_total": 0,
+      "costo_total_usd": 0.0,
+      "tope_usd": 1.0,
+      "cumple": true
+    },
+    "mutation_score": {
+      "disponible": false,
+      "texto": "Disponible en Sprint 2"
+    }
+  },
+  "filtros": [
+    {
+      "clave": "aprobado",
+      "etiqueta": "Aprobados",
+      "cantidad": 3
+    },
+    {
+      "clave": "rechazado_laundering",
+      "etiqueta": "Rechazado laundering",
+      "cantidad": 0
+    },
+    {
+      "clave": "estancado",
+      "etiqueta": "Estancados 3/3",
+      "cantidad": 0
+    },
+    {
+      "clave": "bug_detectado",
+      "etiqueta": "Bug detectado",
+      "cantidad": 3
+    }
+  ],
+  "filtros_tipo": [
+    {
+      "clave": "todos",
+      "etiqueta": "Todos",
+      "cantidad": 6
+    },
+    {
+      "clave": "funcion",
+      "etiqueta": "Funciones",
+      "cantidad": 0
+    },
+    {
+      "clave": "endpoint",
+      "etiqueta": "Endpoints",
+      "cantidad": 6
+    }
+  ],
+  "modulos": [
+    {
+      "modulo": "api_mvp.py",
+      "pruebas": [
+        {
+          "funcion": "GET /salud",
+          "tipo": "endpoint",
+          "identificador": "GET /salud",
+          "metodo": "GET",
+          "ruta": "/salud",
+          "identidad_completa": true,
+          "estado": "aprobado",
+          "intento_final": 1,
+          "duracion_s": 2.179,
+          "cobertura_lineas": 100.0,
+          "cobertura_ramas": null,
+          "motivo_estancado": null,
+          "critical": false
+        },
+        {
+          "funcion": "POST /items",
+          "tipo": "endpoint",
+          "identificador": "POST /items",
+          "metodo": "POST",
+          "ruta": "/items",
+          "identidad_completa": true,
+          "estado": "aprobado",
+          "intento_final": 1,
+          "duracion_s": 2.141,
+          "cobertura_lineas": 100.0,
+          "cobertura_ramas": null,
+          "motivo_estancado": null,
+          "critical": false
+        },
+        {
+          "funcion": "GET /items",
+          "tipo": "endpoint",
+          "identificador": "GET /items",
+          "metodo": "GET",
+          "ruta": "/items",
+          "identidad_completa": true,
+          "estado": "aprobado",
+          "intento_final": 1,
+          "duracion_s": 2.172,
+          "cobertura_lineas": 100.0,
+          "cobertura_ramas": null,
+          "motivo_estancado": null,
+          "critical": false
+        },
+        {
+          "funcion": "GET /items/{item_id}",
+          "tipo": "endpoint",
+          "identificador": "GET /items/{item_id}",
+          "metodo": "GET",
+          "ruta": "/items/{item_id}",
+          "identidad_completa": true,
+          "estado": "bug_detectado",
+          "intento_final": 1,
+          "duracion_s": 2.117,
+          "cobertura_lineas": 100.0,
+          "cobertura_ramas": null,
+          "motivo_estancado": null,
+          "critical": false
+        },
+        {
+          "funcion": "DELETE /items/{item_id}",
+          "tipo": "endpoint",
+          "identificador": "DELETE /items/{item_id}",
+          "metodo": "DELETE",
+          "ruta": "/items/{item_id}",
+          "identidad_completa": true,
+          "estado": "bug_detectado",
+          "intento_final": 1,
+          "duracion_s": 2.222,
+          "cobertura_lineas": 100.0,
+          "cobertura_ramas": 100.0,
+          "motivo_estancado": null,
+          "critical": false
+        },
+        {
+          "funcion": "GET /descuento",
+          "tipo": "endpoint",
+          "identificador": "GET /descuento",
+          "metodo": "GET",
+          "ruta": "/descuento",
+          "identidad_completa": true,
+          "estado": "bug_detectado",
+          "intento_final": 1,
+          "duracion_s": 2.178,
+          "cobertura_lineas": 100.0,
+          "cobertura_ramas": null,
+          "motivo_estancado": null,
+          "critical": false
+        }
+      ]
+    }
+  ]
+}
