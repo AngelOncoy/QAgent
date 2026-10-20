@@ -114,6 +114,8 @@ function elementosReales(v){
       id: m.modulo + '::' + p.funcion, modulo: m.modulo, tipo: p.tipo,
       nombre: p.identificador, endpoint: p.tipo === 'endpoint',
       bandeja, critica: !!p.critical, intento: p.intento_final, duracion: p.duracion_s,
+      duracionGeneracion: p.duracion_generacion_s, duracionSandbox: p.duracion_sandbox_s,
+      duracionPytest: p.duracion_pytest_s,
       cobLineas: p.cobertura_lineas, cobRamas: p.cobertura_ramas, estadoBackend: p.estado,
       ...detalleDeReporte(det),
     };
@@ -271,10 +273,10 @@ function renderCabeceraBandeja(todos, v){
     ? `${bugs.length} ${bugs.length === 1 ? 'posible bug' : 'posibles bugs'}. Empieza por ${bugs[0].nombre}.`
     : n('sin') + n('tiempo') ? 'Sin posibles bugs, pero faltan pruebas por revisar.'
     : `Todo pasó: ${todos.length} ${todos.length === 1 ? 'función o endpoint verificado' : 'funciones y endpoints verificados'}.`;
-  const duracion = todos.reduce((s, e) => s + (Number(e.duracion) || 0), 0);
+  const duracion = v && typeof v.duracion_total_s === 'number' ? v.duracion_total_s : null;
   const partes = [document.querySelector('.ini-migas .repoName') ? document.querySelector('.ini-migas .repoName').textContent : '', 'Python'];
   if (v && v.fecha) partes.push(new Date(v.fecha).toLocaleString('es-PE', {day:'numeric', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit'}));
-  if (duracion) partes.push('Duración ' + (duracion >= 60 ? `${Math.floor(duracion / 60)} min ${Math.round(duracion % 60)} s` : `${Math.round(duracion)} s`));
+  if (duracion !== null) partes.push('Duración total medida ' + (duracion >= 60 ? `${Math.floor(duracion / 60)} min ${Math.round(duracion % 60)} s` : tiempoReal(duracion)));
   if (v && v.es_simulado) partes.push('IA simulada');
   if (v && v.es_humo) partes.push('Corrida Humo: lo principal es cuántas pruebas pasan');   // #75
   $('bnjSub').textContent = partes.filter(Boolean).join(' · ');
@@ -327,7 +329,7 @@ function renderDetalleBandeja(e){
     ${e.codigo ? `<div class="bnj-bloque"><div class="bnj-bloque-cab"><b>Prueba generada</b><button type="button" class="ini-enlace" onclick="copiarPruebaBandeja()">${ICO_COPIAR}Copiar prueba</button></div>
       <pre class="bnj-codigo" id="bnjCodigo">${escHtml(e.codigo)}</pre></div>` : ''}
     ${e.lineasSinCubrir ? `<p class="bnj-sin-probar ${e.lineasSinCubrir.length ? '' : 'completo'}">${e.lineasSinCubrir.length ? 'Código sin probar · líneas ' + e.lineasSinCubrir.join(', ') : 'Todas las líneas de la función se ejecutaron en las pruebas'}</p>` : ''}
-    <p class="np-meta bnj-datos">${e.intento ? `${e.intento} de 3 intentos` : ''}${e.cobLineas !== null && e.cobLineas !== undefined ? ` · cobertura ${pctTexto(e.cobLineas)} de líneas${e.cobRamas !== null && e.cobRamas !== undefined ? ' y ' + pctTexto(e.cobRamas) + ' de ramas' : ''}` : ''}${e.duracion ? ' · ' + tiempoReal(e.duracion) : ''}</p>
+    <p class="np-meta bnj-datos">${e.intento ? `${e.intento} de 3 intentos` : ''}${e.cobLineas !== null && e.cobLineas !== undefined ? ` · cobertura ${pctTexto(e.cobLineas)} de líneas${e.cobRamas !== null && e.cobRamas !== undefined ? ' y ' + pctTexto(e.cobRamas) + ' de ramas' : ''}` : ''}${e.duracion !== null && e.duracion !== undefined ? ' · ' + tiempoReal(e.duracion) + ' medidos' : ''}${e.duracionGeneracion !== null && e.duracionGeneracion !== undefined ? ` · escritura ${tiempoReal(e.duracionGeneracion)}` : ''}${e.duracionSandbox !== null && e.duracionSandbox !== undefined ? ` · sandbox ${tiempoReal(e.duracionSandbox)}` : ''}${e.duracionPytest !== null && e.duracionPytest !== undefined ? ` · pytest ${tiempoReal(e.duracionPytest)}` : ''}</p>
     ${e.traza || e.salida ? `<details class="np-detalle"><summary>Ver detalle técnico</summary><pre class="np-log">${escHtml(e.traza || e.salida)}</pre></details>` : ''}
     ${e.debilitada ? `<div class="np-aviso np-aviso-aviso">${ICO_AVISO_CLON}<div><b>Criterio original conservado</b><span>Se bloqueó un intento de debilitar esta prueba. ${e.bandeja === 'bug' ? 'El posible bug sigue visible.' : ''}</span></div></div>` : ''}
     ${evidenciaAuditoria(e)}`;
@@ -376,7 +378,7 @@ function evidenciaAuditoria(e){
   }
   if (e.intentos && e.intentos.length) {
     bloques.push(`<div class="bnj-ev"><b>Historial de intentos</b><ol>${e.intentos.map((i, n) => `<li><span class="bnj-ev-num">Intento ${escHtml(String(i.intento || n + 1))}</span>
-      <span>${escHtml(DECISION_TEXTO[i.decision] || i.decision || '—')}${i.laundering_detectado ? ' · se bloqueó debilitarla' : ''}${i.tipo_fallo ? ' · ' + escHtml(i.tipo_fallo) : ''}
+      <span>${escHtml(DECISION_TEXTO[i.decision] || i.decision || '—')}${i.laundering_detectado ? ' · se bloqueó debilitarla' : ''}${i.tipo_fallo ? ' · ' + escHtml(i.tipo_fallo) : ''}${i.duracion_s !== null && i.duracion_s !== undefined ? ' · ' + tiempoReal(i.duracion_s) : ''}
       ${i.feedback ? `<span class="np-meta">${escHtml(i.feedback)}</span>` : ''}</span></li>`).join('')}</ol></div>`);
   }
   if (e.fortaleza !== null && e.fortaleza !== undefined) {

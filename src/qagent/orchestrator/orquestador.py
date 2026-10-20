@@ -24,6 +24,7 @@ from qagent.llm.tracker import TokenTracker
 from qagent.orchestrator.estados import Estado, validar_transicion
 from qagent.orchestrator.eventos import BusEventos, Evento
 from qagent.orchestrator.puertos import Contrato, Generator, Planner, Reviewer
+from qagent.orchestrator.tiempos import etapas_vacias, iso_utc, segundos, sumar_etapa
 
 T = TypeVar("T")
 
@@ -39,6 +40,13 @@ _TEXTO_MOTIVO = {
     LIMITE_INTENTOS: "límite de intentos",
     ERROR_REPETIDO: "mismo error repetido",
 }
+
+
+def _segundos_de(valor: Any) -> float:
+    """Duración numérica no negativa de un contrato, o 0 si falta."""
+    if isinstance(valor, bool) or not isinstance(valor, (int, float)):
+        return 0.0
+    return round(max(0.0, float(valor)), 3)
 
 
 def timeout_paso_para(timeout_sandbox_s: float) -> float:
@@ -106,6 +114,14 @@ class ResultadoObjetivo:
     #: Por qué quedó sin veredicto (decision None) sin detener el módulo: hoy solo
     #: `TIEMPO_AGOTADO`. El detalle del error va en el Monitor y la bitácora.
     motivo_sin_veredicto: str | None = None
+    #: Marcas UTC y desglose medido con reloj monotónico (#115).
+    inicio: str | None = None
+    fin: str | None = None
+    duracion_generacion_s: float = 0.0
+    duracion_revision_s: float = 0.0
+    duracion_sandbox_s: float = 0.0
+    duracion_pytest_s: float = 0.0
+    tiempos_intentos: list[dict[str, Any]] = field(default_factory=list)
 
 
 @dataclass
@@ -119,6 +135,10 @@ class ResultadoCorrida:
     traza_estados: list[Estado]
     tokens_por_agente: dict[str, dict[str, int]]
     duracion_s: float
+    #: Marcas UTC y desglose por etapa medidos con reloj monotónico (#115).
+    inicio: str | None = None
+    fin: str | None = None
+    duracion_etapas: dict[str, float] = field(default_factory=dict)
     # Plan completo devuelto por el Planner (o cargado de la caché). Es interno:
     # permite persistir la spec aunque Generator/Reviewer falle en el primer objetivo.
     plan_completo: list[Contrato] = field(default_factory=list, repr=False)
@@ -176,6 +196,8 @@ class Orquestador:
         tracker: TokenTracker | None = None,
         max_intentos: int = 3,
         timeout_paso_s: float = TIMEOUT_PASO_POR_DEFECTO_S,
+        reloj: Callable[[], float] = time.monotonic,
+        ahora: Callable[[], str] = iso_utc,
     ) -> None:
         """Crea el orquestador.
 
@@ -185,6 +207,8 @@ class Orquestador:
             tracker: registro de tokens compartido con los agentes.
             max_intentos: intentos por objetivo (1 a 3, límite de los contratos).
             timeout_paso_s: tiempo máximo que se espera a un agente en cada paso.
+            reloj: reloj monotónico inyectable (los tests usan uno falso).
+            ahora: marca UTC ISO inyectable (los tests usan una fija).
         """
         if not 1 <= max_intentos <= MAX_INTENTOS_CONTRATO:
             raise ValueError(
@@ -199,9 +223,17 @@ class Orquestador:
         self.tracker = tracker or TokenTracker()
         self.max_intentos = max_intentos
         self.timeout_paso_s = timeout_paso_s
+        self._reloj = reloj
+        self._ahora = ahora
         self._estado = Estado.PLANIFICAR
         self._traza: list[Estado] = []
         self._archivo: str | None = None
+        self._inicio_reloj = reloj()
+        self._inicio_utc = ahora()
+        self._etapas = etapas_vacias()
+        self._objetivo_actual: ResultadoObjetivo | None = None
+        self._inicio_objetivo_reloj = 0.0
+        self._inicio_objetivo_utc: str | None = None
 
     @property
     def estado(self) -> Estado:
@@ -219,7 +251,10 @@ class Orquestador:
         un `ResultadoCorrida` con estado FALLO_CONTROLADO y el motivo. Si recibe un
         plan vigente de HU-24, valida sus contratos y omite la llamada al Planner.
         """
-        inicio = time.monotonic()
+        inicio = self._reloj()
+        self._inicio_reloj = inicio
+        self._inicio_utc = self._ahora()
+        self._etapas = etapas_vacias()
         self._archivo = modulo.get("ruta")
         self._estado = Estado.PLANIFICAR
         self._traza = [Estado.PLANIFICAR]
@@ -229,11 +264,17 @@ class Orquestador:
         motivo: str | None = None
 
         try:
-            plan = (
-                self._planificar(modulo)
-                if plan_reutilizado is None
-                else self._usar_plan_reutilizado(modulo, plan_reutilizado)
-            )
+            inicio_plan = self._reloj()
+            try:
+                plan = (
+                    self._planificar(modulo)
+                    if plan_reutilizado is None
+                    else self._usar_plan_reutilizado(modulo, plan_reutilizado)
+                )
+            finally:
+                sumar_etapa(
+                    self._etapas, "planner", segundos(inicio_plan, self._reloj())
+                )
             plan_completo = copy.deepcopy(plan)
             for contrato in plan:
                 self._procesar_objetivo(contrato, objetivos)
@@ -253,7 +294,10 @@ class Orquestador:
             objetivos=objetivos,
             traza_estados=list(self._traza),
             tokens_por_agente=self._tokens_por_agente(),
-            duracion_s=round(time.monotonic() - inicio, 3),
+            duracion_s=segundos(inicio, self._reloj()),
+            inicio=self._inicio_utc,
+            fin=self._ahora(),
+            duracion_etapas=dict(self._etapas),
             plan_completo=plan_completo,
         )
 
@@ -365,67 +409,138 @@ class Orquestador:
         objetivos.append(resultado)
         tope = min(self.max_intentos, MAX_INTENTOS_CONTRATO)  # nunca más de 3
         intento, feedback, test_anterior, hash_anterior = 1, None, None, None
-        inicio = time.monotonic()
+        inicio = self._reloj()
+        resultado.inicio = self._ahora()
+        self._objetivo_actual = resultado
+        self._inicio_objetivo_reloj = inicio
+        self._inicio_objetivo_utc = resultado.inicio
 
-        while True:
-            self._transicionar(Estado.GENERAR, objetivo)
-            # Copia del contrato original del Planner: lo que un agente haga con su
-            # copia no llega a los intentos siguientes (HU-14, criterio 3).
-            try:
-                test = self._generar(copy.deepcopy(contrato), intento, feedback)
-            except FalloControlado as error:
-                if es_falla_pasajera(error):
-                    self._sin_veredicto(resultado, intento, inicio, "generator", error)
-                    return
-                causa = error.__cause__
-                if not isinstance(causa, ErrorRespuestaGenerator) or not causa.codigo:
-                    raise
-                # El Generator rechazó el candidato con ast.parse. Se entrega al
-                # Reviewer solo para producir feedback contractual; su validación de
-                # sintaxis impide que alcance el ejecutor del sandbox.
-                test = {
-                    "version": "1",
-                    "objetivo": objetivo,
-                    "intento": intento,
-                    "codigo": causa.codigo,
-                    "casos_cubiertos": [caso["id"] for caso in contrato["casos"]],
-                }
-            resultado.codigo = test["codigo"]
-            self._transicionar(Estado.EJECUTAR_REVISAR, objetivo)
-            try:
-                revision = self._revisar(
-                    copy.deepcopy(contrato), test, test_anterior, tope
-                )
-            except FalloControlado as error:
-                if not es_falla_pasajera(error):
-                    raise
-                self._sin_veredicto(resultado, intento, inicio, "reviewer", error)
-                return
+        try:
+            while True:
+                n_intento = intento
+                inicio_intento = self._reloj()
+                generacion_s = 0.0
+                revision_s = 0.0
+                try:
+                    self._transicionar(Estado.GENERAR, objetivo)
+                    # Copia del contrato original del Planner: lo que un agente haga
+                    # con su copia no llega a los intentos siguientes (HU-14, 3).
+                    inicio_generacion = self._reloj()
+                    try:
+                        try:
+                            test = self._generar(
+                                copy.deepcopy(contrato), intento, feedback
+                            )
+                        except FalloControlado as error:
+                            if es_falla_pasajera(error):
+                                self._sin_veredicto(
+                                    resultado, intento, inicio, "generator", error
+                                )
+                                return
+                            causa = error.__cause__
+                            if (
+                                not isinstance(causa, ErrorRespuestaGenerator)
+                                or not causa.codigo
+                            ):
+                                raise
+                            # El Generator rechazó el candidato con ast.parse. Se
+                            # entrega al Reviewer solo para producir feedback
+                            # contractual; su validación de sintaxis impide que
+                            # alcance el ejecutor del sandbox.
+                            test = {
+                                "version": "1",
+                                "objetivo": objetivo,
+                                "intento": intento,
+                                "codigo": causa.codigo,
+                                "casos_cubiertos": [
+                                    caso["id"] for caso in contrato["casos"]
+                                ],
+                            }
+                    finally:
+                        generacion_s = segundos(inicio_generacion, self._reloj())
+                        resultado.duracion_generacion_s = round(
+                            resultado.duracion_generacion_s + generacion_s, 3
+                        )
+                        sumar_etapa(self._etapas, "generator", generacion_s)
 
-            resultado.intentos = intento
-            resultado.duracion_s = round(time.monotonic() - inicio, 3)
-            resultado.revisiones.append(revision)
-            resultado.cobertura = revision["cobertura"]
-            resultado.laundering_detectado |= revision["laundering_detectado"]
-            decision, motivo = decidir_corte(
-                revision["decision"],
-                intento,
-                tope,
-                revision["hash_error"],
-                hash_anterior,
-            )
+                    resultado.codigo = test["codigo"]
+                    self._transicionar(Estado.EJECUTAR_REVISAR, objetivo)
+                    inicio_revision = self._reloj()
+                    try:
+                        revision = self._revisar(
+                            copy.deepcopy(contrato), test, test_anterior, tope
+                        )
+                    except FalloControlado as error:
+                        if not es_falla_pasajera(error):
+                            raise
+                        self._sin_veredicto(
+                            resultado, intento, inicio, "reviewer", error
+                        )
+                        return
+                    finally:
+                        revision_s = segundos(inicio_revision, self._reloj())
+                        resultado.duracion_revision_s = round(
+                            resultado.duracion_revision_s + revision_s, 3
+                        )
+                        sumar_etapa(self._etapas, "reviewer", revision_s)
 
-            if decision in DECISIONES_FINALES:
-                resultado.decision = decision
-                resultado.motivo_estancado = motivo
-                self._emitir_veredicto(objetivo, decision, intento, motivo)
-                return
+                    ejecucion = revision.get("ejecucion") or {}
+                    sandbox_s = _segundos_de(ejecucion.get("duracion_s"))
+                    pytest_s = _segundos_de(ejecucion.get("duracion_pytest_s"))
+                    if sandbox_s:
+                        resultado.duracion_sandbox_s = round(
+                            resultado.duracion_sandbox_s + sandbox_s, 3
+                        )
+                        sumar_etapa(self._etapas, "sandbox", sandbox_s)
+                    if pytest_s:
+                        resultado.duracion_pytest_s = round(
+                            resultado.duracion_pytest_s + pytest_s, 3
+                        )
+                        sumar_etapa(self._etapas, "pytest", pytest_s)
 
-            self._transicionar(Estado.REINTENTAR, objetivo)
-            self._emitir("reviewer", objetivo, f"Reintento: {revision['feedback']}")
-            # Solo el último error: el feedback anterior se reemplaza, no se acumula.
-            intento, feedback, test_anterior = intento + 1, revision["feedback"], test
-            hash_anterior = revision["hash_error"]
+                    resultado.intentos = intento
+                    resultado.duracion_s = segundos(inicio, self._reloj())
+                    resultado.revisiones.append(revision)
+                    resultado.cobertura = revision["cobertura"]
+                    resultado.laundering_detectado |= revision["laundering_detectado"]
+                    decision, motivo = decidir_corte(
+                        revision["decision"],
+                        intento,
+                        tope,
+                        revision["hash_error"],
+                        hash_anterior,
+                    )
+
+                    if decision in DECISIONES_FINALES:
+                        resultado.decision = decision
+                        resultado.motivo_estancado = motivo
+                        self._emitir_veredicto(objetivo, decision, intento, motivo)
+                        return
+
+                    self._transicionar(Estado.REINTENTAR, objetivo)
+                    self._emitir(
+                        "reviewer", objetivo, f"Reintento: {revision['feedback']}"
+                    )
+                    # Solo el último error: el feedback anterior se reemplaza.
+                    intento, feedback, test_anterior = (
+                        intento + 1,
+                        revision["feedback"],
+                        test,
+                    )
+                    hash_anterior = revision["hash_error"]
+                finally:
+                    resultado.tiempos_intentos.append(
+                        {
+                            "intento": n_intento,
+                            "duracion_s": segundos(inicio_intento, self._reloj()),
+                            "generacion_s": round(generacion_s, 3),
+                            "revision_s": round(revision_s, 3),
+                        }
+                    )
+        finally:
+            resultado.fin = self._ahora()
+            resultado.duracion_s = segundos(inicio, self._reloj())
+            self._objetivo_actual = None
 
     def _sin_veredicto(
         self,
@@ -441,7 +556,7 @@ class Orquestador:
         tiempo de las demás funciones, así que se pasa a la siguiente.
         """
         resultado.intentos = intento
-        resultado.duracion_s = round(time.monotonic() - inicio, 3)
+        resultado.duracion_s = segundos(inicio, self._reloj())
         resultado.motivo_sin_veredicto = TIEMPO_AGOTADO
         self._emitir(
             agente,
@@ -568,6 +683,19 @@ class Orquestador:
         tipo: str = "agente",
         datos: dict[str, Any] | None = None,
     ) -> None:
+        informacion: dict[str, Any] = {
+            "inicio_corrida": self._inicio_utc,
+            "transcurrido_s": segundos(self._inicio_reloj, self._reloj()),
+            "etapas_s": dict(self._etapas),
+        }
+        if (
+            self._objetivo_actual is not None
+            and funcion == self._objetivo_actual.objetivo
+        ):
+            informacion["inicio_objetivo"] = self._inicio_objetivo_utc
+            informacion["duracion_objetivo_s"] = segundos(
+                self._inicio_objetivo_reloj, self._reloj()
+            )
         self.bus.emitir(
             Evento(
                 agente=agente,
@@ -577,6 +705,11 @@ class Orquestador:
                 estado=self._estado.value,
                 tipo=tipo,
                 datos=datos,
+                inicio_corrida=informacion["inicio_corrida"],
+                transcurrido_s=informacion["transcurrido_s"],
+                etapas_s=informacion["etapas_s"],
+                inicio_objetivo=informacion.get("inicio_objetivo"),
+                duracion_objetivo_s=informacion.get("duracion_objetivo_s"),
             )
         )
 

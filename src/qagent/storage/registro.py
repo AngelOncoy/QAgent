@@ -90,6 +90,10 @@ def escribir_corrida(
     fecha: str | None = None,
     metas: dict[str, float] | None = None,
     rama: str | None = None,
+    inicio: str | None = None,
+    fin: str | None = None,
+    duracion_s: float | None = None,
+    duracion_etapas: dict[str, float] | None = None,
 ) -> RutasCorrida:
     """Genera, valida y escribe log.json y results.json de una corrida.
 
@@ -104,6 +108,9 @@ def escribir_corrida(
         metas: metas de calidad y tope de gasto de `config.toml` (`[umbrales]` y
             `tope_por_corrida_usd`); se copian a results.json para comparar (HU-18).
         rama: rama Git del proyecto al iniciar la corrida, para el Reporte (HU-21).
+        inicio, fin: marcas UTC de la corrida (#115).
+        duracion_s: duración total medida con reloj monotónico (#115).
+        duracion_etapas: segundos acumulados por etapa (#115).
 
     Returns:
         Rutas de la carpeta y de los dos archivos.
@@ -122,6 +129,20 @@ def escribir_corrida(
         run_id, fecha, proyecto, perfil, resultados, tracker, precios, metas
     )
     results["rama"] = rama
+    if inicio is not None:
+        results["inicio"] = inicio
+    if fin is not None:
+        results["fin"] = fin
+    if duracion_s is not None:
+        results["duracion_s"] = duracion_s
+        results["resumen"]["duracion_s"] = duracion_s
+    if duracion_etapas is not None:
+        results["duracion_etapas"] = duracion_etapas
+        results["resumen"]["duracion_etapas"] = duracion_etapas
+    if inicio is not None:
+        results["resumen"]["inicio"] = inicio
+    if fin is not None:
+        results["resumen"]["fin"] = fin
     contracts.validar(contracts.RUN_LOG, log)
     contracts.validar(contracts.RUN_LOG, results)
     detalle = construir_detalle(run_id, resultados)
@@ -155,6 +176,10 @@ def construir_detalle(
     for resultado in resultados:
         for objetivo in resultado.objetivos:
             ultima = objetivo.revisiones[-1] if objetivo.revisiones else None
+            tiempos = {
+                tiempo.get("intento"): tiempo
+                for tiempo in getattr(objetivo, "tiempos_intentos", [])
+            }
             funciones.append(
                 {
                     "modulo": resultado.modulo,
@@ -178,6 +203,21 @@ def construir_detalle(
                             "hash_error": r.get("hash_error"),
                             "cobertura": r.get("cobertura"),
                             "ejecucion": r.get("ejecucion"),
+                            **(
+                                {
+                                    "duracion_s": tiempos[r["intento"]].get(
+                                        "duracion_s"
+                                    ),
+                                    "generacion_s": tiempos[r["intento"]].get(
+                                        "generacion_s"
+                                    ),
+                                    "revision_s": tiempos[r["intento"]].get(
+                                        "revision_s"
+                                    ),
+                                }
+                                if r.get("intento") in tiempos
+                                else {}
+                            ),
                         }
                         for r in objetivo.revisiones
                     ],
@@ -337,6 +377,13 @@ def _objetivo(
         "motivo_regresion": objetivo.motivo_regresion,
         "laundering_detectado": objetivo.laundering_detectado,  # HU-16
         "duracion_s": objetivo.duracion_s,
+        "inicio": getattr(objetivo, "inicio", None),  # #115
+        "fin": getattr(objetivo, "fin", None),
+        "duracion_generacion_s": getattr(objetivo, "duracion_generacion_s", 0.0),
+        "duracion_revision_s": getattr(objetivo, "duracion_revision_s", 0.0),
+        "duracion_sandbox_s": getattr(objetivo, "duracion_sandbox_s", 0.0),
+        "duracion_pytest_s": getattr(objetivo, "duracion_pytest_s", 0.0),
+        "tiempos_intentos": getattr(objetivo, "tiempos_intentos", []),
         "controles": controles(objetivo, metas, perfil),  # HU-21
         "metricas": {
             "paso": ultima is not None and ultima["estado_sandbox"] == "ok",

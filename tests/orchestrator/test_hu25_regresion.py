@@ -232,3 +232,55 @@ def test_proyecto_sin_pruebas_aprobadas_falla_controladamente(tmp_path, config):
     assert resumen.estado == "fallo_controlado"
     assert resumen.tokens == 0
     assert "No hay pruebas aprobadas" in resumen.motivo
+
+
+def test_regresion_mide_duracion_y_etapas(preparado, monkeypatch) -> None:
+    """#115: la reejecucion guarda inicio, fin y el tiempo de cada prueba."""
+    raiz, almacen, config = preparado
+    reloj = [0.0]
+    marcas = iter(
+        [
+            "2026-10-20T12:00:00Z",
+            "2026-10-20T12:00:00Z",
+            "2026-10-20T12:00:00Z",
+            "2026-10-20T12:00:00Z",
+            "2026-10-20T12:00:00Z",
+            "2026-10-20T12:00:00Z",
+            "2026-10-20T12:00:00Z",
+            "2026-10-20T12:00:00Z",
+        ]
+    )
+
+    def ejecutor(imagen, proyecto, tests, modulo):
+        reloj[0] += 1.25
+        return ResultadoSandbox(0, "1 passed", "", COBERTURA)
+
+    monkeypatch.setattr(
+        "qagent.orchestrator.corrida.crear_cliente", lambda *a, **k: None
+    )
+    run_id = almacen.crear_run(tipos_prueba=["funcion"])["run_id"]
+    resumen = ejecutar_corrida(
+        raiz,
+        "reg",
+        config,
+        None,
+        simulado=False,
+        run_id=run_id,
+        preparar_imagen=lambda ruta: "imagen",
+        ejecutor=ejecutor,
+        reloj=lambda: reloj[0],
+        ahora=lambda: next(marcas),
+    )
+
+    results = json.loads(
+        (almacen.carpeta_run(run_id) / "results.json").read_text(encoding="utf-8")
+    )
+    assert resumen.estado == "fin"
+    assert resumen.duracion_s == 3.75
+    assert resumen.inicio == "2026-10-20T12:00:00Z"
+    assert resumen.fin is not None
+    assert resumen.duracion_etapas["sandbox"] == 3.75
+    assert all(o["duracion_s"] == 1.25 for o in results["objetivos"])
+    assert all(
+        o["tiempos_intentos"][0]["pytest_s"] == 0.0 for o in results["objetivos"]
+    )

@@ -43,6 +43,7 @@ def a_fila_monitor(evento: dict[str, Any]) -> dict[str, Any] | None:
     hechos = int(progreso.get("hechos", 0))
     total = int(progreso.get("total", 0))
     identidad = _identidad(evento.get("funcion"))
+    datos = evento.get("datos") or {}
     return {
         "a": tipo_fila,
         "f": evento.get("archivo") or "",
@@ -54,6 +55,17 @@ def a_fila_monitor(evento: dict[str, Any]) -> dict[str, Any] | None:
         "total": total,
         "porcentaje": round(hechos / total * 100) if total else None,
         "tipo": evento.get("tipo"),
+        # #115: tiempos medidos en el backend; el frontend solo interpola entre eventos.
+        "inicio_corrida": evento.get("inicio_corrida") or datos.get("inicio_corrida"),
+        "transcurrido_s": evento.get("transcurrido_s")
+        if evento.get("transcurrido_s") is not None
+        else datos.get("transcurrido_s"),
+        "inicio_objetivo": evento.get("inicio_objetivo")
+        or datos.get("inicio_objetivo"),
+        "duracion_objetivo_s": evento.get("duracion_objetivo_s")
+        if evento.get("duracion_objetivo_s") is not None
+        else datos.get("duracion_objetivo_s"),
+        "etapas_s": evento.get("etapas_s") or datos.get("etapas_s"),
     }
 
 

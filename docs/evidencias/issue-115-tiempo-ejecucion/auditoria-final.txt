@@ -1,0 +1,49 @@
+Auditoría final recuperada — issue #115
+Fecha: 20 de octubre de 2026
+Rama: feat/issue-115-tiempo-ejecucion
+HEAD: 6c4bd50aebbc10e5e5d4f7a2aaf293beb93ac880
+
+RECUPERACIÓN
+- No había procesos python, pytest ni test.py activos.
+- Docker Desktop y el daemon 29.7.2 estaban activos.
+- Ningún archivo de código cambió después de pruebas.txt.
+- git diff --check: limpio.
+- Suite completa histórica del mismo árbol: 1476 passed, 23 skipped in 53.76s.
+
+DOCKER
+Comando: QAGENT_FAKE_LLM=1 python -m pytest -q -m docker
+Resultado: 22 passed, 1 failed, 1476 deselected in 144.45s.
+Fallo: tests/sandbox/test_hu13_aislamiento.py::test_timeout_mata_el_contenedor_y_lo_elimina
+Causa comprobada: el filtro global encontró el contenedor detenido 1479dc75b035,
+creado a las 12:09 por una ejecución anterior sobre api_mvp. La repetición aislada
+encontró el mismo ID. El contenedor no fue creado por esta auditoría ni por #115.
+No se eliminó el artefacto preexistente.
+
+COMPROBACIÓN ESPECÍFICA DE #115 CON DOCKER REAL
+- Import verificado desde este worktree:
+  C:\Users\Rodrigo\Desktop\Codigos\QAgent-issue-115\src\qagent\__init__.py
+- exit_code: 0
+- sandbox_s: 1.415
+- pytest_s desde junit.xml: 0.254
+- casos: 1
+- pasaron: 1
+- timed_out: false
+
+CORRIDAS DETENIDAS
+Se forzó de forma controlada una corrida sobre un proyecto vacío con reloj inyectado.
+- estado: fallo_controlado
+- duración devuelta: 0.5 s
+- duración persistida en run.json: 0.5 s
+- run.json conservó la marca de fin.
+
+INFORMES
+Se registró temporalmente una corrida con 12.345 s y desglose por etapa.
+- Markdown: duración total 12.3 s y desglose Planner/Generator/Reviewer/sandbox/pytest.
+- HTML: duración total 12.3 s.
+- PDF: el texto extraído contiene duración medida 12.3 s.
+
+SEGURIDAD Y ALCANCE
+- QAGENT_FAKE_LLM=1 en todas las pruebas ejecutadas.
+- Cero llamadas LLM reales.
+- Sin cambios en implementación ni tests durante esta continuación.
+- Sin commit, push ni Pull Request.

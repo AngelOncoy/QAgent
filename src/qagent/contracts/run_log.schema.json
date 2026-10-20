@@ -42,6 +42,10 @@
     "motivo_fallo": { "type": ["string", "null"] },
     "es_simulado": { "type": "boolean", "description": "true si todas las llamadas usaron la IA simulada." },
     "rama": { "type": ["string", "null"], "description": "HU-21. Rama Git del proyecto al iniciar la corrida; null si no es un repositorio." },
+    "inicio": { "type": "string", "minLength": 1, "description": "#115. Inicio de la corrida en UTC (ISO 8601). Opcional en corridas anteriores." },
+    "fin": { "type": "string", "minLength": 1, "description": "#115. Fin medido de la corrida en UTC (ISO 8601)." },
+    "duracion_s": { "type": "number", "minimum": 0, "description": "#115. Duración total medida con reloj monotónico." },
+    "duracion_etapas": { "$ref": "#/$defs/etapas" },
     "llamadas": { "type": "array", "items": { "$ref": "#/$defs/llamada" } },
     "totales_por_agente": {
       "type": "object",
@@ -71,6 +75,18 @@
   ],
   "$defs": {
     "agente": { "enum": ["planner", "generator", "reviewer"] },
+    "etapas": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["planner", "generator", "reviewer", "sandbox", "pytest"],
+      "properties": {
+        "planner": { "type": "number", "minimum": 0 },
+        "generator": { "type": "number", "minimum": 0 },
+        "reviewer": { "type": "number", "minimum": 0 },
+        "sandbox": { "type": "number", "minimum": 0 },
+        "pytest": { "type": "number", "minimum": 0 }
+      }
+    },
     "mutacion": {
       "type": "object",
       "description": "EN-09. Mutation testing (mutmut) de una función crítica aprobada en el perfil Profundo.",
@@ -188,6 +204,28 @@
         "reutilizada": { "type": "boolean", "description": "HU-25. Prueba aprobada reejecutada sin IA." },
         "motivo_regresion": { "enum": ["huella_ausente", "huella_distinta", "objetivo_ausente", "prueba_ausente", "metadatos_corruptos", null] },
         "duracion_s": { "type": "number", "minimum": 0, "description": "HU-18. Segundos desde el primer intento hasta el veredicto." },
+        "inicio": { "type": ["string", "null"], "description": "#115. Marca UTC del primer intento." },
+        "fin": { "type": ["string", "null"], "description": "#115. Marca UTC del veredicto." },
+        "duracion_generacion_s": { "type": "number", "minimum": 0 },
+        "duracion_revision_s": { "type": "number", "minimum": 0 },
+        "duracion_sandbox_s": { "type": "number", "minimum": 0 },
+        "duracion_pytest_s": { "type": "number", "minimum": 0 },
+        "tiempos_intentos": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["intento", "duracion_s", "generacion_s", "revision_s"],
+            "properties": {
+              "intento": { "type": "integer", "minimum": 1, "maximum": 3 },
+              "duracion_s": { "type": "number", "minimum": 0 },
+              "generacion_s": { "type": "number", "minimum": 0 },
+              "revision_s": { "type": "number", "minimum": 0 },
+              "sandbox_s": { "type": "number", "minimum": 0 },
+              "pytest_s": { "type": "number", "minimum": 0 }
+            }
+          }
+        },
         "controles": {
           "type": "object",
           "description": "HU-21. Checklist del último intento: true cumple, false no cumple, null sin dato o no aplica.",
@@ -276,6 +314,10 @@
         "sin_veredicto": { "type": "integer", "minimum": 0 },
         "requieren_corrida_nueva": { "type": "integer", "minimum": 0 },
         "pass_rate": { "type": "number", "minimum": 0, "maximum": 100, "description": "% de funciones cuyo último test pasó." },
+        "duracion_s": { "type": "number", "minimum": 0, "description": "#115. Duración total medida de la corrida." },
+        "inicio": { "type": ["string", "null"], "description": "#115. Inicio de la corrida en UTC." },
+        "fin": { "type": ["string", "null"], "description": "#115. Fin de la corrida en UTC." },
+        "duracion_etapas": { "$ref": "#/$defs/etapas" },
         "cobertura_lineas_promedio": { "type": ["number", "null"], "minimum": 0, "maximum": 100 },
         "cobertura_ramas_promedio": { "type": ["number", "null"], "minimum": 0, "maximum": 100, "description": "HU-18. Opcional: las corridas anteriores no lo tienen." },
         "casos_por_categoria": {

@@ -20,8 +20,15 @@ from qagent.orchestrator.estados import Estado
 from qagent.orchestrator.eventos import Evento
 from qagent.orchestrator.mutacion import mutar_modulo
 from qagent.orchestrator.orquestador import ResultadoCorrida, ResultadoObjetivo
+from qagent.orchestrator.tiempos import (
+    etapas_vacias,
+    iso_utc,
+    segundos,
+    sumar_etapa,
+)
 from qagent.proyectos.proyecto_local import detectar_rama
 from qagent.sandbox import LIMITES_POR_DEFECTO, clasificar_resultado, ejecutar_pruebas
+from qagent.sandbox.informe_pytest import JUnitInvalido, parsear_junit
 from qagent.storage import escribir_corrida
 from qagent.storage.registro import PERFIL_REGRESION_PROFUNDA
 
@@ -149,6 +156,8 @@ def ejecutar_regresion(
     ejecutor: Any = ejecutar_pruebas,
     seleccion: list[dict[str, Any]] | None = None,
     mutador: Any = None,
+    reloj: Any = time.monotonic,
+    ahora: Any = iso_utc,
 ) -> Any:
     """Reejecuta una vez cada prueba aprobada vigente; nunca crea clientes LLM.
 
@@ -159,7 +168,8 @@ def ejecutar_regresion(
     """
     from qagent.orchestrator.corrida import ResumenCorrida, _cerrar_run, metas_de
 
-    inicio = time.monotonic()
+    inicio = reloj()
+    inicio_utc = ahora()
     raiz = Path(ruta_proyecto)
     if ejecutor is ejecutar_pruebas:  # límites de `[sandbox]`; los dobles de prueba no
         ejecutor = partial(
@@ -167,7 +177,14 @@ def ejecutar_regresion(
             limites=getattr(configuracion, "sandbox", LIMITES_POR_DEFECTO),
         )
     almacen = AlmacenProyecto(raiz)
-    resumen = ResumenCorrida(run_id, "fin", None, 0)
+    resumen = ResumenCorrida(
+        run_id,
+        "fin",
+        None,
+        0,
+        inicio=inicio_utc,
+        duracion_etapas=etapas_vacias(),
+    )
     tracker = TokenTracker(configuracion.agentes)
     resultados: list[ResultadoCorrida] = []
     huellas = huellas_de_objetivos(raiz)
@@ -176,6 +193,8 @@ def ejecutar_regresion(
         if seleccion is None
         else {e["ruta"]: set(e.get("criticas") or []) for e in seleccion}
     )
+    objetivo_inicio_reloj: float | None = None
+    objetivo_inicio_utc: str | None = None
 
     def es_critica(modulo: str, objetivo: str, contrato: dict[str, Any]) -> bool:
         if marcadas is None:
@@ -205,6 +224,15 @@ def ejecutar_regresion(
                         "hechos": len(resultados),
                         "total": resumen.total_funciones,
                     },
+                    "inicio_corrida": inicio_utc,
+                    "transcurrido_s": segundos(inicio, reloj()),
+                    "etapas_s": dict(resumen.duracion_etapas),
+                    "inicio_objetivo": objetivo_inicio_utc,
+                    "duracion_objetivo_s": (
+                        segundos(objetivo_inicio_reloj, reloj())
+                        if objetivo_inicio_reloj is not None
+                        else None
+                    ),
                 }
             )
 
@@ -233,6 +261,8 @@ def ejecutar_regresion(
         for spec in specs:
             contrato = spec["contrato"]
             modulo, objetivo = contrato["modulo"], contrato["objetivo"]
+            objetivo_inicio_reloj = reloj()
+            objetivo_inicio_utc = ahora()
             ruta_test = almacen.carpeta_tests / spec["archivo_prueba"]
             try:
                 codigo = ruta_test.read_text(encoding="utf-8")
@@ -250,6 +280,7 @@ def ejecutar_regresion(
             elif motivo is None and codigo is None:
                 motivo = "prueba_ausente"
             if motivo:
+                fin_objetivo = ahora()
                 obj = ResultadoObjetivo(
                     objetivo,
                     es_critica(modulo, objetivo, contrato),
@@ -257,6 +288,9 @@ def ejecutar_regresion(
                     contrato=contrato,
                     codigo=codigo,
                     motivo_regresion=motivo,
+                    inicio=objetivo_inicio_utc,
+                    fin=fin_objetivo,
+                    duracion_s=segundos(objetivo_inicio_reloj, reloj()),
                 )
                 resultados.append(
                     ResultadoCorrida(
@@ -266,7 +300,9 @@ def ejecutar_regresion(
                         [obj],
                         [Estado.PLANIFICAR, Estado.FIN],
                         {},
-                        0.0,
+                        obj.duracion_s,
+                        inicio=objetivo_inicio_utc,
+                        fin=fin_objetivo,
                     )
                 )
                 emitir(
@@ -283,11 +319,18 @@ def ejecutar_regresion(
                 emitir("Preparando sandbox Docker sin red; no se llamara a ninguna IA")
                 imagen = (preparar_imagen or _preparar_imagen)(raiz)
             emitir(f"Reejecutando prueba aprobada: {objetivo} (sin IA)", modulo)
-            t0 = time.monotonic()
+            t0 = reloj()
             with tempfile.TemporaryDirectory(prefix="qagent-regresion-") as temporal:
                 shutil.copy2(ruta_test, Path(temporal) / ruta_test.name)
                 modulo_cov = Path(modulo).with_suffix("").as_posix().replace("/", ".")
                 salida = ejecutor(imagen, raiz, temporal, modulo_cov)
+            duracion_sandbox = segundos(t0, reloj())
+            duracion_pytest = 0.0
+            if salida.junit_xml:
+                try:
+                    duracion_pytest = parsear_junit(salida.junit_xml).duracion_s
+                except (JUnitInvalido, ValueError):
+                    duracion_pytest = 0.0
             estado = clasificar_resultado(salida)
             decision = (
                 "accept"
@@ -319,10 +362,29 @@ def ejecutar_regresion(
                 revisiones=[revision],
                 contrato=contrato,
                 codigo=codigo,
-                duracion_s=round(time.monotonic() - t0, 3),
+                duracion_s=segundos(objetivo_inicio_reloj, reloj()),
                 reutilizada=True,
                 motivo_estancado="limite_intentos" if decision == "stalled" else None,
+                inicio=objetivo_inicio_utc,
+                fin=ahora(),
+                duracion_sandbox_s=duracion_sandbox,
+                duracion_pytest_s=duracion_pytest,
+                tiempos_intentos=[
+                    {
+                        "intento": 1,
+                        "duracion_s": duracion_sandbox,
+                        "generacion_s": 0.0,
+                        "revision_s": 0.0,
+                        "sandbox_s": duracion_sandbox,
+                        "pytest_s": duracion_pytest,
+                    }
+                ],
             )
+            dur_etapas = etapas_vacias()
+            sumar_etapa(dur_etapas, "sandbox", duracion_sandbox)
+            sumar_etapa(dur_etapas, "pytest", duracion_pytest)
+            for etapa, valor in dur_etapas.items():
+                sumar_etapa(resumen.duracion_etapas, etapa, valor)
             resultados.append(
                 ResultadoCorrida(
                     modulo,
@@ -332,6 +394,9 @@ def ejecutar_regresion(
                     [Estado.PLANIFICAR, Estado.FIN],
                     {},
                     obj.duracion_s,
+                    inicio=obj.inicio,
+                    fin=obj.fin,
+                    duracion_etapas=dur_etapas,
                 )
             )
             emitir(
@@ -358,6 +423,8 @@ def ejecutar_regresion(
         resumen.bugs_detectados = decisiones.count("bug_detectado")
         resumen.estancadas = decisiones.count("stalled")
         resumen.requieren_corrida_nueva = decisiones.count("requiere_corrida_nueva")
+        resumen.duracion_s = segundos(inicio, reloj())
+        resumen.fin = ahora()
         rutas = escribir_corrida(
             raiz,
             resultados,
@@ -367,6 +434,10 @@ def ejecutar_regresion(
             run_id=resumen.run_id,
             metas=metas_de(configuracion),
             rama=detectar_rama(raiz),
+            inicio=resumen.inicio,
+            fin=resumen.fin,
+            duracion_s=resumen.duracion_s,
+            duracion_etapas=resumen.duracion_etapas,
         )
         resumen.run_id, resumen.carpeta = rutas.run_id, str(rutas.carpeta)
     except Exception as error:  # noqa: BLE001
@@ -375,7 +446,8 @@ def ejecutar_regresion(
         emitir(f"Regresion detenida: {resumen.motivo}", tipo="fallo")
     resumen.tokens = 0
     resumen.costo_usd = 0.0
-    resumen.duracion_s = round(time.monotonic() - inicio, 3)
+    resumen.duracion_s = resumen.duracion_s or segundos(inicio, reloj())
+    resumen.fin = resumen.fin or ahora()
     _cerrar_run(almacen, resumen, ["funcion", "endpoint"])
     emitir(
         f"Regresion terminada sin IA: {resumen.aceptadas} aprobadas, "

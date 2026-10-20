@@ -40,6 +40,12 @@ class Evento:
     tipo: str = "agente"
     hora: str = field(default_factory=_ahora)
     datos: dict[str, Any] | None = None
+    #: Medición del backend (#115); no forma parte del contrato de los agentes.
+    inicio_corrida: str | None = None
+    transcurrido_s: float | None = None
+    etapas_s: dict[str, float] | None = None
+    inicio_objetivo: str | None = None
+    duracion_objetivo_s: float | None = None
 
     def a_dict(self) -> dict[str, Any]:
         """Versión serializable a JSON (para la interfaz o el log)."""

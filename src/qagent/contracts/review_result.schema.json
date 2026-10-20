@@ -65,6 +65,11 @@
       "properties": {
         "exit_code": { "type": ["integer", "null"] },
         "duracion_s": { "type": "number", "minimum": 0 },
+        "duracion_pytest_s": {
+          "type": ["number", "null"],
+          "minimum": 0,
+          "description": "#115. Tiempo de la suite de pytest según junit.xml; null si no hubo junit."
+        },
         "timeout": { "type": "boolean" },
         "oom": { "type": "boolean" },
         "salida": { "type": "string", "description": "stdout y stderr de pytest, recortados." },

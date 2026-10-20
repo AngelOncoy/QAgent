@@ -47,6 +47,13 @@ OK, FALLA, NO_APLICA, PENDIENTE, SIN_DATO = (
 )
 
 
+def _segundos(valor: Any) -> float | None:
+    """Duración numérica o None (corridas anteriores a #115)."""
+    if isinstance(valor, bool) or not isinstance(valor, (int, float)):
+        return None
+    return round(max(0.0, float(valor)), 3)
+
+
 def leer_detalle(raiz_proyecto: str | Path, run_id: str) -> dict[str, Any] | None:
     """detalle.json de la corrida, o None si no existe (corridas anteriores a HU-21)."""
     ruta = Path(raiz_proyecto) / CARPETA_RUNS / Path(run_id).name / ARCHIVO_DETALLE
@@ -90,6 +97,13 @@ def vista_reporte(
         "es_simulado": results["es_simulado"],
         "estado_final": results["estado_final"],
         "motivo_fallo": results["motivo_fallo"],
+        "inicio": results.get("inicio"),
+        "fin": results.get("fin"),
+        "duracion_total_s": _segundos(
+            results.get("duracion_s", resumen.get("duracion_s"))
+        ),
+        "duracion_etapas": results.get("duracion_etapas")
+        or resumen.get("duracion_etapas"),
         "total_funciones": resumen["total_funciones"],
         "total_objetivos": len(funciones),
         # #76: casos de la corrida por categoría; None en corridas anteriores.
@@ -197,6 +211,11 @@ def _funcion(
         "estado": estado_de(objetivo),
         "verde": verde,
         "iteraciones": metricas["iteraciones"],
+        "duracion_s": _segundos(objetivo.get("duracion_s")),
+        "duracion_generacion_s": _segundos(objetivo.get("duracion_generacion_s")),
+        "duracion_revision_s": _segundos(objetivo.get("duracion_revision_s")),
+        "duracion_sandbox_s": _segundos(objetivo.get("duracion_sandbox_s")),
+        "duracion_pytest_s": _segundos(objetivo.get("duracion_pytest_s")),
         "cobertura_lineas": metricas["cobertura_lineas"],
         "cobertura_ramas": metricas["cobertura_ramas"],
         "mutation_score": metricas["mutation_score"],
@@ -232,6 +251,9 @@ def _intentos(crudos: Any) -> list[dict[str, Any]]:
                 "laundering_detectado": bool(crudo.get("laundering_detectado")),
                 "feedback": crudo.get("feedback"),
                 "cobertura": crudo.get("cobertura"),
+                "duracion_s": _segundos(crudo.get("duracion_s")),
+                "generacion_s": _segundos(crudo.get("generacion_s")),
+                "revision_s": _segundos(crudo.get("revision_s")),
                 "ejecucion": ejecucion if isinstance(ejecucion, dict) else None,
             }
         )

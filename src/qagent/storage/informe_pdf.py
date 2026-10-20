@@ -458,6 +458,13 @@ def _portada(
         meta.append(str(datos["perfil"]))
     if datos.get("es_simulado"):
         meta.append("IA simulada")
+    duracion = datos.get("duracion_total_s")
+    if isinstance(duracion, (int, float)) and not isinstance(duracion, bool):
+        meta.append(
+            f"{round(duracion * 1000)} ms"
+            if duracion < 1
+            else f"duración medida {duracion:.1f} s"
+        )
     lz.espacio(4)
     lz.parrafo(limpiar(" · ".join(m for m in meta if m)), 9.5, "F1", TEXTO_2)
     if datos.get("motivo_fallo"):

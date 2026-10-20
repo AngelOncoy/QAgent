@@ -27,7 +27,7 @@ from __future__ import annotations
 import logging
 import time
 from collections.abc import Callable
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any
 
@@ -52,6 +52,7 @@ from qagent.orchestrator.orquestador import (
     timeout_paso_para,
 )
 from qagent.orchestrator.regresion import huellas_de_objetivos
+from qagent.orchestrator.tiempos import iso_utc, segundos
 from qagent.proyectos.proyecto_local import detectar_rama
 from qagent.sandbox import LIMITES_POR_DEFECTO, ejecutar_mutacion, ejecutar_pruebas
 from qagent.storage import escribir_corrida
@@ -82,6 +83,9 @@ class ResumenCorrida:
     carpeta: str | None = None
     duracion_s: float = 0.0
     requieren_corrida_nueva: int = 0
+    inicio: str | None = None
+    fin: str | None = None
+    duracion_etapas: dict[str, float] = field(default_factory=dict)
 
     def a_dict(self) -> dict[str, Any]:
         """Versión serializable a JSON (evento `corrida_fin` de la interfaz)."""
@@ -102,6 +106,8 @@ def ejecutar_corrida(
     timeout_paso_s: float | None = None,
     seleccion: list[dict[str, Any]] | None = None,
     mutador: Mutador = ejecutar_mutacion,
+    reloj: Callable[[], float] = time.monotonic,
+    ahora: Callable[[], str] = iso_utc,
 ) -> ResumenCorrida:
     """Ejecuta la corrida completa de un proyecto y devuelve su resumen.
 
@@ -125,6 +131,8 @@ def ejecutar_corrida(
             ``None``, se conservan todos los objetivos analizables.
         mutador: cómo se ejecuta mutmut en el perfil Profundo (EN-09; Docker,
             reemplazable en pruebas).
+        reloj: reloj monotónico inyectable para medir duraciones (#115).
+        ahora: marca UTC ISO inyectable para inicio y fin (#115).
     """
     if perfil in PERFILES_REGRESION:
         from qagent.orchestrator.regresion import ejecutar_regresion
@@ -139,9 +147,12 @@ def ejecutar_corrida(
             ejecutor=ejecutor,
             seleccion=seleccion,
             mutador=mutador,
+            reloj=reloj,
+            ahora=ahora,
         )
 
-    inicio = time.monotonic()
+    inicio = reloj()
+    inicio_utc = ahora()
     ruta = Path(ruta_proyecto)
     progreso = {"hechos": 0, "total": 0}
     estimados_por_modulo: dict[str, int] = {}
@@ -159,13 +170,27 @@ def ejecutar_corrida(
         if evento.tipo == "veredicto":
             progreso["hechos"] += 1
         if al_evento is not None:
-            al_evento({**evento.a_dict(), "progreso": dict(progreso)})
+            al_evento(
+                {
+                    **evento.a_dict(),
+                    "progreso": dict(progreso),
+                    "inicio_corrida": inicio_utc,
+                    "transcurrido_s": segundos(inicio, reloj()),
+                    "etapas_s": dict(resumen.duracion_etapas),
+                }
+            )
 
     def avisar(mensaje: str, tipo: str = "agente", archivo: str | None = None) -> None:
         emitir(Evento("orquestador", archivo, None, mensaje, "preparacion", tipo))
 
     almacen = AlmacenProyecto(ruta)
-    resumen = ResumenCorrida(run_id=run_id, estado=FIN, motivo=None, total_funciones=0)
+    resumen = ResumenCorrida(
+        run_id=run_id,
+        estado=FIN,
+        motivo=None,
+        total_funciones=0,
+        inicio=inicio_utc,
+    )
     tipos: list[str] = ["funcion"]
     try:
         if not ruta.is_dir():
@@ -225,6 +250,8 @@ def ejecutar_corrida(
             "timeout_paso_s": timeout_paso_s
             if timeout_paso_s is not None
             else timeout_paso_para(limites.timeout_s),
+            "reloj": reloj,
+            "ahora": ahora,
         }
         orquestador = Orquestador(
             PlannerAgent(
@@ -369,6 +396,8 @@ def ejecutar_corrida(
 
         _contar(resumen, resultados, tracker)
         progreso["total"] = resumen.total_funciones
+        resumen.duracion_s = segundos(inicio, reloj())
+        resumen.fin = ahora()
         _registrar(
             ruta,
             almacen,
@@ -383,10 +412,13 @@ def ejecutar_corrida(
     except Exception as error:  # noqa: BLE001 — la corrida nunca debe tumbar la app
         resumen.estado = FALLO
         resumen.motivo = resumen.motivo or _texto_error(error)
+        resumen.duracion_s = segundos(inicio, reloj())
+        resumen.fin = ahora()
         avisar(f"Corrida detenida: {resumen.motivo}", "fallo")
         _cerrar_run(almacen, resumen, tipos)
 
-    resumen.duracion_s = round(time.monotonic() - inicio, 3)
+    resumen.duracion_s = resumen.duracion_s or segundos(inicio, reloj())
+    resumen.fin = resumen.fin or ahora()
     avisar(
         f"Corrida terminada: {resumen.aceptadas} aceptada(s), "
         f"{resumen.bugs_detectados} bug(s) detectado(s), {resumen.estancadas} "
@@ -474,6 +506,17 @@ def _contar(
     resumen.sin_veredicto = decisiones.count(None)
     resumen.tokens = tracker.total_tokens
     resumen.costo_usd = round(tracker.total_costo_usd, 8)
+    etapas = {
+        "planner": 0.0,
+        "generator": 0.0,
+        "reviewer": 0.0,
+        "sandbox": 0.0,
+        "pytest": 0.0,
+    }
+    for resultado in resultados:
+        for etapa, segundos_etapa in (resultado.duracion_etapas or {}).items():
+            etapas[etapa] = round(etapas.get(etapa, 0.0) + segundos_etapa, 3)
+    resumen.duracion_etapas = etapas
 
 
 def _registrar(
@@ -498,6 +541,10 @@ def _registrar(
             run_id=resumen.run_id,
             metas=metas_de(configuracion),
             rama=detectar_rama(ruta),
+            inicio=resumen.inicio,
+            fin=resumen.fin,
+            duracion_s=resumen.duracion_s,
+            duracion_etapas=resumen.duracion_etapas,
         )
         resumen.run_id = rutas.run_id
         resumen.carpeta = str(rutas.carpeta)
@@ -641,6 +688,7 @@ def _cerrar_run(
             + resumen.sin_veredicto
             + resumen.requieren_corrida_nueva,
             tipos_prueba=tipos or ["funcion"],
+            duracion_s=resumen.duracion_s,
         )
     except Exception as error:  # noqa: BLE001 — run.json dañado: no es motivo de fallo
         _registro.warning(

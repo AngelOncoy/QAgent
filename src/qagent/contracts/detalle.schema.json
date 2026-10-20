@@ -54,6 +54,13 @@
                 "feedback": { "type": "string" },
                 "hash_error": { "type": ["string", "null"] },
                 "cobertura": { "type": ["object", "null"] },
+                "duracion_s": {
+                  "type": "number",
+                  "minimum": 0,
+                  "description": "#115. Duración medida del intento (generar + revisar). Opcional en corridas anteriores."
+                },
+                "generacion_s": { "type": "number", "minimum": 0 },
+                "revision_s": { "type": "number", "minimum": 0 },
                 "ejecucion": {
                   "description": "Misma forma que `ejecucion` de review_result (ya validada allí); null si el test no llegó al sandbox.",
                   "type": ["object", "null"]
