@@ -1,41 +1,46 @@
+RESULTADOS DE PRUEBAS — ISSUE #115 + ISSUE #114
+Fecha: 20 de octubre de 2026
+Variable obligatoria: QAGENT_FAKE_LLM=1
 
-=== Lint (ruff check) ===
-$ C:\Users\Rodrigo\AppData\Local\Python\pythoncore-3.14-64\python.exe -m ruff check src tests scripts test.py
-All checks passed!
---- Lint (ruff check): OK (0.1 s)
+1. Pruebas frontend obligatorias
+Comando:
+  python -m pytest tests/frontend/test_issue114_sin_docstring.py tests/frontend/test_issue115_tiempos.py -q
+Resultado:
+  15 passed in 0.78s
 
-=== Formato (ruff format --check) ===
-$ C:\Users\Rodrigo\AppData\Local\Python\pythoncore-3.14-64\python.exe -m ruff format --check src tests scripts test.py
-222 files already formatted
---- Formato (ruff format --check): OK (0.1 s)
+2. Suite focalizada de integración
+Cobertura:
+  orquestador #115, regresión HU-25, storage #115, sandbox #115, vistas,
+  reportes, eventos del Monitor, Historial y regresiones frontend.
+Resultado:
+  94 passed in 5.84s
 
-=== Pruebas (pytest) ===
-$ C:\Users\Rodrigo\AppData\Local\Python\pythoncore-3.14-64\python.exe -m pytest -q
-........................................................................ [  4%]
-........................................................................ [  9%]
-........................................................................ [ 14%]
-........................................................................ [ 19%]
-........................................................................ [ 24%]
-........................................................................ [ 28%]
-........................................................................ [ 33%]
-........................................................................ [ 38%]
-........................................................................ [ 43%]
-........................................................................ [ 48%]
-........................................................................ [ 52%]
-.................................................................sss.... [ 57%]
-.........s.............................................................. [ 62%]
-........................................................................ [ 67%]
-........................................................................ [ 72%]
-.................................ssss..........................sss...... [ 76%]
-.....ss..................................s.........s...........ssssssss. [ 81%]
-........................................................................ [ 86%]
-........................................................................ [ 91%]
-........................................................................ [ 96%]
-...........................................................              [100%]
-1476 passed, 23 skipped in 53.76s
---- Pruebas (pytest): OK (54.6 s)
+3. Sintaxis JavaScript
+Archivos:
+  src/qagent/frontend/componentes/ejecucion/ejecucion.js
+  src/qagent/frontend/componentes/monitor/monitor.js
+  src/qagent/frontend/componentes/vista-previa/vista-previa.js
+  src/qagent/frontend/js/utils.js
+Resultado:
+  node --check: OK en los cuatro archivos
 
-=== Resumen ===
-  OK     Lint (ruff check)
-  OK     Formato (ruff format --check)
-  OK     Pruebas (pytest)
+4. Suite completa del repositorio
+Comando:
+  python test.py
+Resultado:
+  Ruff check: All checks passed!
+  Ruff format --check: 223 files already formatted
+  pytest: 1511 passed in 182.52s
+  fase total de pruebas: 183.3s
+  fallos: 0
+  omitidas: 0
+
+5. Validaciones Git y seguridad
+  git diff --check: limpio antes del commit de integración
+  marcadores de conflicto: ninguno
+  llamadas LLM reales: ninguna
+
+NOTA HISTÓRICA
+La ejecución anterior, sobre #115 antes de integrar develop/#114, produjo
+1476 passed y 23 skipped in 53.76s. La captura prueba-1-pruebas.png corresponde
+a ese antecedente. El resultado vigente de la combinación es 1511 passed.

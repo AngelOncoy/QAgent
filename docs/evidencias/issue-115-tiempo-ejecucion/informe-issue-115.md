@@ -1,135 +1,125 @@
-# issue-115 — Medición real de tiempos de la corrida
+# Issue #115 — tiempos reales de ejecución
 
-**Informe de lo realizado** — 20 de octubre de 2026 — Responsable: Rodrigo
+Informe técnico final e integración con issue #114 — 20 de octubre de 2026.
 
-- **Rama:** `feat/issue-115-tiempo-ejecucion`
-- **Issue:** [#115](https://github.com/AngelOncoy/QAgent/issues/115)
-- **Base:** `origin/develop` en `6c4bd50` (misma base que `HEAD`, sin commits nuevos)
+- Rama: `feat/issue-115-tiempo-ejecucion`
+- Issue: https://github.com/AngelOncoy/QAgent/issues/115
+- Commit de protección de #115: `de128450f3ca8e96a08ffc2efabcfb964650bd91`
+- Develop incorporado: `24cf16a5860289ea975b885e002d5e148cb3fa3b` (PR #120, issue #114)
+- Commit de integración: `562f7ed293a8233e3cc403af18474c2238902e25`
 
-## En pocas palabras
+## Resultado
 
-Antes, QAgent no medía cuánto tardaba una corrida ni en qué se iba el tiempo; el reloj del Monitor era
-solo del navegador y no quedaba guardado. Ahora el backend mide con un reloj monótono la corrida completa,
-cada función o endpoint, cada reintento y las etapas (Planner, Generator, Reviewer, sandbox y pytest), y
-esos valores se ven en el Monitor, en Resultados, en los informes exportados y en una columna nueva del
-Historial. Las corridas viejas no inventan una duración: muestran `—`.
+QAgent mide con reloj monotónico la duración total de la corrida, de cada función o
+endpoint, de Planner, Generator y Reviewer, del sandbox y de pytest. Cada intento y
+reintento conserva sus tramos. Las marcas y duraciones se persisten, se muestran en
+Monitor, Resultados e Historial y se exportan a Markdown, HTML y PDF. Una corrida
+antigua sin tiempos continúa siendo válida y muestra `—` en lugar de un valor inventado.
 
-## Qué se revisó y qué se hizo
+La integración con #114 conserva al mismo tiempo la etiqueta **Sin docstring**. El único
+conflicto textual apareció en `ejecucion.js`; se resolvió manteniendo en el objeto real:
 
-**1. Punto de partida.**
-*Se revisó:* la corrida no guardaba duración; el Monitor solo interpolaba con `Date.now()` y los informes
-no tenían tiempo. No había medición por función ni por reintento.
-*Se hizo:* se agregó un módulo de tiempos (`tiempos.py`) con reloj monótono y marcas UTC inyectables, y se
-instrumentó el orquestador con `finally` para conservar la duración incluso cuando hay error, timeout o
-cancelación.
+```javascript
+sinDocstring: docstringDeObjetivo(m.modulo, p.funcion) === false,
+duracionGeneracion: p.duracion_generacion_s,
+duracionSandbox: p.duracion_sandbox_s,
+duracionPytest: p.duracion_pytest_s,
+```
 
-**2. Corrida y funciones.**
-*Se revisó:* solo existían estados y tokens; no había inicio, fin ni duración por objetivo.
-*Se hizo:* `ResultadoCorrida` y `ResultadoObjetivo` ahora guardan inicio, fin, duración, duración por
-etapa y el detalle de cada intento (generación, revisión, sandbox y pytest).
+No quedaron propiedades duplicadas ni marcadores de conflicto. `monitor.js` se fusionó
+automáticamente y se auditó de forma manual: conserva la etiqueta de #114, el objetivo
+actual, `transcurrido_s`, la duración del objetivo, la duración final del backend, la
+detención del contador y la prevención de intervalos duplicados.
 
-**3. Reintentos.**
-*Se revisó:* un reintento se contaba como un intento más, pero su tiempo no se distinguía del total.
-*Se hizo:* cada intento aporta su duración y sus tramos; el tiempo del reintento queda incluido una sola
-vez en la función y en la corrida.
+## Implementación auditada
 
-**4. Persistencia y compatibilidad.**
-*Se revisó:* `run.json` y `results.json` no tenían campos de tiempo y el schema rechazaba propiedades
-nuevas.
-*Se hizo:* se agregaron campos opcionales al schema (sin tocar los contratos públicos existentes) y se
-guardan en `run.json` y `results.json`. Una corrida anterior sigue siendo válida y el Historial devuelve
-`duracion_s: null` en vez de deducirla de las fechas.
+- Medición: `src/qagent/orchestrator/tiempos.py`, `corrida.py`, `orquestador.py`,
+  `regresion.py` y eventos del orquestador.
+- Persistencia y compatibilidad: schemas `run_log`, `review_result` y `detalle`, registro,
+  vistas de ejecución/reporte e Historial.
+- Pytest y sandbox: lectura de duración desde JUnit y conservación del tiempo real.
+- Interfaz: Monitor, Resultados e Historial; el contador visual no es la fuente de verdad.
+- Exportación: informes Markdown, HTML y PDF con total y desglose disponibles.
+- Errores y cancelaciones: el cierre en `finally` conserva fin y duración aun cuando la
+  corrida se detiene o falla.
 
-**5. Pantallas.**
-*Se revisó:* el Monitor mostraba un contador local, Resultados no tenía total y el Historial no tenía
-columna de tiempo.
-*Se hizo:* el Monitor se reancla con el `transcurrido_s` del backend; Resultados muestra el total medido y
-el desglose por caso; el Historial agrega la columna **Duración** (con `—` para datos viejos).
+## Matriz de criterios de aceptación
 
-**6. Informes exportados.**
-*Se revisó:* Markdown, HTML y PDF no incluían duración.
-*Se hizo:* los tres formatos incluyen el total medido y el tiempo por etapa, con el mismo valor que la
-pantalla.
+| # | Criterio de la issue | Resultado | Evidencia principal |
+|---|---|---|---|
+| 1 | El Monitor muestra un contador de tiempo transcurrido | Cumple | evento con `transcurrido_s`, prueba frontend y captura de Monitor |
+| 2 | Se registra el inicio y fin de la corrida | Cumple | modelos, persistencia y `test_issue115_tiempos.py` |
+| 3 | Se registra la duración de cada objetivo | Cumple | resultado por función/endpoint y pruebas del orquestador/storage |
+| 4 | Los reintentos se incluyen correctamente | Cumple | detalle por intento sin doble conteo y prueba de reintentos |
+| 5 | Se registra el tiempo empleado en ejecutar las pruebas | Cumple | duración de sandbox y pytest desde JUnit |
+| 6 | El Reporte muestra la duración total | Cumple | Markdown, HTML y PDF validados |
+| 7 | Las corridas detenidas conservan el tiempo registrado | Cumple | error controlado persistió 0.5 s y marca de fin |
+| 8 | Los datos se guardan en el historial cuando corresponde | Cumple | `run.json`, `results.json`, vista y captura de Historial |
+| 9 | Las corridas antiguas sin duración siguen siendo compatibles | Cumple | campos opcionales y visualización `—` |
+| 10 | No se confunde duración estimada con duración medida | Cumple | leyenda “Duración total medida” y datos del backend |
+| 11 | Se agregan pruebas automatizadas | Cumple | pruebas nuevas de orchestrator, sandbox, storage y frontend |
 
-**7. Pruebas automáticas.**
-*Se revisó:* no había pruebas de tiempos y las suites existentes comparaban diccionarios exactos.
-*Se hizo:* se agregaron 20 pruebas nuevas o ampliadas, con relojes falsos (sin `sleep`) en las de tiempo,
-incluyendo compatibilidad de corridas viejas, schema, vistas, exportación y la interfaz. La suite completa
-queda en **1476 aprobadas y 23 omitidas**.
+Resultado: **11/11 criterios cumplidos después de integrar #114**.
 
-## Para qué se hizo
+## Validación automatizada posterior al merge
 
-- Saber cuánto tarda una corrida y en qué etapa se va el tiempo, sin mirar el reloj a mano.
-- Comparar corridas con una cifra confiable y no con una estimación del navegador.
-- Detectar si el costo está en la IA, en el sandbox o en pytest.
-- Mantener el Historial honesto: si una corrida no se midió, se muestra `—` y no un número inventado.
-- Conservar el tiempo aunque la corrida falle, se detenga o el sandbox se caiga.
+Todas las órdenes se ejecutaron con `QAGENT_FAKE_LLM=1`; no hubo llamadas reales a
+proveedores.
 
-## Pruebas realizadas
+- Frontend #114 + #115: **15 passed in 0.78s**.
+- Suite focalizada (orquestador, persistencia, sandbox, vistas, reportes, Monitor,
+  Historial y regresiones): **94 passed in 5.84s**.
+- Sintaxis Node de `ejecucion.js`, `monitor.js`, `vista-previa.js` y `utils.js`: OK.
+- `python test.py`: Ruff check OK, Ruff format check OK (`223 files already formatted`),
+  **1511 passed in 182.52s**, 0 fallos y 0 omitidas; fase total de pruebas: 183.3 s.
+- `git diff --check`: limpio antes de cerrar el merge.
 
-### Prueba 1 — Todo el proyecto sigue en orden
+La captura histórica `prueba-1-pruebas.png` corresponde al estado anterior a integrar
+#114 (**1476 passed, 23 skipped**) y se conserva como antecedente. El resultado vigente
+de la combinación es el de 1511 pruebas documentado en `pruebas.txt`.
 
-Se ejecutó la orden completa del repositorio (lint, formato y todas las pruebas) el 20 de octubre de 2026.
+## Docker
 
-![Salida de python test.py con lint, formato y 1476 pruebas aprobadas](img/prueba-1-pruebas.png)
+En la auditoría anterior, Docker real produjo **22 passed y 1 failed** por un contenedor
+detenido preexistente (`1479dc75b035`), que no se eliminó. También se comprobó una
+ejecución real aislada: sandbox 1.415 s, pytest 0.254 s, exit code 0.
 
-**Resultado:** `All checks passed!`, `222 files already formatted`, **1476 passed, 23 skipped**. Las 23
-omitidas son las que requieren Docker o red, no disponibles en esta máquina.
+En la suite posterior a la integración Docker estuvo disponible: no hubo omisiones y las
+1511 pruebas pasaron. Al finalizar no quedó ningún contenedor con la etiqueta
+`qagent=sandbox`. Durante esta integración no se ejecutó una eliminación manual del
+contenedor preexistente.
 
-### Prueba 2 — El Historial muestra la duración medida
+## Validación visual
 
-Se generó una corrida real del flujo (IA simulada y sandbox simulado, 0 tokens) sobre el proyecto de
-ejemplo `bench`, con **551 ms** medidos por el backend, y se abrió el Historial en la aplicación de
-escritorio.
+Se renderizó el `index.html` real del frontend a 1024 × 700 mediante Playwright, porque
+el entorno no ofrecía el plugin de navegador ni se abrió una ventana pywebview. Se
+inyectaron estado y eventos con la forma del backend para comprobar la combinación; por
+tanto, estas tres capturas son auténticas del frontend integrado, pero sus cifras son
+fixtures de QA y no una corrida productiva.
 
-![Historial con la columna Duración y el valor 551 ms](img/prueba-2-historial-duracion.png)
+- Monitor: objetivo `apply_coupon`, etiqueta Sin docstring, 00:12 transcurridos y 2.4 s
+  del objetivo; el contador se detuvo al finalizar.
+- Resultados: etiqueta Sin docstring, total 12.3 s, Generator 1.1 s, sandbox 1.8 s,
+  pytest 400 ms y reintentos de 1.5 s y 1.9 s.
+- Historial: columna de duración con 2 min 34 s.
+- Sin `undefined`, `NaN`, errores de consola, errores de página ni scroll horizontal.
 
-**Resultado:** la columna **Duración** aparece entre Resultado y Pasan y muestra **551 ms**, el valor
-guardado por la corrida. Una corrida anterior sin medición mostraría `—`.
+![Monitor combinado de #114 y #115](img/integracion-114-115-monitor.png)
 
-### Prueba 3 — Resultados muestra el total medido
+![Resultados combinados de #114 y #115](img/integracion-114-115-resultados.png)
 
-Se abrió la misma corrida en la pantalla Resultados.
+![Historial con duración](img/integracion-114-115-historial.png)
 
-![Resultados con la leyenda Duración total medida 551 ms](img/prueba-3-ejecucion-duracion.png)
+Las capturas anteriores de la aplicación de escritorio se conservan como evidencia de la
+implementación original de #115: Historial con 551 ms, Resultados con total medido y
+detalle por función con sus tramos.
 
-**Resultado:** la cabecera muestra **Duración total medida 551 ms**, además de la fecha y de la marca
-`IA simulada`.
+## Riesgos y limitaciones
 
-### Prueba 4 — El detalle por función muestra sus tramos
+- La validación visual integrada no recorrió el puente pywebview; cubrió el frontend real
+  y la forma de sus datos/eventos mediante Playwright.
+- La captura histórica de la suite no representa el conteo posterior al merge; el log
+  textual sí registra el resultado vigente.
+- No existe un informe separado para Notion dentro de este paquete de evidencias.
 
-Se seleccionó una función aprobada de la misma corrida y se desplazó hasta sus datos.
-
-![Detalle de invertir_palabras con 91 ms medidos, escritura 2 ms, sandbox 80 ms y pytest 0 ms](img/prueba-3b-detalle-tiempos.png)
-
-**Resultado:** el detalle muestra **91 ms medidos**, **escritura 2 ms**, **sandbox 80 ms** y
-**pytest 0 ms**. El `pytest 0 ms` es correcto en esta prueba porque el ejecutor simulado no produce el
-reporte JUnit del que se lee ese tiempo; con Docker real se obtiene del archivo de resultados.
-
-## Nota sobre las capturas
-
-Las capturas 2, 3 y 3b son de la aplicación de escritorio real, abierta con su ventana real, sobre una
-corrida del flujo real con agentes y sandbox simulados (sin claves ni llamadas a una API). La cifra de
-551 ms y los tramos son mediciones de esa corrida, no valores escritos a mano. La captura 1 es la salida
-real de la orden de pruebas convertida a imagen.
-
-## Auditoría final recuperada
-
-La auditoría se retomó sin repetir la implementación ni la suite completa. Se confirmó que ningún archivo
-de código cambió después de la ejecución registrada de 1476 pruebas aprobadas, que no había otro proceso de
-pytest activo y que `HEAD` y `origin/develop` seguían en `6c4bd50`.
-
-Docker Desktop estuvo disponible durante la continuación. Los 23 tests marcados `docker` terminaron con
-**22 aprobados y 1 fallo ambiental**: `test_timeout_mata_el_contenedor_y_lo_elimina` encontró el contenedor
-detenido `1479dc75b035`, creado a las 12:09 por una ejecución anterior de `api_mvp`. La repetición aislada
-encontró exactamente el mismo contenedor preexistente; los contenedores creados por la auditoría se
-eliminaron correctamente. No se borró ese artefacto ajeno a #115.
-
-Además se ejecutó una comprobación específica con el código de este worktree (`PYTHONPATH=src`) y Docker
-real: un test pasó con **1.415 s** de sandbox y **0.254 s** informados por `junit.xml`. También se comprobó
-con reloj inyectado que una corrida detenida por error conserva **0.5 s** en `run.json`, y se generaron
-informes temporales: Markdown y HTML mostraron **12.3 s**, Markdown incluyó el desglose por etapa y el PDF
-expuso **12.3 s** en el texto extraído. El registro completo está en `auditoria-final.txt`.
-
-No se hizo commit, push ni PR: los cambios quedan en el árbol de trabajo de la rama
-`feat/issue-115-tiempo-ejecucion` para revisión.
+No se realizó push, no se creó Pull Request y no se modificó `develop` directamente.
