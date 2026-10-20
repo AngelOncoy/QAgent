@@ -25,6 +25,7 @@ si se omiten todas las del módulo, el módulo termina sin objetivos.
 
 from __future__ import annotations
 
+import ast
 import json
 import re
 from collections.abc import Callable
@@ -74,10 +75,12 @@ _EJEMPLO_RESPUESTA = [
 # Contrato mínimo para validar un caso suelto contra el schema del Planner.
 #: Por qué se omite una función sin valor esperado deducible (fuera de Humo y en Humo).
 MOTIVO_OMITIDA = (
-    "su valor esperado no se puede deducir de la firma, los tipos ni el docstring"
+    "no se pudo deducir un resultado esperado verificable a partir de la firma, "
+    "los tipos ni el docstring; se requiere información adicional sobre su comportamiento"
 )
 MOTIVO_OMITIDA_HUMO = (
-    "no hay un caso normal deducible de la firma, los tipos ni el docstring"
+    "no hay un caso normal deducible con resultado verificable de la firma, los tipos "
+    "ni el docstring"
 )
 
 _CONTRATO_DE_PRUEBA = {
@@ -191,9 +194,9 @@ class PlannerAgent:
         intentadas = {
             e.get("objetivo") for e in propuesta if isinstance(e, dict)
         } & set(funciones)
-        for nombre in funciones:
+        for nombre, funcion in funciones.items():
             if nombre not in cubiertas and nombre not in intentadas:
-                self._omitir(nombre)
+                self._omitir(nombre, funcion)
 
         if not plan and self.descartados and not self.omitidas:
             detalle = "; ".join(self.descartados[:3])
@@ -202,9 +205,12 @@ class PlannerAgent:
             )
         return plan
 
-    def _omitir(self, nombre: str) -> None:
+    def _omitir(self, nombre: str, funcion: dict[str, Any] | None = None) -> None:
         """Deja la función como omitida: su valor esperado no se puede deducir."""
-        self.omitidas[nombre] = MOTIVO_OMITIDA_HUMO if self.es_humo else MOTIVO_OMITIDA
+        motivo = MOTIVO_OMITIDA_HUMO if self.es_humo else MOTIVO_OMITIDA
+        if funcion is not None and not funcion.get("docstring"):
+            motivo = f"la función no tiene docstring y {motivo}"
+        self.omitidas[nombre] = motivo
 
     # --- Construcción del contrato ----------------------------------------------
 
@@ -235,7 +241,7 @@ class PlannerAgent:
             if self._casos_invalidos == invalidos_antes:
                 # Sin casos o solo con casos que la especificación no respalda: el
                 # valor esperado no se puede deducir. No es un error del modelo.
-                self._omitir(nombre)
+                self._omitir(nombre, funcion)
             else:
                 self.descartados.append(f"{nombre}: sin casos válidos")
             return None
@@ -291,6 +297,13 @@ class PlannerAgent:
             caso = self._con_categoria(nombre, caso)
             motivo = motivo_limite_funcion(funcion or {}, caso)
             if motivo:
+                self.descartados.append(f"{nombre}: caso {caso['id']!r}: {motivo}")
+                continue
+            motivo = motivo_oraculo_funcion(funcion or {}, caso)
+            if motivo:
+                # La estructura JSON es válida, pero su oráculo no está respaldado
+                # por la procedencia declarada. Es falta de especificación, no una
+                # respuesta malformada del proveedor; el objetivo puede omitirse.
                 self.descartados.append(f"{nombre}: caso {caso['id']!r}: {motivo}")
                 continue
             validos.append(caso)
@@ -357,6 +370,12 @@ REGLAS OBLIGATORIAS:
 - No ejecutes ni importes el código del usuario: no lo tienes y no hace falta.
 - El valor esperado sale SOLO de la firma, los tipos o el docstring. Si el docstring
   no permite deducir un valor con certeza, no inventes ese caso.
+- Una función sin docstring sigue siendo planificable, pero NO declares origen
+  "docstring". Con origen "tipo", un tipo general como int, str o bool no determina
+  por sí solo un valor concreto; `-> None` sí respalda `null`. Con origen "firma",
+  solo propón TypeError cuando la propia llamada sea inválida por sus argumentos.
+- Si ninguna fuente permite un oráculo concreto, omite la función. No sustituyas una
+  igualdad por `is not None`, una mera invocación ni otra aserción débil.
 - Incluye casos normales, de límite y de error cuando el docstring los describa.
 - "categoria" de cada caso: "normal" (entrada válida típica), "limite" (valor en el
   borde de lo permitido: 0, vacío, máximo o un umbral que describa el docstring) o
@@ -395,6 +414,9 @@ EJEMPLO DE RESPUESTA:
 Prueba de humo pytest: UN caso normal por función (entrada válida y su resultado).
 - No ejecutes el código. El valor esperado sale SOLO de firma, tipos o docstring; si
   no se deduce con certeza, omite la función.
+- Sin docstring, no uses origen "docstring": `-> None` puede justificar `null`, y la
+  firma solo puede justificar TypeError por una llamada con argumentos inválidos.
+- No inventes valores ni conviertas el humo en una prueba de mera ejecución.
 - Caso: "id", "entrada" (argumentos por nombre), "valor_esperado", "origen" (uno de:
   {", ".join(ORIGENES)}) y "categoria": "normal". Sin "excepcion" ni casos límite.
 - Devuelve SOLO una lista JSON: {{"objetivo": nombre, "casos": [caso]}}.
@@ -720,6 +742,132 @@ def motivo_limite_funcion(funcion: dict[str, Any], caso: dict[str, Any]) -> str 
     if origen == "tipo" and "Annotated[" in (funcion.get("firma") or ""):
         return None
     return "caso límite sin una especificación que describa ese límite"
+
+
+def motivo_oraculo_funcion(funcion: dict[str, Any], caso: dict[str, Any]) -> str | None:
+    """Valida que la procedencia declarada pueda justificar el oráculo del caso.
+
+    El JSON Schema comprueba la forma y el vocabulario de ``origen``. Esta validación
+    cruzada comprueba además que la fuente exista y que aporte una propiedad concreta.
+    Es deliberadamente conservadora: una anotación general describe el dominio del
+    resultado, pero no permite adivinar un valor; una firma describe cómo invocar la
+    función, pero no su comportamiento funcional.
+    """
+    origen = caso.get("origen")
+    if origen == "docstring":
+        if funcion.get("docstring"):
+            return None
+        return "declara origen 'docstring', pero la función no tiene docstring"
+    if origen == "tipo":
+        if _tipo_respalda_oraculo(funcion, caso):
+            return None
+        return (
+            "el tipo declarado no determina ese valor esperado ni esa excepción "
+            "con suficiente precisión"
+        )
+    if origen == "firma":
+        if _firma_respalda_oraculo(funcion, caso):
+            return None
+        return (
+            "la firma solo describe la invocación y no determina ese resultado "
+            "funcional"
+        )
+    return None
+
+
+def _tipo_respalda_oraculo(funcion: dict[str, Any], caso: dict[str, Any]) -> bool:
+    """Si existe una declaración de tipos que respalde el caso propuesto.
+
+    El Planner interpreta la relación funcional declarada por las anotaciones; esta
+    capa no intenta ejecutar ni reinterpretar el cuerpo. Para ``None`` y un
+    ``Literal`` único sí se exige además que el valor coincida exactamente.
+    """
+    if "valor_esperado" not in caso or "excepcion" in caso:
+        return False
+    retorno = funcion.get("retorno") or _retorno_de_firma(funcion.get("firma"))
+    if not isinstance(retorno, str):
+        return False
+    retorno = retorno.strip()
+    esperado = caso["valor_esperado"]
+    if retorno in {"None", "NoneType", "type(None)"}:
+        return esperado is None
+    literal = _literal_unico(retorno)
+    if literal is not _SIN_LITERAL:
+        return esperado == literal
+    return True
+
+
+_SIN_LITERAL = object()
+
+
+def _literal_unico(anotacion: str) -> Any:
+    """Valor de ``Literal[x]`` cuando declara exactamente una posibilidad."""
+    try:
+        nodo = ast.parse(anotacion, mode="eval").body
+    except (SyntaxError, ValueError):
+        return _SIN_LITERAL
+    if not isinstance(nodo, ast.Subscript):
+        return _SIN_LITERAL
+    nombre = ast.unparse(nodo.value)
+    if nombre not in {"Literal", "typing.Literal"} or isinstance(nodo.slice, ast.Tuple):
+        return _SIN_LITERAL
+    try:
+        return ast.literal_eval(nodo.slice)
+    except (ValueError, TypeError):
+        return _SIN_LITERAL
+
+
+def _retorno_de_firma(firma: Any) -> str | None:
+    """Extrae la anotación de retorno de la firma sin evaluar código."""
+    funcion = _nodo_firma(firma)
+    return ast.unparse(funcion.returns) if funcion and funcion.returns else None
+
+
+def _firma_respalda_oraculo(funcion: dict[str, Any], caso: dict[str, Any]) -> bool:
+    """Si la firma demuestra un ``TypeError`` antes de entrar al cuerpo.
+
+    Los casos del contrato invocan funciones con argumentos por nombre. Solo se acepta
+    ``origen: firma`` cuando esos argumentos no pueden ligarse a la firma (faltan
+    obligatorios, se intenta pasar un posicional-only por nombre o sobra una clave).
+    """
+    if caso.get("excepcion") not in {"TypeError", "builtins.TypeError"}:
+        return False
+    entrada = caso.get("entrada")
+    if not isinstance(entrada, dict):
+        return False
+    nodo = _nodo_firma(funcion.get("firma"))
+    if nodo is None:
+        return False
+    argumentos = nodo.args
+    posicionales = [*argumentos.posonlyargs, *argumentos.args]
+    faltantes = len(posicionales) - len(argumentos.defaults)
+    requeridos_pos = {arg.arg for arg in posicionales[:faltantes]}
+    requeridos_kw = {
+        arg.arg
+        for arg, defecto in zip(argumentos.kwonlyargs, argumentos.kw_defaults)
+        if defecto is None
+    }
+    claves = set(entrada)
+    posonly = {arg.arg for arg in argumentos.posonlyargs}
+    permitidas = {arg.arg for arg in argumentos.args} | {
+        arg.arg for arg in argumentos.kwonlyargs
+    }
+    faltan = (requeridos_pos | requeridos_kw) - claves
+    posonly_por_nombre = claves & posonly
+    sobran = set() if argumentos.kwarg else claves - permitidas
+    return bool(faltan or posonly_por_nombre or sobran)
+
+
+def _nodo_firma(firma: Any) -> ast.FunctionDef | None:
+    """Convierte una firma textual en AST sin importar ni ejecutar el módulo."""
+    if not isinstance(firma, str) or not firma.startswith("("):
+        return None
+    try:
+        arbol = ast.parse(f"def _objetivo{firma}:\n    pass\n")
+    except (SyntaxError, ValueError):
+        return None
+    nodo = arbol.body[0]
+    return nodo if isinstance(nodo, ast.FunctionDef) else None
 
 
 def motivo_limite_endpoint(

@@ -114,6 +114,7 @@ function elementosReales(v){
       id: m.modulo + '::' + p.funcion, modulo: m.modulo, tipo: p.tipo,
       nombre: p.identificador, endpoint: p.tipo === 'endpoint',
       bandeja, critica: !!p.critical, intento: p.intento_final, duracion: p.duracion_s,
+      sinDocstring: docstringDeObjetivo(m.modulo, p.funcion) === false,   // issue 114, del análisis AST
       cobLineas: p.cobertura_lineas, cobRamas: p.cobertura_ramas, estadoBackend: p.estado,
       ...detalleDeReporte(det),
     };
@@ -162,6 +163,7 @@ function elementosDemo(){
   return RUN.map(fn => ({
     id: fn.id, modulo: fn.module, tipo: 'funcion', nombre: fn.name, endpoint: false,
     bandeja: BANDEJA_DEMO[fn.status] || 'sin', critica: !!fn.crit, intento: fn.iterations,
+    sinDocstring: docstringDeObjetivo(fn.module, fn.name) === false,
     duracion: null, cobLineas: fn.lines_cov, cobRamas: fn.branch_cov,
     explicacion: fn.diag || null, codigo: fn.code || null, traza: (fn.logs || []).join('\n') || null,
     esperado: fn.cmp ? fn.cmp.original : null,
@@ -250,7 +252,7 @@ function renderExec(){
     const accion = e.bandeja === 'tiempo' ? `<button type="button" class="ini-enlace bnj-accion" onclick="event.stopPropagation();go('config')">Ver tiempo máximo →</button>` : '';
     return `<div class="bnj-item ${e.id === seleccionBandeja ? 'on' : ''}" role="option" aria-selected="${e.id === seleccionBandeja}" tabindex="0"
         onclick="seleccionarBandeja(${ELEMENTOS_BANDEJA.indexOf(e)})" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click()}">
-      <div class="bnj-item-cab"><span class="bnj-nombre">${escHtml(e.nombre)}</span>${e.critica ? '<span class="bnj-critica">Crítica</span>' : ''}</div>
+      <div class="bnj-item-cab"><span class="bnj-nombre">${escHtml(e.nombre)}</span>${e.sinDocstring ? etiquetaSinDocstring(e.tipo, {enfocable: false}) : ''}${e.critica ? '<span class="bnj-critica">Crítica</span>' : ''}</div>
       <span class="bnj-ruta">${escHtml(e.modulo)}</span>
       <span class="np-chip np-chip-${b.cls}">${b.ico()}${b.chip}</span>${accion}
     </div>`;
@@ -321,7 +323,7 @@ function renderDetalleBandeja(e){
   const cargando = e.cargando ? '<p class="np-meta">Cargando la evidencia…</p>' : '';
   $('bnjDetalle').innerHTML = `
     <div class="bnj-det-cab">
-      <div><h2 class="bnj-det-nombre">${escHtml(e.nombre)}</h2><span class="bnj-ruta">${escHtml(e.modulo)}${e.firma ? ' · ' + escHtml(e.firma) : ''}</span></div>
+      <div><h2 class="bnj-det-nombre">${escHtml(e.nombre)}${e.sinDocstring ? etiquetaSinDocstring(e.tipo) : ''}</h2><span class="bnj-ruta">${escHtml(e.modulo)}${e.firma ? ' · ' + escHtml(e.firma) : ''}</span></div>
       ${e.critica ? '<span class="np-chip np-chip-progreso">Crítica</span>' : ''}
     </div>
     <span class="np-chip np-chip-${b.cls}">${b.ico()}${e.bandeja === 'bug' ? 'Posible bug en tu código' : b.chip}</span>
