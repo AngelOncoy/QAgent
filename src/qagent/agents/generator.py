@@ -76,6 +76,7 @@ class GeneratorAgent:
             tokens_salida=respuesta.tokens_salida,
             costo_usd=respuesta.costo_usd,
             es_simulado=self.es_simulado,
+            es_estimado=getattr(respuesta, "es_estimado", False),
         )
 
         codigo = _quitar_cerca_python(respuesta.contenido)

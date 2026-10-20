@@ -35,9 +35,11 @@ SANDBOX_FALLIDO = frozenset({"timeout", "error"})
 DECISIONES_FINALES = frozenset({"accept", "bug_detectado", "stalled"})
 LIMITE_INTENTOS = "limite_intentos"  # motivos del corte (HU-14)
 ERROR_REPETIDO = "error_repetido"
+LIMITE_TOKENS = "limite_tokens"
 _TEXTO_MOTIVO = {
     LIMITE_INTENTOS: "límite de intentos",
     ERROR_REPETIDO: "mismo error repetido",
+    LIMITE_TOKENS: "límite de tokens",
 }
 
 
@@ -58,6 +60,14 @@ class FalloControlado(Exception):
 
 class TimeoutPaso(FalloControlado):
     """Un agente no respondió dentro de `timeout_paso_s`."""
+
+
+class LimiteTokensSuperado(FalloControlado):
+    """Se alcanzó el límite de presupuesto de tokens por corrida."""
+
+
+class CorridaCancelada(FalloControlado):
+    """La corrida fue cancelada por el usuario."""
 
 
 #: Motivo de un objetivo sin veredicto porque un agente no respondió a tiempo.
@@ -176,6 +186,8 @@ class Orquestador:
         tracker: TokenTracker | None = None,
         max_intentos: int = 3,
         timeout_paso_s: float = TIMEOUT_PASO_POR_DEFECTO_S,
+        limite_tokens: int | None = None,
+        cancelado: Callable[[], bool] | None = None,
     ) -> None:
         """Crea el orquestador.
 
@@ -199,6 +211,9 @@ class Orquestador:
         self.tracker = tracker or TokenTracker()
         self.max_intentos = max_intentos
         self.timeout_paso_s = timeout_paso_s
+        self.limite_tokens = limite_tokens
+        self.cancelado = cancelado
+        self._aviso_80_emitido = False
         self._estado = Estado.PLANIFICAR
         self._traza: list[Estado] = []
         self._archivo: str | None = None
@@ -236,12 +251,36 @@ class Orquestador:
             )
             plan_completo = copy.deepcopy(plan)
             for contrato in plan:
+                if self.cancelado is not None and self.cancelado():
+                    raise CorridaCancelada("Corrida detenida por el usuario.")
+                if (
+                    self.limite_tokens
+                    and self.tracker.total_tokens >= self.limite_tokens
+                ):
+                    self._emitir(
+                        "orquestador",
+                        contrato["objetivo"],
+                        f"Presupuesto de tokens alcanzado ({self.limite_tokens} tokens). "
+                        "No se procesarán más objetivos en este módulo.",
+                        tipo="aviso",
+                        datos={
+                            "alerta_presupuesto": True,
+                            "tokens": self.tracker.total_tokens,
+                        },
+                    )
+                    raise LimiteTokensSuperado(
+                        f"Se alcanzó el presupuesto de tokens por corrida ({self.limite_tokens} tokens)."
+                    )
                 self._procesar_objetivo(contrato, objetivos)
             self._transicionar(Estado.FIN, None)
             self._emitir("orquestador", None, "Corrida terminada", tipo="fin")
         except FalloControlado as error:
             motivo = str(error)
-            funcion = objetivos[-1].objetivo if objetivos else None  # el que falló
+            funcion = (
+                objetivos[-1].objetivo
+                if objetivos and objetivos[-1].decision is None
+                else None
+            )
             self._transicionar(Estado.FALLO_CONTROLADO, funcion)
             self._emitir("orquestador", funcion, f"Fallo controlado: {motivo}", "fallo")
 
@@ -368,6 +407,8 @@ class Orquestador:
         inicio = time.monotonic()
 
         while True:
+            if self.cancelado is not None and self.cancelado():
+                raise CorridaCancelada("Corrida detenida por el usuario.")
             self._transicionar(Estado.GENERAR, objetivo)
             # Copia del contrato original del Planner: lo que un agente haga con su
             # copia no llega a los intentos siguientes (HU-14, criterio 3).
@@ -418,6 +459,27 @@ class Orquestador:
             if decision in DECISIONES_FINALES:
                 resultado.decision = decision
                 resultado.motivo_estancado = motivo
+                self._emitir_veredicto(objetivo, decision, intento, motivo)
+                return
+
+            if self.cancelado is not None and self.cancelado():
+                raise CorridaCancelada("Corrida detenida por el usuario.")
+
+            if self.limite_tokens and self.tracker.total_tokens >= self.limite_tokens:
+                decision = "stalled"
+                motivo = LIMITE_TOKENS
+                resultado.decision = decision
+                resultado.motivo_estancado = motivo
+                self._emitir(
+                    "orquestador",
+                    objetivo,
+                    f"Presupuesto de tokens alcanzado ({self.limite_tokens} tokens). Reintento cancelado.",
+                    tipo="aviso",
+                    datos={
+                        "alerta_presupuesto": True,
+                        "tokens": self.tracker.total_tokens,
+                    },
+                )
                 self._emitir_veredicto(objetivo, decision, intento, motivo)
                 return
 
@@ -560,6 +622,33 @@ class Orquestador:
                 f"se esperaba '{objetivo}' intento {intento}"
             )
 
+    def _revisar_alerta_presupuesto(self) -> None:
+        """Emite una advertencia al alcanzar el 80 % del presupuesto de tokens."""
+        if not self.limite_tokens or self._aviso_80_emitido:
+            return
+        if self.tracker.total_tokens >= int(self.limite_tokens * 0.80):
+            self._aviso_80_emitido = True
+            pct = round(self.tracker.total_tokens / self.limite_tokens * 100)
+            self.bus.emitir(
+                Evento(
+                    agente="orquestador",
+                    archivo=self._archivo,
+                    funcion=None,
+                    mensaje=(
+                        f"Aviso de presupuesto: se ha consumido el {pct} % del límite de tokens "
+                        f"({self.tracker.total_tokens} de {self.limite_tokens} tokens)."
+                    ),
+                    estado=self._estado.value,
+                    tipo="aviso",
+                    datos={
+                        "alerta_presupuesto": True,
+                        "tokens": self.tracker.total_tokens,
+                        "limite_tokens": self.limite_tokens,
+                        "porcentaje": pct,
+                    },
+                )
+            )
+
     def _emitir(
         self,
         agente: str,
@@ -568,6 +657,7 @@ class Orquestador:
         tipo: str = "agente",
         datos: dict[str, Any] | None = None,
     ) -> None:
+        self._revisar_alerta_presupuesto()
         self.bus.emitir(
             Evento(
                 agente=agente,

@@ -138,3 +138,29 @@ def test_texto_peligroso_del_evento_permanece_como_dato() -> None:
 
     assert fila["t"] == '<img src=x onerror="alert(1)">'
     assert fila["tipo_objetivo"] == "funcion"
+
+
+def test_alerta_presupuesto_tokens_formatea_fila_watch() -> None:
+    fila = a_fila_monitor(
+        evento(
+            agente="orquestador",
+            tipo="aviso",
+            mensaje="Aviso de presupuesto: se ha consumido el 85 % del límite de tokens.",
+            datos={
+                "alerta_presupuesto": True,
+                "tokens": 8500,
+                "limite_tokens": 10000,
+                "tokens_acumulados": 8500,
+                "tokens_reales": 5000,
+                "tokens_estimados": 3500,
+            },
+        )
+    )
+
+    assert fila is not None
+    assert fila["a"] == "watch"
+    assert fila["guard"] == ["Aviso de presupuesto", "LÍMITE TOKENS"]
+    assert fila["tokens_acumulados"] == 8500
+    assert fila["tokens_reales"] == 5000
+    assert fila["tokens_estimados"] == 3500
+    assert fila["limite_tokens"] == 10000

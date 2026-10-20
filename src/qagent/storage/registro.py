@@ -246,6 +246,8 @@ def construir_log(
         "llamadas": [ll.a_log() for ll in tracker.llamadas],
         "totales_por_agente": tracker.totales_por_agente(),
         "total_tokens": tracker.total_tokens,
+        "tokens_reales": tracker.total_tokens_reales,
+        "tokens_estimados": tracker.total_tokens_estimados,
         "total_costo_usd": round(tracker.total_costo_usd, 8),
     }
 
@@ -388,6 +390,9 @@ def _resumen(
             round(sum(iteraciones) / len(iteraciones), 2) if iteraciones else None
         ),
         "costo_total_usd": round(tracker.total_costo_usd, 8),
+        "total_tokens": tracker.total_tokens,
+        "tokens_reales": tracker.total_tokens_reales,
+        "tokens_estimados": tracker.total_tokens_estimados,
         "por_agente": tracker.totales_por_agente(),  # tokens y costo (HU-18)
     }
     if metas is not None:
