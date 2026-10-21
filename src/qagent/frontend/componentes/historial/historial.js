@@ -73,10 +73,18 @@ let histSel = null;          // run_id de la corrida elegida en la tabla
 const HISTORIAL_DEMO = {
   demo: true,
   corridas: [
-    {run_id:'8841-B', fecha:'2026-09-25T14:32:00', perfil:'deep', perfil_nombre:'Estándar + profundizar', posibles_bugs:1, pasaron:6, total_objetivos:9, duracion_s:154.2, cobertura_lineas:84, total_tokens:142500, tokens_planner:21400, resumen_specs:{reutilizado:4, regenerado:2}, requieren_corrida_nueva:0},
-    {run_id:'8791-A', fecha:'2026-09-19T16:40:00', perfil:'reg', perfil_nombre:'Repetir pruebas guardadas', posibles_bugs:0, pasaron:6, total_objetivos:6, duracion_s:62.0, cobertura_lineas:80, total_tokens:0, tokens_planner:0, resumen_specs:{}, requieren_corrida_nueva:0},
-    {run_id:'8730-A', fecha:'2026-09-12T10:05:00', perfil:'deep', perfil_nombre:'Estándar + profundizar', posibles_bugs:3, pasaron:5, total_objetivos:9, duracion_s:181.5, cobertura_lineas:78, total_tokens:171300, tokens_planner:48000, resumen_specs:{generado:6}, requieren_corrida_nueva:0},
+    {run_id:'8841-B', fecha:'2026-09-25T14:32:00', perfil:'deep', perfil_nombre:'Estándar + profundizar', posibles_bugs:1, pasaron:6, total_objetivos:9, total_seleccionados:9, total_procesados:9, total_pendientes:0, tipo_terminacion:'completada', terminacion_nombre:'Completada', es_parcial:false, pruebas_ejecutadas:9, pruebas_aprobadas:6, errores_tecnicos:2, objetivos_omitidos:0, no_procesados_por_detencion:0, duracion_s:154.2, cobertura_lineas:84, total_tokens:142500, tokens_planner:21400, resumen_specs:{reutilizado:4, regenerado:2}, requieren_corrida_nueva:0},
+    {run_id:'8791-A', fecha:'2026-09-19T16:40:00', perfil:'reg', perfil_nombre:'Repetir pruebas guardadas', posibles_bugs:0, pasaron:6, total_objetivos:6, total_seleccionados:6, total_procesados:6, total_pendientes:0, tipo_terminacion:'completada', terminacion_nombre:'Completada', es_parcial:false, pruebas_ejecutadas:6, pruebas_aprobadas:6, errores_tecnicos:0, objetivos_omitidos:0, no_procesados_por_detencion:0, duracion_s:62.0, cobertura_lineas:80, total_tokens:0, tokens_planner:0, resumen_specs:{}, requieren_corrida_nueva:0},
+    {run_id:'8730-A', fecha:'2026-09-12T10:05:00', perfil:'deep', perfil_nombre:'Estándar + profundizar', posibles_bugs:3, pasaron:5, total_objetivos:9, total_seleccionados:9, total_procesados:9, total_pendientes:0, tipo_terminacion:'completada_con_errores', terminacion_nombre:'Completada con errores', es_parcial:false, pruebas_ejecutadas:9, pruebas_aprobadas:5, errores_tecnicos:1, objetivos_omitidos:0, no_procesados_por_detencion:0, duracion_s:181.5, cobertura_lineas:78, total_tokens:171300, tokens_planner:48000, resumen_specs:{generado:6}, requieren_corrida_nueva:0},
   ],
+  resumen_guardadas: {
+    planes_almacenados: 2,
+    especificaciones_totales: 2,
+    archivos_prueba: 4,
+    pruebas_aceptadas: 23,
+    pruebas_regresion: 4,
+    defectos_detectados: 4,
+  },
   specs: [
     {archivo:'pricing.spec.json', modulo:'services/pricing.py', ultima_accion:'reutilizado'},
     {archivo:'cart.spec.json', modulo:'services/cart.py', ultima_accion:'regenerado'},
@@ -146,12 +154,21 @@ function renderHistoryReal(datos){
     const sinIA = h.perfil === 'reg' || h.perfil === 'reg_deep';
     const abrir = datos.demo ? "go('exec')" : `cargarEjecucionReal('${escHtml(h.run_id)}')`;
     const tokens = sinIA ? '— (sin IA)' : numero(h.total_tokens);
+    const sel = h.total_seleccionados || h.total_objetivos || 0;
+    const proc = h.total_procesados || h.total_objetivos || 0;
+    const pend = h.total_pendientes || 0;
+    const pasanCelda = h.pasaron === null || h.pasaron === undefined
+      ? '—'
+      : h.es_parcial && pend > 0
+        ? `<div class="hst-pasan" title="${h.pasaron} objetivos pasaron de ${proc} procesados con veredicto (${sel} seleccionados inicialmente, ${pend} no procesados por detención)"><b>${h.pasaron} / ${proc}</b> <span class="np-meta">procesados</span><span class="np-meta hst-pasan-sub">(${pend} pend. de ${sel})</span></div>`
+        : `<div class="hst-pasan" title="${h.pasaron} objetivos pasaron de ${proc} procesados con veredicto (${sel} seleccionados)"><b>${h.pasaron} / ${proc}</b> <span class="np-meta">procesados</span></div>`;
+
     return `<tr class="${h.run_id === histSel ? 'on' : ''}" tabindex="0" aria-selected="${h.run_id === histSel}" onclick="seleccionarCorridaHistorial('${escHtml(h.run_id)}')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click()}">
       <td>${escHtml(fechaCorta(h.fecha))}</td>
       <td>${escHtml(nomPerfil)}</td>
       <td>${chipResultadoHistorial(h)}</td>
       <td class="np-mono" title="${h.duracion_s === null || h.duracion_s === undefined ? 'Corrida anterior a la medición de duración' : 'Duración medida de la corrida'}">${duracionCorta(h.duracion_s)}</td>
-      <td class="np-mono">${h.pasaron === null || h.pasaron === undefined ? '—' : `${h.pasaron} / ${h.total_objetivos}`}</td>
+      <td class="np-mono">${pasanCelda}</td>
       <td class="np-mono" title="${sinIA ? 'Repetir pruebas guardadas no llama a la IA' : 'Analizando: ' + numero(h.tokens_planner) + ' tokens'}">${tokens}</td>
       <td><button type="button" class="ini-enlace" onclick="event.stopPropagation();${abrir}">Abrir</button></td></tr>`;
   }).join('');
@@ -163,9 +180,29 @@ function renderHistoryReal(datos){
 function chipResultadoHistorial(h){
   const repetir = h.requieren_corrida_nueva ? `<span class="np-meta hst-nota">${h.requieren_corrida_nueva} requieren corrida nueva</span>` : '';
   if(h.pasaron === null || h.pasaron === undefined) return `<span class="np-chip np-chip-aviso">${ICO_AVISO_CLON}Sin resultados</span>${repetir}`;
-  if(h.posibles_bugs) return `<span class="np-chip np-chip-bug">${ICO_ERROR}${h.posibles_bugs} ${h.posibles_bugs === 1 ? 'posible bug' : 'posibles bugs'}</span>${repetir}`;
-  if(h.pasaron === h.total_objetivos) return `<span class="np-chip np-chip-exito">${ICO_OK}Pasó</span>${repetir}`;
-  return `<span class="np-chip np-chip-aviso">${ICO_AVISO_CLON}Faltan pruebas</span>${repetir}`;
+
+  const term = h.tipo_terminacion || (h.estado === 'fallo_controlado' ? 'detenida_error' : 'completada');
+  const termNombre = h.terminacion_nombre || (term === 'completada' ? 'Completada' : term === 'completada_con_errores' ? 'Completada con errores' : term === 'cancelada' ? 'Cancelada' : term === 'limitada_recursos' ? 'Limitada por recursos' : 'Detenida por error');
+
+  let chipTerm = '';
+  if(term === 'completada'){
+    chipTerm = `<span class="np-chip np-chip-exito">${ICO_OK}${escHtml(termNombre)}</span>`;
+  } else if(term === 'completada_con_errores'){
+    chipTerm = `<span class="np-chip np-chip-aviso">${ICO_AVISO_CLON}${escHtml(termNombre)}</span>`;
+  } else if(term === 'cancelada' || term === 'limitada_recursos'){
+    chipTerm = `<span class="np-chip np-chip-aviso">${ICO_AVISO_CLON}${escHtml(termNombre)}</span>`;
+  } else {
+    chipTerm = `<span class="np-chip np-chip-bug">${ICO_ERROR}${escHtml(termNombre)}</span>`;
+  }
+
+  let chipBugs = '';
+  if(h.posibles_bugs){
+    chipBugs = `<span class="np-chip np-chip-bug">${ICO_ERROR}${h.posibles_bugs} ${h.posibles_bugs === 1 ? 'posible bug' : 'posibles bugs'}</span>`;
+  }
+
+  const parcial = h.es_parcial && h.total_pendientes ? `<span class="np-meta hst-nota">Parcial (${h.total_procesados || h.total_objetivos} de ${h.total_seleccionados})</span>` : '';
+
+  return `<div class="hst-chips">${chipTerm}${chipBugs}</div>${parcial}${repetir}`;
 }
 
 function seleccionarCorridaHistorial(runId){
@@ -204,11 +241,22 @@ function renderComparacionHistorial(corridas){
   const cambios = [];
   if(hay(actual.pasaron) && hay(previa.pasaron)){
     const verbo = actual.pasaron > previa.pasaron ? 'aumentaron' : actual.pasaron < previa.pasaron ? 'bajaron' : 'se mantuvieron';
-    cambios.push(`Las funciones y endpoints que pasan ${verbo} de ${previa.pasaron} a ${actual.pasaron}. Se verificaron ${actual.total_objetivos} en esta corrida; la anterior tenía ${previa.total_objetivos}.`);
+    cambios.push(`Las funciones y endpoints que pasan ${verbo} de ${previa.pasaron} a ${actual.pasaron}. Se procesaron ${actual.total_procesados || actual.total_objetivos} en esta corrida (de ${actual.total_seleccionados || actual.total_objetivos} seleccionados); la anterior tenía ${previa.total_procesados || previa.total_objetivos}.`);
   }
   const reutilizados = (actual.resumen_specs || {}).reutilizado || 0;
+  const avisoParcial = actual.es_parcial
+    ? `<div class="hst-aviso-parcial">
+        <span class="hst-ayuda-ico">${ICO_AVISO_CLON}</span>
+        <div>
+          <b>Corrida parcial (${escHtml(actual.terminacion_nombre)})</b>
+          <p class="np-meta">Se procesaron ${actual.total_procesados || actual.total_objetivos} de ${actual.total_seleccionados || actual.total_objetivos} objetivos seleccionados (${actual.total_pendientes || 0} no procesados por detención). Los resultados corresponden a los objetivos evaluados.</p>
+        </div>
+      </div>`
+    : '';
+
   caja.innerHTML = `<div class="hst-comparar-cab"><h2>${titulo}</h2>${chip}</div>
     <p class="np-meta">${escHtml(fechaCorta(actual.fecha))} frente a ${escHtml(fechaCorta(previa.fecha))}</p>
+    ${avisoParcial}
     <div class="exp-cifras">
       ${cifra('Posibles bugs', dBugs === null ? '—' : conSigno(dBugs, String(Math.abs(dBugs))), dBugs === null ? 'Sin datos de una de las corridas' : `De ${previa.posibles_bugs} a ${actual.posibles_bugs}`)}
       ${cifra('<span title="Porcentaje de líneas del código que ejecutaron las pruebas">Cobertura ⓘ</span>', dCob === null ? '—' : conSigno(dCob, Math.abs(dCob) + ' pp'), dCob === null ? 'Sin datos de una de las corridas' : `De ${Math.round(previa.cobertura_lineas)} % a ${Math.round(actual.cobertura_lineas)} %`)}
@@ -217,6 +265,7 @@ function renderComparacionHistorial(corridas){
     <div class="np-tarjeta hst-cambio">
       <h2>Qué cambió</h2>
       ${cambios.map(c => `<p class="np-texto">${escHtml(c)}</p>`).join('')}
+      <p class="np-texto">Objetivos: <b>${actual.total_seleccionados || actual.total_objetivos}</b> seleccionados, <b>${actual.total_procesados || actual.total_objetivos}</b> procesados (${actual.total_pendientes || 0} pendientes). Aprobados: <b>${actual.pasaron || 0}</b>, bugs: <b>${actual.posibles_bugs || 0}</b>, errores técnicos: <b>${actual.errores_tecnicos || 0}</b>.</p>
       ${reutilizados ? `<p class="hst-reutilizado">${reutilizados} ${reutilizados === 1 ? 'plan de prueba reutilizado' : 'planes de prueba reutilizados'} sin cambios desde la última vez.</p>` : ''}
       <p class="np-meta">Cobertura: porcentaje de líneas del código que ejecutaron las pruebas.</p>
     </div>`;
@@ -224,22 +273,56 @@ function renderComparacionHistorial(corridas){
 
 function renderPruebasGuardadas(datos){
   const pruebas = datos.pruebas_guardadas || [], specs = datos.specs || [];
+  const resumen = datos.resumen_guardadas || {};
   const total = pruebas.reduce((s, p) => s + (Number(p.pruebas) || 0), 0);
+  const planesAlmacenados = resumen.planes_almacenados !== undefined ? resumen.planes_almacenados : specs.length;
+  const pruebasAceptadas = resumen.pruebas_aceptadas !== undefined ? resumen.pruebas_aceptadas : total;
+  const archivosPrueba = resumen.archivos_prueba !== undefined ? resumen.archivos_prueba : pruebas.length;
+  const disponiblesRegresion = resumen.pruebas_regresion !== undefined ? resumen.pruebas_regresion : pruebas.length;
+  const defectosDetectados = resumen.defectos_detectados !== undefined ? resumen.defectos_detectados : 0;
   const reutilizados = specs.filter(spec => spec.ultima_accion === 'reutilizado').length;
-  const planes = specs.length ? `<p class="np-meta">${specs.length} ${specs.length === 1 ? 'plan de prueba guardado' : 'planes de prueba guardados'}${reutilizados ? ` · ${reutilizados} reutilizados en la última corrida` : ''}.
-      <button type="button" class="ini-enlace hst-enlace" onclick="descargarSpecsReal(null)">Descargar planes (.zip)</button></p>` : '';
-  if(!pruebas.length){
+
+  const descargaPlanes = specs.length
+    ? `<button type="button" class="ini-enlace hst-enlace" onclick="descargarSpecsReal(null)">Descargar planes (.zip)</button>`
+    : '';
+
+  if(!pruebas.length && !specs.length){
     $('histPruebas').innerHTML = `<h2>Pruebas guardadas</h2>
-      <p class="np-texto">Aún no hay pruebas guardadas. Se guardan las que pasan la verificación, para volver a correrlas después.</p>${planes}`;
+      <p class="np-texto">Aún no hay pruebas ni planes guardados. Se guardan las que pasan la verificación, para volver a correrlas después.</p>`;
     return;
   }
+
   $('histPruebas').innerHTML = `<h2>Pruebas guardadas</h2>
-    <div class="hst-pruebas-total"><span class="hst-ayuda-ico">${ICO_PRUEBAS}</span><div><b>${numero(total)} ${total === 1 ? 'prueba' : 'pruebas'}</b><span class="np-meta">Python · pytest</span></div></div>
-    <p class="np-texto">Las aprobadas en las corridas del proyecto. Incluyen las que revelan posibles bugs.</p>
+    <div class="hst-clasif-grid">
+      <div class="hst-clasif-card">
+        <span class="hst-clasif-num">${numero(planesAlmacenados)}</span>
+        <b class="hst-clasif-tit">Planes de prueba</b>
+        <span class="np-meta">Specs en <span class="np-mono">.qagent/specs/</span></span>
+      </div>
+      <div class="hst-clasif-card">
+        <span class="hst-clasif-num">${numero(archivosPrueba)}</span>
+        <b class="hst-clasif-tit">Archivos de prueba</b>
+        <span class="np-meta">Módulos en <span class="np-mono">.qagent/tests/</span></span>
+      </div>
+      <div class="hst-clasif-card">
+        <span class="hst-clasif-num">${numero(pruebasAceptadas)}</span>
+        <b class="hst-clasif-tit">Pruebas aceptadas</b>
+        <span class="np-meta">Casos de prueba aprobados</span>
+      </div>
+      <div class="hst-clasif-card">
+        <span class="hst-clasif-num">${numero(disponiblesRegresion)}</span>
+        <b class="hst-clasif-tit">Para regresión</b>
+        <span class="np-meta">Listas sin costo de IA</span>
+      </div>
+    </div>
+    ${defectosDetectados ? `<p class="hst-defectos-nota">${ICO_ERROR}${numero(defectosDetectados)} ${defectosDetectados === 1 ? 'defecto detectado' : 'defectos detectados'} en el historial (en reportes).</p>` : ''}
+    <p class="np-texto">Las aprobadas en las corridas del proyecto disponibles para regresión.</p>
     <ul class="hst-archivos">${pruebas.slice(0, 2).map(p => `<li class="np-mono">${escHtml(p.archivo)} · ${p.pruebas} ${p.pruebas === 1 ? 'prueba' : 'pruebas'}</li>`).join('')}</ul>
     ${pruebas.length > 2 ? `<p class="np-meta">Y otros ${pruebas.length - 2} archivos de pruebas</p>` : ''}
-    <button type="button" class="ini-btn" onclick="descargarPruebasReal()">${ICO_DESCARGAR}Descargar</button>
-    ${planes}`;
+    <div class="hst-acciones-guardadas">
+      ${pruebas.length ? `<button type="button" class="ini-btn" onclick="descargarPruebasReal()">${ICO_DESCARGAR}Descargar</button>` : ''}
+      ${descargaPlanes}
+    </div>`;
 }
 
 async function descargarPruebasReal(){

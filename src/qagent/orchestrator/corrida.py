@@ -91,6 +91,11 @@ class ResumenCorrida:
     fin: str | None = None
     duracion_etapas: dict[str, float] = field(default_factory=dict)
     cancelada: bool = False
+    total_seleccionados: int = 0
+    total_procesados: int = 0
+    total_pendientes: int = 0
+    tipo_terminacion: str = "completada"
+    objetivos_omitidos: int = 0
 
     def a_dict(self) -> dict[str, Any]:
         """Versión serializable a JSON (evento `corrida_fin` de la interfaz)."""
@@ -226,6 +231,7 @@ def ejecutar_corrida(
         if cancelado is not None and cancelado():
             resumen.estado = FALLO
             resumen.cancelada = True
+            resumen.tipo_terminacion = "cancelada"
             resumen.motivo = "Corrida cancelada por el usuario."
             avisar(resumen.motivo, "fallo")
             _cerrar_run(almacen, resumen, tipos)
@@ -248,7 +254,8 @@ def ejecutar_corrida(
                 for m in modulos
             }
         )
-        progreso["total"] = resumen.total_funciones = n_funciones + n_endpoints
+        resumen.total_seleccionados = n_funciones + n_endpoints
+        progreso["total"] = resumen.total_funciones = resumen.total_seleccionados
         if n_endpoints:
             tipos = ["funcion", "endpoint"] if n_funciones else ["endpoint"]
             avisar(
@@ -322,11 +329,13 @@ def ejecutar_corrida(
             if cancelado is not None and cancelado():
                 resumen.estado = FALLO
                 resumen.cancelada = True
+                resumen.tipo_terminacion = "cancelada"
                 resumen.motivo = "Corrida cancelada por el usuario."
                 avisar(resumen.motivo, "fallo")
                 break
             if tracker.total_costo_usd >= tope:
                 resumen.estado = FALLO
+                resumen.tipo_terminacion = "limitada_recursos"
                 resumen.motivo = (
                     f"Se alcanzó el tope de gasto por corrida (US$ {tope:.2f}); "
                     "los módulos restantes no se revisaron."
@@ -335,6 +344,7 @@ def ejecutar_corrida(
                 break
             if tope_tokens is not None and tracker.total_tokens >= tope_tokens:
                 resumen.estado = FALLO
+                resumen.tipo_terminacion = "limitada_recursos"
                 resumen.motivo = (
                     f"Se alcanzó el presupuesto de tokens por corrida ({tope_tokens} tokens); "
                     "los módulos restantes no se revisaron."
@@ -449,6 +459,12 @@ def ejecutar_corrida(
             if resultado.estado_final.value == FALLO and resumen.motivo is None:
                 resumen.estado = FALLO
                 resumen.motivo = f"{resultado.modulo}: {resultado.motivo_fallo}"
+                if (cancelado is not None and cancelado()) or any(
+                    p in (resultado.motivo_fallo or "").lower()
+                    for p in ("cancelad", "por el usuario")
+                ):
+                    resumen.cancelada = True
+                    resumen.tipo_terminacion = "cancelada"
             if _registrar_limite_tokens(resumen, resultado, tope_tokens):
                 avisar(resumen.motivo, "fallo")
                 break
@@ -463,7 +479,29 @@ def ejecutar_corrida(
                 f"Corrida completada con errores: {resumen.sin_veredicto} objetivo(s) "
                 "quedaron sin veredicto."
             )
-        progreso["total"] = resumen.total_funciones
+        if not resumen.tipo_terminacion or resumen.tipo_terminacion == "completada":
+            if resumen.cancelada or (
+                resumen.motivo
+                and any(
+                    p in resumen.motivo.lower() for p in ("cancelad", "por el usuario")
+                )
+            ):
+                resumen.cancelada = True
+                resumen.tipo_terminacion = "cancelada"
+            elif resumen.motivo and any(
+                p in resumen.motivo.lower()
+                for p in ("token", "presupuesto", "gasto", "tiempo")
+            ):
+                resumen.tipo_terminacion = "limitada_recursos"
+            elif resumen.estado == FALLO:
+                resumen.tipo_terminacion = "detenida_error"
+            elif resumen.sin_veredicto > 0 or resumen.estancadas > 0:
+                resumen.tipo_terminacion = "completada_con_errores"
+            elif resumen.total_pendientes > 0:
+                resumen.tipo_terminacion = "detenida_error"
+            else:
+                resumen.tipo_terminacion = "completada"
+        progreso["total"] = resumen.total_seleccionados or resumen.total_funciones
         resumen.duracion_s = segundos(inicio, reloj())
         resumen.fin = ahora()
         _registrar(
@@ -479,6 +517,7 @@ def ejecutar_corrida(
         )
     except Exception as error:  # noqa: BLE001 — la corrida nunca debe tumbar la app
         resumen.estado = FALLO
+        resumen.tipo_terminacion = "detenida_error"
         resumen.motivo = resumen.motivo or _texto_error(error)
         resumen.duracion_s = segundos(inicio, reloj())
         resumen.fin = ahora()
@@ -526,6 +565,7 @@ def _registrar_limite_tokens(
     ):
         return False
     resumen.estado = FALLO
+    resumen.tipo_terminacion = "limitada_recursos"
     resumen.motivo = (
         f"Se alcanzó el presupuesto de tokens por corrida ({limite_tokens} tokens); "
         "no se procesarán más objetivos."
@@ -600,6 +640,10 @@ def _contar(
     tracker: TokenTracker,
 ) -> None:
     decisiones = [o.decision for r in resultados for o in r.objetivos]
+    resumen.total_procesados = len(decisiones)
+    resumen.total_pendientes = max(
+        0, resumen.total_seleccionados - resumen.total_procesados
+    )
     resumen.total_funciones = len(decisiones)
     resumen.aceptadas = decisiones.count("accept")
     resumen.bugs_detectados = decisiones.count("bug_detectado")
@@ -648,6 +692,11 @@ def _registrar(
             fin=resumen.fin,
             duracion_s=resumen.duracion_s,
             duracion_etapas=resumen.duracion_etapas,
+            total_seleccionados=resumen.total_seleccionados,
+            total_procesados=resumen.total_procesados,
+            total_pendientes=resumen.total_pendientes,
+            tipo_terminacion=resumen.tipo_terminacion,
+            objetivos_omitidos=resumen.objetivos_omitidos,
         )
         resumen.run_id = rutas.run_id
         resumen.carpeta = str(rutas.carpeta)
@@ -799,6 +848,9 @@ def _cerrar_run(
             + resumen.requieren_corrida_nueva,
             tipos_prueba=tipos or ["funcion"],
             duracion_s=resumen.duracion_s,
+            total_seleccionados=resumen.total_seleccionados,
+            tipo_terminacion=resumen.tipo_terminacion,
+            motivo=resumen.motivo,
         )
     except Exception as error:  # noqa: BLE001 — run.json dañado: no es motivo de fallo
         _registro.warning(

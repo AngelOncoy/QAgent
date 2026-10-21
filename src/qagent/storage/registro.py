@@ -94,6 +94,11 @@ def escribir_corrida(
     fin: str | None = None,
     duracion_s: float | None = None,
     duracion_etapas: dict[str, float] | None = None,
+    total_seleccionados: int | None = None,
+    total_procesados: int | None = None,
+    total_pendientes: int | None = None,
+    tipo_terminacion: str | None = None,
+    objetivos_omitidos: int | None = None,
 ) -> RutasCorrida:
     """Genera, valida y escribe log.json y results.json de una corrida.
 
@@ -126,7 +131,19 @@ def escribir_corrida(
 
     log = construir_log(run_id, fecha, proyecto, perfil, resultados, tracker, precios)
     results = construir_results(
-        run_id, fecha, proyecto, perfil, resultados, tracker, precios, metas
+        run_id,
+        fecha,
+        proyecto,
+        perfil,
+        resultados,
+        tracker,
+        precios,
+        metas,
+        total_seleccionados=total_seleccionados,
+        total_procesados=total_procesados,
+        total_pendientes=total_pendientes,
+        tipo_terminacion=tipo_terminacion,
+        objetivos_omitidos=objetivos_omitidos,
     )
     results["rama"] = rama
     if inicio is not None:
@@ -301,6 +318,11 @@ def construir_results(
     tracker: TokenTracker,
     precios: dict[str, PrecioAgente],
     metas: dict[str, float] | None = None,
+    total_seleccionados: int | None = None,
+    total_procesados: int | None = None,
+    total_pendientes: int | None = None,
+    tipo_terminacion: str | None = None,
+    objetivos_omitidos: int | None = None,
 ) -> dict[str, Any]:
     """Contenido de results.json: las 5 métricas por función y un resumen."""
     objetivos = [
@@ -308,13 +330,34 @@ def construir_results(
         for resultado in resultados
         for objetivo in resultado.objetivos
     ]
-    return {
+    resumen_datos = _resumen(
+        objetivos,
+        tracker,
+        metas,
+        total_seleccionados=total_seleccionados,
+        total_procesados=total_procesados,
+        total_pendientes=total_pendientes,
+        tipo_terminacion=tipo_terminacion,
+        objetivos_omitidos=objetivos_omitidos,
+    )
+    datos_results = {
         **_cabecera(
             "results", run_id, fecha, proyecto, perfil, resultados, tracker, precios
         ),
         "objetivos": objetivos,
-        "resumen": _resumen(objetivos, tracker, metas),
+        "resumen": resumen_datos,
     }
+    if total_seleccionados is not None:
+        datos_results["total_seleccionados"] = total_seleccionados
+    if total_procesados is not None:
+        datos_results["total_procesados"] = total_procesados
+    if total_pendientes is not None:
+        datos_results["total_pendientes"] = total_pendientes
+    if tipo_terminacion is not None:
+        datos_results["tipo_terminacion"] = tipo_terminacion
+    if objetivos_omitidos is not None:
+        datos_results["objetivos_omitidos"] = objetivos_omitidos
+    return datos_results
 
 
 # --- Partes de los archivos -------------------------------------------------------
@@ -410,14 +453,25 @@ def _resumen(
     objetivos: list[dict[str, Any]],
     tracker: TokenTracker,
     metas: dict[str, float] | None = None,
+    total_seleccionados: int | None = None,
+    total_procesados: int | None = None,
+    total_pendientes: int | None = None,
+    tipo_terminacion: str | None = None,
+    objetivos_omitidos: int | None = None,
 ) -> dict[str, Any]:
     total = len(objetivos)
+    sel = total_seleccionados if total_seleccionados is not None else total
+    proc = total_procesados if total_procesados is not None else total
+    pend = total_pendientes if total_pendientes is not None else max(0, sel - proc)
     pasaron = sum(1 for o in objetivos if o["metricas"]["paso"])
     iteraciones = [
         o["metricas"]["iteraciones"] for o in objetivos if o["metricas"]["iteraciones"]
     ]
     resumen: dict[str, Any] = {
         "total_funciones": total,
+        "total_seleccionados": sel,
+        "total_procesados": proc,
+        "total_pendientes": pend,
         "aceptadas": _contar(objetivos, "accept"),
         "bugs_detectados": _contar(objetivos, "bug_detectado"),
         "stalled": _contar(objetivos, "stalled"),
@@ -444,6 +498,10 @@ def _resumen(
     }
     if metas is not None:
         resumen["metas"] = dict(metas)
+    if tipo_terminacion is not None:
+        resumen["tipo_terminacion"] = tipo_terminacion
+    if objetivos_omitidos is not None:
+        resumen["objetivos_omitidos"] = objetivos_omitidos
     return resumen
 
 
