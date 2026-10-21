@@ -260,6 +260,16 @@ class AlmacenProyecto:
             datos["specs"] = run["specs"]
         if run.get("duracion_s") is not None:
             datos["duracion_s"] = run["duracion_s"]
+        if run.get("tipo_terminacion") is not None:
+            datos["tipo_terminacion"] = run["tipo_terminacion"]
+        if run.get("total_seleccionados") is not None:
+            datos["total_seleccionados"] = run["total_seleccionados"]
+        if run.get("procesados") is not None:
+            datos["procesados"] = run["procesados"]
+        if run.get("pendientes") is not None:
+            datos["pendientes"] = run["pendientes"]
+        if run.get("motivo") is not None:
+            datos["motivo"] = run["motivo"]
         escribir_json_atomico(ruta, datos)
         return ruta
 
@@ -272,6 +282,9 @@ class AlmacenProyecto:
         tipos_prueba: Iterable[str] | None = None,
         ahora: datetime | None = None,
         duracion_s: float | None = None,
+        total_seleccionados: int | None = None,
+        tipo_terminacion: str | None = None,
+        motivo: str | None = None,
     ) -> dict[str, Any]:
         """Marca el fin de una corrida con su estado final y el resumen.
 
@@ -288,6 +301,16 @@ class AlmacenProyecto:
             estado=estado,
             resumen={"pasaron": pasaron, "fallaron": fallaron},
         )
+        if total_seleccionados is not None:
+            sel = int(total_seleccionados)
+            proc = pasaron + fallaron
+            run["total_seleccionados"] = sel
+            run["procesados"] = proc
+            run["pendientes"] = max(0, sel - proc)
+        if tipo_terminacion is not None:
+            run["tipo_terminacion"] = str(tipo_terminacion)
+        if motivo is not None:
+            run["motivo"] = str(motivo)
         if tipos_prueba is not None:
             run["tipos_prueba"] = list(tipos_prueba)
         if duracion_s is not None:
@@ -717,6 +740,14 @@ def _validar_run(run: dict[str, Any]) -> None:
         or duracion < 0
     ):
         raise ErrorAlmacen("duracion_s debe ser un número no negativo o null.")
+    terminacion = run.get("tipo_terminacion")
+    if terminacion is not None and not isinstance(terminacion, str):
+        raise ErrorAlmacen("tipo_terminacion debe ser texto o null.")
+    sel = run.get("total_seleccionados")
+    if sel is not None and (
+        isinstance(sel, bool) or not isinstance(sel, int) or sel < 0
+    ):
+        raise ErrorAlmacen("total_seleccionados debe ser un entero no negativo o null.")
 
 
 def _validar_spec(spec: dict[str, Any]) -> None:

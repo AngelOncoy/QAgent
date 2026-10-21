@@ -121,7 +121,41 @@ def vista_ejecucion(results: dict[str, Any]) -> dict[str, Any]:
     estados = [estado_de(o) for o in objetivos]
     tipos = [tipo_de(o) for o in objetivos]
 
+    total_seleccionados = (
+        results.get("total_seleccionados")
+        or resumen.get("total_seleccionados")
+        or len(objetivos)
+    )
+    total_procesados = len(objetivos)
+    total_pendientes = (
+        results.get("total_pendientes")
+        if results.get("total_pendientes") is not None
+        else (
+            resumen.get("total_pendientes")
+            if resumen.get("total_pendientes") is not None
+            else max(0, total_seleccionados - total_procesados)
+        )
+    )
+    tipo_terminacion = (
+        results.get("tipo_terminacion")
+        or resumen.get("tipo_terminacion")
+        or (
+            "completada"
+            if results.get("estado_final") == "fin" and total_pendientes == 0
+            else "detenida_error"
+        )
+    )
+    es_parcial = total_pendientes > 0 or tipo_terminacion in (
+        "cancelada",
+        "limitada_recursos",
+    )
+
     return {
+        "total_seleccionados": total_seleccionados,
+        "total_procesados": total_procesados,
+        "total_pendientes": total_pendientes,
+        "tipo_terminacion": tipo_terminacion,
+        "es_parcial": es_parcial,
         "run_id": results["run_id"],
         "fecha": results["fecha"],
         "perfil": results["perfil"],

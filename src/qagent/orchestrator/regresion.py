@@ -254,6 +254,7 @@ def ejecutar_regresion(
                 )
                 in elegidos
             ]
+        resumen.total_seleccionados = len(specs)
         resumen.total_funciones = len(specs)
         if not specs:
             raise RuntimeError("No hay pruebas aprobadas vigentes para Regresion.")
@@ -262,6 +263,8 @@ def ejecutar_regresion(
         for spec in specs:
             if cancelado is not None and cancelado():
                 resumen.estado = "fallo_controlado"
+                resumen.cancelada = True
+                resumen.tipo_terminacion = "cancelada"
                 resumen.motivo = "Corrida detenida por el usuario."
                 emitir(resumen.motivo, tipo="fallo")
                 break
@@ -424,11 +427,28 @@ def ejecutar_regresion(
                 emitir,
             )
         decisiones = [o.decision for r in resultados for o in r.objetivos]
+        resumen.total_procesados = len(decisiones)
+        resumen.total_pendientes = max(
+            0, resumen.total_seleccionados - resumen.total_procesados
+        )
         resumen.total_funciones = len(decisiones)
         resumen.aceptadas = decisiones.count("accept")
         resumen.bugs_detectados = decisiones.count("bug_detectado")
         resumen.estancadas = decisiones.count("stalled")
         resumen.requieren_corrida_nueva = decisiones.count("requiere_corrida_nueva")
+        if not resumen.tipo_terminacion or resumen.tipo_terminacion == "completada":
+            if resumen.cancelada or (
+                resumen.motivo and "cancelad" in resumen.motivo.lower()
+            ):
+                resumen.tipo_terminacion = "cancelada"
+            elif resumen.estado == "fallo_controlado":
+                resumen.tipo_terminacion = "detenida_error"
+            elif resumen.sin_veredicto > 0 or resumen.estancadas > 0:
+                resumen.tipo_terminacion = "completada_con_errores"
+            elif resumen.total_pendientes > 0:
+                resumen.tipo_terminacion = "detenida_error"
+            else:
+                resumen.tipo_terminacion = "completada"
         resumen.duracion_s = segundos(inicio, reloj())
         resumen.fin = ahora()
         rutas = escribir_corrida(
@@ -444,6 +464,10 @@ def ejecutar_regresion(
             fin=resumen.fin,
             duracion_s=resumen.duracion_s,
             duracion_etapas=resumen.duracion_etapas,
+            total_seleccionados=resumen.total_seleccionados,
+            total_procesados=resumen.total_procesados,
+            total_pendientes=resumen.total_pendientes,
+            tipo_terminacion=resumen.tipo_terminacion,
         )
         resumen.run_id, resumen.carpeta = rutas.run_id, str(rutas.carpeta)
     except Exception as error:  # noqa: BLE001
