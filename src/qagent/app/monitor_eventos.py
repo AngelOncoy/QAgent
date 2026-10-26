@@ -139,6 +139,8 @@ def _clasificar(
         return "watch", ("Tiempo agotado: el agente no respondió", "SIN VEREDICTO")
     if tipo == "veredicto" and datos.get("motivo") == "error_contrato_planner":
         return "watch", ("Error en contrato del Planner", "SIN VEREDICTO")
+    if tipo == "veredicto" and datos.get("motivo") == "error_planner":
+        return "watch", ("El Planner no pudo planificarlo", "SIN VEREDICTO")
     if agente in ("planner", "generator"):
         return agente, None
     if agente == "reviewer":

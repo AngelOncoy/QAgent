@@ -417,7 +417,8 @@ def _objetivo(
     datos = {
         "modulo": modulo,
         "funcion": objetivo.objetivo,
-        "tipo": (objetivo.contrato or {}).get("tipo", "funcion"),  # EN-16
+        "tipo": getattr(objetivo, "tipo", None)  # sin contrato (FIX-02)
+        or (objetivo.contrato or {}).get("tipo", "funcion"),  # EN-16
         "critical": objetivo.critical,
         "decision": objetivo.decision,
         "motivo_estancado": objetivo.motivo_estancado,  # HU-14
