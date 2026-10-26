@@ -92,6 +92,7 @@ La interfaz, los contratos y `config.toml` viajan dentro del paquete (`src/qagen
 - Commits: `tipo(ID): mensaje`. Ej.: `feat(EN-01): add planner contract schema`.
 - Todo entra por PR a `develop` con la plantilla de `.github/pull_request_template.md` y al menos 1 aprobación.
 - Cada PR indica el ítem del backlog (HU, EN, SPK, EV, DO) y sus criterios de aceptación.
+- **Autoría:** commits, PR e issues son del integrante del equipo que los hace. Un asistente de IA nunca se agrega como autor ni coautor: sin `Co-Authored-By:`, sin «Generated with …» ni firmas equivalentes.
 
 ## Para ahorrar tokens
 
