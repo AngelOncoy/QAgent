@@ -107,12 +107,23 @@ def test_planner_rechaza_json_invalido() -> None:
         planner.planificar(MODULO)
 
 
-def test_planner_rechaza_un_objeto_en_lugar_de_lista() -> None:
+def test_planner_rechaza_un_objeto_sin_objetivo() -> None:
+    cliente = ClienteGrabado(json.dumps({"casos": PLAN[0]["casos"]}))
+    planner = PlannerAgent(cliente, TokenTracker())
+
+    with pytest.raises(
+        ErrorRespuestaPlanner,
+        match='lista de objetivos; se recibió un objeto sin "objetivo"',
+    ):
+        planner.planificar(MODULO)
+
+
+def test_un_objeto_suelto_con_objetivo_equivale_a_una_lista_de_uno() -> None:
+    """#135: con un solo objetivo el modelo a veces omite los corchetes."""
     cliente = ClienteGrabado(json.dumps(PLAN[0]))
     planner = PlannerAgent(cliente, TokenTracker())
 
-    with pytest.raises(ErrorRespuestaPlanner, match="lista"):
-        planner.planificar(MODULO)
+    assert planner.planificar(MODULO) == PLAN
 
 
 def test_los_campos_del_contrato_salen_del_analisis_y_no_del_modelo() -> None:

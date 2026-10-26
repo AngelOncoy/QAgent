@@ -143,7 +143,8 @@ class PlannerAgent:
         quedan en `self.omitidas`. Ninguno de los dos tumba la corrida del módulo.
 
         Raises:
-            ErrorRespuestaPlanner: si la respuesta no es una lista JSON, o si ninguna
+            ErrorRespuestaPlanner: si la respuesta no es una lista JSON (un objeto
+                suelto con "objetivo" cuenta como lista de uno, #135), o si ninguna
                 función produce un contrato válido por errores del modelo (y no porque
                 su valor esperado no se pueda deducir).
         """
@@ -171,16 +172,7 @@ class PlannerAgent:
             es_estimado=getattr(respuesta, "es_estimado", False),
         )
 
-        try:
-            propuesta = json.loads(_quitar_cerca_json(respuesta.contenido))
-        except json.JSONDecodeError as error:
-            raise ErrorRespuestaPlanner(
-                "El Planner no devolvió JSON válido."
-            ) from error
-        if not isinstance(propuesta, list):
-            raise ErrorRespuestaPlanner(
-                "El Planner debe devolver una lista de objetivos."
-            )
+        propuesta = _leer_lista(respuesta.contenido)
 
         plan: list[dict[str, Any]] = []
         for elemento in propuesta:
@@ -419,7 +411,9 @@ Prueba de humo pytest: UN caso normal por función (entrada válida y su resulta
 - No inventes valores ni conviertas el humo en una prueba de mera ejecución.
 - Caso: "id", "entrada" (argumentos por nombre), "valor_esperado", "origen" (uno de:
   {", ".join(ORIGENES)}) y "categoria": "normal". Sin "excepcion" ni casos límite.
-- Devuelve SOLO una lista JSON: {{"objetivo": nombre, "casos": [caso]}}.
+- Devuelve SOLO una lista JSON con un objeto por función:
+  [{{"objetivo": nombre, "casos": [caso]}}]. Si ninguna tiene un caso deducible,
+  devuelve la lista vacía [].
 Ejemplo: {ejemplo}
 
 {MARCA_MODULO} {modulo["ruta"]}
@@ -704,7 +698,9 @@ exitosa que declara (su status_code, 200 si no lo declara).
 - Caso: "id", "entrada" {{"metodo", "ruta", opcionales "query", "json", "headers"}},
   "valor_esperado" {{"status_code" y, si se conoce, "json_contiene"}}, "origen" (uno
   de: {", ".join(ORIGENES_ENDPOINT)}) y "categoria": "normal". Sin casos de error.
-- Devuelve SOLO una lista JSON: {{"objetivo": "MÉTODO /ruta", "casos": [caso]}}.
+- Devuelve SOLO una lista JSON con un objeto por endpoint:
+  [{{"objetivo": "MÉTODO /ruta", "casos": [caso]}}]. Si ninguno tiene una respuesta
+  deducible, devuelve la lista vacía [].
 Ejemplo: {ejemplo}
 
 MODELOS: {json.dumps(modelos, ensure_ascii=False)}
@@ -1128,10 +1124,40 @@ def faltantes(endpoint: dict[str, Any], casos: list[dict[str, Any]]) -> list[str
 
 
 def _leer_lista(contenido: str) -> list[Any]:
+    """Lee la lista de objetivos que devuelve el Planner (funciones y endpoints).
+
+    #135: con un solo objetivo el modelo a veces devuelve el objeto suelto en vez de una
+    lista de uno. Un objeto con la clave "objetivo" se toma como esa lista; cada elemento
+    se valida después igual que siempre. Cualquier otra forma sigue siendo un error.
+
+    Raises:
+        ErrorRespuestaPlanner: si no es JSON, o no es una lista ni un objeto con
+            "objetivo". El mensaje dice qué se recibió, sin copiar la respuesta.
+    """
     try:
         propuesta = json.loads(_quitar_cerca_json(contenido))
     except json.JSONDecodeError as error:
         raise ErrorRespuestaPlanner("El Planner no devolvió JSON válido.") from error
+    if isinstance(propuesta, dict) and "objetivo" in propuesta:
+        return [propuesta]
     if not isinstance(propuesta, list):
-        raise ErrorRespuestaPlanner("El Planner debe devolver una lista de objetivos.")
+        raise ErrorRespuestaPlanner(
+            "El Planner debe devolver una lista de objetivos; se recibió "
+            f"{_describir_json(propuesta)}."
+        )
     return propuesta
+
+
+def _describir_json(valor: Any) -> str:
+    """Qué tipo de valor JSON es, en palabras, para los mensajes de error (#135)."""
+    if isinstance(valor, dict):
+        return 'un objeto sin "objetivo"'
+    if isinstance(valor, str):
+        return "un texto"
+    if isinstance(valor, bool):
+        return "un valor booleano"
+    if isinstance(valor, int | float):
+        return "un número"
+    if valor is None:
+        return "null"
+    return "un valor no válido"
