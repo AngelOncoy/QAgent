@@ -80,6 +80,8 @@ AVISO_COMPROBANDO = (
     "aislado"
 )
 AVISO_LISTAS = "Librerías del sistema listas en el entorno aislado"
+#: Inicio del aviso que nombra los paquetes que se instalan en cada ronda.
+AVISO_INSTALANDO = "Instalando librerías del sistema que necesitan las dependencias"
 #: Así empieza el aviso de una librería sin resolver (el Monitor lo destaca).
 PREFIJO_FALTANTE = "Falta la librería del sistema"
 
@@ -205,8 +207,7 @@ def _construir_con_rondas(
         paquetes |= nuevos
         _avisar(
             avanzar,
-            "Instalando librerías del sistema que necesitan las dependencias: "
-            + ", ".join(sorted(nuevos)),
+            f"{AVISO_INSTALANDO}: " + ", ".join(sorted(nuevos)),
         )
     if paquetes:
         _avisar(avanzar, AVISO_LISTAS)

@@ -645,13 +645,24 @@ def avance_limitado(
 ) -> Callable[[str], None]:
     """Reenvía el avance de la construcción a `avisar`, sin saturar el Monitor.
 
-    Las fases (empezar a instalar, terminar) siempre pasan; los pasos de pip
-    («Descargando torch…») como mucho uno cada `intervalo_s`. Un texto igual al
-    anterior no se repite.
+    Las fases (empezar a instalar, terminar, comprobar las librerías del sistema)
+    siempre pasan; los pasos de pip («Descargando torch…») como mucho uno cada
+    `intervalo_s`. Un texto igual al anterior no se repite.
     """
     from qagent.sandbox.imagen import AVISO_BASE, AVISO_DEPENDENCIAS, AVISO_LISTO
+    from qagent.sandbox.librerias import (
+        AVISO_COMPROBANDO,
+        AVISO_INSTALANDO,
+        AVISO_LISTAS,
+    )
 
-    fases = {AVISO_BASE, AVISO_DEPENDENCIAS, AVISO_LISTO}
+    fases = {
+        AVISO_BASE,
+        AVISO_DEPENDENCIAS,
+        AVISO_LISTO,
+        AVISO_COMPROBANDO,
+        AVISO_LISTAS,
+    }
     estado: dict[str, Any] = {"ultimo": None, "momento": None}
 
     def avanzar(texto: str) -> None:
@@ -661,7 +672,8 @@ def avance_limitado(
         reciente = (
             estado["momento"] is not None and ahora - estado["momento"] < intervalo_s
         )
-        if reciente and texto not in fases:
+        es_fase = texto in fases or texto.startswith(AVISO_INSTALANDO)  # issue 142
+        if reciente and not es_fase:
             return
         estado["ultimo"], estado["momento"] = texto, ahora
         avisar(texto)
