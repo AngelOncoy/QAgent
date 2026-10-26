@@ -38,7 +38,9 @@ def test_desktop_api_inicia_corrida_con_perfil_y_evento(
     assert len(eventos_emitidos) == 1
     tipo, payload = eventos_emitidos[0]
     assert tipo == "log"
-    assert "iniciada en perfil 'deep'" in payload["message"]
+    # #133: el aviso usa el nombre del perfil para personas, no el identificador interno.
+    assert payload["message"] == "Corrida iniciada: Estándar + profundizar"
+    assert "'deep'" not in payload["message"]
 
 
 def test_eventos_de_alerta_tienen_clasificacion_valida() -> None:

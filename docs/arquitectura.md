@@ -702,19 +702,23 @@ El análisis con `ast` (EN-02) no convierte las pruebas de funciones en caja gri
 
 ### 10.3 Lo que elige el usuario
 
-La pantalla hace dos preguntas y traduce la respuesta al perfil que recibe `start_run` (`perfilDeEleccion` en `config-pruebas.js`):
+La pantalla Preparar hace dos preguntas. «¿Qué quieres hacer?» elige la estrategia y se traduce al perfil que recibe `start_run` (`perfilDeEleccion` en `config-pruebas.js`). «Tipos de prueba» elige el nivel (Unitarias, Endpoints API o ambos) y se combina con cualquier estrategia:
 
-| ¿Qué quieres hacer? | Tipo de prueba | Profundizar | Perfil |
-|---|---|---|---|
-| Generar pruebas nuevas | Humo | — (no disponible) | `humo` |
-| Generar pruebas nuevas | Estándar | No, o sin funciones prioritarias | `std` |
-| Generar pruebas nuevas | Estándar | Sí | `deep` |
-| Repetir pruebas guardadas | — | No, o sin prioritarias con prueba guardada vigente | `reg` |
-| Repetir pruebas guardadas | — | Sí | `reg_deep` |
+| ¿Qué quieres hacer? | Condición | Perfil |
+|---|---|---|
+| Generar pruebas nuevas (opción por defecto) | — | `std` |
+| Revisión rápida (humo) | — | `humo` |
+| Volver a correr las guardadas | Requiere una corrida previa del proyecto | `reg` |
+| Análisis a fondo de críticas | Con funciones o endpoints críticos marcados | `deep` |
+| Análisis a fondo de críticas | Sin críticas marcadas | `std` |
 
-Profundizar no es un perfil aparte sino una casilla dentro de Estándar, porque añade la capa de caja blanca encima de las pruebas normales: la mutación mide qué tan buenas son las pruebas que ya existen, así que necesita una base completa. Con Humo (un solo caso por objetivo) casi todos los mutantes sobrevivirían y el resultado no aportaría información. «Repetir pruebas guardadas» tampoco es un nivel de profundidad: es otra acción, que vuelve a ejecutar sin IA las pruebas aprobadas cuyo código no cambió (HU-25).
+Humo solo se usa si el usuario lo elige: QAgent no lo activa por su cuenta, por ejemplo en la primera corrida de un proyecto (#133). Con Humo, las funciones críticas y la fortaleza de las pruebas se muestran desactivadas, con su explicación.
 
-Al repetir, Profundizar (#70) mide sin gastar tokens qué tan fuertes son las pruebas que ya están guardadas, por ejemplo las que se aprobaron con Estándar. Solo cuentan las funciones marcadas que tienen hoy una prueba guardada vigente (`objetivos_repetibles`): las que requieren corrida nueva o fallaron no se mutan, porque su prueba no sirve hoy para juzgar a los mutantes. La casilla viene desmarcada, para que repetir no se vuelva lento sin pedirlo.
+El análisis a fondo no se ofrece con Humo porque añade la capa de caja blanca encima de las pruebas normales: la mutación mide qué tan buenas son las pruebas que ya existen, así que necesita una base completa. Con Humo (un solo caso por objetivo) casi todos los mutantes sobrevivirían y el resultado no aportaría información. «Volver a correr las guardadas» tampoco es un nivel de profundidad: es otra acción, que vuelve a ejecutar sin IA las pruebas aprobadas cuyo código no cambió (HU-25).
+
+El backend también acepta `reg_deep` (repetir y mutar las críticas, #70), pero desde el rediseño de Preparar (18/10/2026) la pantalla no ofrece esa combinación.
+
+Al repetir con `reg_deep`, Profundizar (#70) mide sin gastar tokens qué tan fuertes son las pruebas que ya están guardadas, por ejemplo las que se aprobaron con Estándar. Solo cuentan las funciones marcadas que tienen hoy una prueba guardada vigente (`objetivos_repetibles`): las que requieren corrida nueva o fallaron no se mutan, porque su prueba no sirve hoy para juzgar a los mutantes. La casilla viene desmarcada, para que repetir no se vuelva lento sin pedirlo.
 
 ### 10.4 Por qué Profundizar solo en funciones prioritarias
 
@@ -733,7 +737,7 @@ QAgent propone como prioritaria toda función con al menos una decisión (`if`/`
 |---|---|---|
 | Pruebas unitarias y de API, regresión sin IA | Implementado | HU-27 · HU-25 |
 | Pantalla de configuración como opciones | Implementado | #69 |
-| Humo con un solo caso por objetivo | Pendiente: hoy el backend trata `humo` igual que `std` | Issue «Feat: perfil Humo con un caso normal por objetivo» |
+| Humo con un solo caso por objetivo | Implementado: un caso normal por objetivo, sin exigir ramas; se elige en Preparar como «Revisión rápida (humo)» | #75 · #133 |
 | Marcas de función prioritaria hasta la corrida | Implementado: la selección envía las marcas y el spec reutilizado toma la marca actual | HU-06 |
 | Mutación (Profundizar) | Implementado en el perfil Profundo: mutmut en el sandbox solo sobre las funciones críticas aprobadas; Mutation Score y sobrevivientes en `results.json` y en el informe | EN-09 |
 | Mutación al repetir pruebas guardadas | Implementado (`reg_deep`): sin IA, solo sobre las críticas con prueba guardada vigente, con reutilización del resultado si nada cambió | #70 |
