@@ -42,6 +42,7 @@ from qagent.orchestrator.orquestador import (
     es_error_planner_recuperable,
 )
 from qagent.sandbox import ResultadoSandbox
+from qagent.storage.vista_ejecucion import leer_results, vista_ejecucion
 from tests.orchestrator.fakes import (
     MODULO,
     GeneratorSimulado,
@@ -239,6 +240,14 @@ def test_caso_b_fallo_recuperable_del_planner_no_detiene_el_tercero(
     dos = resultados["dos"]
     assert dos["decision"] is None
     assert dos["motivo_sin_veredicto"] == ERROR_PLANNER
+
+    # La pantalla Ejecución recibe el motivo para explicarlo.
+    vista = vista_ejecucion(leer_results(proyecto, resumen.run_id))
+    [fila] = [
+        p for m in vista["modulos"] for p in m["pruebas"] if p["funcion"] == "dos"
+    ]
+    assert fila["estado"] == "sin_veredicto"
+    assert fila["motivo_sin_veredicto"] == ERROR_PLANNER
     assert resumen.aceptadas == 2
     assert resumen.sin_veredicto == 1
     assert resumen.total_pendientes == 0

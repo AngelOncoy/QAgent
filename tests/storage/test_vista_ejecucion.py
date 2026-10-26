@@ -257,6 +257,7 @@ def test_pruebas_agrupadas_por_modulo(results) -> None:
         "cobertura_lineas": 40.0,
         "cobertura_ramas": None,
         "motivo_estancado": "error_repetido",
+        "motivo_sin_veredicto": None,  # FIX-02: el ejemplo tiene veredicto
         "critical": False,
         "categorias": None,  # #76: el ejemplo es anterior al conteo por categoría
     }

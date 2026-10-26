@@ -99,6 +99,12 @@ const MOTIVO_SIN_PRUEBA = {
   rechazado_laundering: 'Las pruebas generadas debilitaban el criterio esperado y se rechazaron.',
   sin_veredicto: 'La verificación no terminó con un veredicto.',
 };
+// Por qué quedó sin veredicto (motivo_sin_veredicto de results.json; FIX-02).
+const MOTIVO_SIN_VEREDICTO = {
+  tiempo_agotado: 'Un agente o el proveedor de IA no respondió a tiempo; la corrida siguió con lo demás.',
+  error_contrato_planner: 'La propuesta del Planner no cumplía el contrato, así que no se generó una prueba.',
+  error_planner: 'El Planner no pudo planificar este objetivo (por ejemplo, respondió con un formato inválido); la corrida siguió con lo demás.',
+};
 
 /* ---------------- Modelo común de cada elemento ---------------- */
 // Corrida real: lista de obtener_ejecucion(); el detalle se completa con obtener_reporte().
@@ -133,6 +139,7 @@ function elementosProbados(v){
       duracionGeneracion: p.duracion_generacion_s, duracionSandbox: p.duracion_sandbox_s,
       duracionPytest: p.duracion_pytest_s,
       cobLineas: p.cobertura_lineas, cobRamas: p.cobertura_ramas, estadoBackend: p.estado,
+      motivoSinVeredicto: p.motivo_sin_veredicto || null,
       ...detalleDeReporte(det),
     };
   }));
@@ -355,7 +362,8 @@ function renderFiltrosBandeja(todos){
 function renderDetalleBandeja(e){
   if (!e) { $('bnjDetalle').innerHTML = '<p class="np-texto">Elige una función o un endpoint para ver su evidencia.</p>'; return; }
   const b = BANDEJA[e.bandeja];
-  const explicacion = e.explicacion || (e.bandeja === 'sin' ? MOTIVO_SIN_PRUEBA[e.estadoBackend] : null)
+  const explicacion = e.explicacion || MOTIVO_SIN_VEREDICTO[e.motivoSinVeredicto]
+    || (e.bandeja === 'sin' ? MOTIVO_SIN_PRUEBA[e.estadoBackend] : null)
     || (e.bandeja === 'repetir' ? 'El código cambió desde que se guardó esta prueba: hay que generarla de nuevo.' : null)
     || (e.bandeja === 'paso' ? 'La prueba pasó en el entorno aislado.' : null);
   const cargando = e.cargando ? '<p class="np-meta">Cargando la evidencia…</p>' : '';
