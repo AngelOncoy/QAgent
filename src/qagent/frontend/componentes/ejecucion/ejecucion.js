@@ -30,6 +30,11 @@ registrarComponente('ejecucion/ejecucion', `<!-- ===== 5. PRUEBAS: BANDEJA DE PR
       </div>
     </div>
 
+    <!-- issue 139: en la app, sin resultados no se muestra la demostración sino este aviso -->
+    <div class="np-aviso np-aviso-info hide" id="bnjVacio">${ICO_INFO}<div><b>Este proyecto todavía no tiene resultados</b>
+      <span>Cuando una corrida termine, sus resultados aparecerán aquí. Una corrida que no llegó a terminar (por ejemplo, porque se cerró la aplicación) queda en el Historial como «Interrumpida».</span>
+      <button type="button" class="ini-enlace" onclick="go('preview')">Ir a Explorar</button></div></div>
+
     <div class="exp-cifras bnj-cifras" id="kpis"></div>
     <p class="np-meta" id="bnjResumen"></p>
 
@@ -191,7 +196,9 @@ function elementosDemo(){
 
 /* ---------------- Carga de la corrida real ---------------- */
 let cargandoEjecucion = false;
-async function cargarEjecucionReal(runId = null, navegar = true){
+// `silencioso`: sin aviso de error cuando no haber resultados es un caso esperado
+// (al reabrir un proyecto cuyas corridas se interrumpieron, issue 139).
+async function cargarEjecucionReal(runId = null, navegar = true, {silencioso = false} = {}){
   const api = window.pywebview && window.pywebview.api;
   if(!api || !api.obtener_ejecucion) return;
   if(cargandoEjecucion) return;
@@ -199,7 +206,7 @@ async function cargarEjecucionReal(runId = null, navegar = true){
   try {
     const r = await api.obtener_ejecucion(projectPath, runId || null);
     if(!r || !r.ok){
-      if (typeof toastError === 'function') toastError(escHtml((r && r.motivo) || 'No se pudieron leer los resultados de la corrida.'));
+      if (!silencioso && typeof toastError === 'function') toastError(escHtml((r && r.motivo) || 'No se pudieron leer los resultados de la corrida.'));
       return;
     }
     ejecucionReal = r; filterState = 'todos'; filterType = 'todos'; filtroArchivo = 'todos'; seleccionBandeja = null;
@@ -236,11 +243,25 @@ async function cargarDetalleReal(runId){
 
 
 /* ---------------- Renderizado ---------------- */
+// Dentro de la app de escritorio (pywebview) los datos son siempre los del proyecto.
+function enAppEscritorio(){ return !!(window.pywebview && window.pywebview.api); }
 function renderExec(){
   if (typeof desbloquearVista === 'function') {
     desbloquearVista('exec');
   }
   const v = ejecucionReal;
+  // issue 139: la demostración es solo para el navegador sin Python; en la app, sin
+  // resultados se muestra un estado vacío, nunca datos de ejemplo como si fueran reales.
+  const sinResultados = !v && enAppEscritorio();
+  $('s-exec').classList.toggle('bnj-sin-datos', sinResultados);
+  $('bnjVacio').classList.toggle('hide', !sinResultados);
+  if (sinResultados) {
+    $('bnjTitulo').textContent = 'Resultados';
+    $('bnjSub').textContent = document.querySelector('.ini-migas .repoName') ? document.querySelector('.ini-migas .repoName').textContent : '';
+    ['kpis', 'bnjResumen', 'bnjBandejas', 'suites', 'bnjNotaLista', 'bnjDetalle', 'bnjPrioridades'].forEach(id => { $(id).innerHTML = ''; });
+    ELEMENTOS_BANDEJA = [];
+    return;
+  }
   if (v) cargarDetalleReal(v.run_id);
   const todos = v ? elementosReales(v) : elementosDemo();
   todos.sort((a, b) => ORDEN_BANDEJA[a.bandeja] - ORDEN_BANDEJA[b.bandeja] || (b.critica - a.critica));
