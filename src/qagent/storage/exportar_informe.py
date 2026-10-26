@@ -27,7 +27,9 @@ from qagent.config.auditoria import PATRONES, Hallazgo
 from qagent.config.carga import Claves, leer_env
 from qagent.storage.registro import CARPETA_RUNS, nombre_perfil
 from qagent.storage.vista_ejecucion import (
+    corrida_incompleta,
     leer_results,
+    respuesta_principal,
     vista_ejecucion,
 )
 from qagent.storage.vista_reporte import (
@@ -1050,6 +1052,8 @@ def datos_informe(
         "total_pendientes": vista.get("total_pendientes"),
         "tipo_terminacion": vista.get("tipo_terminacion"),
         "es_parcial": vista.get("es_parcial"),
+        # Seleccionados que no se probaron, con su motivo.
+        "omitidos": copy.deepcopy(results.get("omitidos") or []),
         "criticas": sum(1 for o in results["objetivos"] if o.get("critical")),
         "modelos": copy.deepcopy(results["modelos"]),
         "costo_por_agente": por_agente,
@@ -1094,15 +1098,18 @@ def construir_markdown_informe(
         in ("sin", "repetir")
     ]
     total = len(funciones)
-    if bugs:
-        nombre_pri = str(
-            bugs[0].get("identificador") or bugs[0].get("funcion") or "Función"
-        )
-        respuesta = f"{len(bugs)} {'posible bug' if len(bugs) == 1 else 'posibles bugs'}. Empieza por {nombre_pri}."
-    elif sin:
-        respuesta = "Sin posibles bugs, pero faltan pruebas por revisar."
-    else:
-        respuesta = f"Todo pasó: {total} {'función o endpoint verificado' if total == 1 else 'funciones y endpoints verificados'}."
+    respuesta = respuesta_principal(
+        bugs=len(bugs),
+        primer_bug=(
+            str(bugs[0].get("identificador") or bugs[0].get("funcion") or "Función")
+            if bugs
+            else None
+        ),
+        sin_prueba=len(sin),
+        total=total,
+        omitidos=len(datos.get("omitidos") or []),
+        incompleta=corrida_incompleta(datos),
+    )
 
     meta_parts = [
         f"**Proyecto:** {datos['proyecto']}",
@@ -1710,15 +1717,19 @@ def construir_html_informe(
         in ("sin", "repetir")
     ]
     total = len(funciones)
-    if bugs:
-        nombre_pri = str(
-            bugs[0].get("identificador") or bugs[0].get("funcion") or "Función"
-        )
-        respuesta = f"{len(bugs)} {'posible bug' if len(bugs) == 1 else 'posibles bugs'}. Empieza por {nombre_pri}."
-    elif sin:
-        respuesta = "Sin posibles bugs, pero faltan pruebas por revisar."
-    else:
-        respuesta = f"Todo pasó: {total} {'función o endpoint verificado' if total == 1 else 'funciones y endpoints verificados'}."
+    respuesta = respuesta_principal(
+        bugs=len(bugs),
+        primer_bug=(
+            str(bugs[0].get("identificador") or bugs[0].get("funcion") or "Función")
+            if bugs
+            else None
+        ),
+        sin_prueba=len(sin),
+        total=total,
+        omitidos=len(datos.get("omitidos") or []),
+        incompleta=corrida_incompleta(datos),
+    )
+    respuesta = esc(respuesta)  # lleva el nombre de una función del proyecto
 
     m_dict = {x["clave"]: x for x in metricas}
     pasaron = sum(

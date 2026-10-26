@@ -233,10 +233,10 @@ function renderExport(){
   const k = v ? v.indicadores : null;
   const cobertura = k ? k.cobertura.lineas : (total ? todos.reduce((s, e) => s + (Number(e.cobLineas) || 0), 0) / total : null);
   const tokens = k ? k.costo.tokens_total : null;
-  const chip = bugs
-    ? `<span class="np-chip np-chip-bug">${ICO_ERROR}${bugs} ${bugs === 1 ? 'posible bug' : 'posibles bugs'}</span>`
-    : n('sin') + n('tiempo') + n('repetir') ? `<span class="np-chip np-chip-aviso">${ICO_AVISO_CLON}Faltan pruebas por revisar</span>`
-    : `<span class="np-chip np-chip-exito">${ICO_OK}Todo pasó</span>`;
+  // Mismo criterio que el título de Resultados (estadoGeneral, en ejecucion.js).
+  const estado = estadoGeneral(todos, v);
+  const icoChip = {bug: ICO_ERROR, aviso: ICO_AVISO_CLON, exito: ICO_OK}[estado.tipo];
+  const chip = `<span class="np-chip np-chip-${estado.tipo}">${icoChip}${escHtml(estado.corto)}</span>`;
   const resumen = BANDEJAS.map(b => [n(b.k), b.t.toLowerCase()]).filter(([c]) => c).map(([c, t]) => `${c} ${t}`).join(' · ');
   $('xpoContiene').innerHTML = `${chip}
     <b class="xpo-proyecto">${escHtml(proyecto || 'Proyecto')}</b>

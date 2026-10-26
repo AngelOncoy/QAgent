@@ -147,6 +147,7 @@ function pintarProgreso(){
   $('prgTitulo').textContent = PRG.fin ? (
       PRG.fin.cancelada ? 'Corrida cancelada'
       : PRG.fin.conErrores ? 'Corrida completada con errores'
+      : PRG.fin.conAvisos ? 'Corrida completada con avisos'
       : PRG.fin.ok ? 'Corrida completada'
       : 'Corrida detenida'
     )
@@ -169,8 +170,12 @@ function pintarProgreso(){
     return `<div class="prg-etapa prg-etapa-${estado}"><span class="prg-etapa-ico">${ico}</span><div><b>${e.t}</b><span class="np-meta">${det}</span></div></div>`;
   }).join('');
 
-  const pct = PRG.total ? Math.round(PRG.hechos / PRG.total * 100) : (PRG.fin ? 100 : 0);
-  $('prgAvanceTxt').textContent = PRG.total ? `${PRG.hechos} de ${PRG.total} funciones y endpoints completados` : (PRG.fin ? 'Corrida terminada' : 'Preparando la corrida…');
+  // Lo omitido (sin resultado esperado verificable o ruta sin resolver) también está resuelto.
+  const omitidos = PRG.fin ? (PRG.fin.omitidos || 0) : 0;
+  const pct = PRG.total ? Math.min(100, Math.round((PRG.hechos + omitidos) / PRG.total * 100)) : (PRG.fin ? 100 : 0);
+  $('prgAvanceTxt').textContent = PRG.total
+    ? `${PRG.hechos} de ${PRG.total} funciones y endpoints completados` + (omitidos ? ` · ${omitidos} no se ${omitidos === 1 ? 'probó' : 'probaron'}` : '')
+    : (PRG.fin ? 'Corrida terminada' : 'Preparando la corrida…');
   $('prgPct').textContent = PRG.total || PRG.fin ? pct + ' %' : '';
   $('prgBarra').style.width = pct + '%';
 
@@ -342,17 +347,25 @@ function monitorFinReal(r){
   const conErrores = Boolean(ok && (Number(r.sin_veredicto || 0) > 0 || (r.motivo && /error/i.test(r.motivo))));
   const duracion = typeof r.duracion_s === 'number' && isFinite(r.duracion_s) && r.duracion_s >= 0 ? r.duracion_s : null;
   if (duracion !== null) PRG.inicio = Date.now() - duracion * 1000;
-  PRG.fin = {ok, cancelada, conErrores, t: Date.now(), runId: r.run_id && r.carpeta ? r.run_id : null, duracion};
+  const omitidos = Number(r.objetivos_omitidos || 0);
+  PRG.fin = {ok, cancelada, conErrores, conAvisos: ok && omitidos > 0, omitidos, t: Date.now(), runId: r.run_id && r.carpeta ? r.run_id : null, duracion};
+  // El total y lo procesado salen del resumen final, no de los eventos en vivo.
+  if (Number(r.total_seleccionados) > 0) PRG.total = Number(r.total_seleccionados);
+  if (Number.isFinite(Number(r.total_procesados))) PRG.hechos = Number(r.total_procesados);
   // Resumen final: aprobadas, posibles bugs y tokens (sin costos).
   $('prgTokens').textContent = Number(r.tokens || 0).toLocaleString('es-PE');
   const sinVeredictoTxt = Number(r.sin_veredicto || 0) > 0 ? ` · ${Number(r.sin_veredicto)} sin veredicto` : '';
-  $('prgTokensSub').textContent = `${Number(r.aceptadas)} ${Number(r.aceptadas) === 1 ? 'aprobada' : 'aprobadas'} · ${Number(r.bugs_detectados)} ${Number(r.bugs_detectados) === 1 ? 'posible bug' : 'posibles bugs'} · ${Number(r.estancadas)} sin prueba${sinVeredictoTxt}`;
+  const omitidosTxt = omitidos ? ` · ${omitidos} sin probar` : '';
+  $('prgTokensSub').textContent = `${Number(r.aceptadas)} ${Number(r.aceptadas) === 1 ? 'aprobada' : 'aprobadas'} · ${Number(r.bugs_detectados)} ${Number(r.bugs_detectados) === 1 ? 'posible bug' : 'posibles bugs'} · ${Number(r.estancadas)} sin prueba${sinVeredictoTxt}${omitidosTxt}`;
   if (r.motivo) {
     const titulo = cancelada ? 'Corrida cancelada por el usuario'
       : conErrores ? 'Corrida completada con errores'
       : ok ? 'Corrida completada con avisos'
       : 'La corrida se detuvo';
     PRG.alerta = {titulo, texto: r.motivo};
+  } else if (omitidos) {
+    PRG.alerta = {titulo: `${omitidos} ${omitidos === 1 ? 'objetivo no se probó' : 'objetivos no se probaron'}`,
+      texto: 'No tienen un resultado esperado verificable en su especificación o su ruta no se pudo resolver. Revísalos en Resultados, en «No se probaron».'};
   }
   if(PRG.fin.runId){   // HU-18: Resultados lee el results.json de esta corrida
     if (typeof desbloquearVista === 'function') { desbloquearVista('exec'); desbloquearVista('history'); }

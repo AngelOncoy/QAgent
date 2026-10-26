@@ -10,6 +10,7 @@ const ICO_CAPAS = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" s
 const ICO_RELOJ = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>';
 const ICO_DESPLEGAR = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>';
 const ICO_SIN_PRUEBA = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="m9 9 6 6M15 9l-6 6"/></svg>';
+const ICO_OMITIDO = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M8 12h8"/></svg>';
 
 registrarComponente('ejecucion/ejecucion', `<!-- ===== 5. PRUEBAS: BANDEJA DE PROBLEMAS ===== -->
 <section id="s-exec" class="hide" style="display:flex;flex-direction:column;flex:1;min-height:0">
@@ -84,6 +85,8 @@ const BANDEJAS = [
   {k:'sin',      t:'Sin prueba',                chip:'No se pudo generar la prueba', cls:'error',  ico:() => ICO_SIN_PRUEBA},
   {k:'tiempo',   t:'Tiempo agotado',            chip:'Tiempo agotado',               cls:'aviso',  ico:() => ICO_RELOJ},
   {k:'repetir',  t:'Requieren corrida nueva',   chip:'Requiere corrida nueva',       cls:'aviso',  ico:() => ICO_REINTENTAR},
+  // Seleccionados que no se probaron: sin resultado esperado verificable o ruta sin resolver.
+  {k:'omitida',  t:'No se probaron',            chip:'No se probó',                  cls:'aviso',  ico:() => ICO_OMITIDO},
   {k:'paso',     t:'Pasaron',                   chip:'Pasó',                         cls:'exito',  ico:() => ICO_OK},
 ];
 const BANDEJA = Object.fromEntries(BANDEJAS.map(b => [b.k, b]));
@@ -107,6 +110,18 @@ const tiempoReal = s => s===null || s===undefined ? '—' : (s < 1 ? Math.round(
 const pctTexto = v => v===null || v===undefined ? '—' : Math.round(Number(v)) + ' %';
 
 function elementosReales(v){
+  return [...elementosProbados(v), ...elementosOmitidos(v)];
+}
+// Lo que se seleccionó pero no se probó, con el motivo que dio el backend.
+function elementosOmitidos(v){
+  return (v.omitidos || []).map(o => ({
+    id: 'omitido::' + o.modulo + '::' + o.objetivo, modulo: o.modulo, tipo: o.tipo,
+    nombre: o.identificador || o.objetivo, endpoint: o.tipo === 'endpoint',
+    bandeja: 'omitida', critica: false, omitido: true, explicacion: o.motivo || null,
+    sinDocstring: o.tipo === 'funcion' && docstringDeObjetivo(o.modulo, o.objetivo) === false,
+  }));
+}
+function elementosProbados(v){
   return v.modulos.flatMap(m => m.pruebas.map(p => {
     const bandeja = BANDEJA_REAL[p.estado] || 'sin';
     const det = detalleReal && detalleReal.run_id === v.run_id ? detalleReal.porClave[m.modulo + '::' + p.funcion] : null;
@@ -267,14 +282,33 @@ function renderExec(){
 }
 function seleccionarBandeja(i){ const e = ELEMENTOS_BANDEJA[i]; if(e){ seleccionBandeja = e.id; renderExec(); } }
 
+// Estado general de la corrida: lo usan el título de Resultados y el resumen de Exportar.
+// Mismo criterio que respuesta_principal() en storage/vista_ejecucion.py (informes):
+// «Todo pasó» solo si se probó algo, nada falló ni quedó sin prueba, nada se omitió y la
+// corrida terminó.
+function estadoGeneral(todos, v){
+  const n = k => todos.filter(e => e.bandeja === k).length;
+  const bugs = todos.filter(e => e.bandeja === 'bug');
+  const omitidas = n('omitida'), probados = todos.length - omitidas;
+  const sinPrueba = n('sin') + n('tiempo') + n('repetir');
+  const incompleta = !!(v && (v.es_parcial || ['detenida_error', 'cancelada', 'limitada_recursos'].includes(v.tipo_terminacion)));
+  const noSeProbaron = `${omitidas} ${omitidas === 1 ? 'objetivo no se probó' : 'objetivos no se probaron'}`;
+  // `corto`: la etiqueta del chip de Exportar.
+  if (bugs.length) return {tipo:'bug', corto:`${bugs.length} ${bugs.length === 1 ? 'posible bug' : 'posibles bugs'}`,
+    texto:`${bugs.length} ${bugs.length === 1 ? 'posible bug' : 'posibles bugs'}. Empieza por ${bugs[0].nombre}.`};
+  if (!probados) return {tipo:'aviso', corto:'Nada probado', texto: incompleta ? 'La corrida se detuvo antes de probar algo.'
+    : omitidas ? `No se probó nada: ${noSeProbaron}.` : 'No se probó ninguna función ni endpoint.'};
+  if (sinPrueba) return {tipo:'aviso', corto:'Faltan pruebas por revisar', texto:'Sin posibles bugs, pero faltan pruebas por revisar.'};
+  if (omitidas) return {tipo:'aviso', corto:`${omitidas} sin probar`, texto:`Sin posibles bugs en lo probado, pero ${noSeProbaron}.`};
+  if (incompleta) return {tipo:'aviso', corto:'Corrida incompleta', texto:'Sin posibles bugs en lo probado, pero la corrida no terminó.'};
+  return {tipo:'exito', corto:'Todo pasó', texto:`Todo pasó: ${probados} ${probados === 1 ? 'función o endpoint verificado' : 'funciones y endpoints verificados'}.`};
+}
+
 // Título que responde la pregunta: cuántos posibles bugs y por dónde empezar.
 function renderCabeceraBandeja(todos, v){
   const n = k => todos.filter(e => e.bandeja === k).length;
   const bugs = todos.filter(e => e.bandeja === 'bug');
-  $('bnjTitulo').textContent = bugs.length
-    ? `${bugs.length} ${bugs.length === 1 ? 'posible bug' : 'posibles bugs'}. Empieza por ${bugs[0].nombre}.`
-    : n('sin') + n('tiempo') ? 'Sin posibles bugs, pero faltan pruebas por revisar.'
-    : `Todo pasó: ${todos.length} ${todos.length === 1 ? 'función o endpoint verificado' : 'funciones y endpoints verificados'}.`;
+  $('bnjTitulo').textContent = estadoGeneral(todos, v).texto;
   const duracion = v && typeof v.duracion_total_s === 'number' ? v.duracion_total_s : null;
   const partes = [document.querySelector('.ini-migas .repoName') ? document.querySelector('.ini-migas .repoName').textContent : '', 'Python'];
   if (v && v.fecha) partes.push(new Date(v.fecha).toLocaleString('es-PE', {day:'numeric', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit'}));
@@ -285,7 +319,9 @@ function renderCabeceraBandeja(todos, v){
   $('bnjSub').textContent = partes.filter(Boolean).join(' · ');
 
   // Cifras: pruebas que pasan, posibles bugs, cobertura y tokens (nunca costos).
-  const total = todos.length, pasaron = n('paso');
+  const total = todos.length, pasaron = n('paso'), omitidas = n('omitida');
+  const porRevisar = total - pasaron - omitidas;
+  const subPasaron = [`${porRevisar} con algo por revisar`, omitidas ? `${omitidas} sin probar` : ''].filter(Boolean).join(' · ');
   const k = v ? v.indicadores : null;
   const cobertura = k ? k.cobertura.lineas : (total ? todos.reduce((s, e) => s + (Number(e.cobLineas) || 0), 0) / total : null);
   const ramas = k ? k.cobertura.ramas : null;
@@ -298,7 +334,7 @@ function renderCabeceraBandeja(todos, v){
     ? `${Number(reales || 0).toLocaleString('es-PE')} reales · ${Number(estimados).toLocaleString('es-PE')} estimados`
     : 'Sumando las tres etapas';
   $('kpis').innerHTML = `
-    <div class="exp-cifra"><span class="exp-cifra-etq">Pasaron</span><b>${pasaron} / ${total}</b><span class="exp-cifra-sub">${total - pasaron} con algo por revisar</span></div>
+    <div class="exp-cifra"><span class="exp-cifra-etq">Pasaron</span><b>${pasaron} / ${total}</b><span class="exp-cifra-sub">${subPasaron}</span></div>
     <div class="exp-cifra"><span class="exp-cifra-etq">Posibles bugs</span><b class="${bugs.length ? 'bnj-cifra-bug' : ''}">${bugs.length}</b><span class="exp-cifra-sub">En ${bugs.length} de ${total} funciones o endpoints</span></div>
     <div class="exp-cifra"><span class="exp-cifra-etq" title="Porcentaje de líneas del código que ejecutaron las pruebas">Cobertura ⓘ</span><b>${pctTexto(cobertura)}</b><span class="exp-cifra-sub">${k && k.cobertura.exige_ramas === false ? 'Ramas no exigidas en Humo' : ramas !== null && ramas !== undefined ? pctTexto(ramas) + ' de las ramas' : 'De las líneas del código'}</span></div>
     <div class="exp-cifra"><span class="exp-cifra-etq">Tokens de la corrida</span><b>${tokens === null ? '—' : Number(tokens).toLocaleString('es-PE')}</b><span class="exp-cifra-sub">${subTokens}</span></div>`;
@@ -330,6 +366,7 @@ function renderDetalleBandeja(e){
     </div>
     <span class="np-chip np-chip-${b.cls}">${b.ico()}${e.bandeja === 'bug' ? 'Posible bug en tu código' : b.chip}</span>
     ${explicacion ? `<p class="bnj-explicacion">${escHtml(explicacion)}</p>` : ''}
+    ${e.omitido && e.tipo === 'funcion' ? '<p class="np-meta">Para probarla, describe en su docstring qué debe devolver o qué error lanza. QAgent no deduce el resultado esperado ejecutando el código.</p>' : ''}
     ${cargando}
     ${e.fallo ? `<div class="bnj-valores">
         <div class="bnj-esperado"><span class="bnj-caja-etq">Esperado</span><pre>${escHtml(e.fallo.esperado ?? '—')}</pre></div>

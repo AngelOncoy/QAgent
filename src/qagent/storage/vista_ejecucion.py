@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import json
 import re
+from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 
@@ -150,10 +151,18 @@ def vista_ejecucion(results: dict[str, Any]) -> dict[str, Any]:
         "limitada_recursos",
     )
 
+    omitidos = [
+        {**o, **identidad_de({"funcion": o["objetivo"], "tipo": o["tipo"]})}
+        for o in results.get("omitidos") or []
+    ]
+
     return {
         "total_seleccionados": total_seleccionados,
         "total_procesados": total_procesados,
         "total_pendientes": total_pendientes,
+        # Seleccionados que no se probaron, con su motivo (no son pendientes).
+        "omitidos": omitidos,
+        "total_omitidos": len(omitidos),
         "tipo_terminacion": tipo_terminacion,
         "es_parcial": es_parcial,
         "run_id": results["run_id"],
@@ -208,6 +217,65 @@ def vista_ejecucion(results: dict[str, Any]) -> dict[str, Any]:
         ],
         "modulos": _por_modulo(objetivos, estados),
     }
+
+
+def corrida_incompleta(datos: Mapping[str, Any]) -> bool:
+    """Si la corrida no revisó todo lo que debía: parcial, detenida o cancelada.
+
+    Recibe una vista (`vista_ejecucion`, `vista_reporte`) o los datos del informe.
+    """
+    return bool(datos.get("es_parcial")) or datos.get("tipo_terminacion") in (
+        "detenida_error",
+        "cancelada",
+        "limitada_recursos",
+    )
+
+
+def respuesta_principal(
+    *,
+    bugs: int,
+    primer_bug: str | None,
+    sin_prueba: int,
+    total: int,
+    omitidos: int,
+    incompleta: bool,
+) -> str:
+    """La frase que resume la corrida en Resultados y en los informes.
+
+    «Todo pasó» solo si se probó algo, nada falló ni quedó sin prueba, no hubo
+    objetivos omitidos y la corrida terminó.
+
+    Args:
+        bugs: objetivos con posible bug.
+        primer_bug: nombre del primero (el que conviene revisar antes).
+        sin_prueba: objetivos sin prueba válida o que requieren corrida nueva.
+        total: objetivos probados (sin contar los omitidos).
+        omitidos: seleccionados que no se probaron.
+        incompleta: `corrida_incompleta()` de la corrida.
+    """
+    if bugs:
+        nombre = primer_bug or "la primera función"
+        return (
+            f"{bugs} {'posible bug' if bugs == 1 else 'posibles bugs'}. "
+            f"Empieza por {nombre}."
+        )
+    no_se_probaron = f"{omitidos} {'objetivo no se probó' if omitidos == 1 else 'objetivos no se probaron'}"
+    if not total:
+        if incompleta:
+            return "La corrida se detuvo antes de probar algo."
+        if omitidos:
+            return f"No se probó nada: {no_se_probaron}."
+        return "No se probó ninguna función ni endpoint."
+    if sin_prueba:
+        return "Sin posibles bugs, pero faltan pruebas por revisar."
+    if omitidos:
+        return f"Sin posibles bugs en lo probado, pero {no_se_probaron}."
+    if incompleta:
+        return "Sin posibles bugs en lo probado, pero la corrida no terminó."
+    return (
+        f"Todo pasó: {total} "
+        f"{'función o endpoint verificado' if total == 1 else 'funciones y endpoints verificados'}."
+    )
 
 
 def _numero(valor: Any) -> float | None:
