@@ -82,6 +82,16 @@ MOTIVO_OMITIDA_HUMO = (
     "no hay un caso normal deducible con resultado verificable de la firma, los tipos "
     "ni el docstring"
 )
+#: #138: una llamada con argumentos que no encajan con la firma lanza TypeError antes
+#: de entrar al cuerpo; esa prueba pasa sin ejecutar una línea de la función.
+MOTIVO_CASO_TRIVIAL = (
+    "llama a la función con argumentos que no encajan con su firma; ese TypeError lo "
+    "lanza Python antes de entrar al cuerpo y no verifica su comportamiento"
+)
+MOTIVO_OMITIDA_TRIVIAL = (
+    "solo se pudo proponer una llamada con argumentos que no encajan con su firma; "
+    "ese TypeError lo lanza Python, no la función, así que no verifica su comportamiento"
+)
 
 _CONTRATO_DE_PRUEBA = {
     "version": "2",
@@ -129,6 +139,8 @@ class PlannerAgent:
         # Casos con formato inválido en la última llamada (errores del modelo, no
         # falta de especificación).
         self._casos_invalidos = 0
+        # #138: casos triviales descartados por objetivo en la última llamada.
+        self._triviales: dict[str, int] = {}
 
     @property
     def es_humo(self) -> bool:
@@ -152,6 +164,7 @@ class PlannerAgent:
         self.avisos = []
         self.omitidas = {}
         self._casos_invalidos = 0
+        self._triviales = {}
         funciones = {f["nombre"]: f for f in modulo.get("funciones", [])}
         if not funciones:
             return []
@@ -200,6 +213,8 @@ class PlannerAgent:
     def _omitir(self, nombre: str, funcion: dict[str, Any] | None = None) -> None:
         """Deja la función como omitida: su valor esperado no se puede deducir."""
         motivo = MOTIVO_OMITIDA_HUMO if self.es_humo else MOTIVO_OMITIDA
+        if self._triviales.get(nombre):
+            motivo = MOTIVO_OMITIDA_TRIVIAL  # #138
         if funcion is not None and not funcion.get("docstring"):
             motivo = f"la función no tiene docstring y {motivo}"
         self.omitidas[nombre] = motivo
@@ -286,6 +301,14 @@ class PlannerAgent:
                 self._casos_invalidos += 1
                 self.descartados.append(f"{nombre}: caso {caso.get('id')!r}: {error}")
                 continue
+            if es_caso_trivial(funcion or {}, caso):
+                # #138: no prueba la función. Es falta de especificación, no un error
+                # del modelo: si era su único caso, el objetivo queda omitido.
+                self._triviales[nombre] = self._triviales.get(nombre, 0) + 1
+                self.descartados.append(
+                    f"{nombre}: caso {caso.get('id')!r}: {MOTIVO_CASO_TRIVIAL}"
+                )
+                continue
             caso = self._con_categoria(nombre, caso)
             motivo = motivo_limite_funcion(funcion or {}, caso)
             if motivo:
@@ -364,8 +387,10 @@ REGLAS OBLIGATORIAS:
   no permite deducir un valor con certeza, no inventes ese caso.
 - Una función sin docstring sigue siendo planificable, pero NO declares origen
   "docstring". Con origen "tipo", un tipo general como int, str o bool no determina
-  por sí solo un valor concreto; `-> None` sí respalda `null`. Con origen "firma",
-  solo propón TypeError cuando la propia llamada sea inválida por sus argumentos.
+  por sí solo un valor concreto; `-> None` sí respalda `null`.
+- No propongas llamadas con argumentos que no encajan con la firma (faltan
+  obligatorios o sobran claves): ese TypeError lo lanza Python antes de entrar a la
+  función y no prueba su comportamiento.
 - Si ninguna fuente permite un oráculo concreto, omite la función. No sustituyas una
   igualdad por `is not None`, una mera invocación ni otra aserción débil.
 - Incluye casos normales, de límite y de error cuando el docstring los describa.
@@ -406,8 +431,9 @@ EJEMPLO DE RESPUESTA:
 Prueba de humo pytest: UN caso normal por función (entrada válida y su resultado).
 - No ejecutes el código. El valor esperado sale SOLO de firma, tipos o docstring; si
   no se deduce con certeza, omite la función.
-- Sin docstring, no uses origen "docstring": `-> None` puede justificar `null`, y la
-  firma solo puede justificar TypeError por una llamada con argumentos inválidos.
+- Sin docstring, no uses origen "docstring": `-> None` puede justificar `null`.
+- No propongas llamadas con argumentos que no encajan con la firma: ese TypeError
+  lo lanza Python, no la función.
 - No inventes valores ni conviertas el humo en una prueba de mera ejecución.
 - Caso: "id", "entrada" (argumentos por nombre), "valor_esperado", "origen" (uno de:
   {", ".join(ORIGENES)}) y "categoria": "normal". Sin "excepcion" ni casos límite.
@@ -823,16 +849,39 @@ def _retorno_de_firma(firma: Any) -> str | None:
     return ast.unparse(funcion.returns) if funcion and funcion.returns else None
 
 
-def _firma_respalda_oraculo(funcion: dict[str, Any], caso: dict[str, Any]) -> bool:
-    """Si la firma demuestra un ``TypeError`` antes de entrar al cuerpo.
+def es_caso_trivial(funcion: dict[str, Any], caso: dict[str, Any]) -> bool:
+    """Si el caso solo comprueba que Python rechaza la llamada (#138).
 
-    Los casos del contrato invocan funciones con argumentos por nombre. Solo se acepta
-    ``origen: firma`` cuando esos argumentos no pueden ligarse a la firma (faltan
-    obligatorios, se intenta pasar un posicional-only por nombre o sobra una clave).
+    Espera ``TypeError`` y sus argumentos no encajan con la firma (faltan obligatorios,
+    se pasa un posicional-only por nombre o sobra una clave). Ese error ocurre antes de
+    entrar al cuerpo: la prueba pasaría sin ejecutar una línea de la función, sea cual
+    sea el ``origen`` declarado. Se decide con el AST de la firma, sin IA.
+
+    Un ``TypeError`` con argumentos que sí encajan (por ejemplo, «lanza TypeError si x
+    no es int» con ``x="a"``) no es trivial: lo lanza la función.
     """
     if caso.get("excepcion") not in {"TypeError", "builtins.TypeError"}:
         return False
-    entrada = caso.get("entrada")
+    return _llamada_no_liga(funcion, caso.get("entrada"))
+
+
+def _firma_respalda_oraculo(funcion: dict[str, Any], caso: dict[str, Any]) -> bool:
+    """Si la firma demuestra un ``TypeError`` antes de entrar al cuerpo.
+
+    Desde #138 ese caso se descarta antes (`es_caso_trivial`), así que en la práctica
+    la firma ya no respalda ningún oráculo; se conserva para validar casos sueltos.
+    """
+    if caso.get("excepcion") not in {"TypeError", "builtins.TypeError"}:
+        return False
+    return _llamada_no_liga(funcion, caso.get("entrada"))
+
+
+def _llamada_no_liga(funcion: dict[str, Any], entrada: Any) -> bool:
+    """Si los argumentos por nombre de un caso no pueden ligarse a la firma.
+
+    Los casos del contrato invocan funciones con argumentos por nombre: no ligan si
+    faltan obligatorios, se pasa un posicional-only por nombre o sobra una clave.
+    """
     if not isinstance(entrada, dict):
         return False
     nodo = _nodo_firma(funcion.get("firma"))
@@ -916,6 +965,25 @@ def contrato_humo(contrato: dict[str, Any]) -> dict[str, Any] | None:
     )
     normal = next((c for c in contrato.get("casos") or [] if es_normal(c)), None)
     return None if normal is None else {**contrato, "casos": [normal]}
+
+
+def contrato_sin_triviales(contrato: dict[str, Any]) -> dict[str, Any] | None:
+    """El contrato sin sus casos triviales, para reutilizar una spec guardada (#138).
+
+    Las specs guardadas antes de #138 pueden traer la llamada con argumentos que no
+    encajan con la firma. None si no le queda ningún caso: la spec no sirve y el
+    objetivo se vuelve a planificar (y, si no hay más, queda omitido).
+    """
+    if contrato.get("tipo") == "endpoint":
+        return contrato
+    casos = [c for c in contrato.get("casos") or [] if not es_caso_trivial(contrato, c)]
+    if not casos:
+        return None
+    return (
+        contrato
+        if len(casos) == len(contrato["casos"])
+        else {**contrato, "casos": casos}
+    )
 
 
 def _aplicacion_principal(endpoints: Any) -> str:

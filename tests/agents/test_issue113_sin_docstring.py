@@ -131,13 +131,19 @@ def test_origen_tipo_sin_anotacion_no_justifica_un_valor_concreto() -> None:
     assert any("tipo" in motivo for motivo in planner.descartados)
 
 
-def test_sin_docstring_ni_tipos_admite_typeerror_deducible_de_firma() -> None:
+def test_sin_docstring_ni_tipos_el_typeerror_de_firma_no_es_oraculo() -> None:
+    """#138 revisa a #113: ese TypeError lo lanza Python, no la función.
+
+    Antes se aceptaba como único caso y la prueba «pasaba» sin ejecutar el cuerpo.
+    """
     meta = funcion(firma="(x)")
     prueba = caso(entrada={}, origen="firma", excepcion="TypeError")
 
-    plan, _ = planificar(meta, [{"objetivo": "objetivo", "casos": [prueba]}])
+    plan, planner = planificar(meta, [{"objetivo": "objetivo", "casos": [prueba]}])
 
-    assert plan[0]["casos"] == [prueba]
+    assert plan == []
+    assert "argumentos que no encajan con su firma" in planner.omitidas["objetivo"]
+    assert "no tiene docstring" in planner.omitidas["objetivo"]
 
 
 def test_firma_no_justifica_un_resultado_funcional_arbitrario() -> None:
