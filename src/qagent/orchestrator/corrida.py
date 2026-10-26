@@ -480,27 +480,9 @@ def ejecutar_corrida(
                 "quedaron sin veredicto."
             )
         if not resumen.tipo_terminacion or resumen.tipo_terminacion == "completada":
-            if resumen.cancelada or (
-                resumen.motivo
-                and any(
-                    p in resumen.motivo.lower() for p in ("cancelad", "por el usuario")
-                )
-            ):
+            resumen.tipo_terminacion = tipo_terminacion(resumen)
+            if resumen.tipo_terminacion == "cancelada":
                 resumen.cancelada = True
-                resumen.tipo_terminacion = "cancelada"
-            elif resumen.motivo and any(
-                p in resumen.motivo.lower()
-                for p in ("token", "presupuesto", "gasto", "tiempo")
-            ):
-                resumen.tipo_terminacion = "limitada_recursos"
-            elif resumen.estado == FALLO:
-                resumen.tipo_terminacion = "detenida_error"
-            elif resumen.sin_veredicto > 0 or resumen.estancadas > 0:
-                resumen.tipo_terminacion = "completada_con_errores"
-            elif resumen.total_pendientes > 0:
-                resumen.tipo_terminacion = "detenida_error"
-            else:
-                resumen.tipo_terminacion = "completada"
         progreso["total"] = resumen.total_seleccionados or resumen.total_funciones
         resumen.duracion_s = segundos(inicio, reloj())
         resumen.fin = ahora()
@@ -533,6 +515,8 @@ def ejecutar_corrida(
     ]
     if resumen.sin_veredicto:
         partes_terminacion.append(f"{resumen.sin_veredicto} sin veredicto")
+    if resumen.objetivos_omitidos:
+        partes_terminacion.append(f"{resumen.objetivos_omitidos} sin probar")
     texto_resumen = ", ".join(partes_terminacion)
 
     if resumen.cancelada or (resumen.motivo and "cancelad" in resumen.motivo.lower()):
@@ -552,6 +536,27 @@ def ejecutar_corrida(
 
 class ErrorCorrida(RuntimeError):
     """La corrida no puede seguir (motivo legible para la interfaz)."""
+
+
+def tipo_terminacion(resumen: ResumenCorrida) -> str:
+    """Cómo terminó una corrida, a partir de su resumen ya contado.
+
+    Los objetivos omitidos (sin resultado esperado verificable o con ruta sin
+    resolver) no la vuelven «detenida»: solo los pendientes, que son lo que una
+    detención dejó sin revisar (`_contar`).
+    """
+    motivo = (resumen.motivo or "").lower()
+    if resumen.cancelada or any(p in motivo for p in ("cancelad", "por el usuario")):
+        return "cancelada"
+    if any(p in motivo for p in ("token", "presupuesto", "gasto", "tiempo")):
+        return "limitada_recursos"
+    if resumen.estado == FALLO:
+        return "detenida_error"
+    if resumen.sin_veredicto > 0 or resumen.estancadas > 0:
+        return "completada_con_errores"
+    if resumen.total_pendientes > 0:
+        return "detenida_error"
+    return "completada"
 
 
 def _registrar_limite_tokens(
@@ -641,8 +646,14 @@ def _contar(
 ) -> None:
     decisiones = [o.decision for r in resultados for o in r.objetivos]
     resumen.total_procesados = len(decisiones)
+    # Omitido (sin resultado esperado verificable o ruta sin resolver) no es pendiente:
+    # pendiente es solo lo que una detención dejó sin revisar.
+    resumen.objetivos_omitidos = sum(len(r.omitidos) for r in resultados)
     resumen.total_pendientes = max(
-        0, resumen.total_seleccionados - resumen.total_procesados
+        0,
+        resumen.total_seleccionados
+        - resumen.total_procesados
+        - resumen.objetivos_omitidos,
     )
     resumen.total_funciones = len(decisiones)
     resumen.aceptadas = decisiones.count("accept")
@@ -697,6 +708,11 @@ def _registrar(
             total_pendientes=resumen.total_pendientes,
             tipo_terminacion=resumen.tipo_terminacion,
             objetivos_omitidos=resumen.objetivos_omitidos,
+            omitidos=[
+                {"modulo": r.modulo, **omitido}
+                for r in resultados
+                for omitido in r.omitidos
+            ],
         )
         resumen.run_id = rutas.run_id
         resumen.carpeta = str(rutas.carpeta)

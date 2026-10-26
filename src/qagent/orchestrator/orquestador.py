@@ -42,6 +42,24 @@ _TEXTO_MOTIVO = {
     ERROR_REPETIDO: "mismo error repetido",
     LIMITE_TOKENS: "límite de tokens",
 }
+#: Por qué un objetivo seleccionado no se probó (se muestran en Resultados).
+MOTIVO_RUTA_SIN_RESOLVER = (
+    "No se pudo saber la ruta completa del endpoint sin ejecutar la app (por ejemplo, "
+    "el router se incluye dentro de un try o de una función), así que no se planificó."
+)
+MOTIVO_SIN_CONTRATO = (
+    "El Planner no propuso un caso verificable para este objetivo a partir de su "
+    "especificación."
+)
+
+
+def _frase(texto: str) -> str:
+    """El motivo del Planner como frase: con mayúscula inicial y punto final."""
+    texto = texto.strip()
+    if not texto:
+        return MOTIVO_SIN_CONTRATO
+    texto = texto[0].upper() + texto[1:]
+    return texto if texto.endswith(".") else texto + "."
 
 
 def _segundos_de(valor: Any) -> float:
@@ -168,6 +186,10 @@ class ResultadoCorrida:
     # Plan completo devuelto por el Planner (o cargado de la caché). Es interno:
     # permite persistir la spec aunque Generator/Reviewer falle en el primer objetivo.
     plan_completo: list[Contrato] = field(default_factory=list, repr=False)
+    #: Objetivos seleccionados que quedaron fuera del plan, con su motivo: sin un
+    #: resultado esperado verificable o con una ruta sin resolver. No son pendientes
+    #: por una detención: se probaron hasta donde la especificación lo permite.
+    omitidos: list[dict[str, str]] = field(default_factory=list)
 
     def a_dict(self) -> dict[str, Any]:
         """Versión serializable a JSON (insumo de log.json en EN-07)."""
@@ -265,6 +287,8 @@ class Orquestador:
         self._inicio_utc = ahora()
         self._etapas = etapas_vacias()
         self._objetivo_actual: ResultadoObjetivo | None = None
+        #: Motivos del Planner para las funciones que omitió en el módulo actual.
+        self._motivos_omision: dict[str, str] = {}
         self._inicio_objetivo_reloj = 0.0
         self._inicio_objetivo_utc: str | None = None
 
@@ -294,7 +318,9 @@ class Orquestador:
         self._emitir("orquestador", None, "Corrida iniciada", tipo="transicion")
         objetivos: list[ResultadoObjetivo] = []
         plan_completo: list[Contrato] = []
+        omitidos: list[dict[str, str]] = []
         motivo: str | None = None
+        self._motivos_omision = {}
 
         try:
             inicio_plan = self._reloj()
@@ -309,6 +335,7 @@ class Orquestador:
                     self._etapas, "planner", segundos(inicio_plan, self._reloj())
                 )
             plan_completo = copy.deepcopy(plan)
+            omitidos = self._omitidos(modulo, plan)
             for contrato in plan:
                 if self.cancelado is not None and self.cancelado():
                     raise CorridaCancelada("Corrida detenida por el usuario.")
@@ -356,7 +383,38 @@ class Orquestador:
             fin=self._ahora(),
             duracion_etapas=dict(self._etapas),
             plan_completo=plan_completo,
+            omitidos=omitidos,
         )
+
+    def _omitidos(
+        self, modulo: dict[str, Any], plan: list[Contrato]
+    ) -> list[dict[str, str]]:
+        """Objetivos seleccionados del módulo que no entraron al plan, con su motivo.
+
+        El motivo es el del Planner (función sin resultado esperado deducible), el de
+        una ruta sin resolver o, si el Planner no propuso nada usable, uno genérico.
+        """
+        planificados = {c.get("objetivo") for c in plan if isinstance(c, dict)}
+        omitidos: list[dict[str, str]] = []
+        for funcion in modulo.get("funciones") or []:
+            nombre = funcion.get("nombre")
+            if nombre and nombre not in planificados:
+                motivo = self._motivos_omision.get(nombre, MOTIVO_SIN_CONTRATO)
+                omitidos.append(
+                    {"objetivo": nombre, "tipo": "funcion", "motivo": _frase(motivo)}
+                )
+        for endpoint in modulo.get("endpoints") or []:
+            objetivo = endpoint.get("objetivo") or endpoint.get("manejador")
+            if not objetivo or objetivo in planificados:
+                continue
+            sin_ruta = not endpoint.get("objetivo") or not endpoint.get(
+                "resuelta", True
+            )
+            motivo = MOTIVO_RUTA_SIN_RESOLVER if sin_ruta else MOTIVO_SIN_CONTRATO
+            omitidos.append(
+                {"objetivo": objetivo, "tipo": "endpoint", "motivo": motivo}
+            )
+        return omitidos
 
     # --- Pasos de la máquina -----------------------------------------------------
 
@@ -374,6 +432,7 @@ class Orquestador:
             self._emitir("planner", None, f"Caso descartado: {descarte}")
         # Funciones sin valor esperado deducible: se avisan y la corrida sigue.
         omitidas = getattr(self.planner, "omitidas", None) or {}
+        self._motivos_omision = dict(omitidas)
         for nombre, motivo in omitidas.items():
             self._emitir(
                 "planner",

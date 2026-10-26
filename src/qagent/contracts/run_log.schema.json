@@ -155,6 +155,40 @@
       "type": "integer",
       "minimum": 0,
       "description": "Objetivos omitidos deliberadamente."
+    },
+    "omitidos": {
+      "type": "array",
+      "description": "Objetivos seleccionados que no se probaron y por qué: sin un resultado esperado verificable o con una ruta sin resolver. No cuentan como pendientes.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "modulo",
+          "objetivo",
+          "tipo",
+          "motivo"
+        ],
+        "properties": {
+          "modulo": {
+            "type": "string",
+            "minLength": 1
+          },
+          "objetivo": {
+            "type": "string",
+            "minLength": 1
+          },
+          "tipo": {
+            "enum": [
+              "funcion",
+              "endpoint"
+            ]
+          },
+          "motivo": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
     }
   },
   "allOf": [

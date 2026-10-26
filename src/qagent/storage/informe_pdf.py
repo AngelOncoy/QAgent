@@ -16,6 +16,7 @@ from pathlib import Path
 from typing import Any
 
 from qagent import __version__
+from qagent.storage.vista_ejecucion import corrida_incompleta, respuesta_principal
 
 # Página A4 en puntos
 ANCHO, ALTO = 595.0, 842.0
@@ -439,12 +440,14 @@ def _portada(
     bugs = [f for f in funciones if _clase_bandeja(f)[0] == "bug"]
     sin = [f for f in funciones if _clase_bandeja(f)[0] in ("sin", "repetir")]
     total = len(funciones)
-    if bugs:
-        respuesta = f"{len(bugs)} {'posible bug' if len(bugs) == 1 else 'posibles bugs'}. Empieza por {_nombre(bugs[0])}."
-    elif sin:
-        respuesta = "Sin posibles bugs, pero faltan pruebas por revisar."
-    else:
-        respuesta = f"Todo pasó: {total} {'función o endpoint verificado' if total == 1 else 'funciones y endpoints verificados'}."
+    respuesta = respuesta_principal(
+        bugs=len(bugs),
+        primer_bug=_nombre(bugs[0]) if bugs else None,
+        sin_prueba=len(sin),
+        total=total,
+        omitidos=len(datos.get("omitidos") or []),
+        incompleta=corrida_incompleta(datos),
+    )
     lz.parrafo(limpiar(respuesta), 20, "F2", TEXTO, interlineado=1.3)
 
     meta = [
