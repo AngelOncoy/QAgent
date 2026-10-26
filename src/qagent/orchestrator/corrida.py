@@ -33,7 +33,7 @@ from typing import Any
 
 from qagent import contracts
 from qagent.agents import GeneratorAgent, PlannerAgent, ReviewerAgent
-from qagent.agents.planner import contrato_humo
+from qagent.agents.planner import contrato_humo, contrato_sin_triviales
 from qagent.agents.reviewer import Ejecutor
 from qagent.almacenamiento import (
     AlmacenProyecto,
@@ -367,6 +367,9 @@ def ejecutar_corrida(
                 elegidos = [
                     c for c in plan_guardado["contratos"] if c["objetivo"] in objetivos
                 ]
+                # #138: una spec anterior puede traer casos triviales de TypeError; sin
+                # ellos, la que queda vacía se vuelve a planificar.
+                elegidos = [h for h in map(contrato_sin_triviales, elegidos) if h]
                 if perfil == PERFIL_HUMO:
                     # #75: de una spec completa, Humo toma el primer caso normal.
                     completos = {c["objetivo"]: c for c in elegidos}
