@@ -7,6 +7,9 @@
 .bnj-cifras{grid-template-columns:repeat(4,minmax(0,1fr))}
 .bnj-cifra-bug{color:var(--bug-t)}
 #bnjResumen{margin-top:calc(var(--esp-3) * -1)}
+/* issue 139: sin resultados (en la app) solo queda el aviso; nada de cifras, filtros ni bandejas */
+#s-exec.bnj-sin-datos :is(.bnj-acciones,.bnj-cifras,#bnjResumen,.bnj-filtros,.bnj-rejilla,.bnj-prioridades,.bnj-definiciones){display:none}
+#bnjVacio .ini-enlace{align-self:flex-start;padding:0;margin-top:var(--esp-2)}
 
 /* Filtros: buscador y dos selectores */
 .bnj-filtros{display:flex;gap:var(--esp-3);flex-wrap:wrap}

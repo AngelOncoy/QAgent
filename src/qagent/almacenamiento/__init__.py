@@ -4,6 +4,7 @@
 forma atómica y en UTF-8 (ver `disco`).
 """
 
+from qagent.almacenamiento.bloqueo import BloqueoCorrida, corrida_activa
 from qagent.almacenamiento.disco import DatoCorrupto, DatoNoEncontrado, ErrorAlmacen
 from qagent.almacenamiento.proyecto import (
     AlmacenProyecto,
@@ -16,9 +17,11 @@ from qagent.almacenamiento.proyecto import (
 
 __all__ = [
     "AlmacenProyecto",
+    "BloqueoCorrida",
     "DatoCorrupto",
     "DatoNoEncontrado",
     "ErrorAlmacen",
+    "corrida_activa",
     "huella_de_prueba",
     "id_de_modulo",
     "id_de_spec",

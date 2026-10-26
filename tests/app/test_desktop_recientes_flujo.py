@@ -56,10 +56,14 @@ def test_abrir_reciente_detecta_si_ya_cargo_prueba(
     api = desktop.DesktopAPI()
     api.abrir_proyecto(str(carpeta))
 
-    # Simulamos una corrida en el almacén del proyecto
+    # Simulamos una corrida terminada en el almacén del proyecto: como en la app, deja
+    # su results.json (#139: solo cuentan las corridas con resultados).
     almacen = AlmacenProyecto(str(carpeta))
     run = almacen.crear_run(["funcion"])
     almacen.finalizar_run(run["run_id"], "fin", 1, 0)
+    (almacen.carpeta_run(run["run_id"]) / "results.json").write_text(
+        "{}", encoding="utf-8"
+    )
     recientes.registrar_corrida(str(carpeta), archivo=archivo_recientes)
 
     res = api.abrir_reciente(str(carpeta))

@@ -28,7 +28,7 @@
 .prep-casilla b{font-weight:var(--peso-normal)}
 .prep-casilla.dis{opacity:.5;cursor:not-allowed}
 .prep-enlace{align-self:flex-start;padding:0;font-size:var(--texto-meta)}
-/* #133: lo que no aplica a la revisión rápida (Humo) se ve atenuado, con su explicación */
+/* issue 133: lo que no aplica a la revisión rápida (Humo) se ve atenuado, con su explicación */
 .prep-no-aplica{opacity:.6}
 
 /* Comprobaciones previas */

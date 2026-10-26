@@ -29,6 +29,7 @@ from typing import Any
 from zipfile import ZIP_DEFLATED, ZipFile
 
 from qagent import contracts
+from qagent.almacenamiento.bloqueo import corrida_activa
 from qagent.almacenamiento.disco import (
     DatoCorrupto,
     DatoNoEncontrado,
@@ -50,8 +51,15 @@ CONTENIDO_GITIGNORE = (
 ARCHIVO_RUN = "run.json"
 
 # Estados de una corrida: "en_curso" hasta que termina; luego el estado final del
-# orquestador ("fin" o "fallo_controlado"). Si la app se cierra a mitad, queda "en_curso".
-ESTADOS_RUN = ("en_curso", "fin", "fallo_controlado")
+# orquestador ("fin" o "fallo_controlado"). Si la app se cierra a mitad, queda "en_curso"
+# hasta que se vuelve a abrir el proyecto y se marca "interrumpida" (#139).
+ESTADOS_RUN = ("en_curso", "fin", "fallo_controlado", "interrumpida")
+INTERRUMPIDA = "interrumpida"
+MOTIVO_INTERRUMPIDA = (
+    "La aplicación se cerró antes de que la corrida terminara; no dejó resultados."
+)
+#: Archivo que confirma que una corrida dejó resultados (lo escribe storage/registro).
+ARCHIVO_RESULTADOS = "results.json"
 
 
 def migrar_carpeta_anterior(raiz: str | Path) -> bool:
@@ -351,6 +359,46 @@ class AlmacenProyecto:
             except ErrorAlmacen:
                 continue
         return runs
+
+    def tiene_corridas_con_resultados(self) -> bool:
+        """Si alguna corrida dejó `results.json` (las interrumpidas no cuentan, #139)."""
+        if not self.carpeta_runs.is_dir():
+            return False
+        return any(
+            (carpeta / ARCHIVO_RESULTADOS).is_file()
+            for carpeta in self.carpeta_runs.iterdir()
+            if carpeta.is_dir() and PATRON_RUN_ID.match(carpeta.name)
+        )
+
+    def cerrar_interrumpidas(self, ahora: datetime | None = None) -> list[str]:
+        """Marca como interrumpidas las corridas «en curso» que nadie está ejecutando.
+
+        Una corrida queda «en curso» si la app se cerró o se cayó a mitad. Si ningún
+        proceso de QAgent mantiene su bloqueo (`bloqueo.corrida_activa`), se marca
+        `interrumpida` con su hora de cierre. No se borra nada. Una corrida dañada o que
+        no se puede escribir se deja como está.
+
+        Returns:
+            Los `run_id` que se marcaron.
+        """
+        marcadas = []
+        for run in self.listar_runs():
+            if run["estado"] != "en_curso":
+                continue
+            if corrida_activa(self.carpeta_run(run["run_id"])):
+                continue
+            run.update(
+                fin=_iso(ahora),
+                estado=INTERRUMPIDA,
+                tipo_terminacion=INTERRUMPIDA,
+                motivo=MOTIVO_INTERRUMPIDA,
+            )
+            try:
+                self.guardar_run(run)
+            except (OSError, ErrorAlmacen):
+                continue
+            marcadas.append(run["run_id"])
+        return marcadas
 
     # --- Specs ----------------------------------------------------------------------
 

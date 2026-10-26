@@ -170,7 +170,7 @@ function renderHistoryReal(datos){
       <td class="np-mono" title="${h.duracion_s === null || h.duracion_s === undefined ? 'Corrida anterior a la medición de duración' : 'Duración medida de la corrida'}">${duracionCorta(h.duracion_s)}</td>
       <td class="np-mono">${pasanCelda}</td>
       <td class="np-mono" title="${sinIA ? 'Repetir pruebas guardadas no llama a la IA' : 'Analizando: ' + numero(h.tokens_planner) + ' tokens'}">${tokens}</td>
-      <td><button type="button" class="ini-enlace" onclick="event.stopPropagation();${abrir}">Abrir</button></td></tr>`;
+      <td>${datos.demo || tieneResultados(h) ? `<button type="button" class="ini-enlace" onclick="event.stopPropagation();${abrir}">Abrir</button>` : '<span class="np-meta" title="Esta corrida no dejó resultados">—</span>'}</td></tr>`;
   }).join('');
 
   renderComparacionHistorial(corridas);
@@ -179,7 +179,11 @@ function renderHistoryReal(datos){
 
 function chipResultadoHistorial(h){
   const repetir = h.requieren_corrida_nueva ? `<span class="np-meta hst-nota">${h.requieren_corrida_nueva} requieren corrida nueva</span>` : '';
-  if(h.pasaron === null || h.pasaron === undefined) return `<span class="np-chip np-chip-aviso">${ICO_AVISO_CLON}Sin resultados</span>${repetir}`;
+  if(h.pasaron === null || h.pasaron === undefined) {
+    // issue 139: una corrida que la app no llegó a terminar se ve como tal, no «en curso».
+    const sin = h.tipo_terminacion === 'interrumpida' ? 'Interrumpida' : 'Sin resultados';
+    return `<span class="np-chip np-chip-aviso">${ICO_AVISO_CLON}${sin}</span>${repetir}`;
+  }
 
   const term = h.tipo_terminacion || (h.estado === 'fallo_controlado' ? 'detenida_error' : 'completada');
   const termNombre = h.terminacion_nombre || (term === 'completada' ? 'Completada' : term === 'completada_con_errores' ? 'Completada con errores' : term === 'cancelada' ? 'Cancelada' : term === 'limitada_recursos' ? 'Limitada por recursos' : 'Detenida por error');
@@ -211,9 +215,19 @@ function seleccionarCorridaHistorial(runId){
 }
 function abrirCorridaSeleccionada(){
   if(!histSel) return;
-  if(historialDatos && historialDatos.demo) go('exec');
-  else cargarEjecucionReal(histSel);
+  if(historialDatos && historialDatos.demo) { go('exec'); return; }
+  // issue 139: una corrida interrumpida (o sin results.json) no tiene resultados que abrir.
+  const fila = ((historialDatos && historialDatos.corridas) || []).find(h => h.run_id === histSel);
+  if (fila && !tieneResultados(fila)) {
+    toast(fila.tipo_terminacion === 'interrumpida'
+      ? 'Esta corrida se interrumpió antes de terminar: no dejó resultados que abrir.'
+      : 'Esta corrida no dejó resultados que abrir.', I('alertc', 'var(--aviso-t)', 16));
+    return;
+  }
+  cargarEjecucionReal(histSel);
 }
+// Si la corrida dejó resultados que se puedan abrir en Resultados.
+function tieneResultados(h){ return !(h.pasaron === null || h.pasaron === undefined); }
 
 // La corrida elegida frente a la anterior (la lista viene de la más reciente a la más antigua).
 function renderComparacionHistorial(corridas){

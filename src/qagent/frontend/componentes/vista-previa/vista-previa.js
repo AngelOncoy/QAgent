@@ -233,10 +233,24 @@ async function loadProject(name, src, where, br='main', ruta='', opciones = {}){
   const esReciente = !!(opciones && opciones.esReciente);
   const corridaPrevia = await hayCorridaPrevia(projectPath || ruta);
   PRUEBAS_REPETIBLES = await pruebasRepetibles(ruta);
-  const yaCargoPrueba = !!((opciones && opciones.yaCargoPrueba) || (esReciente && corridaPrevia));
-  HAS_PRIOR_RUN = corridaPrevia || yaCargoPrueba;
+  let yaCargoPrueba = !!((opciones && opciones.yaCargoPrueba) || (esReciente && corridaPrevia));
+  // issue 139: «Volver a correr las guardadas» necesita pruebas guardadas, no basta con que
+  // haya corridas (una corrida interrumpida o sin aprobadas no deja nada que repetir).
+  HAS_PRIOR_RUN = corridaPrevia;
 
   renderTree();   // termina en calc(), que también dibuja la configuración de pruebas
+
+  // issue 139: en la app, solo se salta a Resultados si de verdad hay resultados que mostrar.
+  const enApp = !!(window.pywebview && window.pywebview.api);
+  if (esReciente && yaCargoPrueba && enApp) {
+    ejecucionReal = null;
+    try {
+      if (typeof cargarEjecucionReal === 'function') await cargarEjecucionReal(null, false, {silencioso: true});
+    } catch (err) {
+      console.warn("No se pudo pre-cargar ejecución:", err);
+    }
+    yaCargoPrueba = !!ejecucionReal;
+  }
 
   if (esReciente && yaCargoPrueba) {
     if (typeof desbloquearTodasLasVistas === 'function') {
@@ -246,14 +260,7 @@ async function loadProject(name, src, where, br='main', ruta='', opciones = {}){
     }
     monitorStarted = true;
     runDone = true;
-    if (window.pywebview && window.pywebview.api) {
-      // Resultados carga la lista y, por su cuenta, la evidencia de la misma corrida.
-      try {
-        if (typeof cargarEjecucionReal === 'function') await cargarEjecucionReal(null, false);
-      } catch (err) {
-        console.warn("No se pudo pre-cargar ejecución:", err);
-      }
-    }
+    // En la app, Resultados ya se cargó arriba (lista y, por su cuenta, la evidencia).
     go('exec');
   } else {
     ejecucionReal = null;

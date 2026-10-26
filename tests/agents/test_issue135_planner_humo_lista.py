@@ -96,9 +96,15 @@ def test_objeto_suelto_y_lista_de_uno_dan_el_mismo_contrato() -> None:
 def test_objeto_suelto_con_casos_invalidos_sigue_siendo_error_del_modelo() -> None:
     """La tolerancia es solo de forma: los casos se validan igual que siempre."""
     agente = humo({"objetivo": "duplicar", "casos": [{"id": "incompleto"}]})
+    # Solo la función del caso: otra sin mencionar quedaría omitida y, con razón,
+    # evitaría el error (no todo el módulo falló por culpa del modelo).
+    solo_duplicar = {
+        **MODULO,
+        "funciones": [f for f in MODULO["funciones"] if f["nombre"] == "duplicar"],
+    }
 
     with pytest.raises(ErrorRespuestaPlanner, match="ningún contrato"):
-        agente.planificar(MODULO)
+        agente.planificar(solo_duplicar)
 
 
 @pytest.mark.parametrize(

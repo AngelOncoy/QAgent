@@ -16,6 +16,8 @@ NOMBRES_TERMINACION = {
     "detenida_error": "Detenida por error",
     "cancelada": "Cancelada",
     "limitada_recursos": "Limitada por recursos",
+    # #139: la app se cerró a mitad; se marca al volver a abrir el proyecto.
+    "interrumpida": "Interrumpida",
 }
 
 

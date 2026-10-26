@@ -1,6 +1,6 @@
 // config-pruebas.js — pantalla «Preparar»: qué hacer, tipos de prueba, críticas y comprobaciones previas
 // HTML del componente (se monta en el marcador data-componente="config-pruebas/config-pruebas" de index.html)
-// Cuatro formas de correr (#69, #70 y #133): generar pruebas nuevas, revisión rápida (Humo), volver a correr
+// Cuatro formas de correr (#69, #70 y issue 133): generar pruebas nuevas, revisión rápida (Humo), volver a correr
 // las guardadas o analizar a fondo las críticas. Esta última activa la columna Profundizar de Explorar.
 // Los íconos (ICO_*) vienen de inicio/modal-abrir.js, que se carga antes.
 const ICO_INICIAR = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M7 5v14l11-7z"/></svg>';
@@ -60,7 +60,7 @@ registrarComponente('config-pruebas/config-pruebas', `<!-- ===== 3. PREPARAR ===
 
 // #69: la elección de la pantalla se traduce al perfil que recibe start_run (humo, std, deep o reg, #70).
 // Sin críticas marcadas no hay nada que analizar a fondo: se corre como Estándar.
-// #133: la revisión rápida es la estrategia Humo (un caso normal por objetivo, #75); se combina con
+// issue 133: la revisión rápida es la estrategia Humo (un caso normal por objetivo, #75); se combina con
 // Unitarias y Endpoints API igual que Estándar. Solo se usa si el usuario la elige.
 function perfilDeEleccion({modo}, prioritarias){
   if (modo === 'humo') return 'humo';
@@ -120,7 +120,7 @@ function renderModosPreparar(){
     return `<button type="button" role="radio" class="prep-modo ${modo===o.k?'on':''}" aria-checked="${modo===o.k}"
       ${bloqueado ? 'disabled title="Requiere una corrida previa de este proyecto"' : (o.tip ? `title="${o.tip}"` : '')} onclick="elegirPruebas({modo:'${o.k}'})">
       <span class="prep-radio" aria-hidden="true"></span>
-      <span><b>${o.t}</b><span class="prep-desc">${bloqueado ? 'Disponible después de la primera corrida de este proyecto.' : o.d}</span></span>
+      <span><b>${o.t}</b><span class="prep-desc">${bloqueado ? 'Disponible cuando haya pruebas aprobadas y guardadas de este proyecto.' : o.d}</span></span>
     </button>`;
   }).join('');
 }
@@ -147,7 +147,7 @@ function renderCriticas(){
     (m.endpoints || []).forEach((e, ei) => { if(endpointElegible(e) && e.inc && e.crit) criticas.push({n:e.objetivo, fn:`toggleEndpointCrit(${mi},${ei})`}); });
   });
   $('prepCritTitulo').textContent = `Funciones críticas · ${criticas.length}`;
-  // #133: con Humo no hay análisis a fondo; la mutación necesita la prueba completa (arquitectura §10.3).
+  // issue 133: con Humo no hay análisis a fondo; la mutación necesita la prueba completa (arquitectura §10.3).
   const humo = eleccionPruebas.modo === 'humo';
   $('prepFortaleza').classList.toggle('prep-no-aplica', humo);
   $('prepFortalezaTxt').textContent = humo
