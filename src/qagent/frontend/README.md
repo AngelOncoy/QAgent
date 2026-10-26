@@ -39,7 +39,7 @@ src/qagent/frontend/
     ├── pasos-proyecto/   Pasos del proyecto abierto (Explorar → Preparar → En curso → Pruebas → Resultados) y su desbloqueo
     ├── inicio/           Inicio y recientes · pantallas «Abrir proyecto» (modal-abrir.js) y «Clonar proyecto» (modal-clonar.js); los archivos conservan el nombre de cuando eran modales
     ├── vista-previa/     Pantalla «Explorar»: cifras, carpetas incluidas, tabla compacta de funciones y endpoints con buscador y avisos
-    ├── config-pruebas/   Pantalla «Preparar»: qué hacer (nuevas, volver a correr, análisis a fondo), tipos de prueba, críticas y comprobaciones previas
+    ├── config-pruebas/   Pantalla «Preparar»: qué hacer (nuevas, revisión rápida o humo, volver a correr, análisis a fondo), tipos de prueba, críticas y comprobaciones previas
     ├── monitor/          Pantalla «En curso»: progreso en vivo (etapas, avance, función actual y actividad reciente)
     ├── ejecucion/        Pantalla «Resultados»: bandeja de problemas con la evidencia de auditoría de cada función
     ├── exportar/         Pantalla «Exportar informe»: formato, qué incluir y dónde guardarlo (el archivo lo genera Python)

@@ -1,8 +1,8 @@
 // config-pruebas.js — pantalla «Preparar»: qué hacer, tipos de prueba, críticas y comprobaciones previas
 // HTML del componente (se monta en el marcador data-componente="config-pruebas/config-pruebas" de index.html)
-// Tres formas de correr (#69 y #70): generar pruebas nuevas, volver a correr las guardadas o analizar a fondo
-// las críticas. Esta última activa la columna Profundizar de Explorar. Los íconos (ICO_*) vienen de
-// inicio/modal-abrir.js, que se carga antes.
+// Cuatro formas de correr (#69, #70 y #133): generar pruebas nuevas, revisión rápida (Humo), volver a correr
+// las guardadas o analizar a fondo las críticas. Esta última activa la columna Profundizar de Explorar.
+// Los íconos (ICO_*) vienen de inicio/modal-abrir.js, que se carga antes.
 const ICO_INICIAR = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M7 5v14l11-7z"/></svg>';
 const ICO_AJUSTES = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/></svg>';
 const ICO_CANDADO = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>';
@@ -44,7 +44,7 @@ registrarComponente('config-pruebas/config-pruebas', `<!-- ===== 3. PREPARAR ===
           </section>
         </div>
 
-        <div class="np-aviso np-aviso-info">${ICO_INFO}<div><b>Fortaleza de las pruebas</b><span>Mide si las pruebas detectan errores introducidos a propósito. Solo se mide en las funciones que marques como críticas.</span></div></div>
+        <div class="np-aviso np-aviso-info" id="prepFortaleza">${ICO_INFO}<div><b>Fortaleza de las pruebas</b><span id="prepFortalezaTxt"></span></div></div>
       </div>
 
       <div class="np-columna">
@@ -58,9 +58,12 @@ registrarComponente('config-pruebas/config-pruebas', `<!-- ===== 3. PREPARAR ===
 </section>
 `);
 
-// #69: la elección de la pantalla se traduce al perfil que recibe start_run (std, deep o reg, #70).
+// #69: la elección de la pantalla se traduce al perfil que recibe start_run (humo, std, deep o reg, #70).
 // Sin críticas marcadas no hay nada que analizar a fondo: se corre como Estándar.
+// #133: la revisión rápida es la estrategia Humo (un caso normal por objetivo, #75); se combina con
+// Unitarias y Endpoints API igual que Estándar. Solo se usa si el usuario la elige.
 function perfilDeEleccion({modo}, prioritarias){
+  if (modo === 'humo') return 'humo';
   if (modo === 'repetir') return 'reg';
   if (modo === 'fondo') return prioritarias > 0 ? 'deep' : 'std';
   return 'std';
@@ -104,6 +107,8 @@ function usoIA(tok){
 /* ---------- ¿Qué quieres hacer? ---------- */
 const MODOS_PREPARAR = [
   {k:'nuevas',  t:'Generar pruebas nuevas',     d:'Crear casos para lo que cambió y reutilizar lo que sigue igual.'},
+  {k:'humo',    t:'Revisión rápida (humo)',     d:'Un caso normal por función o endpoint para confirmar que responde. Útil como primera revisión.',
+    tip:'Prueba de humo: un solo caso normal por objetivo. No busca valores límite ni errores y no exige cubrir las ramas.'},
   {k:'repetir', t:'Volver a correr las guardadas', d:'Regresión: comprueba que los cambios no rompieron lo que antes funcionaba. No usa IA.',
     tip:'Regresión: volver a correr las pruebas guardadas para comprobar que los cambios no rompieron lo que antes funcionaba.'},
   {k:'fondo',   t:'Análisis a fondo de críticas', d:'Busca casos límite y mide la fortaleza de las pruebas. Tarda más.'},
@@ -142,6 +147,19 @@ function renderCriticas(){
     (m.endpoints || []).forEach((e, ei) => { if(endpointElegible(e) && e.inc && e.crit) criticas.push({n:e.objetivo, fn:`toggleEndpointCrit(${mi},${ei})`}); });
   });
   $('prepCritTitulo').textContent = `Funciones críticas · ${criticas.length}`;
+  // #133: con Humo no hay análisis a fondo; la mutación necesita la prueba completa (arquitectura §10.3).
+  const humo = eleccionPruebas.modo === 'humo';
+  $('prepFortaleza').classList.toggle('prep-no-aplica', humo);
+  $('prepFortalezaTxt').textContent = humo
+    ? 'No se mide en la revisión rápida: con un solo caso por objetivo casi todos los errores introducidos pasarían inadvertidos.'
+    : 'Mide si las pruebas detectan errores introducidos a propósito. Solo se mide en las funciones que marques como críticas.';
+  if (humo) {
+    $('prepCriticas').innerHTML = criticas.slice(0, 3).map(c => `<label class="prep-casilla dis">
+        <input type="checkbox" class="exp-caja" checked disabled aria-label="Crítica: ${escHtml(c.n)}"><span class="np-mono">${escHtml(c.n)}</span>
+      </label>`).join('')
+      + '<p class="prep-desc">No aplica en la revisión rápida. Las críticas se analizan a fondo con «Análisis a fondo de críticas».</p>';
+    return;
+  }
   const visibles = criticas.slice(0, 3), resto = criticas.length - visibles.length;
   const enlace = resto > 0 ? `Ver y editar las otras ${resto} ${resto === 1 ? 'crítica' : 'críticas'}` : (criticas.length ? 'Editar en Explorar' : 'Marcar críticas en Explorar');
   $('prepCriticas').innerHTML = (visibles.map(c => `<label class="prep-casilla">
@@ -233,6 +251,7 @@ function renderDetallesCorrida(e, bloqueado, prioritarias, epsPrioritarios = 0){
     `Uso de IA estimado: <b>${usoIA(tok)}</b>${tok ? ` · ~${tok.toLocaleString('es-PE')} tokens` : ''}`,
     `Duración aproximada: <b>${p.duracion}</b> · ~${e.time} min`,
     reused ? `${reused} sin cambios: se reutiliza el trabajo anterior.` : '',
+    profile==='humo' ? 'Revisión rápida: un caso normal por función o endpoint. No se exige cubrir las ramas.' : '',
     profile==='deep' ? `Análisis a fondo en ${textoPrioritarias(prioritarias - epsPrioritarios, epsPrioritarios)}: comprueba con mutación si las pruebas detectan errores. No usa tokens, pero tarda más.` : '',
     profile==='reg' ? 'Solo se vuelven a correr pruebas guardadas: no se usa IA.' : 'Los tokens se mostrarán en vivo y por función.',
   ];

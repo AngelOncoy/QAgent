@@ -12,7 +12,7 @@ from qagent.almacenamiento import AlmacenProyecto, recientes
 from qagent.app import bitacora
 from qagent.app.monitor_eventos import a_evento_bitacora, a_fila_monitor
 from qagent.proyectos import proyecto_local
-from qagent.storage.registro import PERFILES_REGRESION
+from qagent.storage.registro import PERFILES_REGRESION, nombre_perfil
 
 # Interfaz web (HTML/CSS/JS), separada del backend e instalada con el paquete: qagent/frontend/
 FRONTEND_DIR = Path(__file__).resolve().parents[1] / "frontend"
@@ -660,8 +660,10 @@ class DesktopAPI:
             )
         self._cancelar_corrida.clear()
         run_id = _registrar_run(folder_path, usa_docker=modo == "real")
-        # Emite un evento hacia la interfaz JS
-        self.emit_event("log", {"message": f"Corrida iniciada en perfil '{profile}'"})
+        # Emite un evento hacia la interfaz JS, con el nombre del perfil para personas (#133)
+        self.emit_event(
+            "log", {"message": f"Corrida iniciada: {nombre_perfil(profile)}"}
+        )
         if modo == "real":
             self._lanzar_corrida(folder_path, profile, run_id, simulado, seleccion)
         return {
