@@ -122,19 +122,30 @@ def vista_ejecucion(results: dict[str, Any]) -> dict[str, Any]:
     estados = [estado_de(o) for o in objetivos]
     tipos = [tipo_de(o) for o in objetivos]
 
-    total_seleccionados = (
-        results.get("total_seleccionados")
-        or resumen.get("total_seleccionados")
-        or len(objetivos)
+    omitidos_crudos = results.get("omitidos") or []
+    total_omitidos = _primer_entero(
+        results.get("objetivos_omitidos"),
+        resumen.get("objetivos_omitidos"),
+        len(omitidos_crudos),
+    )
+    total_seleccionados = _primer_entero(
+        results.get("total_seleccionados"),
+        resumen.get("total_seleccionados"),
+        len(objetivos) + total_omitidos,
     )
     total_procesados = len(objetivos)
+    total_elegibles = _primer_entero(
+        results.get("total_elegibles"),
+        resumen.get("total_elegibles"),
+        max(0, total_seleccionados - total_omitidos),
+    )
     total_pendientes = (
         results.get("total_pendientes")
         if results.get("total_pendientes") is not None
         else (
             resumen.get("total_pendientes")
             if resumen.get("total_pendientes") is not None
-            else max(0, total_seleccionados - total_procesados)
+            else max(0, total_elegibles - total_procesados)
         )
     )
     tipo_terminacion = (
@@ -153,16 +164,17 @@ def vista_ejecucion(results: dict[str, Any]) -> dict[str, Any]:
 
     omitidos = [
         {**o, **identidad_de({"funcion": o["objetivo"], "tipo": o["tipo"]})}
-        for o in results.get("omitidos") or []
+        for o in omitidos_crudos
     ]
 
     return {
         "total_seleccionados": total_seleccionados,
+        "total_elegibles": total_elegibles,
         "total_procesados": total_procesados,
         "total_pendientes": total_pendientes,
         # Seleccionados que no se probaron, con su motivo (no son pendientes).
         "omitidos": omitidos,
-        "total_omitidos": len(omitidos),
+        "total_omitidos": total_omitidos,
         "tipo_terminacion": tipo_terminacion,
         "es_parcial": es_parcial,
         "run_id": results["run_id"],
@@ -283,6 +295,14 @@ def _numero(valor: Any) -> float | None:
     if isinstance(valor, bool) or not isinstance(valor, (int, float)):
         return None
     return round(max(0.0, float(valor)), 3)
+
+
+def _primer_entero(*valores: Any) -> int:
+    """Primer entero no negativo, conservando el cero como dato real."""
+    for valor in valores:
+        if isinstance(valor, int) and not isinstance(valor, bool) and valor >= 0:
+            return valor
+    return 0
 
 
 def categorias_de(objetivo: dict[str, Any]) -> dict[str, int] | None:

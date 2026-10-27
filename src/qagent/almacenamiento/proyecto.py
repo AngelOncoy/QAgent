@@ -272,10 +272,14 @@ class AlmacenProyecto:
             datos["tipo_terminacion"] = run["tipo_terminacion"]
         if run.get("total_seleccionados") is not None:
             datos["total_seleccionados"] = run["total_seleccionados"]
+        if run.get("total_elegibles") is not None:
+            datos["total_elegibles"] = run["total_elegibles"]
         if run.get("procesados") is not None:
             datos["procesados"] = run["procesados"]
         if run.get("pendientes") is not None:
             datos["pendientes"] = run["pendientes"]
+        if run.get("objetivos_omitidos") is not None:
+            datos["objetivos_omitidos"] = run["objetivos_omitidos"]
         if run.get("motivo") is not None:
             datos["motivo"] = run["motivo"]
         escribir_json_atomico(ruta, datos)
@@ -291,6 +295,10 @@ class AlmacenProyecto:
         ahora: datetime | None = None,
         duracion_s: float | None = None,
         total_seleccionados: int | None = None,
+        total_elegibles: int | None = None,
+        total_procesados: int | None = None,
+        total_pendientes: int | None = None,
+        objetivos_omitidos: int | None = None,
         tipo_terminacion: str | None = None,
         motivo: str | None = None,
     ) -> dict[str, Any]:
@@ -311,10 +319,27 @@ class AlmacenProyecto:
         )
         if total_seleccionados is not None:
             sel = int(total_seleccionados)
-            proc = pasaron + fallaron
+            omitidos = int(objetivos_omitidos or 0)
+            elegibles = (
+                int(total_elegibles)
+                if total_elegibles is not None
+                else max(0, sel - omitidos)
+            )
+            proc = (
+                int(total_procesados)
+                if total_procesados is not None
+                else pasaron + fallaron
+            )
+            pendientes = (
+                int(total_pendientes)
+                if total_pendientes is not None
+                else max(0, elegibles - proc)
+            )
             run["total_seleccionados"] = sel
+            run["total_elegibles"] = elegibles
             run["procesados"] = proc
-            run["pendientes"] = max(0, sel - proc)
+            run["pendientes"] = pendientes
+            run["objetivos_omitidos"] = omitidos
         if tipo_terminacion is not None:
             run["tipo_terminacion"] = str(tipo_terminacion)
         if motivo is not None:
@@ -796,6 +821,17 @@ def _validar_run(run: dict[str, Any]) -> None:
         isinstance(sel, bool) or not isinstance(sel, int) or sel < 0
     ):
         raise ErrorAlmacen("total_seleccionados debe ser un entero no negativo o null.")
+    for campo in (
+        "total_elegibles",
+        "procesados",
+        "pendientes",
+        "objetivos_omitidos",
+    ):
+        valor = run.get(campo)
+        if valor is not None and (
+            isinstance(valor, bool) or not isinstance(valor, int) or valor < 0
+        ):
+            raise ErrorAlmacen(f"{campo} debe ser un entero no negativo o null.")
 
 
 def _validar_spec(spec: dict[str, Any]) -> None:

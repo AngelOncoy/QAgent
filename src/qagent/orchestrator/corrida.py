@@ -92,6 +92,7 @@ class ResumenCorrida:
     duracion_etapas: dict[str, float] = field(default_factory=dict)
     cancelada: bool = False
     total_seleccionados: int = 0
+    total_elegibles: int = 0
     total_procesados: int = 0
     total_pendientes: int = 0
     tipo_terminacion: str = "completada"
@@ -224,6 +225,7 @@ def ejecutar_corrida(
         total_funciones=0,
         inicio=inicio_utc,
     )
+    resultados: list[ResultadoCorrida] = []
     tipos: list[str] = ["funcion"]
     try:
         if not ruta.is_dir():
@@ -324,7 +326,6 @@ def ejecutar_corrida(
             **opciones,
         )
 
-        resultados: list[ResultadoCorrida] = []
         planes_specs: list[dict[str, Any]] = []
         # #70: con las huellas, el Mutation Score de esta corrida queda guardado para
         # reutilizarlo al repetir las pruebas sin cambios.
@@ -516,6 +517,15 @@ def ejecutar_corrida(
             tipos,
         )
     except Exception as error:  # noqa: BLE001 — la corrida nunca debe tumbar la app
+        if "tracker" in locals():
+            _contar(resumen, resultados, tracker)
+        else:
+            resumen.total_elegibles = max(
+                0, resumen.total_seleccionados - resumen.objetivos_omitidos
+            )
+            resumen.total_pendientes = max(
+                0, resumen.total_elegibles - resumen.total_procesados
+            )
         resumen.estado = FALLO
         resumen.tipo_terminacion = "detenida_error"
         resumen.motivo = resumen.motivo or _texto_error(error)
@@ -701,11 +711,12 @@ def _contar(
     # Omitido (sin resultado esperado verificable o ruta sin resolver) no es pendiente:
     # pendiente es solo lo que una detención dejó sin revisar.
     resumen.objetivos_omitidos = sum(len(r.omitidos) for r in resultados)
+    resumen.total_elegibles = max(
+        0, resumen.total_seleccionados - resumen.objetivos_omitidos
+    )
     resumen.total_pendientes = max(
         0,
-        resumen.total_seleccionados
-        - resumen.total_procesados
-        - resumen.objetivos_omitidos,
+        resumen.total_elegibles - resumen.total_procesados,
     )
     resumen.total_funciones = len(decisiones)
     resumen.aceptadas = decisiones.count("accept")
@@ -756,6 +767,7 @@ def _registrar(
             duracion_s=resumen.duracion_s,
             duracion_etapas=resumen.duracion_etapas,
             total_seleccionados=resumen.total_seleccionados,
+            total_elegibles=resumen.total_elegibles,
             total_procesados=resumen.total_procesados,
             total_pendientes=resumen.total_pendientes,
             tipo_terminacion=resumen.tipo_terminacion,
@@ -917,6 +929,10 @@ def _cerrar_run(
             tipos_prueba=tipos or ["funcion"],
             duracion_s=resumen.duracion_s,
             total_seleccionados=resumen.total_seleccionados,
+            total_elegibles=resumen.total_elegibles,
+            total_procesados=resumen.total_procesados,
+            total_pendientes=resumen.total_pendientes,
+            objetivos_omitidos=resumen.objetivos_omitidos,
             tipo_terminacion=resumen.tipo_terminacion,
             motivo=resumen.motivo,
         )

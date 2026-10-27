@@ -206,6 +206,8 @@ def test_caso_a_tres_objetivos_procesados(
     assert resumen.estado == "fin"
     assert resumen.tipo_terminacion == "completada"
     assert resumen.aceptadas == 3
+    assert resumen.total_elegibles == 3
+    assert resumen.total_procesados == 3
     assert resumen.total_pendientes == 0
     resultados = _resultados(proyecto, resumen.run_id)
     assert {n: r["decision"] for n, r in resultados.items()} == {
@@ -250,6 +252,8 @@ def test_caso_b_fallo_recuperable_del_planner_no_detiene_el_tercero(
     assert fila["motivo_sin_veredicto"] == ERROR_PLANNER
     assert resumen.aceptadas == 2
     assert resumen.sin_veredicto == 1
+    assert resumen.total_elegibles == 3
+    assert resumen.total_procesados == 3
     assert resumen.total_pendientes == 0
 
     # El estado global dice que hubo errores, sin presentarse como detenida.
@@ -347,6 +351,8 @@ def test_caso_c_cancelacion_detiene_el_procesamiento(
     assert llamados == ["mod_a.py"]
     assert resumen.cancelada is True
     assert resumen.tipo_terminacion == "cancelada"
+    assert resumen.total_procesados == 1
+    assert resumen.total_pendientes == 2
     # Lo procesado antes de cancelar se conserva.
     assert _resultados(proyecto, resumen.run_id)["uno"]["decision"] == "accept"
 
@@ -370,6 +376,10 @@ def test_caso_d_limite_de_tokens_detiene_la_corrida(
 
     assert llamados == ["mod_a.py", "mod_b.py"]
     assert resumen.tipo_terminacion == "limitada_recursos"
+    # El Planner del segundo objetivo consumió el presupuesto, pero no produjo
+    # un registro individual; por eso solo el primero cuenta como procesado.
+    assert resumen.total_procesados == 1
+    assert resumen.total_pendientes == 2
     resultados = _resultados(proyecto, resumen.run_id)
     assert resultados["uno"]["decision"] == "accept"
     assert "tres" not in resultados

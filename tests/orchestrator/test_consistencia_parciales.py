@@ -76,6 +76,7 @@ def test_consistencia_corrida_parcial_por_cancelacion(proyecto, config) -> None:
 
     # 1. Orquestador
     assert resumen.total_seleccionados == 6
+    assert resumen.total_elegibles == 6
     assert resumen.total_procesados == 2
     assert resumen.total_pendientes == 4
     assert resumen.cancelada is True
@@ -90,6 +91,7 @@ def test_consistencia_corrida_parcial_por_cancelacion(proyecto, config) -> None:
     # 3. Archivo results.json persistido
     results = leer_results(proyecto.raiz, resumen.run_id)
     assert results["total_seleccionados"] == 6
+    assert results["total_elegibles"] == 6
     assert results["total_procesados"] == 2
     assert results["total_pendientes"] == 4
     assert results["tipo_terminacion"] == "cancelada"
@@ -98,6 +100,7 @@ def test_consistencia_corrida_parcial_por_cancelacion(proyecto, config) -> None:
     # 4. Vista Ejecución de pruebas
     ejec = vista_ejecucion(results)
     assert ejec["total_seleccionados"] == 6
+    assert ejec["total_elegibles"] == 6
     assert ejec["total_procesados"] == 2
     assert ejec["total_pendientes"] == 4
     assert ejec["es_parcial"] is True
@@ -107,6 +110,7 @@ def test_consistencia_corrida_parcial_por_cancelacion(proyecto, config) -> None:
     detalle = leer_detalle(proyecto.raiz, resumen.run_id)
     rep = vista_reporte(results, detalle)
     assert rep["total_seleccionados"] == 6
+    assert rep["total_elegibles"] == 6
     assert rep["total_procesados"] == 2
     assert rep["total_pendientes"] == 4
     assert rep["es_parcial"] is True
@@ -118,6 +122,7 @@ def test_consistencia_corrida_parcial_por_cancelacion(proyecto, config) -> None:
     fila = historial["corridas"][0]
     assert fila["run_id"] == resumen.run_id
     assert fila["total_seleccionados"] == 6
+    assert fila["total_elegibles"] == 6
     assert fila["total_procesados"] == 2
     assert fila["total_pendientes"] == 4
     assert fila["no_procesados_por_detencion"] == 4
@@ -144,12 +149,14 @@ def test_consistencia_corrida_completa(proyecto, config) -> None:
     )
 
     assert resumen.total_seleccionados == 6
+    assert resumen.total_elegibles == 6
     assert resumen.total_procesados == 6
     assert resumen.total_pendientes == 0
     assert resumen.tipo_terminacion == "completada"
 
     results = leer_results(proyecto.raiz, resumen.run_id)
     assert results["total_seleccionados"] == 6
+    assert results["total_elegibles"] == 6
     assert results["total_procesados"] == 6
     assert results["total_pendientes"] == 0
     assert results["tipo_terminacion"] == "completada"

@@ -255,6 +255,7 @@ def ejecutar_regresion(
                 in elegidos
             ]
         resumen.total_seleccionados = len(specs)
+        resumen.total_elegibles = len(specs)
         resumen.total_funciones = len(specs)
         if not specs:
             raise RuntimeError("No hay pruebas aprobadas vigentes para Regresion.")
@@ -465,6 +466,7 @@ def ejecutar_regresion(
             duracion_s=resumen.duracion_s,
             duracion_etapas=resumen.duracion_etapas,
             total_seleccionados=resumen.total_seleccionados,
+            total_elegibles=resumen.total_elegibles,
             total_procesados=resumen.total_procesados,
             total_pendientes=resumen.total_pendientes,
             tipo_terminacion=resumen.tipo_terminacion,
