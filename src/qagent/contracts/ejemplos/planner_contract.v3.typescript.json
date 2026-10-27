@@ -1,0 +1,30 @@
+{
+  "version": "3",
+  "lenguaje": "typescript",
+  "framework_pruebas": "vitest",
+  "modulo": "src/tienda/precios.ts",
+  "huella": "3b1f5e0c9a7d2e4f6081a2b3c4d5e6f708192a3b4c5d6e7f8091a2b3c4d5e6f7",
+  "tipo": "funcion",
+  "objetivo": "calcularDescuento",
+  "firma": "(precio: number, porcentaje: number): number",
+  "critical": false,
+  "llama_a": [],
+  "casos": [
+    {
+      "id": "descuento_normal",
+      "descripcion": "Aplica el porcentaje al precio (según el JSDoc)",
+      "entrada": { "precio": 100, "porcentaje": 20 },
+      "valor_esperado": 80,
+      "origen": "docstring",
+      "categoria": "normal"
+    },
+    {
+      "id": "porcentaje_invalido",
+      "descripcion": "Un porcentaje mayor a 100 lanza RangeError",
+      "entrada": { "precio": 100, "porcentaje": 150 },
+      "excepcion": "RangeError",
+      "origen": "docstring",
+      "categoria": "error"
+    }
+  ]
+}

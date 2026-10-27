@@ -55,8 +55,9 @@ La interfaz, los contratos y `config.toml` viajan dentro del paquete (`src/qagen
 | `src/qagent/almacenamiento/` | Almacenamiento del proyecto (EN-07): `AlmacenProyecto` guarda corridas (`run.json`), specs y pruebas aprobadas en `<proyecto>/.qagent/`; `recientes.py` maneja `~/.qagent/recientes.json`. Escritura atómica en UTF-8 |
 | `src/qagent/storage/` | `log.json` y `results.json` de cada corrida en `.qagent/runs/<run_id>/` (EN-05) |
 | `src/qagent/frontend/` | Interfaz HTML/CSS/JS sin build: un componente por pantalla en `componentes/`, tokens de diseño en `css/tokens.css`, logo en `assets/logo/`. Ver `src/qagent/frontend/README.md` |
-| `src/qagent/contracts/` | JSON Schema de los contratos entre agentes y `validar()` |
-| `tests/` | Pruebas del sistema; reflejan `src/` (`almacenamiento`, `analysis`, `app`, `config`, `llm`, `orchestrator`, `proyectos`, `sandbox`, `storage`) y `tests/frontend/` para la estructura de la interfaz |
+| `src/qagent/contracts/` | JSON Schema de los contratos entre agentes y `validar()`; versiones con lenguaje y framework (`planner_contract.v3`, `generated_test.v2`) y `validar_versionado()` (EN-17 #129) |
+| `src/qagent/lenguajes/` | Adaptadores por lenguaje (EN-17 #129): interfaz `LanguageAdapter`, registro y detección; Python completo, JS/TS y Java solo detectan. Ver su `README.md` y ADR-007 |
+| `tests/` | Pruebas del sistema; reflejan `src/` (`almacenamiento`, `analysis`, `app`, `config`, `lenguajes`, `llm`, `orchestrator`, `proyectos`, `sandbox`, `storage`) y `tests/frontend/` para la estructura de la interfaz |
 | `test.py` | Ejecuta todas las pruebas con un comando (lint, formato y pytest) |
 | `pyproject.toml` | Dependencias, extra `dev`, configuración de pytest y ruff, script `qagent` |
 | `CLAUDE.md` | Guía específica para Claude Code (importa este archivo) |

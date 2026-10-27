@@ -14,7 +14,9 @@ from qagent.contracts import (
     DETALLE,
     DIR_CONTRATOS,
     GENERATED_TEST,
+    GENERATED_TEST_V2,
     PLANNER,
+    PLANNER_V3,
     REVIEW_RESULT,
     RUN_LOG,
     ContratoInvalido,
@@ -48,6 +50,11 @@ EJEMPLOS = [
     (RUN_LOG, "run_log.log"),
     (RUN_LOG, "run_log.results"),
     (DETALLE, DETALLE),
+    (PLANNER_V3, PLANNER_V3),
+    (PLANNER_V3, "planner_contract.v3.typescript"),
+    (PLANNER_V3, "planner_contract.v3.java"),
+    (GENERATED_TEST_V2, GENERATED_TEST_V2),
+    (GENERATED_TEST_V2, "generated_test.v2.java"),
 ]
 
 

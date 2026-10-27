@@ -283,6 +283,24 @@ def interpretar(
     return resultado
 
 
+def comando_mutacion(
+    modulo: str, funciones: list[str]
+) -> tuple[list[str], dict[str, str]]:
+    """Comando y variables de entorno con que el sandbox corre mutmut (EN-17).
+
+    Args:
+        modulo: ruta del módulo relativa al proyecto (ej. `pkg/calc.py`).
+        funciones: nombres de las funciones críticas a mutar.
+    """
+    entorno = {
+        # Sin PYTHONPATH: mutmut debe importar el módulo mutado de `mutants/`, no el original.
+        "PYTHONPATH": "",
+        "QAGENT_MUT_ARCHIVO": Path(modulo).as_posix(),
+        "QAGENT_MUT_FUNCIONES": json.dumps(list(funciones)),
+    }
+    return ["python", "-c", SCRIPT_MUTACION], entorno
+
+
 def ejecutar_mutacion(
     imagen: str,
     ruta_proyecto: str | Path,
@@ -336,18 +354,14 @@ def ejecutar_mutacion(
         except (OSError, json.JSONDecodeError):
             pass
 
+    comando, entorno = comando_mutacion(modulo, funciones)
     ejecucion: ResultadoSandbox = ejecutar_en_sandbox(
         imagen,
-        ["python", "-c", SCRIPT_MUTACION],
+        comando,
         ruta_proyecto,
         ruta_tests,
         limites,
-        # Sin PYTHONPATH: mutmut debe importar el módulo mutado de `mutants/`, no el original.
-        entorno={
-            "PYTHONPATH": "",
-            "QAGENT_MUT_ARCHIVO": Path(modulo).as_posix(),
-            "QAGENT_MUT_FUNCIONES": json.dumps(list(funciones)),
-        },
+        entorno=entorno,
         al_terminar=leer,
         cliente=cliente,
     )

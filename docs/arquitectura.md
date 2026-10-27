@@ -159,12 +159,12 @@ flowchart TB
         SBX["sandbox/<br/>ejecución Docker (EN-03)"]
         STO["almacenamiento/<br/>.qagent/ y recientes (EN-07)"]
         CFG["configuración (EN-06)"]
-        CON["validación de contratos<br/>contracts/*.schema.json (EN-01)<br/>versionados v3 (EN-17, propuesto)"]
+        CON["validación de contratos<br/>contracts/*.schema.json (EN-01)<br/>versionados v3 (EN-17)"]
     end
-    subgraph LEN["lenguajes/ · propuesto (EN-17, ADR-007)"]
+    subgraph LEN["lenguajes/ (EN-17, ADR-007)"]
         REG["Registro<br/>detección del lenguaje"]
         PYA["PythonAdapter<br/>delega en analysis/ y sandbox/"]
-        OTR["JS/TS · Java<br/>tree-sitter (ADR-009)"]
+        OTR["JS/TS · Java<br/>hoy solo detectan; tree-sitter (ADR-009)"]
     end
     EXP["Explicador · propuesto<br/>etapa posterior al veredicto (ADR-008)"]
 
@@ -175,8 +175,8 @@ flowchart TB
     ORQ --> AN & STO & CFG & CON
     PL & GE & RE --> LLM
     RE --> SBX
-    REG -.-> PYA & OTR
-    PYA -.-> AN & SBX
+    REG --> PYA & OTR
+    PYA --> AN & SBX
     ORQ -. "elige el adaptador" .-> REG
     ORQ -. "después de results.json" .-> EXP
     EXP -.-> LLM
@@ -184,7 +184,7 @@ flowchart TB
 
 El Sprint 2 agrega dos piezas, ambas fuera de la máquina de estados:
 
-- **`lenguajes/`** reúne todo lo que depende del lenguaje (análisis, comando de pruebas, imagen del sandbox, lectura de resultados y guardrail de aserciones) detrás de la interfaz `LanguageAdapter`. Planner, Generator, Reviewer y el orquestador son compartidos y no conocen lenguajes. `PythonAdapter` solo delega en el código actual, así que el flujo de Python no cambia.
+- **`lenguajes/`** (EN-17) reúne todo lo que depende del lenguaje (análisis, comando de pruebas, imagen del sandbox, lectura de resultados y guardrail de aserciones) detrás de la interfaz `LanguageAdapter`. Planner, Generator, Reviewer y el orquestador son compartidos y no conocen lenguajes. `PythonAdapter` solo delega en el código actual, así que el flujo de Python no cambia. Todavía no está conectado a la corrida: la flecha punteada desde el orquestador es lo que falta.
 - **El Explicador** lo invoca el código de la corrida (`corrida.py`) cuando los veredictos ya están guardados. Es de solo lectura y, si falla o está desactivado, los informes siguen como hoy.
 
 | Componente | Carpeta | Responsabilidad | Ítems |
@@ -202,7 +202,7 @@ El Sprint 2 agrega dos piezas, ambas fuera de la máquina de estados:
 | Registro de corridas | `src/qagent/storage/` | `log.json` y `results.json` de cada corrida, validados contra `run_log.schema.json`. | EN-05 |
 | Configuración | `src/qagent/config/` | Carga `config.toml` y `.env`, audita las claves y verifica Docker y Git. | EN-06 |
 | Contratos | `src/qagent/contracts/` | JSON Schema de cada mensaje; se validan en cada paso. En el Sprint 2, versiones con lenguaje y framework (sección 9). | EN-01, EN-17 |
-| Adaptadores por lenguaje (propuesto) | `src/qagent/lenguajes/` | Interfaz `LanguageAdapter` y registro: detección del lenguaje, análisis estático, comando de pruebas, entorno del sandbox, lectura de resultados y guardrail de aserciones. Python completo; JS/TS y Java en desarrollo. | EN-17, EP-11a, EP-12a · ADR-007, ADR-009 |
+| Adaptadores por lenguaje | `src/qagent/lenguajes/` | Interfaz `LanguageAdapter` y registro: detección del lenguaje, análisis estático, comando de pruebas, entorno del sandbox, lectura de resultados y guardrail de aserciones. Python completo (delega en el código actual); JS/TS y Java solo detectan por ahora. | EN-17, EP-11a, EP-12a · ADR-007, ADR-009 |
 | Explicador (propuesto) | por definir en EP-10 | Explica en lenguaje simple los objetivos que no terminaron en `accept`, con plantillas deterministas y un LLM opcional. | EP-10 · ADR-008 |
 
 ### Reglas de dependencia
@@ -384,7 +384,7 @@ flowchart TB
     proyectos --> analysis
     config --> llm & sandbox
     llm -. "import dentro de una función" .-> config
-    lenguajes -. "propuesto (EN-17)" .-> analysis & contracts & sandbox
+    lenguajes --> analysis & contracts & sandbox
 ```
 
 | Regla (sección 4) | ¿Se cumple? |
@@ -768,9 +768,9 @@ Los schemas completos van en `src/qagent/contracts/` y los valida `tests/test_co
 |---|---|---|---|
 | `estructura.json` | Analizador (o adaptador del lenguaje) → Orquestador / Planner | módulos; funciones (firma, tipos, docstring, n.º de ramas, `llama_a`); endpoints FastAPI (método, ruta, `response_model`, `status_code`, modelo del body); SHA-256 por módulo. Propuesto: campo `lenguaje`, con la misma forma para todos los lenguajes (ADR-009) | salida de EN-02 / EN-14 |
 | `planner_contract.v2` | Planner → Generator (vía orquestador) | módulo, `tipo` (`funcion` \| `endpoint`), función o ruta, firma, `critical`, casos: [id, entrada, valor esperado, origen del valor esperado] | `planner_contract.v2.schema.json` |
-| `planner_contract.v3` (propuesto, EN-17) | mismo recorrido que v2 | v2 + `lenguaje`, `framework_pruebas` y `framework_app`, con las combinaciones válidas por lenguaje. Un v2 se convierte en memoria; las specs guardadas y el flujo de Python siguen en v2 | `planner_contract.v3.schema.json` |
+| `planner_contract.v3` (EN-17) | mismo recorrido que v2 | v2 + `lenguaje`, `framework_pruebas` y `framework_app`, con las combinaciones válidas por lenguaje. Un v2 se convierte en memoria; las specs guardadas y el flujo de Python siguen en v2 | `planner_contract.v3.schema.json` |
 | `generated_test` | Generator → Reviewer (vía orquestador) | función o ruta, intento, código pytest, ids de casos cubiertos | `generated_test.schema.json` |
-| `generated_test.v2` (propuesto, EN-17) | mismo recorrido que v1 | v1 + `lenguaje`, `framework_pruebas` y `archivo` del test | `generated_test.v2.schema.json` |
+| `generated_test.v2` (EN-17) | mismo recorrido que v1 | v1 + `lenguaje`, `framework_pruebas` y `archivo` del test | `generated_test.v2.schema.json` |
 | `review_result` | Reviewer → Orquestador | función o ruta, intento, estado del sandbox, cobertura, laundering detectado, `tipo_fallo` (`error_test` \| `bug_codigo`), hash del error, decisión (`accept` \| `retry` \| `bug_detectado` \| `stalled`), feedback, `ejecucion` opcional (EN-17: casos, salida y entorno del sandbox) | `review_result.schema.json` |
 | `detalle.json` | Orquestador → `.qagent/` | por función: contrato, último test y traza; por intento (EN-17): feedback, hash del error, cobertura y `ejecucion` (casos de pytest con archivo, línea, código, esperado y obtenido, salida recortada y entorno) | `detalle.schema.json` |
 | `log.json` / `results.json` | Orquestador → `.qagent/` | modelos usados, perfil, llamadas con tokens por agente, costo, 5 métricas por función o endpoint | `run_log.schema.json` |
@@ -945,7 +945,7 @@ Responsables sugeridos en el plan del Sprint 2, a confirmar en el Sprint Plannin
 | Nombre y forma del contrato del Explicador (`explanation.v1` del plan o `explicacion.schema.json` del spike) | Rodríguez Malca, Rodrigo | ADR-008 · EP-10 |
 | Si el Explicador propone parches y el orquestador los verifica en el sandbox (necesita su propia decisión) | Rodríguez Malca, Rodrigo, con el equipo | ADR-008 |
 | Medir el Explicador con un LLM real (tokens, costo, latencia y calidad) antes de activarlo por defecto | Rodríguez Malca, Rodrigo y Sanchez Vargas, Adrián | ADR-008, paso 5 |
-| Completar la interfaz del adaptador con cobertura, mutación y archivo de prueba, y conectar el registro a la corrida | Oncoy Patricio, Angel | ADR-007 · EN-17 |
+| Conectar el registro de adaptadores a la corrida y usar `planner_contract.v3` en el flujo | Oncoy Patricio, Angel | ADR-007 |
 | Agregar tree-sitter y las gramáticas de JS/TS; analizador y guardrail de `expect` | Castillo Pezo, Mateo | ADR-009 · EP-11a |
 | Adaptador de Java completo y banco equivalente en los 3 lenguajes (brecha B5) | Nuevo integrante | ADR-009 · EP-12a |
 | Imágenes `node`, `java` y `navegador` del sandbox y límites de memoria y tiempo por lenguaje | Sanchez Vargas, Adrián | Sección 7 |

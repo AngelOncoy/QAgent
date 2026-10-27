@@ -1,0 +1,10 @@
+{
+  "version": "2",
+  "lenguaje": "java",
+  "framework_pruebas": "junit5",
+  "objetivo": "GET /items/{id}",
+  "intento": 1,
+  "archivo": "ItemControllerTest.java",
+  "codigo": "package com.tienda;\n\nimport org.junit.jupiter.api.Test;\n\nclass ItemControllerTest {\n    @Test\n    void itemInexistente() {\n        // Esqueleto: el adaptador de Java define cómo se arma el cliente HTTP.\n    }\n}\n",
+  "casos_cubiertos": ["item_inexistente"]
+}
