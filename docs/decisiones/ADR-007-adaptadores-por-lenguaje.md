@@ -4,7 +4,7 @@
 - **Fecha:** 2026-10-27
 - **Ítem:** EN-17 (#129) — Implementar la base de adaptadores y contratos multilenguaje
 - **Responsable:** Oncoy Patricio, Angel
-- **Relacionado:** ADR-002 (análisis con `ast`), SPK-04 (estrategia de parser por lenguaje), EN-01 (contratos), EP-09 (endpoints)
+- **Relacionado:** ADR-002 (análisis con `ast`), ADR-008 (orquestador y Explicador, SPK-03), ADR-009 (parser por lenguaje, SPK-04), EN-01 (contratos), EP-09 (endpoints)
 
 ## 1. Contexto
 
@@ -52,24 +52,12 @@ El Planner sigue produciendo v2, las specs se guardan y leen como v2 y el orques
 
 ## 3. Estrategia de parser (SPK-04)
 
-**Decisión de SPK-04: tree-sitter** (bindings de Python sobre C) es el parser de los lenguajes nuevos. La interfaz no lo fija: `analizar` y `validar_sintaxis` lo usan dentro de cada adaptador.
+**Decisión de SPK-04: tree-sitter** (bindings de Python sobre C) es el parser de los lenguajes nuevos. La decisión completa, con sus mediciones, está en ADR-009 (SPK-04). La interfaz no fija el parser: `analizar` y `validar_sintaxis` lo usan dentro de cada adaptador.
 
-Mediciones de SPK-04 (tiempo medio por archivo en el entorno de evaluación):
-
-| Herramienta | Lenguaje | Tiempo medio | Tokens LLM | Determinista |
-|---|---|---|---|---|
-| Parser nativo (`ast`) | Python | 3.69 ms | 0 | Sí |
-| Parser nativo JS (subproceso de Node) | JavaScript | 123.46 ms | 0 | Sí |
-| tree-sitter | Python | 1.85 ms | 0 | Sí |
-| tree-sitter | TypeScript | 1.99 ms | 0 | Sí |
-| tree-sitter | Java | 2.01 ms | 0 | Sí |
-| Graphify (estructural + semántico) | Python | 2 445 ms | 1 647 | No |
-| Graphify (estructural + semántico) | TypeScript | 2 445 ms | 1 784 | No |
-
-Por qué tree-sitter:
+Resumen de por qué tree-sitter:
 
 - Es estático, determinista y no gasta tokens, como exigen las métricas reproducibles y la caché por huella (HU-24).
-- Un solo parser sirve para JS, TS y Java, y no requiere Node ni un JDK en la PC del usuario (el parser nativo de JS sí, y es unas 60 veces más lento).
+- Un solo parser sirve para JS, TS y Java, y no requiere Node ni un JDK en la PC del usuario (el parser nativo de JS sí, y es unas 40 veces más lento).
 - Detecta errores de sintaxis sin ejecutar nada (nodos `ERROR` del árbol), lo que sirve para `validar_sintaxis`.
 
 Condiciones que no se negocian:
@@ -82,7 +70,7 @@ Condiciones que no se negocian:
 
 Se propuso contar las líneas de código del proyecto y usar Graphify por encima de un umbral (por ejemplo, un millón de líneas) y tree-sitter por debajo. **Se descarta por ahora:**
 
-- **El costo de tree-sitter crece en línea recta y es bajo.** Con ~2 ms por archivo, un proyecto de un millón de líneas (del orden de 10 000 archivos) se analiza en unos 20 s, una sola vez por huella. Graphify tardaría más (~2.4 s por pasada) y además gasta tokens.
+- **El costo de tree-sitter crece en línea recta y es bajo.** Con ~3 ms por archivo (ADR-009), un proyecto de un millón de líneas (del orden de 10 000 archivos) se analiza en unos 30 s, una sola vez por huella. Graphify tarda ~2.4 s por archivo y además gasta tokens, así que en ese mismo proyecto tardaría horas.
 - **Graphify no es determinista y envía código a un LLM.** Dos análisis del mismo proyecto podrían dar estructuras distintas, lo que rompe la caché por huella y la comparación entre corridas, y saca código de la PC del usuario (ADR-002).
 - **La ventaja de Graphify en repositorios grandes no aplica a QAgent.** Sirve para que un asistente navegue un repositorio sin leerlo entero. QAgent ya trabaja por módulo y por función, y la persona elige qué módulos probar.
 - **Dos parsers según un umbral duplican el trabajo:** dos salidas que deben ser equivalentes, el doble de pruebas y un umbral arbitrario en el que un proyecto cambia de resultado por una línea.
