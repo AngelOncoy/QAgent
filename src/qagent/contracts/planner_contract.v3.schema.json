@@ -112,7 +112,14 @@
         "required": ["tipo", "lenguaje"],
         "properties": { "tipo": { "const": "funcion" }, "lenguaje": { "not": { "const": "python" } } }
       },
-      "then": { "properties": { "objetivo": { "$ref": "#/$defs/nombre_calificado" } } }
+      "then": {
+        "properties": {
+          "objetivo": { "$ref": "#/$defs/nombre_calificado" },
+          "casos": {
+            "items": { "not": { "required": ["tipo_valor_esperado"] } }
+          }
+        }
+      }
     },
     {
       "if": { "properties": { "tipo": { "const": "endpoint" } } },
@@ -152,7 +159,12 @@
     "caso_endpoint": {
       "description": "Un caso de endpoint es una petición HTTP y su respuesta esperada; un error es un código de estado, no una excepción.",
       "required": ["valor_esperado"],
-      "not": { "required": ["excepcion"] },
+      "not": {
+        "anyOf": [
+          { "required": ["excepcion"] },
+          { "required": ["tipo_valor_esperado"] }
+        ]
+      },
       "properties": {
         "entrada": {
           "type": "object",
@@ -199,6 +211,15 @@
       "additionalProperties": false,
       "required": ["id", "entrada", "origen"],
       "anyOf": [{ "required": ["valor_esperado"] }, { "required": ["excepcion"] }],
+      "allOf": [
+        {
+          "if": { "required": ["tipo_valor_esperado"] },
+          "then": {
+            "required": ["valor_esperado"],
+            "properties": { "valor_esperado": { "type": "array" } }
+          }
+        }
+      ],
       "properties": {
         "id": { "type": "string", "pattern": "^[a-z0-9_]+$" },
         "descripcion": { "type": "string" },
@@ -207,6 +228,10 @@
         },
         "valor_esperado": {
           "description": "Valor esperado. Sale del contrato (oráculo), nunca de ejecutar el código."
+        },
+        "tipo_valor_esperado": {
+          "const": "tuple",
+          "description": "Semántica Python perdida al serializar en JSON: valor_esperado es una tupla, no una lista. Si falta, un array JSON conserva el significado histórico de lista."
         },
         "excepcion": {
           "type": "string",
