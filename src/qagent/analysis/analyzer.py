@@ -47,10 +47,18 @@ from pathlib import Path
 from typing import Any
 
 from qagent.analysis.ramas import contar_ramas
-from qagent.analysis.rutas import analizar_rutas
+from qagent.analysis.rutas import analizar_rutas, sentencias_modulo
 
 DIRECTORIOS_IGNORADOS = frozenset(
-    {"tests", "__pycache__", "venv", "node_modules", "site-packages", "mutants"}
+    {
+        "tests",
+        "__pycache__",
+        "venv",
+        "node_modules",
+        "site-packages",
+        "mutants",
+        "multilenguaje",
+    }
 )
 
 _ERRORES_LECTURA = (SyntaxError, ValueError, RecursionError, OSError)
@@ -140,12 +148,17 @@ def _extraer_funcion(
 
 
 def _funciones_publicas(arbol: ast.Module) -> list[dict[str, Any]]:
-    return [
-        _extraer_funcion(nodo)
-        for nodo in arbol.body
-        if isinstance(nodo, (ast.FunctionDef, ast.AsyncFunctionDef))
-        and not nodo.name.startswith("_")
-    ]
+    funciones = []
+    vistos: set[str] = set()
+    for nodo in sentencias_modulo(arbol.body):
+        if (
+            isinstance(nodo, (ast.FunctionDef, ast.AsyncFunctionDef))
+            and not nodo.name.startswith("_")
+            and nodo.name not in vistos
+        ):
+            vistos.add(nodo.name)
+            funciones.append(_extraer_funcion(nodo))
+    return funciones
 
 
 def calcular_huella(fuente: str) -> str:

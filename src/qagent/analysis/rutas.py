@@ -56,12 +56,55 @@ RESTRICCIONES = (
 )
 _PARAM_RUTA = re.compile(r"{([A-Za-z_][A-Za-z0-9_]*)(?::[^}]*)?}")
 _NODOS_ANIDADOS = (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef, ast.Lambda)
+_TIPOS_TRY = (ast.Try, ast.TryStar) if hasattr(ast, "TryStar") else (ast.Try,)
 _Funcion = ast.FunctionDef | ast.AsyncFunctionDef
 
 
 # --------------------------------------------------------------------------- #
 # Tabla de símbolos del proyecto
 # --------------------------------------------------------------------------- #
+def sentencias_modulo(nodos: Iterable[ast.stmt]) -> Iterable[ast.stmt]:
+    """Recorre las sentencias a nivel de módulo, entrando en bloques condicionales
+
+    (``try``, ``if``, ``with``, ``match``, etc.), pero sin entrar en funciones ni clases.
+    """
+    for nodo in nodos:
+        yield nodo
+        if isinstance(nodo, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+            continue
+        if isinstance(nodo, ast.If):
+            yield from sentencias_modulo(nodo.body)
+            yield from sentencias_modulo(nodo.orelse)
+        elif isinstance(nodo, _TIPOS_TRY):
+            yield from sentencias_modulo(nodo.body)
+            for h in nodo.handlers:
+                yield from sentencias_modulo(h.body)
+            yield from sentencias_modulo(nodo.orelse)
+            yield from sentencias_modulo(nodo.finalbody)
+        elif isinstance(nodo, (ast.With, ast.AsyncWith)):
+            yield from sentencias_modulo(nodo.body)
+        elif hasattr(ast, "Match") and isinstance(nodo, ast.Match):
+            for caso in nodo.cases:
+                yield from sentencias_modulo(caso.body)
+        elif isinstance(nodo, (ast.For, ast.AsyncFor, ast.While)):
+            yield from sentencias_modulo(nodo.body)
+            yield from sentencias_modulo(nodo.orelse)
+
+
+def _desglosar_atributo(expr: ast.expr) -> list[str] | None:
+    """``a.b.c`` → ``['a', 'b', 'c']``; None si la raíz no es un nombre simple."""
+    partes: list[str] = []
+    actual: ast.expr = expr
+    while isinstance(actual, ast.Attribute):
+        partes.append(actual.attr)
+        actual = actual.value
+    if isinstance(actual, ast.Name):
+        partes.append(actual.id)
+        partes.reverse()
+        return partes
+    return None
+
+
 def nombre_punteado(ruta: str) -> str:
     """``pkg/mod.py`` → ``pkg.mod``; ``pkg/__init__.py`` → ``pkg``."""
     partes = ruta.removesuffix(".py").split("/")
@@ -113,7 +156,7 @@ class _Proyecto:
         return ".".join([*paquete, *([nodo.module] if nodo.module else [])])
 
     def _indexar(self, modulo: _Modulo) -> None:
-        for nodo in modulo.arbol.body:
+        for nodo in sentencias_modulo(modulo.arbol.body):
             if isinstance(nodo, ast.Import):
                 for alias in nodo.names:
                     destino = self.buscar_modulo(alias.name)
@@ -137,9 +180,11 @@ class _Proyecto:
                     elif destino:
                         modulo.imports[local] = (destino, alias.name)
             elif isinstance(nodo, (ast.FunctionDef, ast.AsyncFunctionDef)):
-                modulo.funciones[nodo.name] = nodo
+                if nodo.name not in modulo.funciones:
+                    modulo.funciones[nodo.name] = nodo
             elif isinstance(nodo, ast.ClassDef):
-                modulo.clases[nodo.name] = nodo
+                if nodo.name not in modulo.clases:
+                    modulo.clases[nodo.name] = nodo
             elif isinstance(nodo, (ast.Assign, ast.AnnAssign)):
                 self._registrar_objeto(modulo, nodo)
 
@@ -157,10 +202,12 @@ class _Proyecto:
             prefijo = _kw_texto(valor, "prefix", "")
         for objetivo in objetivos:
             if isinstance(objetivo, ast.Name):
-                modulo.objetos[objetivo.id] = (
-                    "app" if tipo == "FastAPI" else "router",
-                    prefijo,
-                )
+                existente = modulo.objetos.get(objetivo.id)
+                if existente is None or (not existente[1] and prefijo):
+                    modulo.objetos[objetivo.id] = (
+                        "app" if tipo == "FastAPI" else "router",
+                        prefijo,
+                    )
 
     # --- resolución de nombres --------------------------------------------
     def resolver(
@@ -184,11 +231,37 @@ class _Proyecto:
                 otro = self.modulos[destino]
                 return self.resolver(otro, ast.Name(id=original), profundidad + 1)
             return None
-        if isinstance(expr, ast.Attribute) and isinstance(expr.value, ast.Name):
-            alias = modulo.imports.get(expr.value.id)
-            if alias and alias[1] is None:
-                otro = self.modulos[alias[0]]
-                return self.resolver(otro, ast.Name(id=expr.attr), profundidad + 1)
+        if isinstance(expr, ast.Attribute):
+            partes = _desglosar_atributo(expr)
+            if partes and len(partes) >= 2:
+                primero = partes[0]
+                if primero in modulo.imports:
+                    destino, original = modulo.imports[primero]
+                    if original is None:
+                        if len(partes) == 2:
+                            otro = self.modulos.get(destino)
+                            if otro:
+                                return self.resolver(
+                                    otro, ast.Name(id=partes[1]), profundidad + 1
+                                )
+                        else:
+                            dest_punteado = nombre_punteado(destino)
+                            sub = self.buscar_modulo(
+                                f"{dest_punteado}.{'.'.join(partes[1:-1])}"
+                            )
+                            if sub and sub in self.modulos:
+                                return self.resolver(
+                                    self.modulos[sub],
+                                    ast.Name(id=partes[-1]),
+                                    profundidad + 1,
+                                )
+                sub_directo = self.buscar_modulo(".".join(partes[:-1]))
+                if sub_directo and sub_directo in self.modulos:
+                    return self.resolver(
+                        self.modulos[sub_directo],
+                        ast.Name(id=partes[-1]),
+                        profundidad + 1,
+                    )
         return None
 
     def objeto(self, modulo: _Modulo, expr: ast.expr) -> tuple[str, str] | None:
