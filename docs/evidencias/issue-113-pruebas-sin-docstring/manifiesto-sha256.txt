@@ -1,6 +1,0 @@
-273e22453c352d6db70b97a782e7e21ad7fb92dd3ee09f86d8c5a3a2deb19f0c  docs/evidencias/issue-113-pruebas-sin-docstring/bitacora-pruebas.md
-ce5f708f127f17b60fb23b71a59df0547e2da3a3443e94682d2ec2c5d9f3edf9  docs/evidencias/issue-113-pruebas-sin-docstring/INFORME_NOTION.md
-243b9d0a82627764391e4e299c01bdd0b8580e97d702c843aa6d5ee1d054b588  docs/evidencias/issue-113-pruebas-sin-docstring/informe-issue-113.md
-b3284dfc4729714e14988ea3a9eb618a9abba78d4ffb2319e138e282ea5fd198  docs/evidencias/issue-113-pruebas-sin-docstring/matriz-criterios.md
-dbdf9e4948f41bb71c0d9cfbaf5500d8f0602d9424b0f77a08b40790fcf36f68  docs/evidencias/issue-113-pruebas-sin-docstring/reproduccion-antes.txt
-3927082ee6712b56c6944871b6e7874ca28c96681081f992fb8cf88249b57cfe  docs/evidencias/issue-113-pruebas-sin-docstring/resultados-despues.txt

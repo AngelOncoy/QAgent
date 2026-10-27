@@ -19,6 +19,7 @@ mutants/
 # Empaquetado
 build/
 dist/
-# Claude Code: skills y ajustes personales
-.claude/skills/
+# Claude Code: skills y ajustes personales. Las skills del equipo sí se versionan.
+.claude/skills/*
+!.claude/skills/documentar-issue/
 .claude/settings.local.json

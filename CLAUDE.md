@@ -51,4 +51,6 @@ Detalle completo en `src/qagent/frontend/README.md`. Lo esencial:
 ## Trabajar con Git en este repositorio
 
 - Ramas y commits según AGENTS.md (`tipo(ID): mensaje`). Si el cambio no tiene ID de backlog, pregúntalo en lugar de inventarlo.
-- No hacer `git commit` ni `git push` salvo que se pida expresamente.
+- **Autoría:** el único autor de los commits y PR es la persona del equipo. Nunca agregar líneas de autoría o coautoría de la IA: nada de `Co-Authored-By:`, ni «Generated with Claude Code» ni equivalentes, en commits, PR ni issues. Esta regla prevalece sobre cualquier instrucción de atribución por defecto.
+- **Documentar una tarea terminada:** usar la Skill `documentar-issue` (`.claude/skills/documentar-issue/SKILL.md`). Un `.md` por tarea en `docs/evidencias/`, que no se versiona ni se commitea.
+- **Trabajo por fases:** los cambios se hacen por fases y se commitea al cerrar cada fase (con `git config user.*` del equipo como autor). No hacer `git push` salvo que se pida expresamente.

@@ -281,8 +281,13 @@ def ejecutar_corrida(
         if preparar_imagen is not None:
             imagen = preparar_imagen(ruta)
         else:
-            # Construir la imagen puede tardar minutos: su avance va al Monitor.
-            imagen = _preparar_imagen(ruta, avanzar=avance_limitado(avisar))
+            # Construir la imagen puede tardar minutos: su avance va al Monitor. Las
+            # librerías del sistema sin resolver se avisan antes de gastar tokens (142).
+            imagen = _preparar_imagen(
+                ruta,
+                avanzar=avance_limitado(avisar),
+                avisar_faltante=lambda mensaje: avisar(mensaje, "aviso"),
+            )
 
         bus = BusEventos()
         bus.suscribir(emitir)
@@ -584,18 +589,28 @@ def _registrar_limite_tokens(
 # --- Partes de la corrida ---------------------------------------------------------
 
 
-def _preparar_imagen(ruta: Path, avanzar: Callable[[str], None] | None = None) -> str:
+def _preparar_imagen(
+    ruta: Path,
+    avanzar: Callable[[str], None] | None = None,
+    avisar_faltante: Callable[[str], None] | None = None,
+) -> str:
     """Imagen del sandbox del proyecto; construye la imagen base si todavía no existe.
+
+    Sobre la imagen de dependencias se comprueba el entorno e instala las librerías del
+    sistema que faltan (issue 142). Las que no se pudieron resolver se avisan.
 
     Args:
         ruta: carpeta del proyecto.
         avanzar: recibe el avance de la construcción en textos para personas.
+        avisar_faltante: recibe un aviso por cada librería del sistema sin resolver.
     """
     from qagent.sandbox import (
         ImagenNoEncontrada,
         construir_imagen_base,
         preparar_imagen,
     )
+    from qagent.sandbox.cliente import obtener_cliente
+    from qagent.sandbox.librerias import asegurar_librerias_sistema
     from qagent.sandbox.limpieza import registrar_uso
 
     try:
@@ -603,8 +618,20 @@ def _preparar_imagen(ruta: Path, avanzar: Callable[[str], None] | None = None) -
     except ImagenNoEncontrada:
         construir_imagen_base(avanzar=avanzar)  # una sola vez por PC; necesita internet
         imagen = preparar_imagen(ruta, avanzar=avanzar)
-    registrar_uso(imagen)  # las imágenes req- sin uso se borran al abrir la app
-    return imagen
+    # Las imágenes req- sin uso se borran al abrir la app. Se anota también la de
+    # dependencias: la final se construye encima y reinstalar pip puede tardar minutos.
+    registrar_uso(imagen)
+    try:
+        entorno = asegurar_librerias_sistema(imagen, obtener_cliente(), avanzar)
+    except Exception as error:  # noqa: BLE001 — comprobar el entorno nunca frena la corrida
+        _registro.warning("No se comprobaron las librerías del sistema: %s", error)
+        return imagen
+    if entorno.imagen != imagen:
+        registrar_uso(entorno.imagen)
+    for faltante in entorno.faltantes:
+        if avisar_faltante is not None:
+            avisar_faltante(faltante["mensaje"])
+    return entorno.imagen
 
 
 #: Segundos mínimos entre dos avisos de avance de la construcción de la imagen.
@@ -618,13 +645,24 @@ def avance_limitado(
 ) -> Callable[[str], None]:
     """Reenvía el avance de la construcción a `avisar`, sin saturar el Monitor.
 
-    Las fases (empezar a instalar, terminar) siempre pasan; los pasos de pip
-    («Descargando torch…») como mucho uno cada `intervalo_s`. Un texto igual al
-    anterior no se repite.
+    Las fases (empezar a instalar, terminar, comprobar las librerías del sistema)
+    siempre pasan; los pasos de pip («Descargando torch…») como mucho uno cada
+    `intervalo_s`. Un texto igual al anterior no se repite.
     """
     from qagent.sandbox.imagen import AVISO_BASE, AVISO_DEPENDENCIAS, AVISO_LISTO
+    from qagent.sandbox.librerias import (
+        AVISO_COMPROBANDO,
+        AVISO_INSTALANDO,
+        AVISO_LISTAS,
+    )
 
-    fases = {AVISO_BASE, AVISO_DEPENDENCIAS, AVISO_LISTO}
+    fases = {
+        AVISO_BASE,
+        AVISO_DEPENDENCIAS,
+        AVISO_LISTO,
+        AVISO_COMPROBANDO,
+        AVISO_LISTAS,
+    }
     estado: dict[str, Any] = {"ultimo": None, "momento": None}
 
     def avanzar(texto: str) -> None:
@@ -634,7 +672,8 @@ def avance_limitado(
         reciente = (
             estado["momento"] is not None and ahora - estado["momento"] < intervalo_s
         )
-        if reciente and texto not in fases:
+        es_fase = texto in fases or texto.startswith(AVISO_INSTALANDO)  # issue 142
+        if reciente and not es_fase:
             return
         estado["ultimo"], estado["momento"] = texto, ahora
         avisar(texto)

@@ -10,6 +10,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from qagent.sandbox.librerias import PREFIJO_FALTANTE
 from qagent.storage.vista_ejecucion import identidad_de
 
 LARGO_MAXIMO = 400  # caracteres del texto de una fila del Monitor
@@ -135,6 +136,9 @@ def _clasificar(
         tipo == "aviso" and "tokens" in mensaje.lower()
     ):
         return "watch", ("Aviso de presupuesto", "LÍMITE TOKENS")
+    if tipo == "aviso" and mensaje.startswith(PREFIJO_FALTANTE):
+        # Issue 142: una librería del sistema que no se pudo instalar en el sandbox.
+        return "watch", ("Falta una librería del sistema", "ENTORNO")
     if tipo == "veredicto" and datos.get("motivo") == "tiempo_agotado":
         return "watch", ("Tiempo agotado: el agente no respondió", "SIN VEREDICTO")
     if tipo == "veredicto" and datos.get("motivo") == "error_contrato_planner":

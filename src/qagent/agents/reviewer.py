@@ -58,6 +58,10 @@ _PATRONES_ENTORNO = (
 # lanza esta excepción en vez de devolver un 500. Es un bug de la API (EN-16).
 _PATRON_RESPUESTA_INVALIDA = "responsevalidationerror"
 _MODULO_FALTANTE = re.compile(r"No module named '([A-Za-z0-9_.]+)'")
+#: El cargador dinámico no encontró una librería del sistema (issue 142).
+_LIBRERIA_SISTEMA_FALTANTE = re.compile(
+    r"(lib[A-Za-z0-9_.+\-]*?\.so(?:\.[0-9]+)*): cannot open shared object file"
+)
 
 
 class ReviewerAgent:
@@ -428,6 +432,13 @@ class ReviewerAgent:
         for patron in _PATRONES_ENTORNO:
             if patron in texto:
                 return f"el servicio externo no respondió ({patron})"
+        # Issue 142: una librería del sistema que no se pudo cargar es del entorno, no
+        # del test. Reintentar no la instala y empuja al Generator a simular la dependencia.
+        if libreria := _LIBRERIA_SISTEMA_FALTANTE.search(salida):
+            return (
+                f"falta la librería del sistema '{libreria.group(1)}' en el entorno "
+                "aislado (la necesita una dependencia del proyecto)"
+            )
         for nombre in _MODULO_FALTANTE.findall(salida):
             raiz = nombre.split(".")[0]
             if raiz in self._dependencias_declaradas():

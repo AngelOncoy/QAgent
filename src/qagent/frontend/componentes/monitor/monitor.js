@@ -335,6 +335,11 @@ function monitorEventoReal(d){
     PRG.alerta = {titulo:'Presupuesto de tokens', texto: d.t || 'Se ha alcanzado un umbral alto de consumo de tokens.'};
     if($('prgAlerta')) $('prgAlerta').classList.remove('hide');
   }
+  // issue 142: una librería del sistema que no se pudo instalar en el entorno aislado.
+  if(d.guard && d.guard[1] === 'ENTORNO' && PRG){
+    PRG.alerta = {titulo: d.guard[0], texto: d.t || ''};
+    if($('prgAlerta')) $('prgAlerta').classList.remove('hide');
+  }
   registrarPaso({a:d.a, f:d.f, fn:d.identificador || d.fn, t:d.t || '', guard:d.guard, hechos:d.total ? Number(d.hechos) : undefined, total:Number(d.total) || null, tipo_objetivo:d.tipo_objetivo,
     transcurrido_s: typeof d.transcurrido_s === 'number' ? d.transcurrido_s : undefined,
     duracion_objetivo_s: typeof d.duracion_objetivo_s === 'number' ? d.duracion_objetivo_s : undefined});
