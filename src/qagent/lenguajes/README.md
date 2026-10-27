@@ -22,11 +22,15 @@ detectar_lenguaje("ruta/al/proyecto")
 # [Deteccion(lenguaje='typescript', archivos=12, marcadores=('tsconfig.json',), confianza=0.8), ...]
 
 adaptador = adaptador_para("python")
-estructura = adaptador.analizar("ruta/al/proyecto")    # igual que analizar_proyecto + "lenguaje"
-adaptador.objetivos(estructura)                       # [{"modulo", "tipo", "objetivo"}, ...]
-adaptador.comando_pruebas("tienda.precios")           # ["pytest", "/work/tests", "--cov=...", ...]
+# Igual que analizar_proyecto, más "lenguaje".
+estructura = adaptador.analizar("ruta/al/proyecto")
+# [{"modulo", "tipo", "objetivo"}, ...]
+adaptador.objetivos(estructura)
+# ["pytest", "/work/tests", "--cov=tienda.precios", ...]
+adaptador.comando_pruebas("tienda.precios")
 
-adaptador_de_contrato(contrato)                       # v2 -> PythonAdapter; v3 -> según "lenguaje"
+# v2 -> PythonAdapter; v3 -> según "lenguaje".
+adaptador_de_contrato(contrato)
 ```
 
 Contratos:
@@ -35,7 +39,7 @@ Contratos:
 from qagent import contracts
 
 contracts.validar_versionado(contracts.FAMILIA_PLANNER, contrato)  # acepta v2 y v3
-contracts.normalizar_planner(contrato_v2)                          # copia en v3 (python + pytest)
+contracts.normalizar_planner(contrato_v2)  # copia en v3 (python + pytest)
 ```
 
 ## La interfaz
