@@ -62,7 +62,8 @@ La interfaz, los contratos y `config.toml` viajan dentro del paquete (`src/qagen
 | `packaging/windows/` | Ejecutable e instalador de Windows: receta de PyInstaller (`qagent.spec`), instalador de Inno Setup (`qagent.iss`), ícono, imágenes del asistente (`asistente/`) y requisitos que ve quien instala. Se construye con `scripts/construir_windows.py` |
 | `scripts/` | Herramientas del equipo: verificar el paquete instalado y construir el ejecutable de Windows |
 | `docs/desarrollo.md` | Guía del equipo: entorno, pruebas, sandbox, distribución y estructura del repositorio (el README es la portada para usuarios) |
-| `docs/evidencias/` | Salidas y mediciones de los spikes (ej. `spk-02/`) |
+| `docs/evidencias/` | Informes de cada tarea terminada para Notion: un `.md` por issue, HU, EN, SPK, TA o FIX, y nada más. No se versiona (`.gitignore`). Se escriben con la Skill `documentar-issue` |
+| `.claude/skills/documentar-issue/` | Skill del equipo para documentar tareas: formato del informe, plantilla y script que incrusta imágenes en el `.md` |
 | `bench/` | Banco de pruebas con bugs sembrados |
 
 ## Reglas que no se rompen
@@ -92,6 +93,7 @@ La interfaz, los contratos y `config.toml` viajan dentro del paquete (`src/qagen
 - Commits: `tipo(ID): mensaje`. Ej.: `feat(EN-01): add planner contract schema`.
 - Todo entra por PR a `develop` con la plantilla de `.github/pull_request_template.md` y al menos 1 aprobación.
 - Cada PR indica el ítem del backlog (HU, EN, SPK, EV, DO) y sus criterios de aceptación.
+- **Documentación de cada tarea:** al terminarla, un informe `.md` en `docs/evidencias/` con el título `<TIPO>-<NN> - <Título>` (`###` si no tiene número de backlog) y las secciones Resumen, Objetivo, Qué se revisó y qué se hizo (tabla), Pruebas e Imprevistos. La plantilla y las reglas están en `.claude/skills/documentar-issue/`.
 - **Autoría:** commits, PR e issues son del integrante del equipo que los hace. Un asistente de IA nunca se agrega como autor ni coautor: sin `Co-Authored-By:`, sin «Generated with …» ni firmas equivalentes.
 
 ## Para ahorrar tokens

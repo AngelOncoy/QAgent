@@ -1,4 +1,0 @@
-typed+doc      -> Lista
-noTyped+doc    -> Mejorable
-typed+noDoc    -> Incierto
-noTyped+noDoc  -> Incierto
