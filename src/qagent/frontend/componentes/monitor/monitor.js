@@ -28,10 +28,10 @@ registrarComponente('monitor/monitor', `<!-- ===== 4. EN CURSO: PROGRESO EN VIVO
 
     <div class="prg-avance">
       <div class="prg-avance-cab"><span id="prgAvanceTxt">Preparando…</span><span class="prg-pct" id="prgPct"></span></div>
-      <div class="np-barra prg-barra"><i id="prgBarra"></i></div>
+      <div class="np-barra prg-barra" id="prgBarraCont"><i id="prgBarra"></i></div>
     </div>
 
-    <div class="np-aviso np-aviso-info hide" id="prgEntorno">${ICO_GIRANDO}<div><b>Instalando las dependencias del proyecto en el entorno aislado</b><span>La primera corrida con este requirements.txt instala sus librerías (por ejemplo torch u opencv) y puede tardar varios minutos según tu conexión. Las siguientes corridas reutilizan lo instalado.</span><span class="prg-entorno-paralelo" id="prgEntornoParalelo">Mientras tanto ya se analiza tu código; las pruebas se escriben y verifican cuando el entorno esté listo.</span><span class="prg-entorno-paso" id="prgEntornoPaso"></span></div></div>
+    <div class="np-aviso np-aviso-info hide" id="prgEntorno">${ICO_GIRANDO}<div><b id="prgEntornoTitulo">Preparando el entorno Docker</b><span>La primera corrida con este requirements.txt puede tardar varios minutos. QAgent mostrará cada etapa disponible sin inventar porcentajes.</span><span class="prg-entorno-paralelo" id="prgEntornoParalelo">Mientras tanto ya se analiza tu código; las pruebas se escriben y verifican cuando el entorno esté listo.</span><span class="prg-entorno-paso" id="prgEntornoPaso"></span></div></div>
 
     <div class="np-aviso np-aviso-aviso hide" id="prgAlerta">${ICO_AVISO_CLON}<div><b id="prgAlertaTitulo"></b><span id="prgAlertaTxt"></span></div></div>
 
@@ -139,7 +139,7 @@ function registrarPaso({a, f, fn, t, guard, hechos, total, tipo_objetivo, transc
     if (entorno === 'avance') PRG.pasoEntorno = textoPlano(t || '');
   } else if (!PRG.entornoInformado) {
     if (etapa) PRG.preparandoEntorno = false;
-    else if (/entorno aislado/i.test(String(t || ''))) PRG.preparandoEntorno = true;
+    else if (/entorno aislado|dependencias|imagen docker/i.test(String(t || ''))) PRG.preparandoEntorno = true;
     if (PRG.preparandoEntorno && !etapa) PRG.pasoEntorno = textoPlano(t || '');
   }
   if (a === 'guard') PRG.alerta ={titulo:'Se bloqueó un intento de debilitar una prueba', texto:`En ${fn || 'una función'} la prueba generada relajaba la comprobación. Se mantiene el criterio original: el posible bug no se esconde.`};
@@ -165,6 +165,10 @@ function pintarProgreso(){
     : PRG.preparandoEntorno ? 'Preparando el entorno aislado' : 'Preparando la corrida';
   $('prgEntorno').classList.toggle('hide', !(PRG.preparandoEntorno && !PRG.fin));
   $('prgEntornoParalelo').classList.toggle('hide', !PRG.etapa);
+  const pasoEntorno = String(PRG.pasoEntorno || '');
+  $('prgEntornoTitulo').textContent = /guardando/i.test(pasoEntorno) ? 'Guardando la imagen Docker'
+    : /dependencias|descargando|instalando|preparando [a-z0-9_.-]+$/i.test(pasoEntorno) ? 'Instalando dependencias'
+    : 'Construyendo la imagen Docker';
   $('prgEntornoPaso').textContent = PRG.pasoEntorno && !/^Preparando el entorno aislado/i.test(PRG.pasoEntorno) ? PRG.pasoEntorno : '';
   const proyecto = (document.querySelector('.ini-migas .repoName') || {}).textContent || '';
   $('prgSub').textContent = [proyecto, `Corrida iniciada a las ${new Date(PRG.inicio).toLocaleTimeString('es-PE', {hour:'2-digit', minute:'2-digit'})}`, transcurrido()].filter(Boolean).join(' · ');
@@ -185,11 +189,16 @@ function pintarProgreso(){
   const omitidos = PRG.fin ? (PRG.fin.omitidos || 0) : 0;
   const pendientes = PRG.fin ? (PRG.fin.pendientes || 0) : 0;
   const pct = PRG.total ? Math.min(100, Math.round((PRG.hechos + omitidos) / PRG.total * 100)) : (PRG.fin ? 100 : 0);
-  $('prgAvanceTxt').textContent = PRG.total
+  const indeterminado = !!(PRG.preparandoEntorno && !PRG.fin && !PRG.etapa);
+  $('prgAvanceTxt').textContent = indeterminado
+    ? (PRG.pasoEntorno || 'Preparando el entorno Docker…')
+    : PRG.total
     ? `${PRG.hechos} procesados · ${omitidos} omitidos · ${pendientes} pendientes de ${PRG.total} seleccionados`
     : (PRG.fin ? 'Corrida terminada' : 'Preparando la corrida…');
-  $('prgPct').textContent = PRG.total || PRG.fin ? pct + ' %' : '';
-  $('prgBarra').style.width = pct + '%';
+  $('prgPct').textContent = !indeterminado && (PRG.total || PRG.fin) ? pct + ' %' : '';
+  $('prgBarraCont').classList.toggle('prg-indeterminada', indeterminado);
+  $('prgBarraCont').setAttribute('aria-busy', indeterminado ? 'true' : 'false');
+  $('prgBarra').style.width = indeterminado ? '' : pct + '%';
 
   $('prgAlerta').classList.toggle('hide', !PRG.alerta);
   if (PRG.alerta) { $('prgAlertaTitulo').textContent = PRG.alerta.titulo; $('prgAlertaTxt').textContent = PRG.alerta.texto; }

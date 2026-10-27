@@ -154,15 +154,22 @@ function renderHistoryReal(datos){
     const sinIA = h.perfil === 'reg' || h.perfil === 'reg_deep';
     const abrir = datos.demo ? "go('exec')" : `cargarEjecucionReal('${escHtml(h.run_id)}')`;
     const tokens = sinIA ? '— (sin IA)' : numero(h.total_tokens);
-    const sel = h.total_seleccionados ?? h.total_objetivos ?? 0;
+    const haySeleccion = h.contadores_disponibles !== false && h.total_seleccionados !== null && h.total_seleccionados !== undefined;
+    const sel = haySeleccion ? h.total_seleccionados : h.total_objetivos;
     const omit = h.objetivos_omitidos ?? 0;
-    const eleg = h.total_elegibles ?? Math.max(0, sel - omit);
-    const proc = h.total_procesados ?? h.total_objetivos ?? 0;
-    const pend = h.total_pendientes ?? Math.max(0, eleg - proc);
+    const eleg = h.total_elegibles ?? (sel === null || sel === undefined ? null : Math.max(0, sel - omit));
+    const proc = h.total_procesados ?? h.total_objetivos;
+    const pend = h.total_pendientes ?? (eleg === null || eleg === undefined || proc === null || proc === undefined ? null : Math.max(0, eleg - proc));
     const desglose = [omit ? `${omit} omitidos` : '', pend ? `${pend} pend. de ${sel}` : ''].filter(Boolean).join(' · ');
     const pasanCelda = h.pasaron === null || h.pasaron === undefined
       ? '—'
-      : `<div class="hst-pasan" title="${h.pasaron} objetivos aprobados de ${proc} procesados (${sel} seleccionados, ${eleg} elegibles, ${omit} omitidos y ${pend} pendientes)"><b>${h.pasaron} / ${proc}</b> <span class="np-meta">procesados</span>${desglose ? `<span class="np-meta hst-pasan-sub">(${desglose})</span>` : ''}</div>`;
+      : h.contadores_disponibles === false || sel === null || sel === undefined || proc === null || proc === undefined
+        ? '<span class="np-meta" title="La corrida es anterior a estos contadores">Información no disponible</span>'
+        : sel === 0
+          ? '<span class="np-meta">Sin objetivos seleccionados</span>'
+          : proc === 0 && omit === sel
+            ? `<div class="hst-pasan" title="${sel} objetivos seleccionados y omitidos sin ejecutarse"><b>${sel} sin probar</b><span class="np-meta hst-pasan-sub">Todos fueron omitidos</span></div>`
+            : `<div class="hst-pasan" title="${h.pasaron} objetivos aprobados de ${proc} procesados (${sel} seleccionados, ${eleg} elegibles, ${omit} omitidos y ${pend} pendientes)"><b>${h.pasaron} / ${proc}</b> <span class="np-meta">procesados</span>${desglose ? `<span class="np-meta hst-pasan-sub">(${desglose})</span>` : ''}</div>`;
 
     return `<tr class="${h.run_id === histSel ? 'on' : ''}" tabindex="0" aria-selected="${h.run_id === histSel}" onclick="seleccionarCorridaHistorial('${escHtml(h.run_id)}')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click()}">
       <td>${escHtml(fechaCorta(h.fecha))}</td>

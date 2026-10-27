@@ -12,7 +12,10 @@ from qagent.orchestrator.corrida import avance_limitado
 from qagent.sandbox import IMAGEN_BASE, construir_imagen_base, preparar_imagen
 from qagent.sandbox.imagen import (
     AVISO_BASE,
+    AVISO_CONSTRUYENDO,
     AVISO_DEPENDENCIAS,
+    AVISO_DEPENDENCIAS_LISTAS,
+    AVISO_GUARDANDO,
     AVISO_LISTO,
     describir_linea,
 )
@@ -58,7 +61,9 @@ def proyecto(tmp_path: Path) -> Path:
             "Instalando 3 paquetes",
         ),
         ("Installing collected packages: numpy", "Instalando 1 paquete"),
-        ("Successfully installed numpy-2.2.4", AVISO_LISTO),
+        ("Successfully installed numpy-2.2.4", AVISO_DEPENDENCIAS_LISTAS),
+        ("#9 exporting layers", AVISO_GUARDANDO),
+        ("writing image sha256:abc123", AVISO_GUARDANDO),
         ("Step 1/5 : FROM qagent-sandbox:base", None),
         ("WARNING: Running pip as the 'root' user", None),
         ("", None),
@@ -81,10 +86,11 @@ def test_preparar_imagen_informa_las_fases_y_los_pasos_de_pip(proyecto: Path) ->
     assert etiqueta.startswith("qagent-sandbox:req-")
     assert cliente.api.build.call_args.kwargs["decode"] is True
     cliente.images.build.assert_not_called()
-    assert avances[0] == AVISO_DEPENDENCIAS
+    assert avances[:2] == [AVISO_CONSTRUYENDO, AVISO_DEPENDENCIAS]
     assert "Preparando torch" in avances
     assert "Descargando torch (821.0 MB)" in avances
     assert "Instalando 2 paquetes" in avances
+    assert AVISO_DEPENDENCIAS_LISTAS in avances
     assert avances[-1] == AVISO_LISTO
 
 
@@ -160,16 +166,24 @@ def test_la_imagen_base_informa_su_fase() -> None:
 
 def test_avance_limitado_respeta_el_intervalo_y_deja_pasar_las_fases() -> None:
     enviados: list[str] = []
-    momentos = iter([0.0, 0.5, 1.0, 1.2, 3.5])
+    momentos = iter([0.0, 0.2, 0.5, 1.0, 1.2, 1.4, 3.5])
     avanzar = avance_limitado(
         enviados.append, intervalo_s=2.0, reloj=lambda: next(momentos)
     )
 
-    avanzar(AVISO_DEPENDENCIAS)  # 0.0: fase, pasa
+    avanzar(AVISO_CONSTRUYENDO)  # 0.0: fase, pasa
+    avanzar(AVISO_DEPENDENCIAS)  # 0.2: fase, pasa
     avanzar("Preparando torch")  # 0.5: muy pronto, se descarta
     avanzar("Descargando torch (821 MB)")  # 1.0: muy pronto, se descarta
-    avanzar(AVISO_LISTO)  # 1.2: fase, pasa aunque sea pronto
+    avanzar(AVISO_DEPENDENCIAS_LISTAS)  # 1.2: fase, pasa aunque sea pronto
+    avanzar(AVISO_GUARDANDO)  # 1.4: fase, pasa aunque sea pronto
     avanzar("Preparando numpy")  # 3.5: pasaron 2,3 s desde el último enviado, pasa
     avanzar("Preparando numpy")  # repetido: no se reenvía (no consume reloj)
 
-    assert enviados == [AVISO_DEPENDENCIAS, AVISO_LISTO, "Preparando numpy"]
+    assert enviados == [
+        AVISO_CONSTRUYENDO,
+        AVISO_DEPENDENCIAS,
+        AVISO_DEPENDENCIAS_LISTAS,
+        AVISO_GUARDANDO,
+        "Preparando numpy",
+    ]

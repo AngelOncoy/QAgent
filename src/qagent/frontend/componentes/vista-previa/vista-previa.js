@@ -38,7 +38,7 @@ registrarComponente('vista-previa/vista-previa', `<!-- ===== 2. EXPLORAR ===== -
       <!-- Funciones y endpoints -->
       <section class="exp-objetivos" aria-label="Funciones y endpoints">
         <div class="exp-herramientas">
-          <label class="exp-todo"><input type="checkbox" class="exp-caja" id="expTodo" onchange="seleccionarTodosObjetivos(this.checked)"><span>Seleccionar todo (<span id="expTodoN">0</span>)</span></label>
+          <label class="exp-todo"><input type="checkbox" class="exp-caja" id="expTodo" onchange="seleccionarTodosObjetivos(this.checked)"><span><span id="expTodoTxt">Seleccionar todas las funciones</span> (<span id="expTodoN">0</span>)</span></label>
           <span class="exp-contador" id="fnCount"></span>
         </div>
         <div class="exp-filtros">
@@ -195,6 +195,46 @@ function cargarDatosVistaPrevia(res) {
   actualizarResumenUI(res.resumen, res.errores);
 }
 
+// La selección vive dentro de .qagent/ y se identifica por la ruta del proyecto. Los
+// objetivos nuevos quedan seleccionados por defecto; los eliminados simplemente no se aplican.
+function instantaneaSeleccionObjetivos(){
+  return {version:1, modulos:MODULES.filter(m=>!m.error).map(m=>({
+    ruta:m.path, incluido:!!m.sel,
+    funciones:(m.fns || []).map(f=>({nombre:f.n, incluido:!!f.inc, critico:!!f.crit})),
+    endpoints:(m.endpoints || []).map(e=>({objetivo:e.objetivo, incluido:!!e.inc, critico:!!e.crit}))
+  }))};
+}
+let temporizadorGuardarSeleccion = null;
+function guardarSeleccionExplorar(){
+  const api = window.pywebview && window.pywebview.api;
+  if(!api || !api.guardar_seleccion_objetivos || !projectPath) return;
+  clearTimeout(temporizadorGuardarSeleccion);
+  temporizadorGuardarSeleccion = setTimeout(() => {
+    api.guardar_seleccion_objetivos(projectPath, instantaneaSeleccionObjetivos()).catch(err => console.warn('No se pudo guardar la selección:', err));
+  }, 120);
+}
+async function restaurarSeleccionExplorar(){
+  const api = window.pywebview && window.pywebview.api;
+  if(!api || !api.obtener_seleccion_objetivos || !projectPath) return;
+  try {
+    const respuesta = await api.obtener_seleccion_objetivos(projectPath);
+    const seleccion = respuesta && respuesta.seleccion;
+    if(!seleccion || !Array.isArray(seleccion.modulos)) return;
+    const porRuta = new Map(seleccion.modulos.map(m => [m.ruta, m]));
+    MODULES.filter(m=>!m.error).forEach(m => {
+      const guardado = porRuta.get(m.path);
+      if(!guardado) return;
+      m.sel = !!guardado.incluido;
+      const funciones = new Map((guardado.funciones || []).map(f => [f.nombre, f]));
+      (m.fns || []).forEach(f => { const previo=funciones.get(f.n); if(previo){ f.inc=!!previo.incluido; f.crit=!!previo.critico; } });
+      const endpoints = new Map((guardado.endpoints || []).map(e => [e.objetivo, e]));
+      (m.endpoints || []).forEach(e => { const previo=endpoints.get(e.objetivo); if(previo){ e.inc=!!previo.incluido; e.crit=!!previo.critico; } });
+    });
+  } catch(err) {
+    console.warn('No se pudo recuperar la selección:', err);
+  }
+}
+
 /* ---------------- Vista previa ---------------- */
 async function loadProject(name, src, where, br='main', ruta='', opciones = {}){
   if(!apiRec()) demoRegistrar(name, src, where);
@@ -230,6 +270,7 @@ async function loadProject(name, src, where, br='main', ruta='', opciones = {}){
   } else {
     aplicarResumenDemo();   // modo demostración (navegador, sin Python)
   }
+  await restaurarSeleccionExplorar();
   const esReciente = !!(opciones && opciones.esReciente);
   const corridaPrevia = await hayCorridaPrevia(projectPath || ruta);
   PRUEBAS_REPETIBLES = await pruebasRepetibles(ruta);
@@ -449,6 +490,7 @@ function sincronizarCarpetas(){
 function seleccionarCarpeta(dir, seleccionado){
   modulosDeCarpeta(dir).forEach(m => { m.sel = !!seleccionado; });
   renderTree();
+  guardarSeleccionExplorar();
 }
 
 // Aviso de archivos que no se pudieron leer, con el motivo de cada uno.
@@ -606,12 +648,13 @@ function renderFns(){
   $('resumenFuncionesSub').textContent = `${fnsSel} ${fnsSel === 1 ? 'seleccionada' : 'seleccionadas'}`;
   $('resumenEndpointsSub').textContent = `${epsSel} ${epsSel === 1 ? 'seleccionado' : 'seleccionados'}`;
 
-  // «Seleccionar todo» y «Mostrando» se refieren a la vista activa y a lo que muestra la búsqueda.
+  // El selector tiene alcance explícito por tipo y nunca cambia el otro tipo de objetivo.
   const esFns = VISTA_OBJETIVOS === 'funciones';
   const vistaTodas = esFns ? fns : eps;
   const vistaVisibles = esFns ? fnsVis : eps.filter(endpointVisible);
-  const marcables = esFns ? vistaVisibles.map(r => r.f) : vistaVisibles.map(r => r.e).filter(endpointElegible);
+  const marcables = esFns ? vistaTodas.map(r => r.f) : vistaTodas.map(r => r.e).filter(endpointElegible);
   const marcadas = marcables.filter(o => o.inc).length;
+  $('expTodoTxt').textContent = esFns ? 'Seleccionar todas las funciones' : 'Seleccionar todos los endpoints';
   $('expTodoN').textContent = marcables.length;
   $('expTodo').disabled = marcables.length === 0;
   $('expTodo').checked = marcables.length > 0 && marcadas === marcables.length;
@@ -623,11 +666,12 @@ function renderFns(){
   calc();
 }
 
-// «Seleccionar todo»: marca o desmarca lo que se ve en la vista activa (respeta la búsqueda).
+// El alcance es el tipo activo completo. La búsqueda solo filtra la tabla, no cambia la selección.
 function seleccionarTodosObjetivos(seleccionado){
-  if(VISTA_OBJETIVOS === 'funciones') filasFunciones().filter(funcionVisible).forEach(r => { r.f.inc = !!seleccionado; });
-  else filasEndpoints().filter(endpointVisible).filter(r => endpointElegible(r.e)).forEach(r => { r.e.inc = !!seleccionado; });
+  if(VISTA_OBJETIVOS === 'funciones') filasFunciones().forEach(r => { r.f.inc = !!seleccionado; });
+  else filasEndpoints().filter(r => endpointElegible(r.e)).forEach(r => { r.e.inc = !!seleccionado; });
   renderFns();
+  guardarSeleccionExplorar();
 }
 
 // Incluir una función o un endpoint no cambia las carpetas incluidas; Profundizar no altera Incluir.
@@ -635,6 +679,7 @@ function toggle(mi,fi,k){
   const m = MODULES[mi];
   m.fns[fi][k] = !m.fns[fi][k];
   renderFns();
+  guardarSeleccionExplorar();
 }
 function toggleEndpoint(indice, ei){
   const m = MODULES[indice];
@@ -643,6 +688,7 @@ function toggleEndpoint(indice, ei){
   if(!e || !endpointElegible(e)) return;
   e.inc = !e.inc;
   renderFns();
+  guardarSeleccionExplorar();
 }
 // Profundizar de un endpoint (#74): como en funciones, no altera Incluir.
 function toggleEndpointCrit(indice, ei){
@@ -651,6 +697,7 @@ function toggleEndpointCrit(indice, ei){
   if(!e || !endpointElegible(e)) return;
   e.crit = !e.crit;
   renderFns();
+  guardarSeleccionExplorar();
 }
 
 function moduloTieneObjetivos(m){
@@ -659,6 +706,7 @@ function moduloTieneObjetivos(m){
 function seleccionarTodosModulos(seleccionado){
   MODULES.forEach(m => { m.sel = moduloTieneObjetivos(m) && seleccionado; });
   renderTree();
+  guardarSeleccionExplorar();
 }
 function actualizarSeleccionTodos(){
   const control = $('selectAllModules');

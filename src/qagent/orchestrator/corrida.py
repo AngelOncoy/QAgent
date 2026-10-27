@@ -862,7 +862,14 @@ def avance_limitado(
     `intervalo_s`. Un texto igual al anterior no se repite. Si el usuario canceló,
     lanza `ConstruccionCancelada` para cortar la construcción (#148).
     """
-    from qagent.sandbox.imagen import AVISO_BASE, AVISO_DEPENDENCIAS, AVISO_LISTO
+    from qagent.sandbox.imagen import (
+        AVISO_BASE,
+        AVISO_CONSTRUYENDO,
+        AVISO_DEPENDENCIAS,
+        AVISO_DEPENDENCIAS_LISTAS,
+        AVISO_GUARDANDO,
+        AVISO_LISTO,
+    )
     from qagent.sandbox.librerias import (
         AVISO_COMPROBANDO,
         AVISO_INSTALANDO,
@@ -871,7 +878,10 @@ def avance_limitado(
 
     fases = {
         AVISO_BASE,
+        AVISO_CONSTRUYENDO,
         AVISO_DEPENDENCIAS,
+        AVISO_DEPENDENCIAS_LISTAS,
+        AVISO_GUARDANDO,
         AVISO_LISTO,
         AVISO_COMPROBANDO,
         AVISO_LISTAS,

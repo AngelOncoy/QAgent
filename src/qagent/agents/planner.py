@@ -293,6 +293,7 @@ class PlannerAgent:
                 self._casos_invalidos += 1
                 self.descartados.append(f"{nombre}: caso repetido {caso.get('id')!r}")
                 continue
+            caso = _preservar_tipo_valor_esperado(funcion or {}, caso)
             try:
                 contracts.validar(
                     contracts.PLANNER, {**_CONTRATO_DE_PRUEBA, "casos": [caso]}
@@ -402,6 +403,8 @@ REGLAS OBLIGATORIAS:
   argumentos por nombre), "origen" (uno de: {", ".join(ORIGENES)}), "categoria" y
   "valor_esperado" o "excepcion" (nombre de la excepción, ej. "ValueError").
   "descripcion" es opcional.
+- Si un resultado documentado es una tupla Python, serialízalo como array JSON y
+  agrega "tipo_valor_esperado": "tuple"; no uses esa metadata para listas.
 - Devuelve SOLO una lista JSON con un objeto por función:
   {{"objetivo": nombre, "casos": [...]}}. Sin explicaciones ni bloques Markdown.
 
@@ -437,6 +440,8 @@ Prueba de humo pytest: UN caso normal por función (entrada válida y su resulta
 - No inventes valores ni conviertas el humo en una prueba de mera ejecución.
 - Caso: "id", "entrada" (argumentos por nombre), "valor_esperado", "origen" (uno de:
   {", ".join(ORIGENES)}) y "categoria": "normal". Sin "excepcion" ni casos límite.
+- Si el resultado documentado es una tupla Python, usa un array JSON y agrega
+  "tipo_valor_esperado": "tuple". Una anotación tuple sin valores concretos no basta.
 - Devuelve SOLO una lista JSON con un objeto por función:
   [{{"objetivo": nombre, "casos": [caso]}}]. Si ninguna tiene un caso deducible,
   devuelve la lista vacía [].
@@ -781,6 +786,10 @@ def motivo_oraculo_funcion(funcion: dict[str, Any], caso: dict[str, Any]) -> str
     """
     origen = caso.get("origen")
     if origen == "docstring":
+        if caso.get("tipo_valor_esperado") == "tuple":
+            if _docstring_respalda_tupla(funcion.get("docstring"), caso):
+                return None
+            return "el docstring no documenta esa tupla esperada de forma explícita"
         if funcion.get("docstring"):
             return None
         return "declara origen 'docstring', pero la función no tiene docstring"
@@ -820,7 +829,62 @@ def _tipo_respalda_oraculo(funcion: dict[str, Any], caso: dict[str, Any]) -> boo
     literal = _literal_unico(retorno)
     if literal is not _SIN_LITERAL:
         return esperado == literal
-    return True
+    # Una tupla anotada demuestra el contenedor, pero no sus elementos concretos.
+    return not _anotacion_es_tupla(retorno)
+
+
+def _preservar_tipo_valor_esperado(
+    funcion: dict[str, Any], caso: dict[str, Any]
+) -> dict[str, Any]:
+    """Añade metadata de tupla cuando firma o docstring la justifican.
+
+    El valor concreto sigue procediendo del caso documentado. Esta función solo
+    recupera el tipo que JSON pierde al convertir una tupla en array.
+    """
+    if (
+        "valor_esperado" not in caso
+        or not isinstance(caso["valor_esperado"], list)
+        or "tipo_valor_esperado" in caso
+    ):
+        return caso
+    retorno = funcion.get("retorno") or _retorno_de_firma(funcion.get("firma"))
+    if _anotacion_es_tupla(retorno) or _docstring_respalda_tupla(
+        funcion.get("docstring"), caso
+    ):
+        return {**caso, "tipo_valor_esperado": "tuple"}
+    return caso
+
+
+def _anotacion_es_tupla(anotacion: Any) -> bool:
+    """Reconoce ``tuple[...]``, ``Tuple[...]`` y ``typing.Tuple[...]`` sin evaluar."""
+    if not isinstance(anotacion, str):
+        return False
+    try:
+        nodo = ast.parse(anotacion.strip(), mode="eval").body
+    except (SyntaxError, ValueError):
+        return False
+    base = nodo.value if isinstance(nodo, ast.Subscript) else nodo
+    return ast.unparse(base) in {"tuple", "Tuple", "typing.Tuple"}
+
+
+def _docstring_respalda_tupla(docstring: Any, caso: dict[str, Any]) -> bool:
+    """Comprueba una tupla literal tras ``->`` en el docstring mediante AST seguro."""
+    if not isinstance(docstring, str) or not isinstance(
+        caso.get("valor_esperado"), list
+    ):
+        return False
+    esperado = tuple(caso["valor_esperado"])
+    for linea in docstring.splitlines():
+        if "->" not in linea:
+            continue
+        texto = linea.split("->", 1)[1].strip()
+        try:
+            literal = ast.literal_eval(texto)
+        except (SyntaxError, ValueError, TypeError):
+            continue
+        if isinstance(literal, tuple) and literal == esperado:
+            return True
+    return False
 
 
 _SIN_LITERAL = object()

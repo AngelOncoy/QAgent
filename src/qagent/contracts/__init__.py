@@ -102,6 +102,19 @@ def contar_categorias(casos: Any) -> dict[str, int]:
     return conteo
 
 
+def valor_esperado_python(caso: dict[str, Any]) -> Any:
+    """Recupera la semántica Python del valor esperado serializado en JSON.
+
+    Los contratos anteriores no incluyen ``tipo_valor_esperado``: en ellos un array
+    JSON continúa siendo una lista. La conversión se limita a la tupla exterior y no
+    intenta adivinar tipos anidados que el contrato no describe.
+    """
+    esperado = caso["valor_esperado"]
+    if caso.get("tipo_valor_esperado") == "tuple":
+        return tuple(esperado)
+    return esperado
+
+
 class ContratoInvalido(ValueError):
     """Un mensaje no cumple su contrato.
 
