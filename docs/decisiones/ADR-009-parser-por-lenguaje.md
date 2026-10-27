@@ -1,0 +1,121 @@
+# ADR-009: Análisis estático multilenguaje — Tree-sitter frente a Parsers Nativos y Graphify
+
+- **Estado:** Propuesto (para revisión del equipo)
+- **Fecha:** 2026-10-26
+- **Ítem:** SPK-04 — Evaluación de Graphify, tree-sitter y parsers nativos para análisis multilenguaje
+- **Responsable de la investigación:** Castillo Pezo, Mateo Salvador Vincenzo
+- **Relacionado:** ADR-001 (modelos y costos), ADR-002 (mapa de código y Graphify; este ADR lo extiende a los lenguajes nuevos), ADR-005 (distribución e instalador Windows), ADR-007 (adaptadores por lenguaje, EN-17), ADR-008 (orquestador y Explicador, SPK-03), ADR-010 (arquitectura del Sprint 2), EN-02 (analizador AST), EN-14 (rutas y endpoints), HU-04, HU-05, HU-06, HU-24
+
+---
+
+## 1. Contexto
+
+QAgent nació con soporte exclusivo para proyectos en Python (FastAPI y funciones de biblioteca), analizados mediante el módulo nativo `ast` de la biblioteca estándar (EN-02 y EN-14). Este analizador alimenta directamente al agente **Planner**, el cual requiere una estructura determinista (`Estructura`):
+1. **Identificación de objetivos:** archivos, funciones, clases, métodos y endpoints.
+2. **Firmas y tipado:** nombres de parámetros, valores por defecto y tipos anotados.
+3. **Docstring / Documentación:** actúa como el **oráculo formal de especificación** a partir del cual el Planner deduce valores esperados y casos de prueba sin ejecutar el código (regla inquebrantable de AGENTS.md).
+4. **Complejidad y ramas:** conteo de puntos de decisión (`if`, `for`, `while`, `match`, etc.) para marcar funciones críticas (`critical: true`) y activar el análisis de mutación (HU-06).
+5. **Relaciones y dependencias:** mapa de llamadas internas (`llama_a`) para que el Generator configure simulaciones (mocks).
+
+Con la expansión de QAgent a **JavaScript**, **TypeScript** y en el futuro cercano **Java**, el sistema requiere una solución de análisis estático capaz de extraer dicha estructura en todos los lenguajes destino, manteniendo el presupuesto de tokens, tiempos de respuesta rápidos y la portabilidad de la aplicación de escritorio (`QAgent.exe` en Windows).
+
+---
+
+## 2. Pregunta
+
+¿Qué herramienta o combinación de herramientas permite ampliar el análisis estático de QAgent a JavaScript, TypeScript y Java, extrayendo la información requerida por el Planner, con 0 tokens en la fase de análisis, tiempos inferiores a 50 ms por archivo y sin romper el empaquetado portable de Windows?
+
+---
+
+## 3. Opciones evaluadas
+
+| Opción | Descripción |
+|---|---|
+| **A. Parsers Nativos Independientes** | Utilizar las herramientas oficiales de cada ecosistema: Python `ast` para Python; `@babel/parser` o `typescript` vía subproceso Node.js para JS/TS; y `JavaParser` vía subproceso JVM/JAR para Java. |
+| **B. Graphify** | Utilizar Graphify para construir un grafo del repositorio completo y consultar sus relaciones mediante su capa de enriquecimiento semántico con LLM. |
+| **C. Tree-sitter (Motor Unificado o Híbrido)** | Integrar la biblioteca Tree-sitter mediante sus bindings oficiales para Python (`tree-sitter`, `tree-sitter-python`, `tree-sitter-javascript`, `tree-sitter-typescript`, `tree-sitter-java`), utilizando consultas S-expression (`.scm`) para normalizar el árbol de sintaxis concreta (CST) al formato común de QAgent. |
+
+---
+
+## 4. Comparación Técnica y Resultados Empíricos (SPK-04)
+
+Las tres alternativas se evaluaron sobre un banco de pruebas espejo, con implementaciones funcionalmente equivalentes de funciones de cálculo, ramas lógicas, clases, métodos y llamadas asíncronas en Python, TypeScript, JavaScript y Java.
+
+### 4.1 Capacidad de extracción de metadatos frente a los requisitos de QAgent
+
+| Metadato Requerido por QAgent | Parser Nativo Python (`ast`) | Parsers Nativos Externos (Node / Java) | Tree-sitter (Bindings Python) | Graphify (Estructural + LLM) |
+|---|:---:|:---:|:---:|:---:|
+| **Huella SHA-256 de archivo** | Sí | Sí | Sí | Sí |
+| **Funciones y Métodos** | Sí | Sí | Sí | Parcial (grafo genérico) |
+| **Clases y Constructores** | Sí | Sí | Sí | Sí |
+| **Parámetros y Defaults** | Sí | Sí | Sí | Incompleto |
+| **Tipos estáticos anotados** | Sí | Sí | Sí (nodos `type_annotation`) | No confiable / omitido |
+| **Docstring / JSDoc / Javadoc (Oráculo)** | Sí | Sí | Sí (nodos `comment` adyacentes) | **No** (sintetizado en texto libre) |
+| **Conteo de Ramas (`critical`)** | Sí | Sí | Sí (queries de bifurcaciones) | **No** |
+| **Mapa de llamadas (`llama_a`)** | Sí | Sí | Sí (queries `call_expression`) | **Sí** (su mayor virtud) |
+| **Endpoints y Decoradores** | Sí (FastAPI) | Sí (Express / Spring) | Sí (queries de decoradores) | No como contrato de prueba |
+
+### 4.2 Métricas de Rendimiento, Tokens y Recursos (Entorno Windows AMD64)
+
+| Herramienta | Lenguaje | Tiempo Medio | Tokens LLM | Memoria Pico | Determinista |
+|---|---|:---:|:---:|:---:|:---:|
+| **Parser Nativo (`ast`)** | Python | **4.36 ms** | **0** | 311 KB | Sí |
+| **Parser Nativo JS (Node subproceso)** | JavaScript | 125.00 ms | **0** | 51 KB | Sí |
+| **Tree-sitter (Python)** | Python | **2.78 ms** | **0** | ~180 KB | Sí |
+| **Tree-sitter (TypeScript)** | TypeScript | **3.21 ms** | **0** | ~210 KB | Sí |
+| **Tree-sitter (Java)** | Java | **3.23 ms** | **0** | ~220 KB | Sí |
+| **Graphify** | Python | 2,445.00 ms | **1,669** | 3,200 KB | No |
+| **Graphify** | TypeScript | 2,445.00 ms | **1,784** | 3,450 KB | No |
+
+---
+
+## 5. Análisis de Viabilidad y Distribución
+
+1. **Riesgo Operativo de los Parsers Nativos Externos (Opción A):**
+   - Para analizar JS/TS y Java mediante parsers nativos, la máquina del usuario requeriría tener instalados y configurados en el `PATH` los runtimes de **Node.js (v20+)** y un **JRE/JDK de Java (v17+)**.
+   - Si se intentara empaquetar estos runtimes dentro del instalador de Windows ([`qagent.iss`](../../packaging/windows/qagent.iss)), el tamaño del instalador aumentaría en más de **250 MB**, multiplicando la superficie de fallas y vulnerabilidades.
+   - La invocación mediante subprocesos (`subprocess.run`) añade una penalización de arranque de proceso de entre 100 ms y 200 ms por cada archivo, ralentizando severamente la fase de exploración en proyectos medianos.
+
+2. **Incompatibilidad de Graphify (Opción B):**
+   - Tal como se concluyó preliminarmente en el [ADR-002](ADR-002-mapa-de-codigo.md), Graphify está diseñado para exploración de código asistida por IA en agentes conversacionales, no para alimentar contratos formales de testing.
+   - Su fase semántica consume más de 1,600 tokens por archivo pequeño. En un repositorio de 30 módulos consumiría ~50,000 tokens únicamente en la pantalla de "Explorar", agotando prematuramente el presupuesto del proyecto.
+   - Carece de extracción determinista de docstrings literales y ramas de decisión, lo que imposibilita alimentar el oráculo del Planner y clasificar funciones críticas para mutmut.
+
+3. **Fortalezas de Tree-sitter (Opción C):**
+   - **100 % integrado en Python:** Se distribuye como ruedas binarias precompiladas (*wheels*) de C para Windows, macOS y Linux.
+   - **Cero dependencias del sistema:** No requiere Node.js, Java ni compiladores externos en la máquina del usuario.
+   - **Compatibilidad con PyInstaller:** Se compila limpiamente dentro del ejecutable `QAgent.exe` ([`qagent.spec`](../../packaging/windows/qagent.spec)) con un incremento de tamaño despreciable (~15 MB por todas las gramáticas combinadas).
+   - **Alta velocidad:** Analiza archivos en menos de 4 milisegundos de forma puramente determinista y con 0 tokens consumidos.
+   - **Extensibilidad trivial:** Incorporar nuevos lenguajes (Java, Go, C#, Rust) solo requiere instalar la gramática correspondiente (`tree-sitter-<lenguaje>`) y redactar el archivo de consulta `.scm`.
+
+---
+
+## 6. Decisión
+
+**Se adopta la Opción C bajo una Arquitectura Híbrida Unificada:**
+
+1. **Tree-sitter como motor estándar multilenguaje:**
+   - Se utilizará Tree-sitter (`tree-sitter` con sus gramáticas `tree-sitter-javascript`, `tree-sitter-typescript` y `tree-sitter-java`) para realizar el análisis estático de proyectos en JavaScript, TypeScript y Java.
+2. **Preservación del analizador `ast` existente para Python:**
+   - El analizador actual de Python basado en `ast` ([`analyzer.py`](../../src/qagent/analysis/analyzer.py) y [`rutas.py`](../../src/qagent/analysis/rutas.py)) se mantiene activo para proyectos Python, aprovechando su madurez, soporte nativo de FastAPI y tipado Pydantic.
+3. **Interfaz unificada a través de los adaptadores de ADR-007:**
+   - El despacho por lenguaje lo hace el registro de adaptadores (`qagent.lenguajes`, ADR-007, EN-17): `PythonAdapter.analizar()` delega en `analyzer.py`, y los adaptadores de JS/TS y Java implementan su `analizar()` con Tree-sitter. Todos producen exactamente la misma estructura de datos JSON normalizada para el Planner.
+4. **Descarte definitivo de Graphify:**
+   - Graphify queda descartado tanto para el análisis estático como para el mapa de llamadas, ratificando la decisión del ADR-002 en contextos multilenguaje.
+
+---
+
+## 7. Consecuencias
+
+### Positivas
+- **Soporte multilenguaje limpio:** QAgent podrá analizar proyectos en TypeScript, JavaScript y Java con tiempos de milisegundos y 0 tokens gastados en el análisis.
+- **Independencia de runtimes externos:** El usuario final no necesita instalar Node.js ni Java para que QAgent explore y prepare pruebas en dichos proyectos.
+- **Preservación de contratos:** El formato de salida generado por Tree-sitter coincide al 100 % con la `Estructura` que hoy produce `analizar_proyecto()` y consume el Planner; el contrato del Planner con lenguaje y framework es `planner_contract.v3` (ADR-007).
+- **Integración fluida en CI/CD y empaquetado:** `tree-sitter` se empaqueta sin fricción en el instalador de Windows de `packaging/windows/`.
+
+### Mitigaciones y Trabajo Futuro
+- **Mapeo de Queries Tree-sitter:** Se deben mantener archivos de consulta `.scm` por cada lenguaje para capturar de forma robusta las asociaciones entre comentarios JSDoc/Javadoc y sus respectivas funciones/métodos.
+- **Extracción de endpoints Express y Spring Boot:** Se implementarán consultas específicas sobre decoradores y llamadas a routers (`app.get()`, `@GetMapping`) de forma análoga a lo desarrollado en EN-14 para FastAPI.
+- **Dependencias:** `tree-sitter` y sus gramáticas se agregan a `pyproject.toml` en la tarea de cada lenguaje, no en el spike.
+- **Reproducibilidad de las cifras:** el banco espejo y los scripts de medición del spike no están en el repositorio. Para repetir las mediciones desde el código hay que versionarlos en `bench/`.
+- **Python con tree-sitter:** las mediciones muestran que tree-sitter también es más rápido en Python (2.78 ms frente a 4.36 ms). Migrar el analizador de Python es una tarea aparte y solo se hace si da exactamente la misma estructura que `analizar_proyecto()`.

@@ -52,7 +52,7 @@ El Planner sigue produciendo v2, las specs se guardan y leen como v2 y el orques
 
 ## 3. Estrategia de parser (SPK-04)
 
-**Decisión de SPK-04: tree-sitter** (bindings de Python sobre C) es el parser de los lenguajes nuevos. La decisión completa, con sus mediciones, está en ADR-009 (SPK-04). La interfaz no fija el parser: `analizar` y `validar_sintaxis` lo usan dentro de cada adaptador.
+**Decisión de SPK-04: tree-sitter** (bindings de Python sobre C) es el parser de los lenguajes nuevos. La decisión completa, con sus mediciones, está en [ADR-009](ADR-009-parser-por-lenguaje.md) (SPK-04). La interfaz no fija el parser: `analizar` y `validar_sintaxis` lo usan dentro de cada adaptador.
 
 Resumen de por qué tree-sitter:
 
