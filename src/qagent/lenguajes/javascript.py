@@ -3,7 +3,7 @@
 Punto de partida del responsable de JS/TS. El análisis, el comando de Jest o
 Vitest, el entorno del sandbox y la lectura de resultados lanzan
 ``NoImplementado`` hasta que se implementen (ver ``README.md`` de este paquete).
-El parser que se use para el análisis estático sigue la decisión de SPK-04.
+El análisis estático usa tree-sitter (decisión de SPK-04, ADR-007).
 """
 
 from __future__ import annotations

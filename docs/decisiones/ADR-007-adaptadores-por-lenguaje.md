@@ -1,6 +1,6 @@
 # ADR-007: Adaptadores por lenguaje y contratos versionados
 
-- **Estado:** Propuesto (pendiente de revisión con los responsables de JS/TS y Java)
+- **Estado:** Propuesto (pendiente de revisión con los responsables de JS/TS y Java). Parser decidido en SPK-04: tree-sitter.
 - **Fecha:** 2026-10-27
 - **Ítem:** EN-17 (#129) — Implementar la base de adaptadores y contratos multilenguaje
 - **Responsable:** Oncoy Patricio, Angel
@@ -52,13 +52,42 @@ El Planner sigue produciendo v2, las specs se guardan y leen como v2 y el orques
 
 ## 3. Estrategia de parser (SPK-04)
 
-La interfaz no fija un parser: cada adaptador decide cómo implementa `analizar` y `validar_sintaxis`, **según la decisión de SPK-04**, con estas condiciones que no se negocian:
+**Decisión de SPK-04: tree-sitter** (bindings de Python sobre C) es el parser de los lenguajes nuevos. La interfaz no lo fija: `analizar` y `validar_sintaxis` lo usan dentro de cada adaptador.
+
+Mediciones de SPK-04 (tiempo medio por archivo en el entorno de evaluación):
+
+| Herramienta | Lenguaje | Tiempo medio | Tokens LLM | Determinista |
+|---|---|---|---|---|
+| Parser nativo (`ast`) | Python | 3.69 ms | 0 | Sí |
+| Parser nativo JS (subproceso de Node) | JavaScript | 123.46 ms | 0 | Sí |
+| tree-sitter | Python | 1.85 ms | 0 | Sí |
+| tree-sitter | TypeScript | 1.99 ms | 0 | Sí |
+| tree-sitter | Java | 2.01 ms | 0 | Sí |
+| Graphify (estructural + semántico) | Python | 2 445 ms | 1 647 | No |
+| Graphify (estructural + semántico) | TypeScript | 2 445 ms | 1 784 | No |
+
+Por qué tree-sitter:
+
+- Es estático, determinista y no gasta tokens, como exigen las métricas reproducibles y la caché por huella (HU-24).
+- Un solo parser sirve para JS, TS y Java, y no requiere Node ni un JDK en la PC del usuario (el parser nativo de JS sí, y es unas 60 veces más lento).
+- Detecta errores de sintaxis sin ejecutar nada (nodos `ERROR` del árbol), lo que sirve para `validar_sintaxis`.
+
+Condiciones que no se negocian:
 
 1. El análisis es estático: no se importa, compila con efectos ni ejecuta el código del usuario fuera del sandbox.
-2. Python sigue con `ast` (ADR-002).
-3. Si un lenguaje necesita una dependencia nueva (un parser o una herramienta externa), se registra en un ADR propio antes de agregarla a `pyproject.toml`.
+2. **Python sigue por ahora con `ast`** (ADR-002). Su migración a tree-sitter es una tarea aparte y debe dar exactamente la misma estructura (las pruebas de `tests/lenguajes/test_python.py` ya la comparan con `analizar_proyecto`).
+3. tree-sitter y sus gramáticas se agregan a `pyproject.toml` en la tarea de cada lenguaje, no en EN-17: esta base no suma dependencias que todavía nadie usa.
 
-> **Pendiente:** enlazar aquí el documento de SPK-04 cuando esté en el repositorio.
+### 3.1 Alternativa evaluada: elegir el parser según el tamaño del proyecto
+
+Se propuso contar las líneas de código del proyecto y usar Graphify por encima de un umbral (por ejemplo, un millón de líneas) y tree-sitter por debajo. **Se descarta por ahora:**
+
+- **El costo de tree-sitter crece en línea recta y es bajo.** Con ~2 ms por archivo, un proyecto de un millón de líneas (del orden de 10 000 archivos) se analiza en unos 20 s, una sola vez por huella. Graphify tardaría más (~2.4 s por pasada) y además gasta tokens.
+- **Graphify no es determinista y envía código a un LLM.** Dos análisis del mismo proyecto podrían dar estructuras distintas, lo que rompe la caché por huella y la comparación entre corridas, y saca código de la PC del usuario (ADR-002).
+- **La ventaja de Graphify en repositorios grandes no aplica a QAgent.** Sirve para que un asistente navegue un repositorio sin leerlo entero. QAgent ya trabaja por módulo y por función, y la persona elige qué módulos probar.
+- **Dos parsers según un umbral duplican el trabajo:** dos salidas que deben ser equivalentes, el doble de pruebas y un umbral arbitrario en el que un proyecto cambia de resultado por una línea.
+
+Si algún día un proyecto real muestra que el análisis es el cuello de botella, el camino es hacerlo incremental (solo los archivos cuya huella cambió) antes que cambiar de herramienta. La idea queda registrada para revisarla con esa medición.
 
 ## 4. Alternativas descartadas
 
@@ -66,6 +95,8 @@ La interfaz no fija un parser: cada adaptador decide cómo implementa `analizar`
 |---|---|
 | Agregar `lenguaje` y `framework` a `planner_contract.v2` como opcionales | Cambia un contrato existente y no deja distinguir un v2 de Python de uno incompleto de otro lenguaje. |
 | Un Planner/Generator/Reviewer por lenguaje | Duplica la lógica compartida (reintentos, oráculo, métricas) y viola la regla de no duplicar componentes. |
+| Graphify o el parser nativo de cada lenguaje (subproceso de Node, JDK) | No deterministas o lentos y con dependencias en la PC del usuario (sección 3, mediciones de SPK-04). |
+| Elegir el parser según las líneas de código del proyecto | Dos parsers con un umbral arbitrario y sin beneficio medido (sección 3.1). |
 | Migrar ya todo el flujo de Python a v3 | Fuera de alcance; obliga a migrar specs guardadas y arriesga la persistencia histórica. |
 
 ## 5. Consecuencias
