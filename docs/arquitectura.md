@@ -142,7 +142,13 @@ flowchart TB
         SBX["sandbox/<br/>ejecución Docker (EN-03)"]
         STO["almacenamiento/<br/>.qagent/ y recientes (EN-07)"]
         CFG["configuración (EN-06)"]
-        CON["validación de contratos<br/>contracts/*.schema.json (EN-01)"]
+        CON["validación de contratos<br/>contracts/*.schema.json (EN-01) · versionados v3 (EN-17 #129)"]
+    end
+    subgraph LEN["lenguajes/ (EN-17 #129)"]
+        REG["Registro<br/>detección del lenguaje"]
+        LA["LanguageAdapter"]
+        PYA["PythonAdapter<br/>(completo)"]
+        OTR["JavaScript · TypeScript · Java<br/>(solo detectan)"]
     end
 
     BRIDGE --> ORQ
@@ -152,7 +158,13 @@ flowchart TB
     ORQ --> AN & STO & CFG & CON
     PL & GE & RE --> LLM
     RE --> SBX
+    REG --> LA
+    LA --> PYA & OTR
+    REG --> CON
+    PYA --> AN & SBX
 ```
+
+El paquete `lenguajes/` todavía no está conectado al orquestador: es el punto de extensión para JS/TS y Java (ADR-007). `PythonAdapter` solo delega en `analysis/` y `sandbox/`, así que el flujo actual de Python no cambia.
 
 | Componente | Carpeta | Responsabilidad | Ítems |
 |---|---|---|---|
@@ -168,7 +180,8 @@ flowchart TB
 | Almacenamiento | `src/qagent/almacenamiento/` | `AlmacenProyecto`: crea `.qagent/` y lee y escribe `runs/<run_id>/run.json`, `specs/`, `tests/` (pruebas aprobadas) y `mutacion/` (último Mutation Score por función, #70); `recientes.py`: `~/.qagent/recientes.json`. Escritura atómica en UTF-8. | EN-07, HU-01, HU-03 |
 | Registro de corridas | `src/qagent/storage/` | `log.json` y `results.json` de cada corrida, validados contra `run_log.schema.json`. | EN-05 |
 | Configuración | `src/qagent/config/` | Carga `config.toml` y `.env`, audita las claves y verifica Docker y Git. | EN-06 |
-| Contratos | `src/qagent/contracts/` | JSON Schema de cada mensaje; se validan en cada paso. | EN-01 |
+| Contratos | `src/qagent/contracts/` | JSON Schema de cada mensaje; se validan en cada paso. Versiones con lenguaje y framework y `validar_versionado()`. | EN-01, EN-17 (#129) |
+| Adaptadores por lenguaje | `src/qagent/lenguajes/` | `LanguageAdapter` y registro: detección, análisis estático, comando de pruebas, entorno del sandbox, lectura de resultados y laundering por lenguaje. Python completo; JS/TS y Java solo detectan. | EN-17 (#129), ADR-007 |
 
 ### Reglas de dependencia
 
@@ -177,7 +190,8 @@ flowchart TB
 3. **Los agentes no se importan entre sí** ni importan al orquestador. Solo reciben y devuelven contratos.
 4. Los agentes usan el Cliente LLM; solo el Reviewer usa el Sandbox.
 5. Ningún componente ejecuta el código del usuario fuera del Sandbox.
-6. **Los servicios no dependen de la interfaz:** `proyectos/`, `almacenamiento/`, `analysis/`, `sandbox/`, `llm/` y `storage/` nunca importan `qagent.app` ni pywebview. Así se prueban sin ventana.
+6. **Los servicios no dependen de la interfaz:** `proyectos/`, `almacenamiento/`, `analysis/`, `sandbox/`, `llm/`, `storage/` y `lenguajes/` nunca importan `qagent.app` ni pywebview. Así se prueban sin ventana.
+7. **Lo específico de un lenguaje va en su adaptador** (`lenguajes/`), no en los agentes ni en el orquestador (ADR-007).
 
 ---
 
@@ -346,6 +360,7 @@ flowchart TB
     proyectos --> analysis
     config --> llm & sandbox
     llm -. "import dentro de una función" .-> config
+    lenguajes --> analysis & contracts & sandbox
 ```
 
 | Regla (sección 4) | ¿Se cumple? |
@@ -663,7 +678,9 @@ Los schemas completos van en `src/qagent/contracts/` y los valida `tests/test_co
 |---|---|---|---|
 | `estructura.json` | Analizador → Orquestador / Planner | módulos; funciones (firma, tipos, docstring, n.º de ramas, `llama_a`); endpoints FastAPI (método, ruta, `response_model`, `status_code`, modelo del body); SHA-256 por módulo | salida de EN-02 / EN-14 |
 | `planner_contract.v2` | Planner → Generator (vía orquestador) | módulo, `tipo` (`funcion` \| `endpoint`), función o ruta, firma, `critical`, casos: [id, entrada, valor esperado, origen del valor esperado] | `planner_contract.v2.schema.json` |
+| `planner_contract.v3` | (EN-17 #129) mismo recorrido que v2 | v2 + `lenguaje`, `framework_pruebas` y `framework_app`, con las combinaciones válidas por lenguaje. Un v2 se convierte con `normalizar_planner()`; el flujo de Python sigue usando v2 | `planner_contract.v3.schema.json` |
 | `generated_test` | Generator → Reviewer (vía orquestador) | función o ruta, intento, código pytest, ids de casos cubiertos | `generated_test.schema.json` |
+| `generated_test.v2` | (EN-17 #129) mismo recorrido que v1 | v1 + `lenguaje`, `framework_pruebas` y `archivo` del test | `generated_test.v2.schema.json` |
 | `review_result` | Reviewer → Orquestador | función o ruta, intento, estado del sandbox, cobertura, laundering detectado, `tipo_fallo` (`error_test` \| `bug_codigo`), hash del error, decisión (`accept` \| `retry` \| `bug_detectado` \| `stalled`), feedback, `ejecucion` opcional (EN-17: casos, salida y entorno del sandbox) | `review_result.schema.json` |
 | `detalle.json` | Orquestador → `.qagent/` | por función: contrato, último test y traza; por intento (EN-17): feedback, hash del error, cobertura y `ejecucion` (casos de pytest con archivo, línea, código, esperado y obtenido, salida recortada y entorno) | `detalle.schema.json` |
 | `log.json` / `results.json` | Orquestador → `.qagent/` | modelos usados, perfil, llamadas con tokens por agente, costo, 5 métricas por función o endpoint | `run_log.schema.json` |
@@ -777,6 +794,7 @@ QAgent propone como prioritaria toda función con al menos una decisión (`if`/`
 | Un modelo por agente | Inteligencia solo donde hay ambigüedad; el Planner concentra el gasto | ADR-001 |
 | Análisis solo con `ast`, sin Graphify | Cubre funciones y FastAPI, 0 tokens, sin dependencias | ADR-002 |
 | Frontend separado, un componente por pantalla, sin bundler ni módulos ES | Cambios por pantalla en lugar de un archivo de 2000 líneas; funciona con `file://` y pywebview sin servidor propio; sin Node ni compilación | ADR-003 |
+| Adaptadores por lenguaje y contratos versionados (v3 / v2) sin tocar los existentes | Incorporar JS/TS y Java sin duplicar agentes ni romper las specs guardadas | ADR-007 |
 | Pruebas de endpoints FastAPI con `TestClient` | Reutiliza el sandbox, pytest y las 5 métricas; integración, extremo a extremo y carga quedan en Fase 2 | Backlog EP-09 |
 | Reintentos solo Generator → Reviewer; bug detectado no se reintenta; orden topológico por `llama_a` | Evita rehacer el plan (el agente más caro) y la cascada de fallos entre funciones | Sección 6.4 |
 | Datos en archivos JSON | Viajan con el proyecto; no requiere base de datos | EN-07 |

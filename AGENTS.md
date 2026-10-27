@@ -19,6 +19,7 @@ Aplicación de escritorio local (pywebview + backend Python + Docker). No hay se
 
 - Solo dos tipos de prueba, ambos con pytest: **unitarias de funciones Python** y **de endpoints FastAPI** con `TestClient` dentro del sandbox, sin red y simulando `Depends` (EP-09).
 - Fuera de alcance (Fase 2): integración contra servicios reales, extremo a extremo, carga y estrés, pruebas del frontend del código del usuario y pruebas de propiedades. (No confundir con `src/qagent/frontend/`, la interfaz de QAgent.)
+- EN-17 (#129) deja la base para otros lenguajes en `src/qagent/lenguajes/` (adaptadores y contratos versionados, ADR-007), pero **el alcance sigue siendo Python** hasta que un lenguaje esté completo y tenga su propio ADR. JS/TS y Java hoy solo se detectan.
 - El análisis estático usa solo el módulo `ast` de la biblioteca estándar; no se integra Graphify (ver `docs/decisiones/ADR-002-mapa-de-codigo.md`).
 - mutmut solo sobre funciones marcadas `critical: true`, nunca sobre el repositorio completo.
 
@@ -52,13 +53,14 @@ La interfaz, los contratos y `config.toml` viajan dentro del paquete (`src/qagen
 | `src/qagent/almacenamiento/` | Almacenamiento del proyecto (EN-07): `AlmacenProyecto` guarda corridas (`run.json`), specs y pruebas aprobadas en `<proyecto>/.qagent/`; `recientes.py` maneja `~/.qagent/recientes.json`. Escritura atómica en UTF-8 |
 | `src/qagent/storage/` | `log.json` y `results.json` de cada corrida en `.qagent/runs/<run_id>/` (EN-05) |
 | `src/qagent/frontend/` | Interfaz HTML/CSS/JS sin build: un componente por pantalla en `componentes/`, tokens de diseño en `css/tokens.css`, logo en `assets/logo/`. Ver `src/qagent/frontend/README.md` |
-| `src/qagent/contracts/` | JSON Schema de los contratos entre agentes y `validar()` |
-| `tests/` | Pruebas del sistema; reflejan `src/` (`almacenamiento`, `analysis`, `app`, `config`, `llm`, `orchestrator`, `proyectos`, `sandbox`, `storage`) y `tests/frontend/` para la estructura de la interfaz |
+| `src/qagent/contracts/` | JSON Schema de los contratos entre agentes y `validar()`; versiones con lenguaje y framework (`planner_contract.v3`, `generated_test.v2`) y `validar_versionado()` (EN-17 #129) |
+| `src/qagent/lenguajes/` | Adaptadores por lenguaje (EN-17 #129): interfaz `LanguageAdapter`, registro y detección; Python completo, JS/TS y Java solo detectan. Ver su `README.md` y ADR-007 |
+| `tests/` | Pruebas del sistema; reflejan `src/` (`almacenamiento`, `analysis`, `app`, `config`, `lenguajes`, `llm`, `orchestrator`, `proyectos`, `sandbox`, `storage`) y `tests/frontend/` para la estructura de la interfaz |
 | `test.py` | Ejecuta todas las pruebas con un comando (lint, formato y pytest) |
 | `pyproject.toml` | Dependencias, extra `dev`, configuración de pytest y ruff, script `qagent` |
 | `CLAUDE.md` | Guía específica para Claude Code (importa este archivo) |
 | `docs/arquitectura.md` | Arquitectura del sistema y modelo GAIA |
-| `docs/decisiones/` | ADR (decisiones técnicas): ADR-001 modelos por agente, ADR-002 análisis con `ast`, ADR-003 frontend modular, ADR-004 nombre único QAgent, ADR-005 distribución (instalador y PyPI) |
+| `docs/decisiones/` | ADR (decisiones técnicas): ADR-001 modelos por agente, ADR-002 análisis con `ast`, ADR-003 frontend modular, ADR-004 nombre único QAgent, ADR-005 distribución (instalador y PyPI), ADR-007 adaptadores por lenguaje |
 | `packaging/windows/` | Ejecutable e instalador de Windows: receta de PyInstaller (`qagent.spec`), instalador de Inno Setup (`qagent.iss`), ícono, imágenes del asistente (`asistente/`) y requisitos que ve quien instala. Se construye con `scripts/construir_windows.py` |
 | `scripts/` | Herramientas del equipo: verificar el paquete instalado y construir el ejecutable de Windows |
 | `docs/desarrollo.md` | Guía del equipo: entorno, pruebas, sandbox, distribución y estructura del repositorio (el README es la portada para usuarios) |
