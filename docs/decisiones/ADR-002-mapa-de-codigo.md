@@ -1,6 +1,6 @@
 # ADR-002: Mapa del código — Graphify frente al análisis con `ast`
 
-- **Estado:** Aceptado (evaluación documental) · medición empírica pendiente (ver sección 7)
+- **Estado:** Aceptado (evaluación documental) · medición empírica pendiente (ver sección 7) · para JavaScript, TypeScript y Java lo extiende [ADR-009](ADR-009-parser-por-lenguaje.md) (tree-sitter); Python sigue con `ast`
 - **Fecha:** 2026-09-30
 - **Ítem:** SPK-02 — Evaluar Graphify frente al análisis con ast
 - **Responsable de la investigación:** Oncoy Patricio, Angel
