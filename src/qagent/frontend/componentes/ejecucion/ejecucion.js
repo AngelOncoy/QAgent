@@ -320,15 +320,18 @@ function estadoGeneral(todos, v){
   const omitidas = n('omitida'), probados = todos.length - omitidas;
   const sinPrueba = n('sin') + n('tiempo') + n('repetir');
   const incompleta = !!(v && (v.es_parcial || ['detenida_error', 'cancelada', 'limitada_recursos'].includes(v.tipo_terminacion)));
+  const pendientes = v && Number.isFinite(Number(v.total_pendientes)) ? Number(v.total_pendientes) : 0;
   const noSeProbaron = `${omitidas} ${omitidas === 1 ? 'objetivo no se probó' : 'objetivos no se probaron'}`;
+  const quedaronPendientes = `${pendientes} ${pendientes === 1 ? 'objetivo quedó pendiente' : 'objetivos quedaron pendientes'}`;
   // `corto`: la etiqueta del chip de Exportar.
   if (bugs.length) return {tipo:'bug', corto:`${bugs.length} ${bugs.length === 1 ? 'posible bug' : 'posibles bugs'}`,
     texto:`${bugs.length} ${bugs.length === 1 ? 'posible bug' : 'posibles bugs'}. Empieza por ${bugs[0].nombre}.`};
-  if (!probados) return {tipo:'aviso', corto:'Nada probado', texto: incompleta ? 'La corrida se detuvo antes de probar algo.'
+  if (!probados) return {tipo:'aviso', corto:'Nada probado', texto: incompleta ? `La corrida se detuvo antes de probar algo: ${quedaronPendientes}.`
     : omitidas ? `No se probó nada: ${noSeProbaron}.` : 'No se probó ninguna función ni endpoint.'};
   if (sinPrueba) return {tipo:'aviso', corto:'Faltan pruebas por revisar', texto:'Sin posibles bugs, pero faltan pruebas por revisar.'};
+  if (omitidas && incompleta) return {tipo:'aviso', corto:'Corrida incompleta', texto:`Sin posibles bugs en lo probado, pero ${noSeProbaron} y ${quedaronPendientes}.`};
   if (omitidas) return {tipo:'aviso', corto:`${omitidas} sin probar`, texto:`Sin posibles bugs en lo probado, pero ${noSeProbaron}.`};
-  if (incompleta) return {tipo:'aviso', corto:'Corrida incompleta', texto:'Sin posibles bugs en lo probado, pero la corrida no terminó.'};
+  if (incompleta) return {tipo:'aviso', corto:'Corrida incompleta', texto:`Sin posibles bugs en lo probado, pero la corrida no terminó: ${quedaronPendientes}.`};
   return {tipo:'exito', corto:'Todo pasó', texto:`Todo pasó: ${probados} ${probados === 1 ? 'función o endpoint verificado' : 'funciones y endpoints verificados'}.`};
 }
 
@@ -348,8 +351,12 @@ function renderCabeceraBandeja(todos, v){
 
   // Cifras: pruebas que pasan, posibles bugs, cobertura y tokens (nunca costos).
   const total = todos.length, pasaron = n('paso'), omitidas = n('omitida');
-  const porRevisar = total - pasaron - omitidas;
-  const subPasaron = [`${porRevisar} con algo por revisar`, omitidas ? `${omitidas} sin probar` : ''].filter(Boolean).join(' · ');
+  const procesados = v && Number.isFinite(Number(v.total_procesados)) ? Number(v.total_procesados) : total - omitidas;
+  const seleccionados = v && Number.isFinite(Number(v.total_seleccionados)) ? Number(v.total_seleccionados) : total;
+  const elegibles = v && Number.isFinite(Number(v.total_elegibles)) ? Number(v.total_elegibles) : Math.max(0, seleccionados - omitidas);
+  const pendientes = v && Number.isFinite(Number(v.total_pendientes)) ? Number(v.total_pendientes) : Math.max(0, elegibles - procesados);
+  const porRevisar = Math.max(0, procesados - pasaron);
+  const subPasaron = [`${porRevisar} procesados con algo por revisar`, omitidas ? `${omitidas} sin probar (omitidos)` : '', pendientes ? `${pendientes} pendientes` : ''].filter(Boolean).join(' · ');
   const k = v ? v.indicadores : null;
   const cobertura = k ? k.cobertura.lineas : (total ? todos.reduce((s, e) => s + (Number(e.cobLineas) || 0), 0) / total : null);
   const ramas = k ? k.cobertura.ramas : null;
@@ -362,12 +369,17 @@ function renderCabeceraBandeja(todos, v){
     ? `${Number(reales || 0).toLocaleString('es-PE')} reales · ${Number(estimados).toLocaleString('es-PE')} estimados`
     : 'Sumando las tres etapas';
   $('kpis').innerHTML = `
-    <div class="exp-cifra"><span class="exp-cifra-etq">Pasaron</span><b>${pasaron} / ${total}</b><span class="exp-cifra-sub">${subPasaron}</span></div>
-    <div class="exp-cifra"><span class="exp-cifra-etq">Posibles bugs</span><b class="${bugs.length ? 'bnj-cifra-bug' : ''}">${bugs.length}</b><span class="exp-cifra-sub">En ${bugs.length} de ${total} funciones o endpoints</span></div>
+    <div class="exp-cifra"><span class="exp-cifra-etq">Aprobados</span><b>${pasaron} / ${procesados}</b><span class="exp-cifra-sub">${subPasaron}</span></div>
+    <div class="exp-cifra"><span class="exp-cifra-etq">Posibles bugs</span><b class="${bugs.length ? 'bnj-cifra-bug' : ''}">${bugs.length}</b><span class="exp-cifra-sub">En ${bugs.length} de ${procesados} objetivos procesados</span></div>
     <div class="exp-cifra"><span class="exp-cifra-etq" title="Porcentaje de líneas del código que ejecutaron las pruebas">Cobertura ⓘ</span><b>${pctTexto(cobertura)}</b><span class="exp-cifra-sub">${k && k.cobertura.exige_ramas === false ? 'Ramas no exigidas en Humo' : ramas !== null && ramas !== undefined ? pctTexto(ramas) + ' de las ramas' : 'De las líneas del código'}</span></div>
     <div class="exp-cifra"><span class="exp-cifra-etq">Tokens de la corrida</span><b>${tokens === null ? '—' : Number(tokens).toLocaleString('es-PE')}</b><span class="exp-cifra-sub">${subTokens}</span></div>`;
-  $('bnjResumen').textContent = `${total} ${total === 1 ? 'función o endpoint' : 'funciones y endpoints'}: ` +
-    BANDEJAS.map(b => [n(b.k), b.t.toLowerCase()]).filter(([c]) => c).map(([c, t]) => `${c} ${t}`).join(' · ');
+  const etiquetasResumen = {
+    bug: ['posible bug', 'posibles bugs'], sin: ['sin prueba', 'sin pruebas'],
+    tiempo: ['tiempo agotado', 'tiempos agotados'], repetir: ['requiere corrida nueva', 'requieren corrida nueva'],
+    omitida: ['no se probó', 'no se probaron'], paso: ['pasó', 'pasaron'],
+  };
+  $('bnjResumen').textContent = `${seleccionados} seleccionados · ${elegibles} elegibles · ${procesados} procesados · ${omitidas} omitidos · ${pendientes} pendientes: ` +
+    BANDEJAS.map(b => [n(b.k), b.k]).filter(([c]) => c).map(([c, k]) => `${c} ${etiquetasResumen[k][c === 1 ? 0 : 1]}`).join(' · ');
 }
 function renderFiltrosBandeja(todos){
   const tipos = [...new Set(todos.map(e => e.tipo))];

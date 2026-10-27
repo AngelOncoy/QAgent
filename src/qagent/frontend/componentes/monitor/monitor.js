@@ -172,9 +172,10 @@ function pintarProgreso(){
 
   // Lo omitido (sin resultado esperado verificable o ruta sin resolver) también está resuelto.
   const omitidos = PRG.fin ? (PRG.fin.omitidos || 0) : 0;
+  const pendientes = PRG.fin ? (PRG.fin.pendientes || 0) : 0;
   const pct = PRG.total ? Math.min(100, Math.round((PRG.hechos + omitidos) / PRG.total * 100)) : (PRG.fin ? 100 : 0);
   $('prgAvanceTxt').textContent = PRG.total
-    ? `${PRG.hechos} de ${PRG.total} funciones y endpoints completados` + (omitidos ? ` · ${omitidos} no se ${omitidos === 1 ? 'probó' : 'probaron'}` : '')
+    ? `${PRG.hechos} procesados · ${omitidos} omitidos · ${pendientes} pendientes de ${PRG.total} seleccionados`
     : (PRG.fin ? 'Corrida terminada' : 'Preparando la corrida…');
   $('prgPct').textContent = PRG.total || PRG.fin ? pct + ' %' : '';
   $('prgBarra').style.width = pct + '%';
@@ -353,7 +354,8 @@ function monitorFinReal(r){
   const duracion = typeof r.duracion_s === 'number' && isFinite(r.duracion_s) && r.duracion_s >= 0 ? r.duracion_s : null;
   if (duracion !== null) PRG.inicio = Date.now() - duracion * 1000;
   const omitidos = Number(r.objetivos_omitidos || 0);
-  PRG.fin = {ok, cancelada, conErrores, conAvisos: ok && omitidos > 0, omitidos, t: Date.now(), runId: r.run_id && r.carpeta ? r.run_id : null, duracion};
+  const pendientes = Number(r.total_pendientes || 0);
+  PRG.fin = {ok, cancelada, conErrores, conAvisos: ok && omitidos > 0, omitidos, pendientes, t: Date.now(), runId: r.run_id && r.carpeta ? r.run_id : null, duracion};
   // El total y lo procesado salen del resumen final, no de los eventos en vivo.
   if (Number(r.total_seleccionados) > 0) PRG.total = Number(r.total_seleccionados);
   if (Number.isFinite(Number(r.total_procesados))) PRG.hechos = Number(r.total_procesados);

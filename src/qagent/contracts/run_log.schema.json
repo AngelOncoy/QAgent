@@ -137,6 +137,11 @@
       "minimum": 0,
       "description": "Total de funciones y endpoints seleccionados para la corrida."
     },
+    "total_elegibles": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Objetivos seleccionados que podían procesarse: seleccionados menos omitidos justificados."
+    },
     "total_procesados": {
       "type": "integer",
       "minimum": 0,
@@ -831,6 +836,11 @@
           "type": "integer",
           "minimum": 0,
           "description": "Total de objetivos seleccionados inicialmente."
+        },
+        "total_elegibles": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Objetivos seleccionados elegibles para procesamiento."
         },
         "total_procesados": {
           "type": "integer",

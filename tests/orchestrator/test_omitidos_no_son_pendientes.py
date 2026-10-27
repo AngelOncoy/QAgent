@@ -142,6 +142,7 @@ def test_las_omitidas_se_cuentan_aparte_de_las_pendientes() -> None:
 
     assert resumen.total_procesados == 2
     assert resumen.objetivos_omitidos == 2
+    assert resumen.total_elegibles == 2
     assert resumen.total_pendientes == 0
     assert tipo_terminacion(resumen) == "completada"
 
@@ -152,6 +153,7 @@ def test_lo_que_una_detencion_dejo_sin_revisar_sigue_siendo_pendiente() -> None:
     _contar(resumen, [_resultado(["accept"], 1)], TokenTracker())
 
     assert resumen.objetivos_omitidos == 1
+    assert resumen.total_elegibles == 5
     assert resumen.total_pendientes == 4
     assert tipo_terminacion(resumen) == "detenida_error"
 
@@ -204,6 +206,7 @@ def test_results_json_guarda_las_omitidas_y_cumple_el_schema(tmp_path: Path) -> 
     validar(RUN_LOG, results)
     assert results["omitidos"] == omitidos
     assert results["objetivos_omitidos"] == 2
+    assert results["resumen"]["total_elegibles"] == 1
     assert results["total_pendientes"] == 0
     assert results["tipo_terminacion"] == "completada"
 
