@@ -269,6 +269,28 @@ class ResultadoCorrida:
         return datos
 
 
+@dataclass
+class PlanModulo:
+    """Plan de un módulo hecho antes de ejecutarlo (#148).
+
+    Permite planificar mientras se construye el entorno aislado: el Planner no necesita
+    Docker. `Orquestador.ejecutar(modulo, plan_previo=...)` lo usa sin volver a llamar
+    al Planner. Si planificar falló, `error` guarda el fallo y `ejecutar` lo reporta
+    como si hubiera ocurrido en ese momento.
+    """
+
+    modulo: str
+    contratos: list[Contrato] = field(default_factory=list)
+    #: Motivos del Planner para las funciones que omitió.
+    motivos_omision: dict[str, str] = field(default_factory=dict)
+    #: Objetivos que el Planner no pudo planificar: nombre -> (tipo, motivo) (FIX-02).
+    fallidos_planner: dict[str, tuple[str, str]] = field(default_factory=dict)
+    #: Segundos que tomó planificar (etapa `planner`, #115).
+    duracion_s: float = 0.0
+    inicio: str | None = None
+    error: FalloControlado | None = None
+
+
 def decidir_corte(
     decision: str,
     intento: int,
@@ -369,16 +391,16 @@ class Orquestador:
         """Estado actual de la máquina."""
         return self._estado
 
-    def ejecutar(
+    def planificar(
         self,
         modulo: dict[str, Any],
         plan_reutilizado: list[Contrato] | None = None,
-    ) -> ResultadoCorrida:
-        """Ejecuta la corrida de un módulo (una entrada de `analizar_proyecto()["modulos"]`).
+    ) -> PlanModulo:
+        """Planifica un módulo sin ejecutar nada: no necesita el sandbox (#148).
 
-        Nunca lanza excepciones por fallos de agentes o del sandbox: los convierte en
-        un `ResultadoCorrida` con estado FALLO_CONTROLADO y el motivo. Si recibe un
-        plan vigente de HU-24, valida sus contratos y omite la llamada al Planner.
+        Con un plan vigente de HU-24 valida sus contratos y omite el Planner. Un fallo
+        controlado no se lanza: queda en `PlanModulo.error` para que `ejecutar` lo
+        reporte. Emite el inicio de la corrida del módulo y los eventos del Planner.
         """
         inicio = self._reloj()
         self._inicio_reloj = inicio
@@ -388,26 +410,66 @@ class Orquestador:
         self._estado = Estado.PLANIFICAR
         self._traza = [Estado.PLANIFICAR]
         self._emitir("orquestador", None, "Corrida iniciada", tipo="transicion")
+        self._motivos_omision = {}
+        self._fallidos_planner = {}
+        contratos: list[Contrato] = []
+        error: FalloControlado | None = None
+        try:
+            contratos = (
+                self._planificar(modulo)
+                if plan_reutilizado is None
+                else self._usar_plan_reutilizado(modulo, plan_reutilizado)
+            )
+        except FalloControlado as fallo:
+            error = fallo
+        return PlanModulo(
+            modulo=self._archivo or "",
+            contratos=contratos,
+            motivos_omision=dict(self._motivos_omision),
+            fallidos_planner=dict(self._fallidos_planner),
+            duracion_s=segundos(inicio, self._reloj()),
+            inicio=self._inicio_utc,
+            error=error,
+        )
+
+    def ejecutar(
+        self,
+        modulo: dict[str, Any],
+        plan_reutilizado: list[Contrato] | None = None,
+        plan_previo: PlanModulo | None = None,
+    ) -> ResultadoCorrida:
+        """Ejecuta la corrida de un módulo (una entrada de `analizar_proyecto()["modulos"]`).
+
+        Nunca lanza excepciones por fallos de agentes o del sandbox: los convierte en
+        un `ResultadoCorrida` con estado FALLO_CONTROLADO y el motivo. Si recibe un
+        plan vigente de HU-24, valida sus contratos y omite la llamada al Planner. Con
+        `plan_previo` (de `planificar`, #148) usa ese plan sin volver a planificar.
+        """
+        if plan_previo is None:
+            plan_previo = self.planificar(modulo, plan_reutilizado)
+        # Entre planificar y ejecutar pudieron planificarse otros módulos o esperarse
+        # el entorno aislado: se recupera el estado de este y la duración cuenta solo
+        # lo que tomó planificarlo, no la espera.
+        inicio = self._reloj() - plan_previo.duracion_s
+        self._inicio_reloj = inicio
+        self._inicio_utc = plan_previo.inicio or self._ahora()
+        self._etapas = etapas_vacias()
+        sumar_etapa(self._etapas, "planner", plan_previo.duracion_s)
+        self._archivo = modulo.get("ruta")
+        self._estado = Estado.PLANIFICAR
+        self._traza = [Estado.PLANIFICAR]
+        self._motivos_omision = dict(plan_previo.motivos_omision)
+        self._fallidos_planner = dict(plan_previo.fallidos_planner)
         objetivos: list[ResultadoObjetivo] = []
         error_global = False
         plan_completo: list[Contrato] = []
         omitidos: list[dict[str, str]] = []
         motivo: str | None = None
-        self._motivos_omision = {}
-        self._fallidos_planner = {}
 
         try:
-            inicio_plan = self._reloj()
-            try:
-                plan = (
-                    self._planificar(modulo)
-                    if plan_reutilizado is None
-                    else self._usar_plan_reutilizado(modulo, plan_reutilizado)
-                )
-            finally:
-                sumar_etapa(
-                    self._etapas, "planner", segundos(inicio_plan, self._reloj())
-                )
+            if plan_previo.error is not None:
+                raise plan_previo.error
+            plan = plan_previo.contratos
             plan_completo = copy.deepcopy(plan)
             omitidos = self._omitidos(modulo, plan)
             self._registrar_fallidos_planner(modulo, objetivos)
