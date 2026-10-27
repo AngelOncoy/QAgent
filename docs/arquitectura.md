@@ -769,12 +769,13 @@ Los schemas completos van en `src/qagent/contracts/` y los valida `tests/test_co
 | `estructura.json` | Analizador (o adaptador del lenguaje) → Orquestador / Planner | módulos; funciones (firma, tipos, docstring, n.º de ramas, `llama_a`); endpoints FastAPI (método, ruta, `response_model`, `status_code`, modelo del body); SHA-256 por módulo. Propuesto: campo `lenguaje`, con la misma forma para todos los lenguajes (ADR-009) | salida de EN-02 / EN-14 |
 | `planner_contract.v2` | Planner → Generator (vía orquestador) | módulo, `tipo` (`funcion` \| `endpoint`), función o ruta, firma, `critical`, casos: [id, entrada, valor esperado, origen del valor esperado] | `planner_contract.v2.schema.json` |
 | `planner_contract.v3` (EN-17) | mismo recorrido que v2 | v2 + `lenguaje`, `framework_pruebas` y `framework_app`, con las combinaciones válidas por lenguaje. Un v2 se convierte en memoria; las specs guardadas y el flujo de Python siguen en v2 | `planner_contract.v3.schema.json` |
+| `oracle.v1` (EN-18) | documentación JS/TS → validación determinista → futuro Planner JS/TS | lenguaje, objetivo, entrada, comprobación, estado de evidencia y procedencia verificable. El schema valida la forma y una capa determinista contrasta la evidencia con un registro confiable | `oracle.v1.schema.json` |
 | `generated_test` | Generator → Reviewer (vía orquestador) | función o ruta, intento, código pytest, ids de casos cubiertos | `generated_test.schema.json` |
 | `generated_test.v2` (EN-17) | mismo recorrido que v1 | v1 + `lenguaje`, `framework_pruebas` y `archivo` del test | `generated_test.v2.schema.json` |
 | `review_result` | Reviewer → Orquestador | función o ruta, intento, estado del sandbox, cobertura, laundering detectado, `tipo_fallo` (`error_test` \| `bug_codigo`), hash del error, decisión (`accept` \| `retry` \| `bug_detectado` \| `stalled`), feedback, `ejecucion` opcional (EN-17: casos, salida y entorno del sandbox) | `review_result.schema.json` |
 | `detalle.json` | Orquestador → `.qagent/` | por función: contrato, último test y traza; por intento (EN-17): feedback, hash del error, cobertura y `ejecucion` (casos de pytest con archivo, línea, código, esperado y obtenido, salida recortada y entorno) | `detalle.schema.json` |
 | `log.json` / `results.json` | Orquestador → `.qagent/` | modelos usados, perfil, llamadas con tokens por agente, costo, 5 métricas por función o endpoint | `run_log.schema.json` |
-| Contrato del Explicador (propuesto, EP-10) | Explicador → `corrida.py` → `.qagent/runs/<run_id>/explicaciones.json` → Informes | objetivo, `decision` (eco de `results.json`), resumen, qué se esperaba, qué pasó, qué hacer, `origen` (`ia` \| `plantilla`), modelo. Nombre y forma por acordar (sección 13) | por crear |
+| `explanation.v1` (EN-18; Agente Explicador aún propuesto) | futuro Explicador → validación determinista → futura persistencia separada → Informes | ids de explicación y hallazgo, referencia al resultado, ubicación, evidencia, explicación, impacto, recomendación y estado de verificación. No contiene campos para modificar veredictos o pruebas | `explanation.v1.schema.json` |
 
 **Origen del valor esperado (oráculo):** firma, tipos o docstring de una función (en JS/TS, JSDoc y tipos de TypeScript; en Java, Javadoc y tipos); o la declaración de la ruta (`response_model`, `status_code`, modelos Pydantic) de un endpoint. Nunca el resultado de ejecutar el código.
 
@@ -942,7 +943,7 @@ Responsables sugeridos en el plan del Sprint 2, a confirmar en el Sprint Plannin
 
 | Decisión o tarea abierta | Responsable sugerido | Referencia |
 |---|---|---|
-| Nombre y forma del contrato del Explicador (`explanation.v1` del plan o `explicacion.schema.json` del spike) | Rodríguez Malca, Rodrigo | ADR-008 · EP-10 |
+| Integrar `explanation.v1` con el futuro Agente Explicador y su persistencia separada; el nombre y la forma base quedaron definidos en EN-18 | Rodríguez Malca, Rodrigo | ADR-008 · EN-18 · EP-10 |
 | Si el Explicador propone parches y el orquestador los verifica en el sandbox (necesita su propia decisión) | Rodríguez Malca, Rodrigo, con el equipo | ADR-008 |
 | Medir el Explicador con un LLM real (tokens, costo, latencia y calidad) antes de activarlo por defecto | Rodríguez Malca, Rodrigo y Sanchez Vargas, Adrián | ADR-008, paso 5 |
 | Conectar el registro de adaptadores a la corrida y usar `planner_contract.v3` en el flujo | Oncoy Patricio, Angel | ADR-007 |
