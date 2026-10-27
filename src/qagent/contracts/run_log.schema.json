@@ -649,9 +649,10 @@
           "enum": [
             "tiempo_agotado",
             "error_contrato_planner",
+            "error_planner",
             null
           ],
-          "description": "Por qué un objetivo quedó sin veredicto (decision null) sin detener el módulo: tiempo_agotado (un agente o el proveedor de IA no respondió a tiempo). Opcional: las corridas anteriores no lo tienen."
+          "description": "Por qué un objetivo quedó sin veredicto (decision null) sin detener el módulo: tiempo_agotado (un agente o el proveedor de IA no respondió a tiempo), error_contrato_planner (su contrato del Planner no es válido) o error_planner (el Planner falló al planificarlo de forma recuperable, FIX-02). Opcional: las corridas anteriores no lo tienen."
         },
         "motivo_estancado": {
           "enum": [

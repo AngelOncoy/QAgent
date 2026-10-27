@@ -501,6 +501,8 @@ def _por_modulo(objetivos, estados) -> list[dict[str, Any]]:
                 "cobertura_lineas": metricas["cobertura_lineas"],
                 "cobertura_ramas": metricas["cobertura_ramas"],
                 "motivo_estancado": objetivo["motivo_estancado"],
+                # Por qué quedó sin veredicto; las corridas anteriores no lo tienen.
+                "motivo_sin_veredicto": objetivo.get("motivo_sin_veredicto"),
                 "critical": objetivo["critical"],
                 "categorias": texto_categorias(categorias_de(objetivo)),  # #76
             }

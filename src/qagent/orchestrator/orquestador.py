@@ -18,8 +18,15 @@ from typing import Any, TypeVar
 
 from qagent import contracts
 from qagent.agents.generator import ErrorRespuestaGenerator
+from qagent.agents.planner import ErrorRespuestaPlanner
 from qagent.contracts import ContratoInvalido
-from qagent.llm.cliente import LimiteProveedor, SinConexion
+from qagent.llm.cliente import (
+    ErrorLLM,
+    LimiteProveedor,
+    SinConexion,
+    SinCredito,
+    SinCupoGratuito,
+)
 from qagent.llm.tracker import TokenTracker
 from qagent.orchestrator.estados import Estado, validar_transicion
 from qagent.orchestrator.eventos import BusEventos, Evento
@@ -96,10 +103,18 @@ class CorridaCancelada(FalloControlado):
     """La corrida fue cancelada por el usuario."""
 
 
+class ErrorGlobal(FalloControlado):
+    """Error de la cuenta o del proveedor que fallaría en todo el proyecto (FIX-02)."""
+
+
 #: Motivo de un objetivo sin veredicto porque un agente no respondió a tiempo.
 TIEMPO_AGOTADO = "tiempo_agotado"
 #: Motivo de un objetivo sin veredicto porque el contrato del Planner no es válido.
 ERROR_CONTRATO_PLANNER = "error_contrato_planner"
+#: Motivo de un objetivo sin veredicto porque el Planner falló al planificarlo (FIX-02).
+ERROR_PLANNER = "error_planner"
+#: Códigos HTTP de una clave rechazada: fallarían en todo el proyecto.
+CODIGOS_CUENTA = frozenset({401, 403})
 
 
 def _resumen_error_contrato(error: BaseException) -> str:
@@ -116,6 +131,18 @@ def _resumen_error_contrato(error: BaseException) -> str:
     return texto or "formato no válido"
 
 
+def _objetivos_de_tipo(modulo: dict[str, Any], tipo: str) -> list[str]:
+    """Nombres de las funciones o de los endpoints del módulo, en su orden."""
+    if tipo == "endpoint":
+        nombres = [
+            e.get("objetivo") or e.get("manejador")
+            for e in modulo.get("endpoints") or []
+        ]
+    else:
+        nombres = [f.get("nombre") for f in modulo.get("funciones") or []]
+    return [n for n in nombres if n]
+
+
 def es_falla_pasajera(error: BaseException) -> bool:
     """True si el error es de tiempo o de red y no del código, el test o la cuenta.
 
@@ -127,6 +154,41 @@ def es_falla_pasajera(error: BaseException) -> bool:
     actual: BaseException | None = error
     while actual is not None:
         if isinstance(actual, (TimeoutPaso, SinConexion, LimiteProveedor)):
+            return True
+        actual = actual.__cause__
+    return False
+
+
+def es_error_planner_recuperable(error: BaseException) -> bool:
+    """True si el fallo del Planner afecta solo a los objetivos que planificaba (FIX-02).
+
+    Sirven una respuesta inutilizable del modelo (`ErrorRespuestaPlanner`), un
+    contrato inválido o una falla pasajera (`es_falla_pasajera`): con otro módulo
+    el Planner puede responder bien. No sirven la falta de crédito o una clave
+    inválida, que fallarían igual en todo el proyecto (`es_error_global`), ni un
+    error desconocido, que sigue siendo un fallo controlado del módulo.
+    """
+    if es_error_global(error):
+        return False
+    actual: BaseException | None = error
+    while actual is not None:
+        if isinstance(actual, (ErrorRespuestaPlanner, ContratoInvalido)):
+            return True
+        actual = actual.__cause__
+    return es_falla_pasajera(error)
+
+
+def es_error_global(error: BaseException) -> bool:
+    """True si el error es de la cuenta o el proveedor y fallaría en cualquier módulo.
+
+    Falta de crédito, modelo sin cupo gratuito o clave rechazada (HTTP 401/403):
+    seguir con otros módulos solo repetiría el error y gastaría llamadas.
+    """
+    actual: BaseException | None = error
+    while actual is not None:
+        if isinstance(actual, (SinCredito, SinCupoGratuito)):
+            return True
+        if isinstance(actual, ErrorLLM) and actual.codigo in CODIGOS_CUENTA:
             return True
         actual = actual.__cause__
     return False
@@ -155,9 +217,13 @@ class ResultadoObjetivo:
     #: Mutation testing de una función crítica aprobada (EN-09): estado, puntuacion,
     #: detectados, sobrevivientes y mensaje. None si no se ejecutó mutmut.
     mutacion: dict[str, Any] | None = None
-    #: Por qué quedó sin veredicto (decision None) sin detener el módulo: hoy solo
-    #: `TIEMPO_AGOTADO`. El detalle del error va en el Monitor y la bitácora.
+    #: Por qué quedó sin veredicto (decision None) sin detener el módulo:
+    #: `TIEMPO_AGOTADO`, `ERROR_CONTRATO_PLANNER` o `ERROR_PLANNER`. El detalle del
+    #: error va en el Monitor y la bitácora.
     motivo_sin_veredicto: str | None = None
+    #: "funcion" o "endpoint" cuando no hay contrato que lo diga (FIX-02: el Planner
+    #: falló al planificarlo).
+    tipo: str | None = None
     #: Marcas UTC y desglose medido con reloj monotónico (#115).
     inicio: str | None = None
     fin: str | None = None
@@ -190,6 +256,9 @@ class ResultadoCorrida:
     #: resultado esperado verificable o con una ruta sin resolver. No son pendientes
     #: por una detención: se probaron hasta donde la especificación lo permite.
     omitidos: list[dict[str, str]] = field(default_factory=list)
+    #: True si el fallo es de la cuenta o del proveedor (`ErrorGlobal`): la corrida
+    #: no sigue con otros módulos, que fallarían igual (FIX-02).
+    error_global: bool = False
 
     def a_dict(self) -> dict[str, Any]:
         """Versión serializable a JSON (insumo de log.json en EN-07)."""
@@ -289,6 +358,9 @@ class Orquestador:
         self._objetivo_actual: ResultadoObjetivo | None = None
         #: Motivos del Planner para las funciones que omitió en el módulo actual.
         self._motivos_omision: dict[str, str] = {}
+        #: Objetivos que el Planner no pudo planificar en el módulo actual por un
+        #: error recuperable: nombre -> (tipo, motivo) (FIX-02).
+        self._fallidos_planner: dict[str, tuple[str, str]] = {}
         self._inicio_objetivo_reloj = 0.0
         self._inicio_objetivo_utc: str | None = None
 
@@ -317,10 +389,12 @@ class Orquestador:
         self._traza = [Estado.PLANIFICAR]
         self._emitir("orquestador", None, "Corrida iniciada", tipo="transicion")
         objetivos: list[ResultadoObjetivo] = []
+        error_global = False
         plan_completo: list[Contrato] = []
         omitidos: list[dict[str, str]] = []
         motivo: str | None = None
         self._motivos_omision = {}
+        self._fallidos_planner = {}
 
         try:
             inicio_plan = self._reloj()
@@ -336,6 +410,7 @@ class Orquestador:
                 )
             plan_completo = copy.deepcopy(plan)
             omitidos = self._omitidos(modulo, plan)
+            self._registrar_fallidos_planner(modulo, objetivos)
             for contrato in plan:
                 if self.cancelado is not None and self.cancelado():
                     raise CorridaCancelada("Corrida detenida por el usuario.")
@@ -362,9 +437,13 @@ class Orquestador:
             self._emitir("orquestador", None, "Corrida terminada", tipo="fin")
         except FalloControlado as error:
             motivo = str(error)
+            # Falta de crédito o clave rechazada, venga del agente que venga.
+            error_global = es_error_global(error)
             funcion = (
                 objetivos[-1].objetivo
-                if objetivos and objetivos[-1].decision is None
+                if objetivos
+                and objetivos[-1].decision is None
+                and objetivos[-1].motivo_sin_veredicto is None
                 else None
             )
             self._transicionar(Estado.FALLO_CONTROLADO, funcion)
@@ -382,6 +461,7 @@ class Orquestador:
             inicio=self._inicio_utc,
             fin=self._ahora(),
             duracion_etapas=dict(self._etapas),
+            error_global=error_global,
             plan_completo=plan_completo,
             omitidos=omitidos,
         )
@@ -395,6 +475,8 @@ class Orquestador:
         una ruta sin resolver o, si el Planner no propuso nada usable, uno genérico.
         """
         planificados = {c.get("objetivo") for c in plan if isinstance(c, dict)}
+        # Los que el Planner no pudo planificar no son omitidos: quedan sin veredicto.
+        planificados |= set(self._fallidos_planner)
         omitidos: list[dict[str, str]] = []
         for funcion in modulo.get("funciones") or []:
             nombre = funcion.get("nombre")
@@ -416,11 +498,110 @@ class Orquestador:
             )
         return omitidos
 
+    def _registrar_fallidos_planner(
+        self, modulo: dict[str, Any], objetivos: list[ResultadoObjetivo]
+    ) -> None:
+        """Deja sin veredicto, con su error, los objetivos que el Planner no planificó.
+
+        No se inventa contrato ni resultado esperado: el objetivo queda con decision
+        None y motivo `ERROR_PLANNER`, así no se cuenta como aprobado ni como
+        pendiente (FIX-02).
+        """
+        criticos = {
+            f.get("nombre"): bool(f.get("critical", False))
+            for f in modulo.get("funciones") or []
+        }
+        criticos.update(
+            {
+                e.get("objetivo") or e.get("manejador"): bool(e.get("critical", False))
+                for e in modulo.get("endpoints") or []
+            }
+        )
+        for nombre, (tipo, motivo) in self._fallidos_planner.items():
+            ahora = self._ahora()
+            objetivos.append(
+                ResultadoObjetivo(
+                    objetivo=nombre,
+                    critical=criticos.get(nombre, False),
+                    motivo_sin_veredicto=ERROR_PLANNER,
+                    tipo=tipo,
+                    inicio=ahora,
+                    fin=ahora,
+                )
+            )
+            self._emitir(
+                "planner",
+                nombre,
+                f"Sin veredicto en '{nombre}': el Planner no pudo planificarlo "
+                f"({motivo}). Se continúa con los siguientes objetivos.",
+                tipo="veredicto",
+                datos={
+                    "decision": None,
+                    "intento": 0,
+                    "motivo": ERROR_PLANNER,
+                    "error": motivo,
+                },
+            )
+
     # --- Pasos de la máquina -----------------------------------------------------
 
     def _planificar(self, modulo: dict[str, Any]) -> list[Contrato]:
         self._emitir("planner", None, "Planificando módulo")
         self.tracker.fijar_contexto(None, None)  # el plan es por módulo
+        # FIX-02: funciones y endpoints se planifican por separado; si una parte
+        # falla de forma recuperable, la otra sigue.
+        plan = self._planificar_parte(modulo, "funcion", self._planificar_funciones)
+        plan_endpoints = self._planificar_parte(
+            modulo, "endpoint", self._planificar_endpoints
+        )
+        plan = [*plan, *plan_endpoints]
+        for elemento in plan:
+            if not isinstance(elemento, dict) or not elemento.get("objetivo"):
+                raise FalloControlado(
+                    "El Planner devolvió un contrato que no es un objeto con 'objetivo'"
+                )
+        self._emitir(
+            "planner",
+            None,
+            f"Plan con {len(plan)} objetivo(s)",
+            datos={"objetivos_planificados": len(plan)},
+        )
+        return plan
+
+    def _planificar_parte(
+        self,
+        modulo: dict[str, Any],
+        tipo: str,
+        planificar: Callable[[dict[str, Any]], list[Contrato]],
+    ) -> list[Contrato]:
+        """Planifica las funciones o los endpoints del módulo, aislando su fallo.
+
+        Un error recuperable del Planner (`es_error_planner_recuperable`) deja esos
+        objetivos en `_fallidos_planner` con su motivo y devuelve un plan vacío. Un
+        error de la cuenta se relanza como `ErrorGlobal`; cualquier otro, tal cual.
+        """
+        try:
+            return planificar(modulo)
+        except FalloControlado as error:
+            if es_error_global(error):
+                raise ErrorGlobal(str(error)) from error
+            if not es_error_planner_recuperable(error):
+                raise
+            nombres = _objetivos_de_tipo(modulo, tipo)
+            motivo = _resumen_error_contrato(error)
+            for nombre in nombres:
+                self._fallidos_planner[nombre] = (tipo, motivo)
+            self._emitir(
+                "planner",
+                None,
+                f"El Planner no pudo planificar {len(nombres)} objetivo(s) "
+                f"({motivo}). Se continúa con los demás.",
+                datos={"error_planner": True, "objetivos": nombres},
+            )
+            return []
+
+    def _planificar_funciones(self, modulo: dict[str, Any]) -> list[Contrato]:
+        """Pide al Planner los casos de las funciones del módulo."""
         plan = self._llamar("planner", self.planner.planificar, modulo)
         if not isinstance(plan, list):
             raise FalloControlado("El Planner no devolvió una lista de contratos")
@@ -440,19 +621,6 @@ class Orquestador:
                 f"Función omitida: {motivo}",
                 datos={"omitida": True},
             )
-        plan_endpoints = self._planificar_endpoints(modulo)
-        plan = [*plan, *plan_endpoints]
-        for elemento in plan:
-            if not isinstance(elemento, dict) or not elemento.get("objetivo"):
-                raise FalloControlado(
-                    "El Planner devolvió un contrato que no es un objeto con 'objetivo'"
-                )
-        self._emitir(
-            "planner",
-            None,
-            f"Plan con {len(plan)} objetivo(s)",
-            datos={"objetivos_planificados": len(plan)},
-        )
         return plan
 
     def _planificar_endpoints(self, modulo: dict[str, Any]) -> list[Contrato]:

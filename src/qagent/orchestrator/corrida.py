@@ -473,6 +473,16 @@ def ejecutar_corrida(
                 ):
                     resumen.cancelada = True
                     resumen.tipo_terminacion = "cancelada"
+            if resultado.error_global:
+                # FIX-02: falta de crédito o clave rechazada; los demás módulos
+                # fallarían igual, así que no se sigue.
+                resumen.tipo_terminacion = "detenida_error"
+                avisar(
+                    "Error de la cuenta del proveedor de IA: no se procesarán más "
+                    "módulos.",
+                    "fallo",
+                )
+                break
             if _registrar_limite_tokens(resumen, resultado, tope_tokens):
                 avisar(resumen.motivo, "fallo")
                 break
