@@ -56,6 +56,7 @@ from qagent.orchestrator.orquestador import (
     Orquestador,
     PlanModulo,
     ResultadoCorrida,
+    es_error_global,
     timeout_paso_para,
 )
 from qagent.orchestrator.regresion import huellas_de_objetivos
@@ -457,8 +458,12 @@ def ejecutar_corrida(
                 break
             preparado = preparar_modulo(modulo)
             preparados[modulo["ruta"]] = preparado
-            if preparado.plan.error is not None:
-                break  # un error de la cuenta se repetiría en los demás módulos
+            # Solo un error de la cuenta (FIX-02) se repetiría en los demás módulos; un
+            # fallo de red de un módulo no frena la planificación de los siguientes.
+            if preparado.plan.error is not None and es_error_global(
+                preparado.plan.error
+            ):
+                break
 
         inicio_espera = reloj()
         try:

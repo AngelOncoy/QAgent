@@ -41,6 +41,13 @@ def proyecto(tmp_path: Path) -> AlmacenProyecto:
 
 
 @pytest.fixture
+def proyecto_dos(proyecto: AlmacenProyecto) -> AlmacenProyecto:
+    """El banco con un segundo módulo: hace falta más de uno para planificar antes."""
+    shutil.copy(proyecto.raiz / "banco_mvp.py", proyecto.raiz / "banco_dos.py")
+    return proyecto
+
+
+@pytest.fixture
 def config():
     return cargar_configuracion(RUTA_CONFIG, "no-existe.env", simulado=True).config
 
@@ -333,3 +340,65 @@ def test_el_monitor_recibe_la_falla_del_entorno(proyecto, config) -> None:
     _, eventos, _ = correr(proyecto, config, imagen_rota)
 
     assert estados_entorno(eventos)[-1] == "fallo"
+
+
+def _planner_que_falla_una_vez(monkeypatch, error):
+    """El primer módulo falla en el Planner; los demás se planifican normal."""
+    from qagent.agents import PlannerAgent
+
+    original = PlannerAgent.planificar
+    llamadas: list[int] = []
+
+    def planificar(self, modulo):
+        llamadas.append(1)
+        if len(llamadas) == 1:
+            raise error
+        return original(self, modulo)
+
+    monkeypatch.setattr(PlannerAgent, "planificar", planificar)
+    return llamadas
+
+
+def test_un_fallo_de_red_no_frena_la_planificacion_adelantada(
+    proyecto_dos, config, monkeypatch
+) -> None:
+    # APP-RF: un IncompleteRead en un módulo dejó a los demás esperando la imagen.
+    from qagent.llm.cliente import ErrorLLM
+
+    llamadas = _planner_que_falla_una_vez(
+        monkeypatch, ErrorLLM("IncompleteRead(0 bytes read)")
+    )
+    al_liberar: list[int] = []
+
+    def imagen_lenta(_ruta):
+        limite = time.monotonic() + ESPERA_MAXIMA_S / 2
+        while len(llamadas) < 2 and time.monotonic() < limite:
+            time.sleep(0.01)
+        al_liberar.append(len(llamadas))
+        return "imagen-prueba"
+
+    resumen, *_ = correr(proyecto_dos, config, imagen_lenta)
+
+    assert al_liberar[0] >= 2, "se dejó de planificar tras el fallo de un módulo"
+    assert "IncompleteRead" in resumen.motivo
+
+
+def test_un_error_de_la_cuenta_frena_la_planificacion_adelantada(
+    proyecto_dos, config, monkeypatch
+) -> None:
+    from qagent.llm.cliente import SinCredito
+
+    llamadas = _planner_que_falla_una_vez(
+        monkeypatch, SinCredito("sin crédito", codigo=402)
+    )
+    al_liberar: list[int] = []
+
+    def imagen_lenta(_ruta):
+        time.sleep(0.5)
+        al_liberar.append(len(llamadas))
+        return "imagen-prueba"
+
+    resumen, *_ = correr(proyecto_dos, config, imagen_lenta)
+
+    assert al_liberar == [1]
+    assert resumen.tipo_terminacion == "detenida_error"
