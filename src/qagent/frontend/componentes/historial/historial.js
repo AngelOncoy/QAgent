@@ -154,14 +154,15 @@ function renderHistoryReal(datos){
     const sinIA = h.perfil === 'reg' || h.perfil === 'reg_deep';
     const abrir = datos.demo ? "go('exec')" : `cargarEjecucionReal('${escHtml(h.run_id)}')`;
     const tokens = sinIA ? '— (sin IA)' : numero(h.total_tokens);
-    const sel = h.total_seleccionados || h.total_objetivos || 0;
-    const proc = h.total_procesados || h.total_objetivos || 0;
-    const pend = h.total_pendientes || 0;
+    const sel = h.total_seleccionados ?? h.total_objetivos ?? 0;
+    const omit = h.objetivos_omitidos ?? 0;
+    const eleg = h.total_elegibles ?? Math.max(0, sel - omit);
+    const proc = h.total_procesados ?? h.total_objetivos ?? 0;
+    const pend = h.total_pendientes ?? Math.max(0, eleg - proc);
+    const desglose = [omit ? `${omit} omitidos` : '', pend ? `${pend} pend. de ${sel}` : ''].filter(Boolean).join(' · ');
     const pasanCelda = h.pasaron === null || h.pasaron === undefined
       ? '—'
-      : h.es_parcial && pend > 0
-        ? `<div class="hst-pasan" title="${h.pasaron} objetivos pasaron de ${proc} procesados con veredicto (${sel} seleccionados inicialmente, ${pend} no procesados por detención)"><b>${h.pasaron} / ${proc}</b> <span class="np-meta">procesados</span><span class="np-meta hst-pasan-sub">(${pend} pend. de ${sel})</span></div>`
-        : `<div class="hst-pasan" title="${h.pasaron} objetivos pasaron de ${proc} procesados con veredicto (${sel} seleccionados)"><b>${h.pasaron} / ${proc}</b> <span class="np-meta">procesados</span></div>`;
+      : `<div class="hst-pasan" title="${h.pasaron} objetivos aprobados de ${proc} procesados (${sel} seleccionados, ${eleg} elegibles, ${omit} omitidos y ${pend} pendientes)"><b>${h.pasaron} / ${proc}</b> <span class="np-meta">procesados</span>${desglose ? `<span class="np-meta hst-pasan-sub">(${desglose})</span>` : ''}</div>`;
 
     return `<tr class="${h.run_id === histSel ? 'on' : ''}" tabindex="0" aria-selected="${h.run_id === histSel}" onclick="seleccionarCorridaHistorial('${escHtml(h.run_id)}')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click()}">
       <td>${escHtml(fechaCorta(h.fecha))}</td>
@@ -204,7 +205,7 @@ function chipResultadoHistorial(h){
     chipBugs = `<span class="np-chip np-chip-bug">${ICO_ERROR}${h.posibles_bugs} ${h.posibles_bugs === 1 ? 'posible bug' : 'posibles bugs'}</span>`;
   }
 
-  const parcial = h.es_parcial && h.total_pendientes ? `<span class="np-meta hst-nota">Parcial (${h.total_procesados || h.total_objetivos} de ${h.total_seleccionados})</span>` : '';
+  const parcial = h.es_parcial && h.total_pendientes ? `<span class="np-meta hst-nota">Parcial (${h.total_procesados ?? h.total_objetivos} procesados, ${h.total_pendientes} pendientes)</span>` : '';
 
   return `<div class="hst-chips">${chipTerm}${chipBugs}</div>${parcial}${repetir}`;
 }

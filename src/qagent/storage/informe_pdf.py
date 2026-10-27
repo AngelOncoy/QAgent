@@ -477,6 +477,19 @@ def _portada(
             "F1",
             ESTADOS["aviso"][0],
         )
+    lz.parrafo(
+        limpiar(
+            "Objetivos: "
+            f"{datos.get('total_seleccionados', total)} seleccionados · "
+            f"{datos.get('total_elegibles', total)} elegibles · "
+            f"{datos.get('total_procesados', total)} procesados · "
+            f"{datos.get('total_omitidos', 0)} omitidos · "
+            f"{datos.get('total_pendientes', 0)} pendientes"
+        ),
+        9.5,
+        "F1",
+        TEXTO_2,
+    )
 
     # Cifras: pasaron, posibles bugs, cobertura y tokens (nunca costos)
     m = {x["clave"]: x for x in datos.get("metricas") or []}
