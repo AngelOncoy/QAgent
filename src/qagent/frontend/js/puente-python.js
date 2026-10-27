@@ -2,7 +2,7 @@
 window.onQAgentEvent = function(event) {
   console.log("[Python Event]", event);
   if (event.type === 'log') {
-    toast(`Python: ${escHtml(event.data.message)}`);
+    toast(escHtml(event.data.message));
   } else if (event.type === 'clonado_avance') {
     avanceClonado(event.data);
   } else if (event.type === 'clonado_fin') {
