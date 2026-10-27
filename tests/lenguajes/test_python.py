@@ -21,8 +21,9 @@ from qagent.lenguajes import (
     detectar_lenguaje,
 )
 from qagent.sandbox import IMAGEN_BASE
-from qagent.sandbox.ejecucion import comando_pytest
+from qagent.sandbox.ejecucion import ARCHIVO_TEST_GENERADO, comando_pytest
 from qagent.sandbox.informe_pytest import JUnitInvalido, parsear_junit
+from qagent.sandbox.mutacion import SCRIPT_MUTACION, comando_mutacion
 
 MODULO = '''\
 """Precios de la tienda."""
@@ -153,3 +154,35 @@ def test_un_contrato_v2_de_las_specs_guardadas_usa_el_adaptador_de_python() -> N
         contrato = json.loads((ruta / archivo).read_text(encoding="utf-8"))
         assert isinstance(adaptador_de_contrato(contrato), PythonAdapter)
     assert isinstance(adaptador_para("python"), PythonAdapter)
+
+
+def test_archivo_de_prueba_es_el_que_escribe_el_reviewer() -> None:
+    assert PythonAdapter().archivo_de_prueba("calcular_descuento") == "test_generado.py"
+    assert ARCHIVO_TEST_GENERADO == "test_generado.py"
+
+
+def test_leer_cobertura_lee_coverage_json(tmp_path: Path) -> None:
+    informe = {"totals": {"percent_covered": 80.0}, "files": {}}
+    (tmp_path / "coverage.json").write_text(json.dumps(informe), encoding="utf-8")
+    assert PythonAdapter().leer_cobertura(tmp_path) == informe
+
+
+@pytest.mark.parametrize("contenido", [None, "{no es json"])
+def test_leer_cobertura_sin_informe_valido(
+    tmp_path: Path, contenido: str | None
+) -> None:
+    if contenido is not None:
+        (tmp_path / "coverage.json").write_text(contenido, encoding="utf-8")
+    assert PythonAdapter().leer_cobertura(tmp_path) is None
+
+
+def test_comando_mutacion_es_el_del_sandbox() -> None:
+    resultado = PythonAdapter().comando_mutacion("pkg/calc.py", ["f", "g"])
+    comando, entorno = comando_mutacion("pkg/calc.py", ["f", "g"])
+    assert (resultado.comando, resultado.entorno) == (comando, entorno)
+    assert resultado.comando == ["python", "-c", SCRIPT_MUTACION]
+    assert resultado.entorno == {
+        "PYTHONPATH": "",
+        "QAGENT_MUT_ARCHIVO": "pkg/calc.py",
+        "QAGENT_MUT_FUNCIONES": '["f", "g"]',
+    }

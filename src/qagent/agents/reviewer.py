@@ -23,6 +23,7 @@ from qagent.sandbox import (
     ejecutar_pruebas,
     resumir_ejecucion,
 )
+from qagent.sandbox.ejecucion import ARCHIVO_TEST_GENERADO
 from qagent.sandbox.normalizacion import hash_error
 
 Ejecutor = Callable[[str, Path, Path, str], ResultadoSandbox]
@@ -163,7 +164,7 @@ class ReviewerAgent:
 
         with tempfile.TemporaryDirectory(prefix="qagent-reviewer-") as temporal:
             ruta_tests = Path(temporal)
-            (ruta_tests / "test_generado.py").write_text(codigo, encoding="utf-8")
+            (ruta_tests / ARCHIVO_TEST_GENERADO).write_text(codigo, encoding="utf-8")
 
             resultado = self.ejecutor(
                 self.imagen,

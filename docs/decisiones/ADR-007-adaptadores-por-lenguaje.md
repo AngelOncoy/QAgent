@@ -28,10 +28,13 @@ Paquete nuevo `src/qagent/lenguajes/` con la interfaz `LanguageAdapter` (clase a
 | `interpretar_resultados(informe)` | extensión | Informe del runner → totales y casos (forma de `review_result`). |
 | `validar_sintaxis(codigo)` | extensión | Parsea el test generado sin ejecutarlo. |
 | `comparar_aserciones(original, reparado)` | extensión | Detecta Assertion Laundering. |
+| `leer_cobertura(dir_salida)` | extensión | Informe de cobertura del runner → formato JSON de coverage.py, el que lee el Reviewer. |
+| `archivo_de_prueba(objetivo)` | extensión | Nombre del archivo del test generado. |
+| `comando_mutacion(modulo, funciones)` | extensión | Comando y entorno de la mutación (mutmut, Stryker, PIT), solo en funciones críticas. |
 
 `Registro` guarda un adaptador por lenguaje, comprueba que su lenguaje y frameworks existan en los contratos y elige el adaptador por nombre, por carpeta (`detectar`) o por contrato (`adaptador_de_contrato`, acepta v2 y v3).
 
-- **Python** (`PythonAdapter`) está completo y **solo delega** en el código actual (`analizar_proyecto`, `comando_pytest`, `parsear_junit`, `comparar_aserciones`). Las pruebas verifican que da exactamente lo mismo.
+- **Python** (`PythonAdapter`) está completo y **solo delega** en el código actual (`analizar_proyecto`, `comando_pytest`, `parsear_junit`, `leer_coverage`, `comando_mutacion`, `comparar_aserciones`). Las pruebas verifican que da exactamente lo mismo.
 - **JavaScript, TypeScript y Java** son esqueletos (`AdaptadorEnDesarrollo`): ya detectan; el resto lanza `NoImplementado` hasta que su responsable lo implemente.
 
 ### 2.2 Contratos versionados, sin tocar los existentes

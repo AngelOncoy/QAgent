@@ -13,6 +13,7 @@ from typing import Any
 
 from qagent.lenguajes.base import (
     AdaptadorEnDesarrollo,
+    ComandoSandbox,
     ComparacionAserciones,
     Deteccion,
     EntornoSandbox,
@@ -48,6 +49,7 @@ def detectar_lenguaje(raiz: str | os.PathLike[str]) -> list[Deteccion]:
 __all__ = [
     "REGISTRO",
     "AdaptadorEnDesarrollo",
+    "ComandoSandbox",
     "ComparacionAserciones",
     "Deteccion",
     "EntornoSandbox",

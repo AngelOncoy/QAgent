@@ -22,7 +22,7 @@ from __future__ import annotations
 import os
 from abc import ABC, abstractmethod
 from collections.abc import Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import PurePosixPath
 from typing import Any, ClassVar, Protocol
 
@@ -66,6 +66,19 @@ class EntornoSandbox:
     informe: str
 
 
+@dataclass(frozen=True)
+class ComandoSandbox:
+    """Comando que el sandbox ejecuta, con sus variables de entorno.
+
+    Atributos:
+        comando: argumentos del comando (ej. ``["python", "-c", "..."]``).
+        entorno: variables de entorno extra para el contenedor.
+    """
+
+    comando: list[str]
+    entorno: dict[str, str] = field(default_factory=dict)
+
+
 class ComparacionAserciones(Protocol):
     """Resultado mínimo de comparar las aserciones de dos versiones de un test.
 
@@ -104,8 +117,9 @@ class LanguageAdapter(ABC):
         * Detección: :meth:`detectar`.
         * Análisis e información estructural: :meth:`analizar` y :meth:`objetivos`.
         * Puntos de extensión: :meth:`comando_pruebas`, :meth:`entorno_sandbox`,
-          :meth:`interpretar_resultados`, :meth:`validar_sintaxis` y
-          :meth:`comparar_aserciones`.
+          :meth:`interpretar_resultados`, :meth:`leer_cobertura`,
+          :meth:`archivo_de_prueba`, :meth:`comando_mutacion`,
+          :meth:`validar_sintaxis` y :meth:`comparar_aserciones`.
     """
 
     lenguaje: ClassVar[str]
@@ -234,6 +248,32 @@ class LanguageAdapter(ABC):
     ) -> ComparacionAserciones:
         """Detecta Assertion Laundering entre un test y su versión reparada."""
 
+    @abstractmethod
+    def leer_cobertura(
+        self, dir_salida: str | os.PathLike[str]
+    ) -> dict[str, Any] | None:
+        """Lee el informe de cobertura que el runner dejó en ``dir_salida``.
+
+        Returns:
+            La cobertura en el formato JSON de coverage.py (``files`` y ``totals``),
+            que es el que interpreta el Reviewer; ``None`` si no hay informe o no se
+            puede leer. Cada lenguaje convierte su formato (v8, JaCoCo...) a este.
+        """
+
+    @abstractmethod
+    def archivo_de_prueba(self, objetivo: str) -> str:
+        """Nombre del archivo, sin carpetas, donde se escribe el test de ``objetivo``.
+
+        Es el valor de ``archivo`` en ``generated_test.v2``.
+        """
+
+    @abstractmethod
+    def comando_mutacion(self, modulo: str, funciones: list[str]) -> ComandoSandbox:
+        """Comando que muta solo ``funciones`` de ``modulo`` dentro del sandbox.
+
+        La mutación corre únicamente sobre funciones ``critical: true``.
+        """
+
 
 class AdaptadorEnDesarrollo(LanguageAdapter):
     """Base de un lenguaje que ya se detecta pero aún no se analiza ni ejecuta.
@@ -262,3 +302,14 @@ class AdaptadorEnDesarrollo(LanguageAdapter):
         self, original: str, reparado: str
     ) -> ComparacionAserciones:
         raise NoImplementado(self.lenguaje, "comparar_aserciones")
+
+    def leer_cobertura(
+        self, dir_salida: str | os.PathLike[str]
+    ) -> dict[str, Any] | None:
+        raise NoImplementado(self.lenguaje, "leer_cobertura")
+
+    def archivo_de_prueba(self, objetivo: str) -> str:
+        raise NoImplementado(self.lenguaje, "archivo_de_prueba")
+
+    def comando_mutacion(self, modulo: str, funciones: list[str]) -> ComandoSandbox:
+        raise NoImplementado(self.lenguaje, "comando_mutacion")

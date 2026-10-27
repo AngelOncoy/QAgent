@@ -9,6 +9,7 @@ import pytest
 
 from qagent.lenguajes import (
     AdaptadorEnDesarrollo,
+    ComandoSandbox,
     Deteccion,
     EntornoSandbox,
     LanguageAdapter,
@@ -22,6 +23,9 @@ OPERACIONES_ABSTRACTAS = {
     "interpretar_resultados",
     "validar_sintaxis",
     "comparar_aserciones",
+    "leer_cobertura",
+    "archivo_de_prueba",
+    "comando_mutacion",
 }
 
 
@@ -121,6 +125,9 @@ def test_framework_de_otro_lenguaje_se_rechaza() -> None:
         ("interpretar_resultados", ("<testsuites/>",)),
         ("validar_sintaxis", ("class A {}",)),
         ("comparar_aserciones", ("a", "b")),
+        ("leer_cobertura", ("/out",)),
+        ("archivo_de_prueba", ("App.sumar",)),
+        ("comando_mutacion", ("App.java", ["sumar"])),
     ],
 )
 def test_operacion_pendiente_avisa_que_falta(operacion: str, argumentos: tuple) -> None:
@@ -135,3 +142,9 @@ def test_entorno_sandbox_es_inmutable() -> None:
     entorno = EntornoSandbox("img", ("x",), "/work/tests", "/out", "junit.xml")
     with pytest.raises(AttributeError):
         entorno.imagen = "otra"  # type: ignore[misc]
+
+
+def test_comando_sandbox_sin_entorno_por_defecto() -> None:
+    comando = ComandoSandbox(["mvn", "-o", "test"])
+    assert comando.entorno == {}
+    assert ComandoSandbox(["a"]).entorno is not ComandoSandbox(["b"]).entorno

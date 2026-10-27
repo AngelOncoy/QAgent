@@ -50,6 +50,8 @@ DIR_PROYECTO = "/work/proyecto"
 DIR_TESTS = "/work/tests"
 DIR_SALIDA = "/out"
 ARCHIVO_JUNIT = "junit.xml"
+#: Nombre del archivo donde el Reviewer escribe el test generado (EN-17).
+ARCHIVO_TEST_GENERADO = "test_generado.py"
 #: Tamaño máximo del junit.xml que se lee del contenedor.
 LIMITE_JUNIT_BYTES = 2_000_000
 PIDS_MAXIMOS = 128
@@ -152,7 +154,7 @@ def ejecutar_en_sandbox(
             exit_code=exit_code,
             stdout=_leer_logs(contenedor, stdout=True),
             stderr=_leer_logs(contenedor, stdout=False),
-            coverage=_leer_coverage(salida / "coverage.json"),
+            coverage=leer_coverage(salida / "coverage.json"),
             junit_xml=_leer_texto(salida / ARCHIVO_JUNIT, LIMITE_JUNIT_BYTES),
             comando=list(comando),
             limites=limites,
@@ -338,8 +340,8 @@ def _leer_logs(contenedor: Any, stdout: bool) -> str:
     return datos.decode("utf-8", errors="replace")
 
 
-def _leer_coverage(archivo: Path) -> dict[str, Any] | None:
-    """Carga coverage.json si existe y es válido."""
+def leer_coverage(archivo: Path) -> dict[str, Any] | None:
+    """Carga coverage.json si existe y es válido (None si falta o está dañado)."""
     if not archivo.is_file():
         return None
     try:

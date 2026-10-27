@@ -54,6 +54,9 @@ contracts.normalizar_planner(contrato_v2)  # copia en v3 (python + pytest)
 | `interpretar_resultados(informe)` | `dict` con `total`, `pasaron`, `fallaron`, `errores`, `omitidos`, `duracion_s`, `inicio`, `casos` | Jest (`jest-junit`), Vitest (`--reporter=junit`) y Surefire de JUnit 5 también escriben JUnit XML: conviene reutilizar `qagent.sandbox.informe_pytest`. |
 | `validar_sintaxis(codigo)` | `list[str]` (vacía = válido) | Parsear, no ejecutar. |
 | `comparar_aserciones(original, reparado)` | objeto con `es_laundering` y `resumen` | Ver las 7 reglas de `qagent.analysis.laundering`. |
+| `leer_cobertura(dir_salida)` | `dict` en el formato JSON de coverage.py (`files`, `totals`) o `None` | Es el formato que lee el Reviewer. Cada lenguaje convierte el suyo (v8, JaCoCo) a este. |
+| `archivo_de_prueba(objetivo)` | nombre del archivo, sin carpetas | Valor de `archivo` en `generated_test.v2` (`test_generado.py`, `precios.test.ts`, `PreciosTest.java`). |
+| `comando_mutacion(modulo, funciones)` | `ComandoSandbox` (comando y variables de entorno) | Solo sobre funciones `critical: true`: mutmut, Stryker o PIT. |
 
 ## Cómo implementar un lenguaje
 

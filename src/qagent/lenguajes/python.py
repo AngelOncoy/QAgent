@@ -2,7 +2,9 @@
 
 No reimplementa nada: el análisis es ``qagent.analysis.analizar_proyecto`` (solo
 ``ast``, ADR-002), el comando es ``qagent.sandbox.ejecucion.comando_pytest``, el
-informe se lee con ``parsear_junit`` y el laundering con ``comparar_aserciones``.
+informe se lee con ``parsear_junit``, la cobertura con ``leer_coverage``, la
+mutación usa ``qagent.sandbox.mutacion.comando_mutacion`` y el laundering
+``comparar_aserciones``.
 Así el flujo actual de Python y este adaptador dan siempre el mismo resultado.
 """
 
@@ -10,11 +12,13 @@ from __future__ import annotations
 
 import ast
 import os
+from pathlib import Path
 from typing import Any
 
 from qagent.analysis import analizar_proyecto, comparar_aserciones
 from qagent.analysis.contexto import PAQUETES_BASE
 from qagent.lenguajes.base import (
+    ComandoSandbox,
     ComparacionAserciones,
     EntornoSandbox,
     Estructura,
@@ -22,12 +26,15 @@ from qagent.lenguajes.base import (
 )
 from qagent.sandbox.ejecucion import (
     ARCHIVO_JUNIT,
+    ARCHIVO_TEST_GENERADO,
     DIR_SALIDA,
     DIR_TESTS,
     comando_pytest,
+    leer_coverage,
 )
 from qagent.sandbox.informe_pytest import parsear_junit
 from qagent.sandbox.modelos import IMAGEN_BASE
+from qagent.sandbox.mutacion import comando_mutacion
 
 
 class PythonAdapter(LanguageAdapter):
@@ -79,3 +86,18 @@ class PythonAdapter(LanguageAdapter):
         self, original: str, reparado: str
     ) -> ComparacionAserciones:
         return comparar_aserciones(original, reparado)
+
+    def leer_cobertura(
+        self, dir_salida: str | os.PathLike[str]
+    ) -> dict[str, Any] | None:
+        """El ``coverage.json`` que deja pytest-cov (ya está en el formato común)."""
+        return leer_coverage(Path(dir_salida) / "coverage.json")
+
+    def archivo_de_prueba(self, objetivo: str) -> str:
+        """Siempre ``test_generado.py``: cada test corre en su propia carpeta temporal."""
+        return ARCHIVO_TEST_GENERADO
+
+    def comando_mutacion(self, modulo: str, funciones: list[str]) -> ComandoSandbox:
+        """mutmut sobre las funciones críticas, con el script del sandbox (EN-09)."""
+        comando, entorno = comando_mutacion(modulo, funciones)
+        return ComandoSandbox(comando, entorno)
