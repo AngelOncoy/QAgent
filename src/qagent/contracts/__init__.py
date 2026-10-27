@@ -25,6 +25,8 @@ DETALLE = "detalle"
 #: siendo las que produce y guarda el flujo de Python.
 PLANNER_V3 = "planner_contract.v3"
 GENERATED_TEST_V2 = "generated_test.v2"
+ORACLE_V1 = "oracle.v1"
+EXPLANATION_V1 = "explanation.v1"
 CONTRATOS = (
     PLANNER,
     GENERATED_TEST,
@@ -33,14 +35,20 @@ CONTRATOS = (
     DETALLE,
     PLANNER_V3,
     GENERATED_TEST_V2,
+    ORACLE_V1,
+    EXPLANATION_V1,
 )
 
 #: Familias de contratos versionados: valor del campo `version` -> contrato.
 FAMILIA_PLANNER = "planner_contract"
 FAMILIA_GENERATED_TEST = "generated_test"
+FAMILIA_ORACLE = "oracle"
+FAMILIA_EXPLANATION = "explanation"
 VERSIONES: dict[str, dict[str, str]] = {
     FAMILIA_PLANNER: {"2": PLANNER, "3": PLANNER_V3},
     FAMILIA_GENERATED_TEST: {"1": GENERATED_TEST, "2": GENERATED_TEST_V2},
+    FAMILIA_ORACLE: {"1": ORACLE_V1},
+    FAMILIA_EXPLANATION: {"1": EXPLANATION_V1},
 }
 
 #: Lenguajes que pueden aparecer en un contrato (EN-17) y sus frameworks válidos.
@@ -224,3 +232,14 @@ def normalizar_generated_test(dato: dict[str, Any]) -> dict[str, Any]:
 def _formatear(ruta: Any, mensaje: str) -> str:
     texto = "/".join(str(p) for p in ruta) or "(raíz)"
     return f"{texto}: {mensaje}"
+
+
+# Validaciones que necesitan contrastar el contrato con registros confiables.
+# Se importan al final para que el módulo auxiliar pueda reutilizar las constantes y
+# ContratoInvalido sin crear una dependencia circular durante la inicialización.
+from qagent.contracts.validacion_semantica import (
+    validar_explicacion as validar_explicacion,
+)
+from qagent.contracts.validacion_semantica import (
+    validar_oraculo_js_ts as validar_oraculo_js_ts,
+)

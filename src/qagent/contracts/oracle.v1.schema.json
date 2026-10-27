@@ -1,0 +1,79 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "oracle.v1.schema.json",
+  "title": "oracle.v1",
+  "description": "EN-18. Oráculo documentado para una función JavaScript o TypeScript. El schema valida la forma; validar_oraculo_js_ts contrasta la procedencia con un registro confiable.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "lenguaje", "modulo", "objetivo", "firma", "entrada", "comprobacion", "estado_evidencia"],
+  "properties": {
+    "version": { "const": "1" },
+    "lenguaje": { "enum": ["javascript", "typescript"] },
+    "modulo": { "type": "string", "minLength": 1 },
+    "objetivo": {
+      "type": "string",
+      "pattern": "^[A-Za-z_$][A-Za-z0-9_$]*(\\.[A-Za-z_$][A-Za-z0-9_$]*)*$"
+    },
+    "firma": { "type": "string", "minLength": 1 },
+    "entrada": { "description": "Argumentos documentados para el caso; puede contener cero, false, cadena vacía o null." },
+    "comprobacion": { "enum": ["igualdad", "identidad", "contiene", "excepcion"] },
+    "valor_esperado": { "description": "Valor concreto respaldado por la evidencia; null es un valor válido." },
+    "excepcion_esperada": { "type": "string", "minLength": 1 },
+    "estado_evidencia": { "enum": ["verificable", "insuficiente", "contradictoria", "sin_procedencia"] },
+    "motivo": { "type": "string", "minLength": 1 },
+    "evidencia": { "$ref": "#/$defs/evidencia" }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "estado_evidencia": { "const": "verificable" } }, "required": ["estado_evidencia"] },
+      "then": {
+        "required": ["evidencia"],
+        "oneOf": [
+          { "required": ["valor_esperado"], "not": { "required": ["excepcion_esperada"] } },
+          { "required": ["excepcion_esperada"], "not": { "required": ["valor_esperado"] } }
+        ]
+      },
+      "else": {
+        "required": ["motivo"],
+        "not": { "anyOf": [{ "required": ["valor_esperado"] }, { "required": ["excepcion_esperada"] }] }
+      }
+    },
+    {
+      "if": { "properties": { "estado_evidencia": { "enum": ["insuficiente", "contradictoria"] } }, "required": ["estado_evidencia"] },
+      "then": { "required": ["evidencia"] }
+    },
+    {
+      "if": { "properties": { "estado_evidencia": { "const": "sin_procedencia" } }, "required": ["estado_evidencia"] },
+      "then": { "not": { "required": ["evidencia"] } }
+    },
+    {
+      "if": { "properties": { "comprobacion": { "const": "excepcion" } }, "required": ["comprobacion"] },
+      "then": { "not": { "required": ["valor_esperado"] } },
+      "else": { "not": { "required": ["excepcion_esperada"] } }
+    }
+  ],
+  "$defs": {
+    "evidencia": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "fuente", "caracter", "ubicacion", "referencia", "fragmento"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{2,127}$" },
+        "fuente": { "enum": ["contrato_explicito", "jsdoc", "typescript"] },
+        "caracter": { "enum": ["comportamiento", "tipo_literal", "tipo_union_literal", "tipo_general", "descripcion_generica", "contradictoria"] },
+        "ubicacion": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["archivo", "linea_inicio"],
+          "properties": {
+            "archivo": { "type": "string", "minLength": 1 },
+            "linea_inicio": { "type": "integer", "minimum": 1 },
+            "linea_fin": { "type": "integer", "minimum": 1 }
+          }
+        },
+        "referencia": { "type": "string", "minLength": 1 },
+        "fragmento": { "type": "string", "minLength": 1 }
+      }
+    }
+  }
+}
