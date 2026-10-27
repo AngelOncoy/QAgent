@@ -61,7 +61,12 @@ from qagent.orchestrator.orquestador import (
 from qagent.orchestrator.regresion import huellas_de_objetivos
 from qagent.orchestrator.tiempos import iso_utc, segundos
 from qagent.proyectos.proyecto_local import detectar_rama
-from qagent.sandbox import LIMITES_POR_DEFECTO, ejecutar_mutacion, ejecutar_pruebas
+from qagent.sandbox import (
+    LIMITES_POR_DEFECTO,
+    ConstruccionCancelada,
+    ejecutar_mutacion,
+    ejecutar_pruebas,
+)
 from qagent.storage import escribir_corrida
 from qagent.storage.registro import PERFIL_HUMO, PERFILES_REGRESION
 
@@ -304,7 +309,7 @@ def ejecutar_corrida(
             def preparar(ruta_imagen: Path) -> str:
                 return _preparar_imagen(
                     ruta_imagen,
-                    avanzar=avance_limitado(avisar),
+                    avanzar=avance_limitado(avisar, cancelado=cancelado),
                     avisar_faltante=lambda mensaje: avisar(mensaje, "aviso"),
                 )
 
@@ -429,14 +434,51 @@ def ejecutar_corrida(
                 break  # un error de la cuenta se repetiría en los demás módulos
 
         inicio_espera = reloj()
-        imagen = entorno.esperar(cancelado)
-        etapas_entorno.update(
-            {
-                "entorno": entorno.duracion_s,
-                "espera_entorno": segundos(inicio_espera, reloj()),
-            }
-        )
-        if imagen is not None:
+        try:
+            imagen = entorno.esperar(cancelado)
+        except ConstruccionCancelada:
+            imagen = None  # el usuario canceló mientras se construía
+        except Exception as error:  # noqa: BLE001 — lo planificado no se pierde
+            imagen = None
+            resumen.estado = FALLO
+            resumen.tipo_terminacion = "detenida_error"
+            resumen.motivo = (
+                f"No se pudo preparar el entorno aislado: {_texto_error(error)}"
+            )
+            avisar(resumen.motivo, "fallo")
+        finally:
+            etapas_entorno.update(
+                {
+                    "entorno": entorno.duracion_s,
+                    "espera_entorno": segundos(inicio_espera, reloj()),
+                }
+            )
+        a_ejecutar = modulos
+        if imagen is None:
+            # #148: sin entorno no se ejecuta nada, pero las specs ya planificadas se
+            # guardan para reutilizarlas en la próxima corrida (0 tokens).
+            a_ejecutar = []
+            if resumen.motivo is None:
+                resumen.estado = FALLO
+                resumen.cancelada = True
+                resumen.tipo_terminacion = "cancelada"
+                resumen.motivo = "Corrida cancelada por el usuario."
+                avisar(resumen.motivo, "fallo")
+            for modulo in modulos:
+                preparado = preparados.get(modulo["ruta"])
+                # Una spec reutilizada ya está guardada tal cual.
+                if (
+                    preparado is None
+                    or preparado.plan.error is not None
+                    or preparado.accion == "reutilizado"
+                ):
+                    continue
+                spec = _spec_de_modulo(
+                    modulo, preparado.plan.contratos, preparado, perfil
+                )
+                if spec is not None:
+                    planes_specs.append(spec)
+        else:
             orquestador.reviewer = ReviewerAgent(
                 tracker,
                 ruta,
@@ -447,7 +489,7 @@ def ejecutar_corrida(
                 limites=limites,
             )
 
-        for modulo in modulos:
+        for modulo in a_ejecutar:
             if cancelado is not None and cancelado():
                 resumen.estado = FALLO
                 resumen.cancelada = True
@@ -474,8 +516,6 @@ def ejecutar_corrida(
                 avisar(resumen.motivo, "fallo")
                 break
             preparado = preparados.pop(modulo["ruta"], None) or preparar_modulo(modulo)
-            accion, plan_guardado = preparado.accion, preparado.plan_guardado
-            perfiles, completos = preparado.perfiles, preparado.completos
             resultado = orquestador.ejecutar(modulo, plan_previo=preparado.plan)
             if perfil == PERFIL_PROFUNDO:
                 mutar_modulo(
@@ -496,36 +536,9 @@ def ejecutar_corrida(
                     limites=limites,
                 )
             resultados.append(resultado)
-            contratos = resultado.plan_completo
-            if accion == "reutilizado":
-                # En Humo se probó un solo caso, pero la spec guardada sigue completa;
-                # solo se actualiza la marca Profundizar de esta corrida.
-                contratos = [
-                    {**completos.get(c["objetivo"], c), "critical": c["critical"]}
-                    for c in contratos
-                ]
-            else:
-                perfiles.update({c["objetivo"]: perfil for c in contratos})
-            if contratos and plan_guardado is not None:
-                contratos = _combinar_plan(plan_guardado["contratos"], contratos)
-            if contratos:
-                contratos_validos_spec = [
-                    c for c in contratos if contracts.es_valido(contracts.PLANNER, c)
-                ]
-                if contratos_validos_spec:
-                    planes_specs.append(
-                        {
-                            "modulo": modulo["ruta"],
-                            "huella": modulo["huella"],
-                            "contratos": contratos_validos_spec,
-                            "accion": accion,
-                            "perfiles": {
-                                c["objetivo"]: perfiles[c["objetivo"]]
-                                for c in contratos_validos_spec
-                                if c["objetivo"] in perfiles
-                            },
-                        }
-                    )
+            spec = _spec_de_modulo(modulo, resultado.plan_completo, preparado, perfil)
+            if spec is not None:
+                planes_specs.append(spec)
             if resultado.estado_final.value == FALLO and resumen.motivo is None:
                 resumen.estado = FALLO
                 resumen.motivo = f"{resultado.modulo}: {resultado.motivo_fallo}"
@@ -780,6 +793,8 @@ def _preparar_imagen(
     registrar_uso(imagen)
     try:
         entorno = asegurar_librerias_sistema(imagen, obtener_cliente(), avanzar)
+    except ConstruccionCancelada:
+        raise
     except Exception as error:  # noqa: BLE001 — comprobar el entorno nunca frena la corrida
         _registro.warning("No se comprobaron las librerías del sistema: %s", error)
         return imagen
@@ -799,12 +814,14 @@ def avance_limitado(
     avisar: Callable[[str], None],
     intervalo_s: float = INTERVALO_AVANCE_S,
     reloj: Callable[[], float] = time.monotonic,
+    cancelado: Callable[[], bool] | None = None,
 ) -> Callable[[str], None]:
     """Reenvía el avance de la construcción a `avisar`, sin saturar el Monitor.
 
     Las fases (empezar a instalar, terminar, comprobar las librerías del sistema)
     siempre pasan; los pasos de pip («Descargando torch…») como mucho uno cada
-    `intervalo_s`. Un texto igual al anterior no se repite.
+    `intervalo_s`. Un texto igual al anterior no se repite. Si el usuario canceló,
+    lanza `ConstruccionCancelada` para cortar la construcción (#148).
     """
     from qagent.sandbox.imagen import AVISO_BASE, AVISO_DEPENDENCIAS, AVISO_LISTO
     from qagent.sandbox.librerias import (
@@ -823,6 +840,8 @@ def avance_limitado(
     estado: dict[str, Any] = {"ultimo": None, "momento": None}
 
     def avanzar(texto: str) -> None:
+        if cancelado is not None and cancelado():
+            raise ConstruccionCancelada("Corrida cancelada por el usuario.")
         if texto == estado["ultimo"]:
             return
         ahora = reloj()
@@ -981,6 +1000,45 @@ def _registrar(
                     error,
                 )
     _cerrar_run(almacen, resumen, tipos)
+
+
+def _spec_de_modulo(
+    modulo: dict[str, Any],
+    contratos: list[dict[str, Any]],
+    preparado: _ModuloPreparado,
+    perfil: str,
+) -> dict[str, Any] | None:
+    """Spec del módulo a guardar con los contratos de esta corrida, o None si no hay.
+
+    Conserva los contratos guardados de los objetivos que no se eligieron y el perfil
+    con que se creó cada uno (#75).
+    """
+    perfiles = preparado.perfiles
+    if preparado.accion == "reutilizado":
+        # En Humo se probó un solo caso, pero la spec guardada sigue completa; solo se
+        # actualiza la marca Profundizar de esta corrida.
+        contratos = [
+            {**preparado.completos.get(c["objetivo"], c), "critical": c["critical"]}
+            for c in contratos
+        ]
+    else:
+        perfiles.update({c["objetivo"]: perfil for c in contratos})
+    if contratos and preparado.plan_guardado is not None:
+        contratos = _combinar_plan(preparado.plan_guardado["contratos"], contratos)
+    validos = [c for c in contratos if contracts.es_valido(contracts.PLANNER, c)]
+    if not validos:
+        return None
+    return {
+        "modulo": modulo["ruta"],
+        "huella": modulo["huella"],
+        "contratos": validos,
+        "accion": preparado.accion,
+        "perfiles": {
+            c["objetivo"]: perfiles[c["objetivo"]]
+            for c in validos
+            if c["objetivo"] in perfiles
+        },
+    }
 
 
 def _objetivos_de(modulo: dict[str, Any]) -> set[str]:

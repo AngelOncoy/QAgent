@@ -17,7 +17,13 @@ import pytest
 from qagent.almacenamiento import AlmacenProyecto
 from qagent.config import cargar_configuracion
 from qagent.config.carga import RUTA_CONFIG
-from qagent.orchestrator.corrida import EntornoEnPreparacion, ejecutar_corrida
+from qagent.orchestrator.corrida import (
+    EntornoEnPreparacion,
+    avance_limitado,
+    ejecutar_corrida,
+)
+from qagent.sandbox import ConstruccionCancelada
+from qagent.sandbox import imagen as modulo_imagen
 from tests.orchestrator.test_corrida import BANCO, ejecutor_simulado
 
 ESPERA_MAXIMA_S = 10
@@ -158,8 +164,11 @@ def test_cancelar_mientras_se_espera_la_imagen(proyecto, config) -> None:
         nunca.wait(ESPERA_MAXIMA_S)
         return "imagen-prueba"
 
+    planificados: list[str] = []
+
     def al_evento(evento: dict) -> None:
         if str(evento["mensaje"]).startswith("Plan con"):
+            planificados.append(evento["archivo"])
             cancelar.set()
 
     inicio = time.monotonic()
@@ -178,6 +187,8 @@ def test_cancelar_mientras_se_espera_la_imagen(proyecto, config) -> None:
     assert resumen.cancelada is True
     assert resumen.tipo_terminacion == "cancelada"
     assert "generator" not in orden
+    # Lo planificado se guarda como spec aunque no se haya ejecutado nada.
+    assert proyecto.leer_plan_modulo(planificados[0])["contratos"]
 
 
 def test_entorno_en_preparacion_relanza_el_error() -> None:
@@ -193,3 +204,103 @@ def test_entorno_en_preparacion_relanza_el_error() -> None:
     else:
         raise AssertionError("se esperaba el error de la preparación")
     assert entorno.listo()
+
+
+def planes_de(eventos: list[dict]) -> list[str]:
+    return [e["archivo"] for e in eventos if str(e["mensaje"]).startswith("Plan con")]
+
+
+def test_si_falla_la_imagen_se_guardan_las_specs_y_no_se_planifica_mas(
+    proyecto, config
+) -> None:
+    planificado = threading.Event()
+
+    def imagen_rota(_ruta):
+        planificado.wait(ESPERA_MAXIMA_S)
+        raise RuntimeError("sin espacio en disco")
+
+    def al_evento(evento: dict) -> None:
+        if str(evento["mensaje"]).startswith("Plan con"):
+            planificado.set()
+            time.sleep(0.3)  # deja que la falla llegue antes del siguiente módulo
+
+    resumen, eventos, orden = correr(proyecto, config, imagen_rota, al_evento=al_evento)
+
+    assert resumen.estado == "fallo_controlado"
+    assert resumen.tipo_terminacion == "detenida_error"
+    assert resumen.motivo.startswith("No se pudo preparar el entorno aislado")
+    assert "sin espacio en disco" in resumen.motivo
+    assert "generator" not in orden
+    [modulo] = planes_de(eventos)  # termina el módulo actual y no planifica más
+    assert proyecto.leer_plan_modulo(modulo)["contratos"]
+
+
+def test_la_corrida_siguiente_reutiliza_lo_planificado(proyecto, config) -> None:
+    planificado = threading.Event()
+
+    def imagen_rota(_ruta):
+        planificado.wait(ESPERA_MAXIMA_S)
+        raise RuntimeError("Docker no responde")
+
+    def al_evento(evento: dict) -> None:
+        if str(evento["mensaje"]).startswith("Plan con"):
+            planificado.set()
+            time.sleep(0.3)
+
+    _, eventos, _ = correr(proyecto, config, imagen_rota, al_evento=al_evento)
+    [modulo] = planes_de(eventos)
+
+    resumen, eventos, _ = correr(proyecto, config, lambda _ruta: "imagen-prueba")
+
+    assert resumen.estado == "fin", resumen.motivo
+    assert any(
+        e["archivo"] == modulo and "Spec vigente" in str(e["mensaje"]) for e in eventos
+    )
+
+
+def test_el_avance_corta_la_construccion_si_se_cancela() -> None:
+    avisos: list[str] = []
+    cancelar = threading.Event()
+    avanzar = avance_limitado(avisos.append, cancelado=cancelar.is_set)
+
+    avanzar("Descargando torch (821.0 MB)")
+    cancelar.set()
+
+    try:
+        avanzar("Descargando numpy (16.0 MB)")
+    except ConstruccionCancelada:
+        pass
+    else:
+        raise AssertionError("se esperaba ConstruccionCancelada")
+    assert avisos == ["Descargando torch (821.0 MB)"]
+
+
+def test_la_construccion_cancelada_cierra_el_log_de_docker() -> None:
+    cerrado = threading.Event()
+
+    def log_de_build():
+        try:
+            yield {"stream": "Collecting torch\n"}
+            yield {"stream": "Collecting numpy\n"}
+        finally:
+            cerrado.set()
+
+    class Api:
+        def build(self, **_opciones):
+            return log_de_build()
+
+    class Cliente:
+        api = Api()
+
+    def avanzar(_texto: str) -> None:
+        raise ConstruccionCancelada("Corrida cancelada por el usuario.")
+
+    try:
+        modulo_imagen._construir_con_avance(
+            Cliente(), Path("."), "qagent-prueba", "Instalando", avanzar
+        )
+    except ConstruccionCancelada:
+        pass
+    else:
+        raise AssertionError("se esperaba ConstruccionCancelada")
+    assert cerrado.is_set()

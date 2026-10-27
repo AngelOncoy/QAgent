@@ -24,6 +24,7 @@ from qagent.sandbox.cliente import obtener_cliente
 from qagent.sandbox.modelos import (
     IMAGEN_BASE,
     REPOSITORIO,
+    ConstruccionCancelada,
     ErrorConstruccionImagen,
     ImagenNoEncontrada,
 )
@@ -234,6 +235,7 @@ def _construir_con_avance(
 ) -> None:
     """`docker build` leyendo el log a medida que llega; cada paso útil va a `avanzar`."""
     log: list[str] = []
+    partes = None
     try:
         partes = cliente.api.build(
             path=str(contexto), tag=etiqueta, rm=True, forcerm=True, decode=True
@@ -252,6 +254,12 @@ def _construir_con_avance(
                 descripcion = describir_linea(linea)
                 if descripcion:
                     _avisar(avanzar, descripcion)
+    except ConstruccionCancelada:
+        # #148: cerrar el log corta la conexión con Docker en vez de esperar el final.
+        cerrar = getattr(partes, "close", None)
+        if cerrar is not None:
+            cerrar()
+        raise
     except APIError as exc:
         raise ErrorConstruccionImagen(
             f"{mensaje}: {exc.explanation}", "".join(log)
@@ -264,6 +272,8 @@ def _avisar(avanzar: Avance | None, texto: str) -> None:
         return
     try:
         avanzar(texto)
+    except ConstruccionCancelada:
+        raise
     except Exception:  # noqa: BLE001 - el avance es solo informativo
         registro.warning(
             "No se pudo informar el avance de la construcción.", exc_info=True
