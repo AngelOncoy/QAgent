@@ -116,6 +116,21 @@ def _fila_corrida(almacen: AlmacenProyecto, run: dict[str, Any]) -> dict[str, An
             pass_rate = round(pasaron / total * 100.0, 1)
 
     resumen_run = run.get("resumen") if isinstance(run.get("resumen"), dict) else {}
+    contadores_disponibles = (
+        bool(objetivos)
+        or any(
+            clave in origen
+            for origen in (results, resumen, run)
+            for clave in (
+                "total_seleccionados",
+                "total_procesados",
+                "objetivos_omitidos",
+                "procesados",
+                "pendientes",
+            )
+        )
+        or any(clave in resumen_run for clave in ("pasaron", "fallaron"))
+    )
     total_procesados = _primer_entero(
         results.get("total_procesados"),
         resumen.get("total_procesados"),
@@ -227,6 +242,7 @@ def _fila_corrida(almacen: AlmacenProyecto, run: dict[str, Any]) -> dict[str, An
         if (objetivos or run.get("resumen"))
         else None,
         "total_seleccionados": total_seleccionados,
+        "contadores_disponibles": contadores_disponibles,
         "total_elegibles": total_elegibles,
         "total_procesados": total_procesados,
         "total_pendientes": total_pendientes,

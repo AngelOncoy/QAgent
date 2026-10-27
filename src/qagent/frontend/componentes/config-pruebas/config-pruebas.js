@@ -24,7 +24,7 @@ registrarComponente('config-pruebas/config-pruebas', `<!-- ===== 3. PREPARAR ===
       <button type="button" class="ini-btn ini-btn-principal" id="toPlan" onclick="accionPrincipalPreparar()"><span id="toPlanIco">${ICO_INICIAR}</span><span id="toPlanTxt">Iniciar prueba</span></button>
     </div>
 
-    <div class="np-aviso np-aviso-aviso hide" id="prepBloqueo">${ICO_AVISO_CLON}<div><b>Todavía no podemos iniciar la prueba</b><span id="prepBloqueoTxt"></span></div></div>
+    <div class="np-aviso np-aviso-info prep-estado" id="prepBloqueo" aria-live="polite">${ICO_AVISO_CLON}<div><b id="prepBloqueoTitulo">Configuración lista</b><span id="prepBloqueoTxt"></span></div></div>
 
     <div class="prep-rejilla">
       <div class="np-columna">
@@ -297,7 +297,7 @@ function calc(){
 
   // Cabecera: título, resumen y botón principal según el estado.
   const resumen = `${total} ${total === 1 ? 'seleccionada' : 'seleccionadas'} · ${fns.length} ${fns.length === 1 ? 'función' : 'funciones'} y ${endpoints.length} ${endpoints.length === 1 ? 'endpoint' : 'endpoints'} · Python`;
-  $('prepSub').textContent = bloqueado ? 'Tu selección está guardada. Resuelve estos puntos antes de empezar.' : resumen;
+  $('prepSub').textContent = bloqueado ? 'Resuelve estos puntos antes de empezar.' : resumen;
   $('prepTitulo').textContent = verificando ? 'Comprobando tu entorno…'
     : !bloqueado ? 'Prepara una corrida fiable'
     : pendientes <= 1 ? 'Falta una comprobación' : `Faltan ${NUMEROS[pendientes] || pendientes} comprobaciones`;
@@ -312,8 +312,12 @@ function calc(){
     : {preview:'Volver a Explorar', tipos:'Elegir tipo de prueba', config:'Resolver en Configuración'}[destinoBloqueo];
   $('toPlan').disabled = verificando;
   const problemas = lista.filter(c => c.ok === false).map(c => c.t.toLowerCase());
-  $('prepBloqueo').classList.toggle('hide', !bloqueado);
-  $('prepBloqueoTxt').textContent = problemas.length ? `Falta: ${problemas.join(', ')}.` : entornoMotivo;
+  $('prepBloqueo').classList.toggle('np-aviso-aviso', bloqueado);
+  $('prepBloqueo').classList.toggle('np-aviso-info', !bloqueado);
+  $('prepBloqueoTitulo').textContent = bloqueado ? 'Todavía no podemos iniciar la prueba' : 'Configuración lista';
+  $('prepBloqueoTxt').textContent = bloqueado
+    ? (problemas.length ? `Falta: ${problemas.join(', ')}.` : entornoMotivo)
+    : 'La selección de objetivos se conserva en este proyecto. Puedes ajustar las opciones o iniciar la corrida.';
 
   renderDetallesCorrida(e, bloqueado, prioritarias, epsPrioritarios);
 }

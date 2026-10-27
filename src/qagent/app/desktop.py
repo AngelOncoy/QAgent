@@ -231,6 +231,25 @@ class DesktopAPI:
         """Alias de obtener_vista_previa para la interfaz JavaScript (HU-04)."""
         return self.obtener_vista_previa(ruta)
 
+    def obtener_seleccion_objetivos(self, ruta: str) -> dict:
+        """Recupera la selección de Explorar guardada para este proyecto."""
+        from qagent.proyectos.preferencias import cargar_seleccion_objetivos
+
+        return {"ok": True, "seleccion": cargar_seleccion_objetivos(ruta)}
+
+    def guardar_seleccion_objetivos(self, ruta: str, seleccion: dict) -> dict:
+        """Persiste la selección de Explorar dentro del almacén del proyecto."""
+        from qagent.proyectos.preferencias import guardar_seleccion_objetivos
+
+        try:
+            guardar_seleccion_objetivos(ruta, seleccion)
+        except (OSError, TypeError, ValueError) as exc:
+            bitacora.registro.warning(
+                "No se pudo guardar la selección de objetivos en '%s': %s", ruta, exc
+            )
+            return {"ok": False, "error": str(exc)}
+        return {"ok": True}
+
     def verificar_entorno(self) -> dict:
         """Verifica config.toml, claves de .env, Docker y Git (EN-06).
 
