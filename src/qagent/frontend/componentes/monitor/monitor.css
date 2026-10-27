@@ -45,3 +45,4 @@
 }
 .prg-entorno-paso{margin-top:var(--esp-2);font-family:var(--fuente-mono);font-size:var(--texto-meta);color:var(--texto)}
 .prg-entorno-paso:empty{display:none}
+.prg-entorno-paralelo{margin-top:var(--esp-2);color:var(--texto)}

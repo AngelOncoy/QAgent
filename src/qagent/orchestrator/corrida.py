@@ -74,6 +74,13 @@ AlEvento = Callable[[dict[str, Any]], None]
 PrepararImagen = Callable[[Path], str]
 
 FIN = "fin"
+#: Clave de `datos` y estados del entorno aislado para el Monitor (#148).
+ENTORNO = "entorno"
+ENTORNO_PREPARANDO = "preparando"
+ENTORNO_AVANCE = "avance"
+ENTORNO_LISTO = "listo"
+ENTORNO_FALLO = "fallo"
+ENTORNO_CANCELADO = "cancelado"
 _registro = logging.getLogger("qagent.corrida")
 FALLO = "fallo_controlado"
 
@@ -231,8 +238,21 @@ def ejecutar_corrida(
                 }
             )
 
-    def avisar(mensaje: str, tipo: str = "agente", archivo: str | None = None) -> None:
-        emitir(Evento("orquestador", archivo, None, mensaje, "preparacion", tipo))
+    def avisar(
+        mensaje: str,
+        tipo: str = "agente",
+        archivo: str | None = None,
+        datos: dict[str, Any] | None = None,
+    ) -> None:
+        emitir(
+            Evento(
+                "orquestador", archivo, None, mensaje, "preparacion", tipo, datos=datos
+            )
+        )
+
+    def avisar_entorno(mensaje: str, estado: str, tipo: str = "agente") -> None:
+        # #148: el Monitor muestra el entorno aparte de la etapa de los agentes.
+        avisar(mensaje, tipo, datos={ENTORNO: estado})
 
     almacen = AlmacenProyecto(ruta)
     resumen = ResumenCorrida(
@@ -298,7 +318,10 @@ def ejecutar_corrida(
             agente: crear_cliente(precio, claves, simulado=simulado)
             for agente, precio in configuracion.agentes.items()
         }
-        avisar("Preparando el entorno aislado (Docker) para ejecutar las pruebas")
+        avisar_entorno(
+            "Preparando el entorno aislado (Docker) para ejecutar las pruebas",
+            ENTORNO_PREPARANDO,
+        )
         # #148: construir la imagen puede tardar minutos (APP-RF: 11 de 13). Se
         # construye en segundo plano mientras el Planner, que no necesita Docker,
         # planifica los módulos; su avance va al Monitor.
@@ -309,7 +332,11 @@ def ejecutar_corrida(
             def preparar(ruta_imagen: Path) -> str:
                 return _preparar_imagen(
                     ruta_imagen,
-                    avanzar=avance_limitado(avisar, cancelado=cancelado),
+                    avanzar=avance_limitado(
+                        lambda texto: avisar_entorno(texto, ENTORNO_AVANCE),
+                        cancelado=cancelado,
+                    ),
+                    # La librería faltante se destaca aparte como alerta (issue 142).
                     avisar_faltante=lambda mensaje: avisar(mensaje, "aviso"),
                 )
 
@@ -438,6 +465,9 @@ def ejecutar_corrida(
             imagen = entorno.esperar(cancelado)
         except ConstruccionCancelada:
             imagen = None  # el usuario canceló mientras se construía
+            avisar_entorno(
+                "Se detuvo la preparación del entorno aislado", ENTORNO_CANCELADO
+            )
         except Exception as error:  # noqa: BLE001 — lo planificado no se pierde
             imagen = None
             resumen.estado = FALLO
@@ -445,7 +475,7 @@ def ejecutar_corrida(
             resumen.motivo = (
                 f"No se pudo preparar el entorno aislado: {_texto_error(error)}"
             )
-            avisar(resumen.motivo, "fallo")
+            avisar_entorno(resumen.motivo, ENTORNO_FALLO, "fallo")
         finally:
             etapas_entorno.update(
                 {
@@ -463,7 +493,7 @@ def ejecutar_corrida(
                 resumen.cancelada = True
                 resumen.tipo_terminacion = "cancelada"
                 resumen.motivo = "Corrida cancelada por el usuario."
-                avisar(resumen.motivo, "fallo")
+                avisar_entorno(resumen.motivo, ENTORNO_CANCELADO, "fallo")
             for modulo in modulos:
                 preparado = preparados.get(modulo["ruta"])
                 # Una spec reutilizada ya está guardada tal cual.
@@ -479,6 +509,10 @@ def ejecutar_corrida(
                 if spec is not None:
                     planes_specs.append(spec)
         else:
+            avisar_entorno(
+                "Entorno aislado listo: se escriben y verifican las pruebas",
+                ENTORNO_LISTO,
+            )
             orquestador.reviewer = ReviewerAgent(
                 tracker,
                 ruta,

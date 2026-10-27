@@ -304,3 +304,32 @@ def test_la_construccion_cancelada_cierra_el_log_de_docker() -> None:
     else:
         raise AssertionError("se esperaba ConstruccionCancelada")
     assert cerrado.is_set()
+
+
+def estados_entorno(eventos: list[dict]) -> list[str]:
+    return [
+        e["datos"]["entorno"] for e in eventos if (e.get("datos") or {}).get("entorno")
+    ]
+
+
+def test_el_monitor_recibe_preparando_y_luego_listo(proyecto, config) -> None:
+    def imagen_lenta(_ruta):
+        time.sleep(0.2)
+        return "imagen-prueba"
+
+    _, eventos, _ = correr(proyecto, config, imagen_lenta)
+
+    assert estados_entorno(eventos) == ["preparando", "listo"]
+    listo = next(
+        i for i, e in enumerate(eventos) if (e["datos"] or {}).get("entorno") == "listo"
+    )
+    assert all(e["agente"] != "generator" for e in eventos[:listo])
+
+
+def test_el_monitor_recibe_la_falla_del_entorno(proyecto, config) -> None:
+    def imagen_rota(_ruta):
+        raise RuntimeError("Docker no responde")
+
+    _, eventos, _ = correr(proyecto, config, imagen_rota)
+
+    assert estados_entorno(eventos)[-1] == "fallo"

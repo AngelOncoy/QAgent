@@ -76,6 +76,8 @@ def a_fila_monitor(evento: dict[str, Any]) -> dict[str, Any] | None:
         ),
         "limite_tokens": evento.get("limite_tokens", datos.get("limite_tokens")),
         "alerta_presupuesto": datos.get("alerta_presupuesto", False),
+        # #148: estado del entorno aislado, que se prepara mientras se planifica.
+        "entorno": datos.get("entorno"),
     }
 
 
