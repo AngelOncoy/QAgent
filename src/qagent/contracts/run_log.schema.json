@@ -257,7 +257,17 @@
         "generator": { "type": "number", "minimum": 0 },
         "reviewer": { "type": "number", "minimum": 0 },
         "sandbox": { "type": "number", "minimum": 0 },
-        "pytest": { "type": "number", "minimum": 0 }
+        "pytest": { "type": "number", "minimum": 0 },
+        "entorno": {
+          "type": "number",
+          "minimum": 0,
+          "description": "#148. Segundos preparando el entorno aislado (en segundo plano)."
+        },
+        "espera_entorno": {
+          "type": "number",
+          "minimum": 0,
+          "description": "#148. Segundos que la corrida esperó el entorno después de planificar."
+        }
       }
     },
     "mutacion": {

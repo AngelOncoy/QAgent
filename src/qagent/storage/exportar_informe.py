@@ -1283,6 +1283,8 @@ def construir_markdown_informe(
             "reviewer": "Reviewer (incluye sandbox)",
             "sandbox": "Sandbox",
             "pytest": "pytest",
+            "entorno": "Entorno aislado (en paralelo)",
+            "espera_entorno": "Espera del entorno",
         }
         detalle = " · ".join(
             f"{nombres.get(clave, clave)} {_fmt_duracion(valor)}"

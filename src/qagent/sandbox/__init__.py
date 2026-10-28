@@ -26,6 +26,7 @@ from qagent.sandbox.informe_pytest import (
 from qagent.sandbox.modelos import (
     LIMITES_POR_DEFECTO,
     MENSAJE_DOCKER_CERRADO,
+    ConstruccionCancelada,
     DockerNoDisponible,
     ErrorConstruccionImagen,
     ErrorSandbox,
@@ -45,6 +46,7 @@ __all__ = [
     "LIMITES_POR_DEFECTO",
     "MENSAJE_DOCKER_CERRADO",
     "CasoPrueba",
+    "ConstruccionCancelada",
     "DockerNoDisponible",
     "ErrorConstruccionImagen",
     "ErrorSandbox",

@@ -31,7 +31,7 @@ registrarComponente('monitor/monitor', `<!-- ===== 4. EN CURSO: PROGRESO EN VIVO
       <div class="np-barra prg-barra" id="prgBarraCont"><i id="prgBarra"></i></div>
     </div>
 
-    <div class="np-aviso np-aviso-info hide" id="prgEntorno">${ICO_GIRANDO}<div><b id="prgEntornoTitulo">Preparando el entorno Docker</b><span>La primera corrida con este requirements.txt puede tardar varios minutos. QAgent mostrará cada etapa disponible sin inventar porcentajes.</span><span class="prg-entorno-paso" id="prgEntornoPaso"></span></div></div>
+    <div class="np-aviso np-aviso-info hide" id="prgEntorno">${ICO_GIRANDO}<div><b id="prgEntornoTitulo">Preparando el entorno Docker</b><span>La primera corrida con este requirements.txt puede tardar varios minutos. QAgent mostrará cada etapa disponible sin inventar porcentajes.</span><span class="prg-entorno-paralelo" id="prgEntornoParalelo">Mientras tanto ya se analiza tu código; las pruebas se escriben y verifican cuando el entorno esté listo.</span><span class="prg-entorno-paso" id="prgEntornoPaso"></span></div></div>
 
     <div class="np-aviso np-aviso-aviso hide" id="prgAlerta">${ICO_AVISO_CLON}<div><b id="prgAlertaTitulo"></b><span id="prgAlertaTxt"></span></div></div>
 
@@ -112,7 +112,7 @@ function transcurrido(){
 }
 
 // Registra una fila (real o de la demostración) y vuelve a pintar la pantalla.
-function registrarPaso({a, f, fn, t, guard, hechos, total, tipo_objetivo, transcurrido_s, duracion_objetivo_s}){
+function registrarPaso({a, f, fn, t, guard, hechos, total, tipo_objetivo, transcurrido_s, duracion_objetivo_s, entorno}){
   // El backend es la fuente de verdad del tiempo; este reloj solo interpola
   // entre eventos. Si llega el tiempo medido, se reancla el inicio local.
   if (typeof transcurrido_s === 'number' && isFinite(transcurrido_s)) {
@@ -129,9 +129,19 @@ function registrarPaso({a, f, fn, t, guard, hechos, total, tipo_objetivo, transc
   // con ese requirements.txt). El backend no informa avance en ese paso: se explica la espera.
   // El backend informa cada paso de la instalación («Descargando torch (821.0 MB)»): el aviso sigue
   // visible con el último paso hasta que llega la primera etapa de la corrida.
-  if (etapa) PRG.preparandoEntorno = false;
-  else if (/entorno aislado|dependencias|imagen docker/i.test(String(t || ''))) PRG.preparandoEntorno = true;
-  if (PRG.preparandoEntorno && !etapa) PRG.pasoEntorno = textoPlano(t || '');
+  // issue 148: el backend avisa el estado del entorno (`entorno`), que se prepara mientras se
+  // analiza el código; así el aviso no se oculta con los eventos del análisis. Sin ese
+  // dato (la demostración), el aviso sigue hasta la primera etapa.
+  if (entorno) {
+    PRG.entornoInformado = true;
+    if (entorno === 'preparando' || entorno === 'avance') PRG.preparandoEntorno = true;
+    else PRG.preparandoEntorno = false;
+    if (entorno === 'avance') PRG.pasoEntorno = textoPlano(t || '');
+  } else if (!PRG.entornoInformado) {
+    if (etapa) PRG.preparandoEntorno = false;
+    else if (/entorno aislado|dependencias|imagen docker/i.test(String(t || ''))) PRG.preparandoEntorno = true;
+    if (PRG.preparandoEntorno && !etapa) PRG.pasoEntorno = textoPlano(t || '');
+  }
   if (a === 'guard') PRG.alerta ={titulo:'Se bloqueó un intento de debilitar una prueba', texto:`En ${fn || 'una función'} la prueba generada relajaba la comprobación. Se mantiene el criterio original: el posible bug no se esconde.`};
   if (a === 'oracle') PRG.alerta = {titulo:'Posible bug detectado', texto:`En ${fn || 'una función'} el resultado no coincide con lo que dice el contrato. Se conserva la prueba para que lo revises.`};
   PRG.pasos.unshift({hora: Date.now(), a, fn, t, guard});
@@ -151,9 +161,10 @@ function pintarProgreso(){
       : PRG.fin.ok ? 'Corrida completada'
       : 'Corrida detenida'
     )
-    : PRG.preparandoEntorno ? 'Preparando el entorno aislado'
-    : etapaActual ? etapaActual.titulo : 'Preparando la corrida';
+    : etapaActual ? etapaActual.titulo
+    : PRG.preparandoEntorno ? 'Preparando el entorno aislado' : 'Preparando la corrida';
   $('prgEntorno').classList.toggle('hide', !(PRG.preparandoEntorno && !PRG.fin));
+  $('prgEntornoParalelo').classList.toggle('hide', !PRG.etapa);
   const pasoEntorno = String(PRG.pasoEntorno || '');
   $('prgEntornoTitulo').textContent = /guardando/i.test(pasoEntorno) ? 'Guardando la imagen Docker'
     : /dependencias|descargando|instalando|preparando [a-z0-9_.-]+$/i.test(pasoEntorno) ? 'Instalando dependencias'
@@ -352,7 +363,8 @@ function monitorEventoReal(d){
   }
   registrarPaso({a:d.a, f:d.f, fn:d.identificador || d.fn, t:d.t || '', guard:d.guard, hechos:d.total ? Number(d.hechos) : undefined, total:Number(d.total) || null, tipo_objetivo:d.tipo_objetivo,
     transcurrido_s: typeof d.transcurrido_s === 'number' ? d.transcurrido_s : undefined,
-    duracion_objetivo_s: typeof d.duracion_objetivo_s === 'number' ? d.duracion_objetivo_s : undefined});
+    duracion_objetivo_s: typeof d.duracion_objetivo_s === 'number' ? d.duracion_objetivo_s : undefined,
+    entorno: d.entorno || undefined});
 }
 function monitorFinReal(r){
   if(!modoReal || !r) return;
