@@ -1,0 +1,164 @@
+{
+  "lenguaje": "java",
+  "modulos": [
+    {
+      "ruta": "src/main/java/org/qagent/bench/BancoCorrecto.java",
+      "huella": "6085c713096e99b3a53aacdff50216517622bcc70820f952ea7c70c37804df17",
+      "clases": [
+        {
+          "nombre": "BancoCorrecto",
+          "tipo": "class_declaration",
+          "linea": 11,
+          "docstring": "/**\n * Casos correctos del banco Java de QAgent.\n *\n * <p>Las reglas se definen en casos.md. Las entradas deben cumplir\n * las precondiciones documentadas en cada método.\n */"
+        }
+      ],
+      "funciones": [
+        {
+          "nombre": "BancoCorrecto.sumarPrecios",
+          "clase": "BancoCorrecto",
+          "linea": 23,
+          "firma": "public static double sumarPrecios(List<Double> precios)",
+          "parametros": [
+            {
+              "nombre": "precios",
+              "tipo": "List<Double>",
+              "por_defecto": null
+            }
+          ],
+          "retorno": "double",
+          "docstring": "/**\n     * Suma los precios recibidos. Una lista vacía devuelve cero.\n     *\n     * @param precios lista no nula con precios finitos y no negativos\n     * @return suma de los precios; por ejemplo, [10, 20] devuelve 30\n     */",
+          "tipada": true,
+          "es_async": false
+        },
+        {
+          "nombre": "BancoCorrecto.aplicarDescuento",
+          "clase": "BancoCorrecto",
+          "linea": 38,
+          "firma": "public static double aplicarDescuento(double precio, double porcentaje)",
+          "parametros": [
+            {
+              "nombre": "precio",
+              "tipo": "double",
+              "por_defecto": null
+            },
+            {
+              "nombre": "porcentaje",
+              "tipo": "double",
+              "por_defecto": null
+            }
+          ],
+          "retorno": "double",
+          "docstring": "/**\n     * Aplica un descuento: precio final = precio × (1 - porcentaje / 100).\n     *\n     * @param precio importe finito y no negativo\n     * @param porcentaje descuento entre 0 y 100, inclusive\n     * @return precio con descuento; por ejemplo, 100 con 20 % devuelve 80\n     */",
+          "tipada": true,
+          "es_async": false
+        },
+        {
+          "nombre": "BancoCorrecto.esMayorDeEdad",
+          "clase": "BancoCorrecto",
+          "linea": 48,
+          "firma": "public static boolean esMayorDeEdad(int edad)",
+          "parametros": [
+            {
+              "nombre": "edad",
+              "tipo": "int",
+              "por_defecto": null
+            }
+          ],
+          "retorno": "boolean",
+          "docstring": "/**\n     * Determina si la edad es mayor o igual a 18 años.\n     *\n     * @param edad edad entera no negativa\n     * @return true desde los 18 años, inclusive; false para edades menores\n     */",
+          "tipada": true,
+          "es_async": false
+        }
+      ],
+      "endpoints": []
+    },
+    {
+      "ruta": "src/main/java/org/qagent/bench/BancoDefectuoso.java",
+      "huella": "dd88746a335c6ddf826c5a8da52a6eca76f99b443beba90cbf9d948dd2a397d2",
+      "clases": [
+        {
+          "nombre": "BancoDefectuoso",
+          "tipo": "class_declaration",
+          "linea": 11,
+          "docstring": "/**\n * Banco con tres defectos intencionales para TA-01.\n *\n * <p>Los contratos describen el comportamiento correcto de casos.md.\n * Las implementaciones incumplen esos contratos deliberadamente.\n */"
+        }
+      ],
+      "funciones": [
+        {
+          "nombre": "BancoDefectuoso.calcularPromedio",
+          "clase": "BancoDefectuoso",
+          "linea": 25,
+          "firma": "public static double calcularPromedio(List<Integer> numeros)",
+          "parametros": [
+            {
+              "nombre": "numeros",
+              "tipo": "List<Integer>",
+              "por_defecto": null
+            }
+          ],
+          "retorno": "double",
+          "docstring": "/**\n     * Calcula el promedio conservando la parte decimal.\n     *\n     * @param numeros lista no nula y no vacía de enteros;\n     *                su suma debe caber en un int\n     * @return promedio aritmético; por ejemplo, [2, 3] devuelve 2.5\n     * @implNote D01: contiene una división entera intencional.\n     */",
+          "tipada": true,
+          "es_async": false
+        },
+        {
+          "nombre": "BancoDefectuoso.calcularEnvio",
+          "clase": "BancoDefectuoso",
+          "linea": 43,
+          "firma": "public static double calcularEnvio(double importe)",
+          "parametros": [
+            {
+              "nombre": "importe",
+              "tipo": "double",
+              "por_defecto": null
+            }
+          ],
+          "retorno": "double",
+          "docstring": "/**\n     * Calcula el envío: cuesta 10 para compras menores a 100\n     * y es gratuito desde 100, inclusive.\n     *\n     * @param importe importe de compra finito y no negativo\n     * @return costo del envío; para una compra de 100 devuelve 0\n     * @implNote D02: excluye intencionalmente el límite de 100.\n     */",
+          "tipada": true,
+          "es_async": false
+        },
+        {
+          "nombre": "BancoDefectuoso.calcularTotalConImpuesto",
+          "clase": "BancoDefectuoso",
+          "linea": 56,
+          "firma": "public static double calcularTotalConImpuesto(\n            double subtotal, double porcentaje)",
+          "parametros": [
+            {
+              "nombre": "subtotal",
+              "tipo": "double",
+              "por_defecto": null
+            },
+            {
+              "nombre": "porcentaje",
+              "tipo": "double",
+              "por_defecto": null
+            }
+          ],
+          "retorno": "double",
+          "docstring": "/**\n     * Añade el impuesto: total = subtotal × (1 + porcentaje / 100).\n     *\n     * @param subtotal importe finito y no negativo\n     * @param porcentaje porcentaje de impuesto finito y no negativo\n     * @return total con impuesto; 100 con 18 % devuelve 118\n     * @implNote D03: resta intencionalmente el impuesto.\n     */",
+          "tipada": true,
+          "es_async": false
+        }
+      ],
+      "endpoints": []
+    }
+  ],
+  "errores": [],
+  "resumen": {
+    "total_modulos": 2,
+    "total_clases": 2,
+    "total_funciones_publicas": 6,
+    "total_endpoints": 0,
+    "total_errores": 0
+  },
+  "medicion": {
+    "duracion_analisis_s": 0.034037,
+    "alcance": "Una ejecución: lectura y análisis; excluye arranque de Python y escritura del JSON.",
+    "python": "3.10.10",
+    "sistema": "Windows",
+    "arquitectura": "AMD64",
+    "tree_sitter": "0.24.0",
+    "tree_sitter_java": "0.23.5"
+  }
+}

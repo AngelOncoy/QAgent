@@ -1,7 +1,7 @@
 """Carga de gramáticas tree-sitter y utilidades de sintaxis multilenguaje (ADR-009).
 
 Este módulo centraliza la inicialización de tree-sitter para los adaptadores
-de lenguajes (JavaScript, TypeScript y en el futuro Java). Cada gramática se carga
+de lenguajes (JavaScript, TypeScript y Java). Cada gramática se carga
 una sola vez en memoria mediante caché (functools.cache).
 """
 
@@ -10,6 +10,7 @@ from __future__ import annotations
 import functools
 from typing import TYPE_CHECKING
 
+import tree_sitter_java
 import tree_sitter_javascript
 import tree_sitter_typescript
 from tree_sitter import Language, Parser
@@ -23,7 +24,7 @@ def cargar_gramatica(lenguaje: str) -> Language:
     """Carga y almacena en caché la gramática compilada de tree-sitter.
 
     Args:
-        lenguaje: Identificador del lenguaje o variante ("javascript", "typescript", "tsx").
+        lenguaje: Identificador ("javascript", "typescript", "tsx" o "java").
 
     Returns:
         tree_sitter.Language correspondiente listo para usar en un Parser.
@@ -38,6 +39,8 @@ def cargar_gramatica(lenguaje: str) -> Language:
         return Language(tree_sitter_typescript.language_typescript())
     if clave == "tsx":
         return Language(tree_sitter_typescript.language_tsx())
+    if clave == "java":
+        return Language(tree_sitter_java.language())
 
     raise ValueError(f"Gramática de tree-sitter no soportada: '{lenguaje}'.")
 
