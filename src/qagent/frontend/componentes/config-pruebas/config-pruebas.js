@@ -62,11 +62,22 @@ registrarComponente('config-pruebas/config-pruebas', `<!-- ===== 3. PREPARAR ===
 // Sin críticas marcadas no hay nada que analizar a fondo: se corre como Estándar.
 // issue 133: la revisión rápida es la estrategia Humo (un caso normal por objetivo, #75); se combina con
 // Unitarias y Endpoints API igual que Estándar. Solo se usa si el usuario la elige.
-function perfilDeEleccion({modo}, prioritarias){
+function perfilDeEleccion({modo, profundizarRepetir = false}, prioritarias, repetibles = 0){
   if (modo === 'humo') return 'humo';
-  if (modo === 'repetir') return 'reg';
+  if (modo === 'repetir') return profundizarRepetir && repetibles > 0 ? 'reg_deep' : 'reg';
   if (modo === 'fondo') return prioritarias > 0 ? 'deep' : 'std';
   return 'std';
+}
+
+// Issue 150: solo funciones incluidas y marcadas cuya prueba guardada sigue vigente.
+// El backend calcula PRUEBAS_REPETIBLES con la misma política que usa la regresión,
+// incluido el descarte de pruebas triviales de TypeError de la issue 149.
+function criticasRepetibles(){
+  if (!(PRUEBAS_REPETIBLES instanceof Set) || eleccionPruebas.unitarias === false) return 0;
+  return MODULES.filter(m=>m.sel && !m.error && moduloTieneObjetivos(m))
+    .flatMap(m=>(m.fns || []).filter(f=>f.inc && f.crit)
+      .map(f=>PRUEBAS_REPETIBLES.has(m.path + '::' + f.n)))
+    .filter(Boolean).length;
 }
 
 // Objetivos que entran en la corrida: lo incluido en Explorar, según los tipos de prueba elegidos.
@@ -94,6 +105,7 @@ function textoPrioritarias(fns, eps){
   return `${fns} ${fns===1 ? 'función' : 'funciones'} y ${ep} críticos`;
 }
 function elegirPruebas(cambio){
+  if (cambio.modo && cambio.modo !== 'repetir') cambio = {...cambio, profundizarRepetir:false};
   eleccionPruebas = {...eleccionPruebas, ...cambio};
   calc();
   if (typeof desbloquearVista === 'function') desbloquearVista('monitor');
@@ -113,15 +125,36 @@ const MODOS_PREPARAR = [
     tip:'Regresión: volver a correr las pruebas guardadas para comprobar que los cambios no rompieron lo que antes funcionaba.'},
   {k:'fondo',   t:'Análisis a fondo de críticas', d:'Busca casos límite y mide la fortaleza de las pruebas. Tarda más.'},
 ];
-function renderModosPreparar(){
+function renderRegresionProfunda(repetibles){
+  const datosListos = PRUEBAS_REPETIBLES instanceof Set;
+  const deshabilitada = !HAS_PRIOR_RUN || !datosListos || repetibles === 0;
+  const motivo = !HAS_PRIOR_RUN
+    ? 'Disponible cuando haya pruebas aprobadas y guardadas de este proyecto.'
+    : !datosListos
+      ? 'No se pudo comprobar la vigencia de las pruebas guardadas.'
+      : repetibles === 0
+        ? 'Ninguna función crítica seleccionada tiene una prueba guardada válida.'
+        : `${repetibles} ${repetibles === 1 ? 'función crítica elegible' : 'funciones críticas elegibles'}.`;
+  const marcada = eleccionPruebas.profundizarRepetir === true && !deshabilitada;
+  return `<label class="prep-reg-deep ${deshabilitada ? 'dis' : ''}" title="${escHtml(motivo)}">
+    <input type="checkbox" class="exp-caja" id="prepRegDeep" ${marcada ? 'checked' : ''} ${deshabilitada ? 'disabled' : ''}
+      aria-describedby="prepRegDeepDesc" onchange="elegirPruebas({profundizarRepetir:this.checked})">
+    <span><b>Medir la fortaleza de las críticas</b>
+      <span class="prep-desc" id="prepRegDeepDesc">Repite las pruebas guardadas y utiliza análisis de mutación para evaluar la fortaleza de las pruebas críticas. No consume tokens de IA, pero puede tardar más.</span>
+      <span class="prep-desc">${escHtml(motivo)}</span></span>
+  </label>`;
+}
+
+function renderModosPreparar(repetibles = criticasRepetibles()){
   const {modo} = eleccionPruebas;
   $('cfgModo').innerHTML = MODOS_PREPARAR.map(o => {
     const bloqueado = o.k === 'repetir' && !HAS_PRIOR_RUN;
-    return `<button type="button" role="radio" class="prep-modo ${modo===o.k?'on':''}" aria-checked="${modo===o.k}"
+    const opcion = `<button type="button" role="radio" class="prep-modo ${modo===o.k?'on':''}" aria-checked="${modo===o.k}"
       ${bloqueado ? 'disabled title="Requiere una corrida previa de este proyecto"' : (o.tip ? `title="${o.tip}"` : '')} onclick="elegirPruebas({modo:'${o.k}'})">
       <span class="prep-radio" aria-hidden="true"></span>
       <span><b>${o.t}</b><span class="prep-desc">${bloqueado ? 'Disponible cuando haya pruebas aprobadas y guardadas de este proyecto.' : o.d}</span></span>
     </button>`;
+    return `<div class="prep-modo-grupo ${modo===o.k?'on':''}">${opcion}${o.k === 'repetir' ? renderRegresionProfunda(repetibles) : ''}</div>`;
   }).join('');
 }
 
@@ -253,7 +286,9 @@ function renderDetallesCorrida(e, bloqueado, prioritarias, epsPrioritarios = 0){
     reused ? `${reused} sin cambios: se reutiliza el trabajo anterior.` : '',
     profile==='humo' ? 'Revisión rápida: un caso normal por función o endpoint. No se exige cubrir las ramas.' : '',
     profile==='deep' ? `Análisis a fondo en ${textoPrioritarias(prioritarias - epsPrioritarios, epsPrioritarios)}: comprueba con mutación si las pruebas detectan errores. No usa tokens, pero tarda más.` : '',
-    profile==='reg' ? 'Solo se vuelven a correr pruebas guardadas: no se usa IA.' : 'Los tokens se mostrarán en vivo y por función.',
+    profile==='reg' ? 'Solo se vuelven a correr pruebas guardadas: no se usa IA.' : '',
+    profile==='reg_deep' ? 'Se vuelven a correr las pruebas guardadas y se mide con mutación la fortaleza de las críticas. No se usa IA, pero puede tardar más.' : '',
+    profile!=='reg' && profile!=='reg_deep' ? 'Los tokens se mostrarán en vivo y por función.' : '',
   ];
   $('prepLimites').innerHTML = `<h2>Límites de esta corrida</h2>
     <div class="prep-limites" id="cfgDetalles">${filas.filter(Boolean).map(f => `<p>${f}</p>`).join('')}</div>
@@ -281,13 +316,15 @@ function calc(){
   const estStd = estFor('std');
   const epsPrioritarios = estStd.endpoints.filter(e=>e.crit).length;
   const prioritarias = estStd.fns.filter(f=>f.crit).length + epsPrioritarios;
-  profile = perfilDeEleccion(eleccionPruebas, prioritarias);
-  const e = estFor(profile), {fns, endpoints, total, tok, reused} = e;
+  const repetibles = criticasRepetibles();
+  if (!repetibles && eleccionPruebas.profundizarRepetir) eleccionPruebas = {...eleccionPruebas, profundizarRepetir:false};
+  profile = perfilDeEleccion(eleccionPruebas, prioritarias, repetibles);
+  const e = estFor(profile==='reg_deep' ? 'reg' : profile), {fns, endpoints, total, tok, reused} = e;
   runEstimate = {tok};
   const exp = seleccionExplorar();   // el pie de Explorar cuenta su selección, sin los tipos de Preparar
   renderPieVistaPrevia(exp.fns, exp.fns.filter(f=>!f.doc).length, exp.endpoints);
 
-  renderModosPreparar();
+  renderModosPreparar(repetibles);
   renderTiposPrueba();
   renderCriticas();
   const lista = comprobacionesPrevias(total, reused);

@@ -25,7 +25,7 @@ def test_la_eleccion_por_defecto_equivale_al_perfil_por_defecto() -> None:
 
     assert "let profile = 'deep';" in estado
     assert (
-        "let eleccionPruebas = {modo:'nuevas', unitarias:false, endpoints:false};"
+        "let eleccionPruebas = {modo:'nuevas', unitarias:false, endpoints:false, profundizarRepetir:false};"
         in estado
     )
 
@@ -33,7 +33,10 @@ def test_la_eleccion_por_defecto_equivale_al_perfil_por_defecto() -> None:
 def test_la_eleccion_se_traduce_a_los_cuatro_perfiles_del_backend() -> None:
     cuerpo = cuerpo_de(config(), "function perfilDeEleccion", "function estFor")
 
-    assert "if (modo === 'repetir') return 'reg';" in cuerpo
+    assert (
+        "if (modo === 'repetir') return profundizarRepetir && repetibles > 0 ? 'reg_deep' : 'reg';"
+        in cuerpo
+    )
     assert "if (modo === 'fondo') return prioritarias > 0 ? 'deep' : 'std';" in cuerpo
     assert "return 'std';" in cuerpo
 
@@ -46,7 +49,10 @@ def test_elegir_recalcula_el_perfil_y_desbloquea_el_monitor() -> None:
     assert "eleccionPruebas = {...eleccionPruebas, ...cambio};" in elegir
     assert "calc();" in elegir
     assert "desbloquearVista('monitor')" in elegir
-    assert "profile = perfilDeEleccion(eleccionPruebas, prioritarias);" in recalcular
+    assert (
+        "profile = perfilDeEleccion(eleccionPruebas, prioritarias, repetibles);"
+        in recalcular
+    )
 
 
 def test_la_pantalla_pregunta_que_hacer_y_el_tipo_de_prueba() -> None:

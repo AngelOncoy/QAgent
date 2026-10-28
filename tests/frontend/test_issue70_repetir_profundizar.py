@@ -24,7 +24,10 @@ def test_repetir_se_describe_sin_ia_y_fondo_como_mas_largo() -> None:
     assert "Volver a correr las guardadas" in js
     assert "Solo se vuelven a correr pruebas guardadas: no se usa IA" in js
     assert "Análisis a fondo de críticas" in js
-    assert "if (modo === 'repetir') return 'reg';" in js
+    assert (
+        "if (modo === 'repetir') return profundizarRepetir && repetibles > 0 ? 'reg_deep' : 'reg';"
+        in js
+    )
     assert "if (modo === 'fondo') return prioritarias > 0 ? 'deep' : 'std';" in js
 
 

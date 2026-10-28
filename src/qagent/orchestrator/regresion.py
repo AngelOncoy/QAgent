@@ -229,6 +229,40 @@ def objetivos_repetibles(ruta_proyecto: str | Path) -> list[dict[str, str]]:
     return repetibles
 
 
+def funciones_criticas_repetibles(
+    ruta_proyecto: str | Path,
+    seleccion: list[dict[str, Any]] | None,
+) -> list[dict[str, str]]:
+    """Funciones críticas seleccionadas aptas para `reg_deep` (#150).
+
+    La elegibilidad reutiliza :func:`objetivos_repetibles`, incluida la exclusión de
+    contratos triviales de #149. Los endpoints no habilitan esta opción de Preparar.
+    Una selección ausente o incompleta se considera no elegible.
+    """
+    if not seleccion:
+        return []
+    criticas = {
+        (entrada.get("ruta"), objetivo)
+        for entrada in seleccion
+        if isinstance(entrada, dict)
+        for objetivo in (entrada.get("criticas") or [])
+        if isinstance(objetivo, str)
+    }
+    if not criticas:
+        return []
+    tipos_funcion = {
+        (contrato["modulo"], contrato["objetivo"])
+        for spec in _specs_aprobadas(AlmacenProyecto(ruta_proyecto))
+        if (contrato := _contrato_para_regresion(spec)) is not None
+        and contrato["tipo"] == "funcion"
+    }
+    return [
+        objetivo
+        for objetivo in objetivos_repetibles(ruta_proyecto)
+        if (objetivo["modulo"], objetivo["objetivo"]) in criticas & tipos_funcion
+    ]
+
+
 def ejecutar_regresion(
     ruta_proyecto: str | Path,
     perfil: str,

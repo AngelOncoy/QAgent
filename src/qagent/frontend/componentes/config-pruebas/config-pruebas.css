@@ -12,6 +12,7 @@
 /* ¿Qué quieres hacer?: cuatro opciones tipo radio, la elegida resaltada */
 .prep-modo-tarjeta{gap:var(--esp-4)}
 .prep-modos{display:flex;flex-direction:column;gap:var(--esp-3);width:100%}
+.prep-modo-grupo{display:flex;flex-direction:column;gap:var(--esp-3)}
 .prep-modo{display:flex;align-items:flex-start;gap:var(--esp-3);width:100%;padding:var(--esp-4);border:var(--borde-ancho) solid var(--borde);border-radius:var(--radio-control);background:var(--hundido);color:var(--texto);font:inherit;text-align:left;cursor:pointer}
 .prep-modo b{font-weight:var(--peso-medio)}
 .prep-modo:hover{border-color:var(--borde-fuerte)}
@@ -21,6 +22,10 @@
 .prep-radio{flex-shrink:0;display:grid;place-items:center;width:16px;height:16px;margin-top:3px;border:1.5px solid var(--texto-3);border-radius:50%}
 .prep-modo.on .prep-radio{border-color:var(--enlace)}
 .prep-modo.on .prep-radio::after{content:"";width:6px;height:6px;border-radius:50%;background:var(--enlace)}
+.prep-reg-deep{display:flex;align-items:flex-start;gap:var(--esp-3);margin:0 var(--esp-4) var(--esp-2);padding:var(--esp-3) var(--esp-4);border-left:var(--borde-ancho) solid var(--accion-borde);cursor:pointer}
+.prep-reg-deep .exp-caja{margin-top:3px}
+.prep-reg-deep b{font-weight:var(--peso-medio)}
+.prep-reg-deep.dis{opacity:.55;cursor:not-allowed}
 
 /* Tipos de prueba y funciones críticas: filas con la casilla de la demo */
 .prep-lista{display:flex;flex-direction:column;gap:var(--esp-3);width:100%}
