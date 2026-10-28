@@ -1,6 +1,6 @@
 # ADR-009: Análisis estático multilenguaje — Tree-sitter frente a Parsers Nativos y Graphify
 
-- **Estado:** Propuesto (para revisión del equipo)
+- **Estado:** Aceptado
 - **Fecha:** 2026-10-26
 - **Ítem:** SPK-04 — Evaluación de Graphify, tree-sitter y parsers nativos para análisis multilenguaje
 - **Responsable de la investigación:** Castillo Pezo, Mateo Salvador Vincenzo
@@ -73,7 +73,7 @@ Las tres alternativas se evaluaron sobre un banco de pruebas espejo, con impleme
 
 1. **Riesgo Operativo de los Parsers Nativos Externos (Opción A):**
    - Para analizar JS/TS y Java mediante parsers nativos, la máquina del usuario requeriría tener instalados y configurados en el `PATH` los runtimes de **Node.js (v20+)** y un **JRE/JDK de Java (v17+)**.
-   - Si se intentara empaquetar estos runtimes dentro del instalador de Windows ([`qagent.iss`](../../packaging/windows/qagent.iss)), el tamaño del instalador aumentaría en más de **250 MB**, multiplicando la superficie de fallas y vulnerabilidades.
+   - Si se intentara empaquetar estos runtimes dentro del instalador de Windows ([`qagent.iss`](../../packaging/windows/qagent.spec)), el tamaño del instalador aumentaría en más de **250 MB**, multiplicando la superficie de fallas y vulnerabilidades.
    - La invocación mediante subprocesos (`subprocess.run`) añade una penalización de arranque de proceso de entre 100 ms y 200 ms por cada archivo, ralentizando severamente la fase de exploración en proyectos medianos.
 
 2. **Incompatibilidad de Graphify (Opción B):**
@@ -95,7 +95,13 @@ Las tres alternativas se evaluaron sobre un banco de pruebas espejo, con impleme
 **Se adopta la Opción C bajo una Arquitectura Híbrida Unificada:**
 
 1. **Tree-sitter como motor estándar multilenguaje:**
-   - Se utilizará Tree-sitter (`tree-sitter` con sus gramáticas `tree-sitter-javascript`, `tree-sitter-typescript` y `tree-sitter-java`) para realizar el análisis estático de proyectos en JavaScript, TypeScript y Java.
+   - Se fija la incorporación de Tree-sitter y las gramáticas de JavaScript y TypeScript en `pyproject.toml` con rangos de versión semántica compatibles:
+     - `tree-sitter>=0.22.0,<0.25.0`
+     - `tree-sitter-javascript>=0.21.0,<0.24.0`
+     - `tree-sitter-typescript>=0.21.0,<0.24.0`
+   - La gramática de Java (`tree-sitter-java`) queda reservada para su incorporación por parte del responsable del lenguaje Java en su propia issue.
+   - Las gramáticas se cargan de forma diferida y centralizada mediante caché en `qagent.lenguajes.treesitter.cargar_gramatica()`.
+   - Se habilita la validación estática de sintaxis (`validar_sintaxis()`) sin requerir Node.js en la máquina del usuario, cubriendo extensiones `.js`, `.mjs`, `.cjs`, `.jsx`, `.ts`, `.tsx`, `.mts` y `.cts` (ignorando `.d.ts`).
 2. **Preservación del analizador `ast` existente para Python:**
    - El analizador actual de Python basado en `ast` ([`analyzer.py`](../../src/qagent/analysis/analyzer.py) y [`rutas.py`](../../src/qagent/analysis/rutas.py)) se mantiene activo para proyectos Python, aprovechando su madurez, soporte nativo de FastAPI y tipado Pydantic.
 3. **Interfaz unificada a través de los adaptadores de ADR-007:**
@@ -116,6 +122,6 @@ Las tres alternativas se evaluaron sobre un banco de pruebas espejo, con impleme
 ### Mitigaciones y Trabajo Futuro
 - **Mapeo de Queries Tree-sitter:** Se deben mantener archivos de consulta `.scm` por cada lenguaje para capturar de forma robusta las asociaciones entre comentarios JSDoc/Javadoc y sus respectivas funciones/métodos.
 - **Extracción de endpoints Express y Spring Boot:** Se implementarán consultas específicas sobre decoradores y llamadas a routers (`app.get()`, `@GetMapping`) de forma análoga a lo desarrollado en EN-14 para FastAPI.
-- **Dependencias:** `tree-sitter` y sus gramáticas se agregan a `pyproject.toml` en la tarea de cada lenguaje, no en el spike.
-- **Reproducibilidad de las cifras:** el banco espejo y los scripts de medición del spike no están en el repositorio. Para repetir las mediciones desde el código hay que versionarlos en `bench/`.
+- **Dependencias:** `tree-sitter`, `tree-sitter-javascript` y `tree-sitter-typescript` quedan fijadas en `pyproject.toml`.
+- **Reproducibilidad de las cifras:** el banco espejo y los scripts de medición del spike se preservan en `bench/multilenguaje/`.
 - **Python con tree-sitter:** las mediciones muestran que tree-sitter también es más rápido en Python (2.78 ms frente a 4.36 ms). Migrar el analizador de Python es una tarea aparte y solo se hace si da exactamente la misma estructura que `analizar_proyecto()`.

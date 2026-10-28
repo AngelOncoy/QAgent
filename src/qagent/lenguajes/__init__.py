@@ -1,7 +1,8 @@
 """Adaptadores por lenguaje (EN-17): lo específico de cada lenguaje, separado de los agentes.
 
 ``REGISTRO`` trae los cuatro lenguajes de los contratos. Python está completo (delega
-en el flujo actual); JavaScript, TypeScript y Java solo detectan por ahora.
+en el flujo actual); JavaScript y TypeScript validan sintaxis con tree-sitter (ADR-009);
+Java solo detecta por ahora.
 
 Ver ``src/qagent/lenguajes/README.md`` y ``docs/decisiones/ADR-007-adaptadores-por-lenguaje.md``.
 """
@@ -24,6 +25,7 @@ from qagent.lenguajes.java import JavaAdapter
 from qagent.lenguajes.javascript import JavaScriptAdapter, TypeScriptAdapter
 from qagent.lenguajes.python import PythonAdapter
 from qagent.lenguajes.registro import Registro, listar_archivos
+from qagent.lenguajes.treesitter import cargar_gramatica
 
 #: Registro predeterminado con todos los lenguajes de los contratos.
 REGISTRO = Registro(
@@ -62,6 +64,7 @@ __all__ = [
     "TypeScriptAdapter",
     "adaptador_de_contrato",
     "adaptador_para",
+    "cargar_gramatica",
     "detectar_lenguaje",
     "listar_archivos",
 ]

@@ -16,13 +16,25 @@ AQUI = Path(SPECPATH)  # noqa: F821 (variable que define PyInstaller)
 # Interfaz, contratos, config.toml, IA simulada y Dockerfile: los mismos datos que el
 # wheel. Quedan en `qagent/...` junto a sus módulos, así las rutas de TA-06 funcionan igual.
 # La metadata va con el nombre de PyPI (qagent-pytest): de ahí sale `qagent --version`.
-datos = collect_data_files("qagent") + copy_metadata("qagent-pytest")
+# Incluye las gramáticas de tree-sitter para análisis multilenguaje (ADR-009).
+datos = (
+    collect_data_files("qagent")
+    + collect_data_files("tree_sitter")
+    + collect_data_files("tree_sitter_javascript")
+    + collect_data_files("tree_sitter_typescript")
+    + copy_metadata("qagent-pytest")
+)
 
 a = Analysis(  # noqa: F821
     [str(AQUI / "lanzador.py")],
     datas=datos,
     # Varios módulos se importan dentro de funciones: PyInstaller no los ve solo.
-    hiddenimports=collect_submodules("qagent"),
+    hiddenimports=(
+        collect_submodules("qagent")
+        + collect_submodules("tree_sitter")
+        + collect_submodules("tree_sitter_javascript")
+        + collect_submodules("tree_sitter_typescript")
+    ),
     excludes=["pytest", "ruff", "tkinter", "build"],
     noarchive=False,
 )
