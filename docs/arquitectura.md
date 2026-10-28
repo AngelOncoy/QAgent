@@ -595,7 +595,7 @@ sequenceDiagram
 | Qué explica | Solo los objetivos que no terminaron en `accept` (bug detectado, estancado, sin veredicto). |
 | Dos niveles | Plantillas deterministas con el esperado, el obtenido y el motivo (0 tokens, siempre disponibles) y, encima, un LLM opcional que lee **toda la traza de intentos**. |
 | Entradas | Contrato del Planner, `review_result` de cada intento y `ResultadoObjetivo`, pasados por `sanitizar_secretos`. Nunca claves, rutas absolutas ni el proyecto completo. |
-| Salida | `.qagent/runs/<run_id>/explicaciones.json`, nunca dentro de `results.json`. La `decision` es un eco: si no coincide, la explicación se descarta. |
+| Salida | `.qagent/runs/<run_id>/explicaciones.json` (validado contra `explicaciones.schema.json`), nunca dentro de `results.json`. Cada elemento cumple `explanation.v1` (`objetivo`, `decision`, `resumen`, `que_se_esperaba`, `que_paso`, `que_hacer`, `origen`, `modelo`). La `decision` es un eco: si no coincide con `results.json`, la explicación se descarta. |
 | Cuándo se omite | Corrida cancelada, límite de tokens o tope en USD alcanzado, perfil Humo o Explicador desactivado. |
 | Público | Pensado sobre todo para usuarios con poca experiencia en desarrollo; se puede desactivar. |
 
@@ -775,7 +775,8 @@ Los schemas completos van en `src/qagent/contracts/` y los valida `tests/test_co
 | `review_result` | Reviewer → Orquestador | función o ruta, intento, estado del sandbox, cobertura, laundering detectado, `tipo_fallo` (`error_test` \| `bug_codigo`), hash del error, decisión (`accept` \| `retry` \| `bug_detectado` \| `stalled`), feedback, `ejecucion` opcional (EN-17: casos, salida y entorno del sandbox) | `review_result.schema.json` |
 | `detalle.json` | Orquestador → `.qagent/` | por función: contrato, último test y traza; por intento (EN-17): feedback, hash del error, cobertura y `ejecucion` (casos de pytest con archivo, línea, código, esperado y obtenido, salida recortada y entorno) | `detalle.schema.json` |
 | `log.json` / `results.json` | Orquestador → `.qagent/` | modelos usados, perfil, llamadas con tokens por agente, costo, 5 métricas por función o endpoint | `run_log.schema.json` |
-| `explanation.v1` (EN-18; Agente Explicador aún propuesto) | futuro Explicador → validación determinista → futura persistencia separada → Informes | ids de explicación y hallazgo, referencia al resultado, ubicación, evidencia, explicación, impacto, recomendación y estado de verificación. No contiene campos para modificar veredictos o pruebas | `explanation.v1.schema.json` |
+| `explanation.v1` (EN-18, alineado con ADR-008; Agente Explicador propuesto) | Explicador → validación determinista → `explicaciones.json` → Informes | `version`, `objetivo`, `decision` (eco estricto de `results.json`), `resumen`, `que_se_esperaba`, `que_paso`, `que_hacer`, `origen` y `modelo`. No contiene campos para modificar veredictos ni relajar aserciones | `explanation.v1.schema.json` |
+| `explicaciones.json` (ADR-008) | Explicador → `.qagent/runs/<run_id>/explicaciones.json` | Contenedor de las explicaciones de la corrida (`explanation.v1`), persistido por separado de `results.json` | `explicaciones.schema.json` |
 
 **Origen del valor esperado (oráculo):** firma, tipos o docstring de una función (en JS/TS, JSDoc y tipos de TypeScript; en Java, Javadoc y tipos); o la declaración de la ruta (`response_model`, `status_code`, modelos Pydantic) de un endpoint. Nunca el resultado de ejecutar el código.
 
@@ -943,7 +944,7 @@ Responsables sugeridos en el plan del Sprint 2, a confirmar en el Sprint Plannin
 
 | Decisión o tarea abierta | Responsable sugerido | Referencia |
 |---|---|---|
-| Integrar `explanation.v1` con el futuro Agente Explicador y su persistencia separada; el nombre y la forma base quedaron definidos en EN-18 | Rodríguez Malca, Rodrigo | ADR-008 · EN-18 · EP-10 |
+| Integrar `explanation.v1` con el futuro Agente Explicador y su persistencia separada (`explicaciones.json`); contrato y schema alineados con ADR-008 (**Resuelto**) | Rodríguez Malca, Rodrigo | ADR-008 · EN-18 · EP-10 |
 | Si el Explicador propone parches y el orquestador los verifica en el sandbox (necesita su propia decisión) | Rodríguez Malca, Rodrigo, con el equipo | ADR-008 |
 | Medir el Explicador con un LLM real (tokens, costo, latencia y calidad) antes de activarlo por defecto | Rodríguez Malca, Rodrigo y Sanchez Vargas, Adrián | ADR-008, paso 5 |
 | Conectar el registro de adaptadores a la corrida y usar `planner_contract.v3` en el flujo | Oncoy Patricio, Angel | ADR-007 |

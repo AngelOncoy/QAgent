@@ -27,6 +27,7 @@ PLANNER_V3 = "planner_contract.v3"
 GENERATED_TEST_V2 = "generated_test.v2"
 ORACLE_V1 = "oracle.v1"
 EXPLANATION_V1 = "explanation.v1"
+EXPLICACIONES = "explicaciones"
 CONTRATOS = (
     PLANNER,
     GENERATED_TEST,
@@ -37,6 +38,7 @@ CONTRATOS = (
     GENERATED_TEST_V2,
     ORACLE_V1,
     EXPLANATION_V1,
+    EXPLICACIONES,
 )
 
 #: Familias de contratos versionados: valor del campo `version` -> contrato.
@@ -252,6 +254,9 @@ def _formatear(ruta: Any, mensaje: str) -> str:
 # ContratoInvalido sin crear una dependencia circular durante la inicialización.
 from qagent.contracts.validacion_semantica import (
     validar_explicacion as validar_explicacion,
+)
+from qagent.contracts.validacion_semantica import (
+    validar_explicaciones as validar_explicaciones,
 )
 from qagent.contracts.validacion_semantica import (
     validar_oraculo_js_ts as validar_oraculo_js_ts,

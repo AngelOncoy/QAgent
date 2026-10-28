@@ -1,0 +1,92 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "explicaciones.schema.json",
+  "title": "explicaciones",
+  "description": "Lista de explicaciones de una corrida guardadas en .qagent/runs/<run_id>/explicaciones.json (ADR-008).",
+  "oneOf": [
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["version", "explicaciones"],
+      "properties": {
+        "version": { "const": "1" },
+        "tipo": { "const": "explicaciones" },
+        "run_id": { "$ref": "#/$defs/id" },
+        "explicaciones": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/explicacion" }
+        }
+      }
+    },
+    {
+      "type": "array",
+      "items": { "$ref": "#/$defs/explicacion" }
+    }
+  ],
+  "$defs": {
+    "id": {
+      "type": "string",
+      "pattern": "^[0-9]{8}-[0-9]{6}-[0-9a-f]{4}$|^[A-Za-z0-9][A-Za-z0-9._:-]{2,127}$"
+    },
+    "ubicacion": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["archivo"],
+      "properties": {
+        "archivo": { "type": "string", "minLength": 1 },
+        "objetivo": { "type": "string", "minLength": 1 },
+        "linea_inicio": { "type": "integer", "minimum": 1 },
+        "linea_fin": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "explicacion": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "version",
+        "objetivo",
+        "decision",
+        "resumen",
+        "que_se_esperaba",
+        "que_paso",
+        "que_hacer",
+        "origen"
+      ],
+      "properties": {
+        "version": { "const": "1" },
+        "objetivo": { "type": "string", "minLength": 1 },
+        "decision": {
+          "enum": ["bug_detectado", "stalled", "sin_veredicto", "requiere_corrida_nueva", null],
+          "description": "Eco de decision de results.json para el objetivo. null o 'sin_veredicto' si quedó sin veredicto. Nunca 'accept'."
+        },
+        "resumen": { "type": "string", "minLength": 1 },
+        "que_se_esperaba": { "type": "string", "minLength": 1 },
+        "que_paso": { "type": "string", "minLength": 1 },
+        "que_hacer": { "type": "string", "minLength": 1 },
+        "origen": { "enum": ["plantilla", "ia"] },
+        "modelo": { "type": ["string", "null"], "minLength": 1 },
+        "modulo": { "type": "string", "minLength": 1 },
+        "run_id": { "$ref": "#/$defs/id" },
+        "explicacion_id": { "$ref": "#/$defs/id" },
+        "ubicacion": { "$ref": "#/$defs/ubicacion" },
+        "verificacion": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["estado"],
+          "properties": {
+            "estado": {
+              "enum": ["propuesta", "pendiente"],
+              "description": "Mientras no exista el ADR de parches, el estado 'verificada' está excluido."
+            }
+          }
+        }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "origen": { "const": "ia" } }, "required": ["origen"] },
+          "then": { "required": ["modelo"], "properties": { "modelo": { "type": "string", "minLength": 1 } } }
+        }
+      ]
+    }
+  }
+}

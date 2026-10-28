@@ -1,72 +1,70 @@
-# Contrato `explanation.v1`
+# Contrato `explanation.v1` y archivo `explicaciones.json`
 
 ## Objetivo
 
-`explanation.v1` representa una explicación de solo lectura sobre un hallazgo ya registrado por QAgent. Prepara la salida del futuro Agente Explicador, pero no implementa el agente, no llama a un LLM y no altera el orquestador.
+`explanation.v1` representa una explicación de solo lectura sobre un objetivo cuyo veredicto no terminó en `accept` (`bug_detectado`, `stalled` o sin veredicto), conforme a lo decidido en el **ADR-008** (SPK-03) y la sección 6.5 de `docs/arquitectura.md`.
 
-La explicación interpreta evidencia existente. Reviewer conserva en exclusiva el veredicto, la clasificación del fallo, los reintentos y el guardrail contra Assertion Laundering.
+Prepara la salida del futuro Agente Explicador, pero no implementa el agente, no altera la máquina de estados del orquestador y no relaja aserciones. Reviewer conserva en exclusiva el veredicto, la clasificación del fallo, los reintentos y el guardrail contra Assertion Laundering.
 
-## Estructura
+## Estructura de `explanation.v1`
 
-| Área | Campos principales |
-|---|---|
-| Identificación | `version`, `explicacion_id`, `hallazgo_id`. |
-| Resultado de origen | `referencia_resultado.run_id`, `objetivo` y `resultado_id` opcional. |
-| Ubicación | Archivo relativo, objetivo y rango de líneas opcional. |
-| Hallazgo | Tipo, descripción e ids de evidencias. |
-| Explicación | Resumen, impacto y limitaciones opcionales. |
-| Recomendación | Acción sugerida, justificación e ids de evidencias. |
-| Verificación | Estado `propuesta`, `pendiente` o `verificada`; la última exige una ejecución independiente. |
-| Procedencia de la redacción | `origen` (`plantilla` o `ia`) y `modelo` obligatorio para `ia`. |
+| Campo | Tipo | Obligatorio | Descripción |
+|---|---|---|---|
+| `version` | string | Sí | Debe ser `"1"`. |
+| `objetivo` | string | Sí | Nombre de la función o endpoint probado (ej. `"calcularDescuento"` o `"GET /items"`). |
+| `decision` | string \| null | Sí | Eco estricto del veredicto de `results.json`: `"bug_detectado"`, `"stalled"`, `"sin_veredicto"`, `"requiere_corrida_nueva"` o `null`. Si no coincide con `results.json`, la explicación se descarta. No admite `"accept"`. |
+| `resumen` | string | Sí | Resumen en lenguaje claro del resultado. |
+| `que_se_esperaba` | string | Sí | Qué prometía la especificación o contrato documentado. |
+| `que_paso` | string | Sí | Qué ocurrió realmente en la ejecución del sandbox. |
+| `que_hacer` | string | Sí | Recomendación para el usuario. El validador semántico rechaza cualquier recomendación que proponga relajar una aserción o cambiar el valor esperado. |
+| `origen` | string | Sí | `"plantilla"` (0 tokens) o `"ia"`. |
+| `modelo` | string \| null | Condicional | Obligatorio y no vacío si `origen == "ia"`; `null` si `origen == "plantilla"`. |
+| `modulo` | string | No | Módulo al que pertenece el objetivo. |
+| `run_id` | string | No | Identificador de la corrida. |
+| `explicacion_id` | string | No | Identificador de la explicación. |
+| `ubicacion` | object | No | Archivo relativo seguro (`archivo`) y líneas opcionales (`linea_inicio`, `linea_fin`). |
+| `verificacion` | object | No | Si está presente, su `estado` solo puede ser `"propuesta"` o `"pendiente"`. El estado `"verificada"` queda excluido hasta que se apruebe un ADR de parches. |
 
-El schema usa `additionalProperties: false` en todos los objetos sensibles. Por ello no admite campos como `decision`, `veredicto`, `codigo_prueba` o `parche` que intenten modificar responsabilidades de Reviewer o el contenido de una prueba.
+El schema usa `additionalProperties: false`. Por ello no admite campos como `codigo_prueba`, `parche` o `veredicto` que pretendan modificar las responsabilidades del Reviewer o el contenido de los tests.
 
-## Evidencia y contexto confiable
+## Persistencia: `.qagent/runs/<run_id>/explicaciones.json`
 
-JSON Schema solo puede comprobar que un id tenga la forma correcta. `contracts.validar_explicacion()` recibe tres registros deterministas:
+Las explicaciones de una corrida se guardan en `.qagent/runs/<run_id>/explicaciones.json`, **nunca dentro de `results.json`**.
 
-- `hallazgos_confiables`: run, objetivo, tipo, ubicación e ids de evidencia del hallazgo original.
-- `evidencias_confiables`: evidencias realmente guardadas por QAgent.
-- `verificaciones_confiables`: ejecuciones independientes registradas por el sandbox.
+El archivo se valida contra el schema `explicaciones.schema.json`, que admite:
+1. Un objeto con metadata de corrida:
+   ```json
+   {
+     "version": "1",
+     "tipo": "explicaciones",
+     "run_id": "20261025-143000-a1b2",
+     "explicaciones": [ ... ]
+   }
+   ```
+2. Una lista directa `[ ... ]` de explicaciones `explanation.v1`.
 
-La validación rechaza referencias inexistentes, evidencia perteneciente a otro hallazgo, cambios del tipo original y ubicaciones que contradigan el registro.
+## Validación semántica
 
-## Estados de verificación
+`contracts.validar_explicacion()` aplica las siguientes reglas de negocio deterministas:
 
-| Estado | Significado |
-|---|---|
-| `propuesta` | Acción sugerida; no se afirma que resuelva el hallazgo. |
-| `pendiente` | La acción espera una verificación independiente. |
-| `verificada` | Una ejecución confiable del sandbox terminó en `estado_sandbox == "ok"` y `decision == "accept"` para el mismo objetivo. |
+1. **Eco de decisión:** si se proporciona `results_confiables` o `resultado_confiable`, la `decision` de la explicación debe coincidir exactamente con la registrada en `results.json`. Si el objetivo terminó en `accept`, se rechaza porque el Explicador solo actúa sobre objetivos no aceptados.
+2. **Guardrail anti-relajación / anti-laundering:** se analiza el texto de `que_hacer` (y campos explicativos). Si propone relajar una aserción, debilitar asserts, eliminar aserciones o cambiar el valor esperado del oráculo, la explicación se rechaza.
+3. **Restricción de parches:** no se admite `verificacion.estado == "verificada"`.
+4. **Ubicación segura:** las rutas deben ser relativas y seguras (sin `..` ni rutas absolutas), y `linea_fin >= linea_inicio`.
 
-No existe un booleano libre `verified`. Para `verificada` se requieren `ejecucion_id` y `run_id`, y ambos se contrastan con el registro recibido. Una entrada cuyo origen sea `llm` se rechaza como prueba aunque contenga `ok` y `accept`.
+`contracts.validar_explicaciones()` valida el archivo contenedor completo y cada una de sus explicaciones.
 
-## Ejemplo válido no verificado
+## Ejemplo válido
 
 ```json
 {
   "version": "1",
-  "explicacion_id": "exp-run-001-descuento",
-  "hallazgo_id": "hallazgo-descuento-001",
-  "referencia_resultado": {
-    "run_id": "run-001",
-    "objetivo": "calcularDescuento"
-  },
-  "hallazgo": {
-    "tipo": "bug_codigo",
-    "descripcion": "El resultado no coincide con el contrato.",
-    "evidencia_ids": ["evidencia-assert-001"]
-  },
-  "explicacion": {
-    "resumen": "La función devolvió 75 cuando se esperaban 80.",
-    "impacto": "El precio final puede ser incorrecto."
-  },
-  "recomendacion": {
-    "accion": "Revisar la regla de porcentaje.",
-    "justificacion": "La aserción conserva el oráculo documentado.",
-    "evidencia_ids": ["evidencia-assert-001"]
-  },
-  "verificacion": {"estado": "propuesta"},
+  "objetivo": "calcularDescuento",
+  "decision": "bug_detectado",
+  "resumen": "La función devolvió 75 cuando el contrato esperaba 80.",
+  "que_se_esperaba": "Que calcularDescuento(100, 20) devolviera 80 según la documentación.",
+  "que_paso": "La función aplicó un descuento del 25% en lugar del 20% y devolvió 75.",
+  "que_hacer": "Revisar la regla de cálculo de porcentaje en src/precios.ts para aplicar el porcentaje correcto.",
   "origen": "plantilla",
   "modelo": null
 }
@@ -74,27 +72,20 @@ No existe un booleano libre `verified`. Para `verificada` se requieren `ejecucio
 
 ## Casos rechazados
 
-- Falta `hallazgo_id` o cualquier campo obligatorio.
-- El hallazgo o la evidencia no existen en el contexto confiable.
-- La evidencia existe, pero pertenece a otro hallazgo.
-- Se declara `verificada` sin una ejecución registrada.
-- La supuesta verificación procede de un LLM o no terminó aceptada en el sandbox.
-- Se agrega `decision`, `veredicto`, código de prueba o parche.
-- La referencia apunta a otra corrida u objetivo.
+- Falta cualquier campo obligatorio (`version`, `objetivo`, `decision`, `resumen`, `que_se_esperaba`, `que_paso`, `que_hacer`, `origen`).
+- `origen == "ia"` sin especificar un `modelo` no vacío.
+- `decision == "accept"` (prohibido tanto por schema como por validador semántico).
+- La `decision` no coincide con la registrada en `results.json` para ese objetivo.
+- La recomendación propone relajar una aserción o cambiar el valor esperado documentado.
+- Se declara `verificacion.estado = "verificada"`.
+- Se agregan campos ajenos (`parche`, `codigo_prueba`, `veredicto`, etc.).
+- La ruta del archivo es absoluta o insegura.
 
-Los contextos y escenarios reproducibles están en `tests/fixtures/en18/explicaciones.json`.
+## Versionado y archivos relacionados
 
-## Versionado e integración futura
-
-- Schema: `src/qagent/contracts/explanation.v1.schema.json`.
-- Ejemplo distribuido: `src/qagent/contracts/ejemplos/explanation.v1.json`.
+- Schema individual: `src/qagent/contracts/explanation.v1.schema.json`.
+- Schema de lista/archivo: `src/qagent/contracts/explicaciones.schema.json`.
+- Ejemplo individual: `src/qagent/contracts/ejemplos/explanation.v1.json`.
+- Ejemplo de archivo: `src/qagent/contracts/ejemplos/explicaciones.json`.
 - Familia versionada: `contracts.FAMILIA_EXPLANATION`.
-- Validación contextual: `contracts.validar_explicacion()`.
-
-Según ADR-008, un futuro Explicador se ejecutará después de guardar `results.json` y escribirá un archivo separado. EN-18 solo entrega el contrato y su validación; no crea `ExplicadorAgent`, no persiste `explicaciones.json`, no añade configuración y no realiza llamadas LLM.
-
-## Limitaciones
-
-- La autenticidad de evidencia depende de los registros confiables que entregue el futuro punto de integración.
-- La verificación de una propuesta depende de una ejecución independiente que otra issue conectará al sandbox.
-- No se propone ni aplica un parche; esa capacidad requiere una decisión arquitectónica separada.
+- Validadores: `contracts.validar_explicacion()` y `contracts.validar_explicaciones()`.

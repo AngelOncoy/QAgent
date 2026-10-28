@@ -8,12 +8,14 @@ no ejecuta código del usuario ni consulta un LLM.
 from __future__ import annotations
 
 import json
+import re
 from collections.abc import Mapping
 from pathlib import PurePath
 from typing import Any
 
 from qagent.contracts import (
     EXPLANATION_V1,
+    EXPLICACIONES,
     ORACLE_V1,
     ContratoInvalido,
     validar,
@@ -96,96 +98,151 @@ def validar_oraculo_js_ts(
     return dato
 
 
+_PATRONES_RELAJAR_ASERCION = (
+    r"\brelajar\s+(?:la|las|el)?\s*(?:aserci[oó]n|aserciones|assert)",
+    r"\bdebilitar\s+(?:la|las|el)?\s*(?:aserci[oó]n|aserciones|assert)",
+    r"\b(?:cambiar|modificar|ajustar|actualizar)\s+(?:el\s+)?valor\s+esperado",
+    r"\b(?:cambiar|modificar|ajustar|actualizar)\s+el\s+esperado\b",
+    r"\b(?:eliminar|borrar|quitar|suprimir)\s+(?:la|las|el)?\s*(?:aserci[oó]n|aserciones|assert)",
+    r"\b(?:cambiar|modificar|ajustar|relajar)\s+(?:la|las|el)?\s*(?:aserci[oó]n|assert)\b.*?\b(?:para\s+que\s+pase|evitar\s+el\s+fallo)",
+    r"\b(?:bajar|reducir)\s+el\s+rigor\s+de\s+(?:la|las)?\s*aserci",
+    r"\b(?:ignorar|suprimir)\s+(?:el\s+)?(?:fallo|error)\s+de\s+(?:la|el)?\s*(?:prueba|test|aserci[oó]n)",
+)
+_RE_RELAJAR_ASERCION = re.compile("|".join(_PATRONES_RELAJAR_ASERCION), re.IGNORECASE)
+
+
+def _propone_relajar_o_cambiar_esperado(texto: str) -> bool:
+    if not texto:
+        return False
+    return bool(_RE_RELAJAR_ASERCION.search(texto))
+
+
 def validar_explicacion(
     dato: dict[str, Any],
     *,
-    hallazgos_confiables: Mapping[str, Mapping[str, Any]],
-    evidencias_confiables: Mapping[str, Any],
+    resultado_confiable: Mapping[str, Any] | None = None,
+    results_confiables: Mapping[str, Any] | None = None,
+    hallazgos_confiables: Mapping[str, Mapping[str, Any]] | None = None,
+    evidencias_confiables: Mapping[str, Any] | None = None,
     verificaciones_confiables: Mapping[str, Mapping[str, Any]] | None = None,
 ) -> dict[str, Any]:
-    """Valida ``explanation.v1`` contra hallazgos y ejecuciones confiables.
+    """Valida ``explanation.v1`` según ADR-008.
 
-    ``hallazgos_confiables`` conserva para cada id su ``run_id``, ``objetivo``,
-    ``tipo`` y los ids de ``evidencias`` asociados. Una recomendación solo queda
-    ``verificada`` cuando su referencia existe en ``verificaciones_confiables`` y
-    esa ejecución procede del sandbox, terminó en ``ok`` y fue aceptada.
+    Comprueba que el schema sea válido, que la `decision` coincida exactamente con
+    la registrada en `results.json` (no se admiten explicaciones para `accept`),
+    que no se proponga relajar aserciones ni cambiar valores esperados, y que no se
+    declare el estado `verificada` sin el ADR de parches.
     """
     validar(EXPLANATION_V1, dato)
-    hallazgo_id = dato["hallazgo_id"]
-    registrado = hallazgos_confiables.get(hallazgo_id)
     errores: list[str] = []
-    if registrado is None:
+
+    # 1. Verificación no puede estar en estado "verificada" mientras no haya ADR de parches
+    verificacion = dato.get("verificacion")
+    if verificacion is not None and verificacion.get("estado") == "verificada":
         errores.append(
-            f"hallazgo_id: {hallazgo_id!r} no existe en el registro confiable"
+            "verificacion/estado: el estado 'verificada' no está permitido mientras no exista el ADR de parches"
         )
-    else:
-        referencia = dato["referencia_resultado"]
-        for campo in ("run_id", "objetivo"):
-            if referencia[campo] != registrado.get(campo):
-                errores.append(
-                    f"referencia_resultado/{campo}: no coincide con el hallazgo"
-                )
-        if dato["hallazgo"]["tipo"] != registrado.get("tipo"):
-            errores.append("hallazgo/tipo: no coincide con el hallazgo original")
 
-        permitidas = set(registrado.get("evidencias", ()))
-        usadas = {
-            *dato["hallazgo"]["evidencia_ids"],
-            *dato["recomendacion"]["evidencia_ids"],
-        }
-        for evidencia_id in sorted(usadas):
-            if evidencia_id not in evidencias_confiables:
-                errores.append(
-                    f"evidencia_ids: {evidencia_id!r} no existe en el registro confiable"
-                )
-            elif evidencia_id not in permitidas:
-                errores.append(
-                    f"evidencia_ids: {evidencia_id!r} no pertenece al hallazgo"
-                )
+    # 2. Guardrail anti-laundering / anti-relajación en la recomendación
+    textos_a_inspeccionar = [
+        dato.get("que_hacer", ""),
+        dato.get("resumen", ""),
+        dato.get("que_paso", ""),
+        dato.get("que_se_esperaba", ""),
+    ]
+    if "recomendacion" in dato and isinstance(dato["recomendacion"], dict):
+        textos_a_inspeccionar.append(dato["recomendacion"].get("accion", ""))
+        textos_a_inspeccionar.append(dato["recomendacion"].get("justificacion", ""))
 
-        ubicacion = dato.get("ubicacion")
-        registrada_ubicacion = registrado.get("ubicacion")
-        if ubicacion is not None and registrada_ubicacion is not None:
-            for campo, valor in ubicacion.items():
-                if registrada_ubicacion.get(campo) != valor:
-                    errores.append(f"ubicacion/{campo}: no coincide con el hallazgo")
+    for texto in textos_a_inspeccionar:
+        if _propone_relajar_o_cambiar_esperado(texto):
+            errores.append(
+                "que_hacer: no se permite proponer relajar una aserción ni cambiar el valor esperado"
+            )
+            break
 
+    # 3. Ubicación segura si está presente
     ubicacion = dato.get("ubicacion")
     if ubicacion is not None:
-        if not _es_ruta_relativa(ubicacion["archivo"]):
+        if not _es_ruta_relativa(ubicacion.get("archivo", "")):
             errores.append("ubicacion/archivo: debe ser una ruta relativa segura")
         if ubicacion.get("linea_fin", ubicacion.get("linea_inicio", 1)) < ubicacion.get(
             "linea_inicio", 1
         ):
             errores.append("ubicacion/linea_fin: debe ser >= linea_inicio")
 
-    verificacion = dato["verificacion"]
-    if verificacion["estado"] == "verificada":
-        registro = (verificaciones_confiables or {}).get(verificacion["ejecucion_id"])
-        if registro is None:
-            errores.append(
-                "verificacion/ejecucion_id: no existe una ejecución confiable"
-            )
-        else:
-            if registro.get("origen") != "sandbox":
-                errores.append(
-                    "verificacion: una afirmación del LLM no prueba la corrección"
-                )
+    # 4. Eco de decision contra resultados confiables
+    objetivo_nombre = dato.get("objetivo")
+    res_encontrado: Mapping[str, Any] | None = resultado_confiable
+
+    if res_encontrado is None and results_confiables is not None:
+        for obj in results_confiables.get("objetivos", []):
             if (
-                registro.get("estado_sandbox") != "ok"
-                or registro.get("decision") != "accept"
+                obj.get("funcion") == objetivo_nombre
+                or obj.get("objetivo") == objetivo_nombre
             ):
+                res_encontrado = obj
+                break
+        if res_encontrado is None:
+            errores.append(f"objetivo: {objetivo_nombre!r} no existe en results.json")
+
+    if res_encontrado is None and hallazgos_confiables is not None:
+        hallazgo_id = dato.get("hallazgo_id")
+        if hallazgo_id and hallazgo_id in hallazgos_confiables:
+            res_encontrado = hallazgos_confiables[hallazgo_id]
+        else:
+            for reg in hallazgos_confiables.values():
+                if reg.get("objetivo") == objetivo_nombre:
+                    res_encontrado = reg
+                    break
+        if res_encontrado is None:
+            errores.append(
+                f"objetivo: {objetivo_nombre!r} no existe en el registro confiable"
+            )
+
+    if res_encontrado is not None:
+        decision_registrada = res_encontrado.get("decision")
+        if decision_registrada == "accept":
+            errores.append(
+                "decision: no se admiten explicaciones para objetivos con decision 'accept'"
+            )
+        elif decision_registrada is None:
+            if dato.get("decision") not in (None, "sin_veredicto"):
                 errores.append(
-                    "verificacion: la ejecución independiente no terminó aceptada"
+                    f"decision: {dato.get('decision')!r} no coincide con decision sin veredicto (None) de results.json"
                 )
-            referencia = dato["referencia_resultado"]
-            if registro.get("run_id") != verificacion["run_id"]:
-                errores.append("verificacion/run_id: no coincide con la ejecución")
-            if registro.get("objetivo") != referencia["objetivo"]:
-                errores.append("verificacion/ejecucion_id: corresponde a otro objetivo")
+        else:
+            if dato.get("decision") != decision_registrada:
+                errores.append(
+                    f"decision: {dato.get('decision')!r} no coincide con {decision_registrada!r} de results.json"
+                )
 
     if errores:
         raise ContratoInvalido(EXPLANATION_V1, errores)
+    return dato
+
+
+def validar_explicaciones(
+    dato: Any,
+    *,
+    results_confiables: Mapping[str, Any] | None = None,
+) -> Any:
+    """Valida el archivo ``explicaciones.json`` y cada una de sus explicaciones.
+
+    Comprueba la conformidad con ``explicaciones.schema.json`` y valida semánticamente
+    cada explicación frente a ``results_confiables`` si se provee.
+    """
+    validar(EXPLICACIONES, dato)
+    lista = dato if isinstance(dato, list) else dato.get("explicaciones", [])
+    errores: list[str] = []
+    for i, exp in enumerate(lista):
+        try:
+            validar_explicacion(exp, results_confiables=results_confiables)
+        except ContratoInvalido as error:
+            prefix = f"explicaciones[{i}]"
+            errores.extend(f"{prefix}/{e}" for e in error.errores)
+    if errores:
+        raise ContratoInvalido(EXPLICACIONES, errores)
     return dato
 
 
