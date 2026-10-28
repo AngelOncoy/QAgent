@@ -1,0 +1,25 @@
+{
+  "version": "1",
+  "tipo": "explicaciones",
+  "run_id": "20261025-143000-a1b2",
+  "explicaciones": [
+    {
+      "version": "1",
+      "objetivo": "calcularDescuento",
+      "decision": "bug_detectado",
+      "resumen": "La función devolvió 75 cuando el contrato esperaba 80.",
+      "que_se_esperaba": "Que calcularDescuento(100, 20) devolviera 80 según la documentación.",
+      "que_paso": "La función aplicó un descuento del 25% en lugar del 20% y devolvió 75.",
+      "que_hacer": "Revisar la regla de cálculo de porcentaje en src/precios.ts para aplicar el porcentaje correcto.",
+      "origen": "plantilla",
+      "modelo": null,
+      "modulo": "precios",
+      "ubicacion": {
+        "archivo": "src/precios.ts",
+        "objetivo": "calcularDescuento",
+        "linea_inicio": 18,
+        "linea_fin": 24
+      }
+    }
+  ]
+}

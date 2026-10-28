@@ -1,34 +1,18 @@
 {
   "version": "1",
-  "explicacion_id": "exp-run-001-descuento",
-  "hallazgo_id": "hallazgo-descuento-001",
-  "referencia_resultado": {
-    "run_id": "run-001",
-    "objetivo": "calcularDescuento",
-    "resultado_id": "resultado-descuento-001"
-  },
+  "objetivo": "calcularDescuento",
+  "decision": "bug_detectado",
+  "resumen": "La función devolvió 75 cuando el contrato esperaba 80.",
+  "que_se_esperaba": "Que calcularDescuento(100, 20) devolviera 80 según la documentación.",
+  "que_paso": "La función aplicó un descuento del 25% en lugar del 20% y devolvió 75.",
+  "que_hacer": "Revisar la regla de cálculo de porcentaje en src/precios.ts para aplicar el porcentaje correcto.",
+  "origen": "plantilla",
+  "modelo": null,
+  "modulo": "precios",
   "ubicacion": {
     "archivo": "src/precios.ts",
     "objetivo": "calcularDescuento",
     "linea_inicio": 18,
     "linea_fin": 24
-  },
-  "hallazgo": {
-    "tipo": "bug_codigo",
-    "descripcion": "El descuento calculado no coincide con el contrato documentado.",
-    "evidencia_ids": ["evidencia-assert-001"]
-  },
-  "explicacion": {
-    "resumen": "La función devolvió 75 cuando el contrato esperaba 80.",
-    "impacto": "El precio final aplicado al usuario puede ser incorrecto.",
-    "limitaciones": ["La explicación no modifica el veredicto del Reviewer."]
-  },
-  "recomendacion": {
-    "accion": "Revisar la regla de porcentaje aplicada por calcularDescuento.",
-    "justificacion": "La aserción fallida conserva el valor esperado del contrato.",
-    "evidencia_ids": ["evidencia-assert-001"]
-  },
-  "verificacion": {"estado": "propuesta"},
-  "origen": "plantilla",
-  "modelo": null
+  }
 }

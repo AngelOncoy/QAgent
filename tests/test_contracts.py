@@ -14,6 +14,7 @@ from qagent.contracts import (
     DETALLE,
     DIR_CONTRATOS,
     EXPLANATION_V1,
+    EXPLICACIONES,
     GENERATED_TEST,
     GENERATED_TEST_V2,
     ORACLE_V1,
@@ -59,6 +60,7 @@ EJEMPLOS = [
     (GENERATED_TEST_V2, "generated_test.v2.java"),
     (ORACLE_V1, ORACLE_V1),
     (EXPLANATION_V1, EXPLANATION_V1),
+    (EXPLICACIONES, EXPLICACIONES),
 ]
 
 

@@ -2,74 +2,47 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "explanation.v1.schema.json",
   "title": "explanation.v1",
-  "description": "EN-18. Explicación de solo lectura sobre un hallazgo existente. El schema valida la forma; validar_explicacion comprueba referencias y verificaciones contra registros confiables.",
+  "description": "Explicación de solo lectura sobre un objetivo cuyo veredicto no fue accept (ADR-008). El schema valida la forma; validar_explicacion comprueba que decision coincida con results.json y que la recomendación no proponga relajar aserciones.",
   "type": "object",
   "additionalProperties": false,
-  "required": ["version", "explicacion_id", "hallazgo_id", "referencia_resultado", "hallazgo", "explicacion", "recomendacion", "verificacion", "origen"],
+  "required": [
+    "version",
+    "objetivo",
+    "decision",
+    "resumen",
+    "que_se_esperaba",
+    "que_paso",
+    "que_hacer",
+    "origen"
+  ],
   "properties": {
     "version": { "const": "1" },
+    "objetivo": { "type": "string", "minLength": 1 },
+    "decision": {
+      "enum": ["bug_detectado", "stalled", "sin_veredicto", "requiere_corrida_nueva", null],
+      "description": "Eco de decision de results.json para el objetivo. null o 'sin_veredicto' si quedó sin veredicto. Nunca 'accept'."
+    },
+    "resumen": { "type": "string", "minLength": 1 },
+    "que_se_esperaba": { "type": "string", "minLength": 1 },
+    "que_paso": { "type": "string", "minLength": 1 },
+    "que_hacer": { "type": "string", "minLength": 1 },
+    "origen": { "enum": ["plantilla", "ia"] },
+    "modelo": { "type": ["string", "null"], "minLength": 1 },
+    "modulo": { "type": "string", "minLength": 1 },
+    "run_id": { "$ref": "#/$defs/id" },
     "explicacion_id": { "$ref": "#/$defs/id" },
-    "hallazgo_id": { "$ref": "#/$defs/id" },
-    "referencia_resultado": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["run_id", "objetivo"],
-      "properties": {
-        "run_id": { "$ref": "#/$defs/id" },
-        "objetivo": { "type": "string", "minLength": 1 },
-        "resultado_id": { "$ref": "#/$defs/id" }
-      }
-    },
     "ubicacion": { "$ref": "#/$defs/ubicacion" },
-    "hallazgo": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["tipo", "descripcion", "evidencia_ids"],
-      "properties": {
-        "tipo": { "enum": ["bug_codigo", "error_test", "estancado", "sin_veredicto", "assertion_laundering"] },
-        "descripcion": { "type": "string", "minLength": 1 },
-        "evidencia_ids": { "$ref": "#/$defs/evidencia_ids" }
-      }
-    },
-    "explicacion": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["resumen", "impacto"],
-      "properties": {
-        "resumen": { "type": "string", "minLength": 1 },
-        "impacto": { "type": "string", "minLength": 1 },
-        "limitaciones": { "type": "array", "items": { "type": "string", "minLength": 1 }, "uniqueItems": true }
-      }
-    },
-    "recomendacion": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["accion", "justificacion", "evidencia_ids"],
-      "properties": {
-        "accion": { "type": "string", "minLength": 1 },
-        "justificacion": { "type": "string", "minLength": 1 },
-        "evidencia_ids": { "$ref": "#/$defs/evidencia_ids" }
-      }
-    },
     "verificacion": {
       "type": "object",
       "additionalProperties": false,
       "required": ["estado"],
       "properties": {
-        "estado": { "enum": ["propuesta", "pendiente", "verificada"] },
-        "ejecucion_id": { "$ref": "#/$defs/id" },
-        "run_id": { "$ref": "#/$defs/id" }
-      },
-      "allOf": [
-        {
-          "if": { "properties": { "estado": { "const": "verificada" } }, "required": ["estado"] },
-          "then": { "required": ["ejecucion_id", "run_id"] },
-          "else": { "not": { "anyOf": [{ "required": ["ejecucion_id"] }, { "required": ["run_id"] }] } }
+        "estado": {
+          "enum": ["propuesta", "pendiente"],
+          "description": "Mientras no exista el ADR de parches, el estado 'verificada' está excluido."
         }
-      ]
-    },
-    "origen": { "enum": ["plantilla", "ia"] },
-    "modelo": { "type": ["string", "null"], "minLength": 1 }
+      }
+    }
   },
   "allOf": [
     {
@@ -78,12 +51,9 @@
     }
   ],
   "$defs": {
-    "id": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{2,127}$" },
-    "evidencia_ids": {
-      "type": "array",
-      "minItems": 1,
-      "uniqueItems": true,
-      "items": { "$ref": "#/$defs/id" }
+    "id": {
+      "type": "string",
+      "pattern": "^[0-9]{8}-[0-9]{6}-[0-9a-f]{4}$|^[A-Za-z0-9][A-Za-z0-9._:-]{2,127}$"
     },
     "ubicacion": {
       "type": "object",

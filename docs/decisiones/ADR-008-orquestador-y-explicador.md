@@ -123,7 +123,7 @@ Todo pasa por `sanitizar_secretos` antes de enviarse. No recibe claves, rutas ab
 **Salida:** un contrato nuevo con `version`, `objetivo`, `decision`, `resumen`, `que_se_esperaba`, `que_paso`, `que_hacer`, `origen` (`ia` o `plantilla`) y `modelo`.
 
 - `decision` es un eco: si no coincide con `results.json`, la explicación se descarta.
-- Se guarda en `.qagent/runs/<run_id>/explicaciones.json`, nunca dentro de `results.json`.
+- Se guarda en `.qagent/runs/<run_id>/explicaciones.json`, validado contra `explicaciones.schema.json`, nunca dentro de `results.json`.
 - Los informes lo leen si existe y es válido, y muestran «Explicación generada por IA» cuando corresponde.
 
 ### 5.3 Restricciones de responsabilidad
@@ -145,7 +145,7 @@ Todo pasa por `sanitizar_secretos` antes de enviarse. No recibe claves, rutas ab
 
 ### Pendientes
 
-- **Nombre y forma del contrato:** el plan del Sprint 2 lo llama `explanation.v1` (con parche propuesto y `fix_verificado`) y el spike propone `explicacion.schema.json` (sin parche). Se acuerda con el responsable de EP-10 antes de implementarlo.
-- **Verificación de parches:** el plan propone que el Explicador sugiera un parche y que el orquestador lo verifique en el sandbox. Este ADR no lo cubre; si se adopta, necesita su propia decisión, porque es una ejecución adicional y nunca debe tocar la prueba original.
+- **Nombre y forma del contrato (Resuelto):** se acordó mantener el nombre `explanation.v1` y ajustar su contrato directamente en lugar de crear `explanation.v2`, dado que el borrador preliminar de EN-18 no tenía ningún consumidor fuera de sus pruebas unitarias (crear una v2 habría dejado código huérfano y deuda técnica innecesaria). El contrato adopta la forma definitiva alineada con la sección 5.2: `version`, `objetivo`, `decision` (eco estricto de `results.json`), `resumen`, `que_se_esperaba`, `que_paso`, `que_hacer`, `origen` (`plantilla` o `ia`) y `modelo` (obligatorio si `origen` es `ia`). Los campos `hallazgo_id` y `evidencia_ids` se eliminan porque `results.json` no los genera y el nombre del objetivo ya identifica unívocamente el resultado. La corrida persiste las explicaciones en `.qagent/runs/<run_id>/explicaciones.json` validado con su propio schema (`explicaciones.schema.json`).
+- **Verificación de parches:** se mantiene fuera del alcance del Explicador hasta que se formule y apruebe un ADR específico de parches; el contrato `explanation.v1` no admite `verificacion.estado = 'verificada'`.
 - **Sin medir:** la frecuencia real de `_clasificar_con_llm` con un modelo real, el consumo de tokens de los prototipos y la calidad de las explicaciones. Se miden en el paso 5 de la decisión.
 - **Reproducibilidad de las cifras:** el script y los datos de medición del spike no están en el repositorio. Para repetir las cifras [MEDIDO] desde el código hay que versionarlos en `bench/`.
