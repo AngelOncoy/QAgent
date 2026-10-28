@@ -1,14 +1,14 @@
-"""Adaptadores de JavaScript y TypeScript (EN-17): por ahora solo detectan.
+"""Adaptadores de JavaScript y TypeScript (EN-17).
 
-Punto de partida del responsable de JS/TS. El análisis, el comando de Jest o
-Vitest, el entorno del sandbox y la lectura de resultados lanzan
-``NoImplementado`` hasta que se implementen (ver ``README.md`` de este paquete).
-El análisis estático usa tree-sitter (decisión de SPK-04, ADR-007).
+Análisis estático y validación de sintaxis con tree-sitter (SPK-04, ADR-009).
+El comando de Jest o Vitest, el entorno del sandbox y la lectura de resultados
+lanzan ``NoImplementado`` hasta que se implementen (ver ``README.md`` de este paquete).
 """
 
 from __future__ import annotations
 
 from qagent.lenguajes.base import AdaptadorEnDesarrollo
+from qagent.lenguajes.treesitter import validar_sintaxis_js, validar_sintaxis_ts
 
 
 class JavaScriptAdapter(AdaptadorEnDesarrollo):
@@ -19,6 +19,14 @@ class JavaScriptAdapter(AdaptadorEnDesarrollo):
     marcadores = ("package.json",)
     frameworks_pruebas = ("jest", "vitest")
     frameworks_app = ("express",)
+
+    def validar_sintaxis(self, codigo: str) -> list[str]:
+        """Errores de sintaxis del código JavaScript parseado con tree-sitter.
+
+        Devuelve una lista vacía si el código es válido, o la lista de errores
+        con su número de línea si encuentra nodos ERROR o MISSING.
+        """
+        return validar_sintaxis_js(codigo)
 
 
 class TypeScriptAdapter(AdaptadorEnDesarrollo):
@@ -33,3 +41,11 @@ class TypeScriptAdapter(AdaptadorEnDesarrollo):
     def es_fuente(self, archivo: str) -> bool:
         """Los ``.d.ts`` solo declaran tipos: no tienen código que probar."""
         return super().es_fuente(archivo) and not archivo.lower().endswith(".d.ts")
+
+    def validar_sintaxis(self, codigo: str) -> list[str]:
+        """Errores de sintaxis del código TypeScript parseado con tree-sitter.
+
+        Devuelve una lista vacía si el código es válido, o la lista de errores
+        con su número de línea si encuentra nodos ERROR o MISSING.
+        """
+        return validar_sintaxis_ts(codigo)
