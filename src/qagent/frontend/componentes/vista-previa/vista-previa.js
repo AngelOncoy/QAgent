@@ -155,10 +155,11 @@ function cargarDatosVistaPrevia(res) {
     }));
     const endpoints = (m.endpoints || []).map(e => {
       const decisiones = normalizarDecisiones(e.ramas);
+      const resuelto = e.resuelta !== false;
       return ({
-      objetivo: e.objetivo || '',
+      objetivo: resuelto ? (e.objetivo || '') : '',
       metodo: e.metodo || null,
-      ruta: e.ruta || null,
+      ruta: resuelto ? (e.ruta || null) : null,
       manejador: e.manejador || '',
       response_model: e.response_model || null,
       status_code: e.status_code ?? 200,
@@ -169,7 +170,8 @@ function cargarDatosVistaPrevia(res) {
       doc: 'docstring' in e ? (e.docstring ? 1 : 0) : null,
       br: decisiones,
       crit: e.critica_propuesta ?? ((decisiones ?? 0) > 0),
-      inc: true
+      inc: resuelto,
+      resuelta: resuelto
       });
     });
     const tieneObjetivos = fns.length > 0 || endpoints.length > 0;
@@ -618,11 +620,11 @@ function renderEndpoints(){
     const simula = (e.dependencias && e.dependencias.length) ? 'Simula: ' + e.dependencias.join(', ') : 'Sin Depends';
     const detalle = `Función ${e.manejador ? escHtml(e.manejador) : '—'} · Estado ${estado}${e.status_code_declarado ? '' : ' (por defecto)'} · Respuesta ${respuesta} · ${tipErr} · ${escHtml(simula)}`;
     return `<tr class="${elegible ? '' : 'ep-no-resuelta'}">
-      <td class="col-incl"><input type="checkbox" class="exp-caja" aria-label="Incluir endpoint: ${nombreEp}" ${e.inc ? 'checked' : ''} ${elegible ? '' : 'disabled'} title="${elegible ? '' : 'Ruta no disponible: no se puede probar'}" onchange="toggleEndpoint(${mi},${ei})"></td>
-      <td class="fn" title="${detalle}"><span class="endpoint-method">${e.metodo ? escHtml(e.metodo) : 'SIN MÉTODO'}</span> <span class="endpoint-route">${e.ruta ? escHtml(e.ruta) : 'Ruta no disponible'}</span>${tieneDocstring(e) === false ? etiquetaSinDocstring('endpoint') : ''}<div class="sub">${escHtml(m.path)}</div></td>
+      <td class="col-incl"><input type="checkbox" class="exp-caja" aria-label="Incluir endpoint: ${nombreEp}" ${e.inc && elegible ? 'checked' : ''} ${elegible ? '' : 'disabled'} title="${elegible ? '' : 'Ruta no disponible: no se puede probar'}" onchange="toggleEndpoint(${mi},${ei})"></td>
+      <td class="fn" title="${detalle}"><span class="endpoint-method">${e.metodo ? escHtml(e.metodo) : 'SIN MÉTODO'}</span> <span class="endpoint-route">${e.ruta ? escHtml(e.ruta) : 'Ruta no disponible'}</span>${tieneDocstring(e) === false ? etiquetaSinDocstring('endpoint') : ''}${elegible ? '' : '<span class="etq-sin-doc etq-no-resuelta" data-tip="Ruta sin resolver: no se podrá probar (su prefijo final no se conoce sin ejecutar la app)" role="note" aria-label="Ruta sin resolver. No se podrá probar">Ruta sin resolver</span>'}<div class="sub">${escHtml(m.path)}</div></td>
       <td>${textoComplejidad(e.br)}</td>
       <td>${textoDesdeUltimaVez(m)}</td>
-      <td class="col-prof"><input type="checkbox" class="exp-caja" aria-label="Profundizar: ${nombreEp}" ${e.crit ? 'checked' : ''} ${elegible ? '' : 'disabled'} title="Profundizar: solicita un análisis más exhaustivo del endpoint. Se aplica si activas Profundizar en la configuración de pruebas." onchange="toggleEndpointCrit(${mi},${ei})"></td>
+      <td class="col-prof"><input type="checkbox" class="exp-caja" aria-label="Profundizar: ${nombreEp}" ${e.crit && elegible ? 'checked' : ''} ${elegible ? '' : 'disabled'} title="${elegible ? 'Profundizar: solicita un análisis más exhaustivo del endpoint. Se aplica si activas Profundizar en la configuración de pruebas.' : 'Ruta no disponible: no se puede probar'}" onchange="toggleEndpointCrit(${mi},${ei})"></td>
     </tr>`;
   }).join('') || `<tr><td colspan="5" class="exp-vacio">${BUSQUEDA ? 'Ningún endpoint coincide con la búsqueda.' : 'No se detectaron endpoints en el proyecto.'}</td></tr>`;
 }
