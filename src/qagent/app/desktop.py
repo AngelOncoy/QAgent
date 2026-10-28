@@ -12,7 +12,11 @@ from qagent.almacenamiento import AlmacenProyecto, BloqueoCorrida, recientes
 from qagent.app import bitacora
 from qagent.app.monitor_eventos import a_evento_bitacora, a_fila_monitor
 from qagent.proyectos import proyecto_local
-from qagent.storage.registro import PERFILES_REGRESION, nombre_perfil
+from qagent.storage.registro import (
+    PERFIL_REGRESION_PROFUNDA,
+    PERFILES_REGRESION,
+    nombre_perfil,
+)
 
 # Interfaz web (HTML/CSS/JS), separada del backend e instalada con el paquete: qagent/frontend/
 FRONTEND_DIR = Path(__file__).resolve().parents[1] / "frontend"
@@ -626,6 +630,18 @@ class DesktopAPI:
                 filtrar_modulos(analizar_proyecto(folder_path)["modulos"], seleccion)
             except (OSError, ValueError) as exc:
                 return {"status": "seleccion_invalida", "mensaje": str(exc)}
+
+        if profile == PERFIL_REGRESION_PROFUNDA:
+            from qagent.orchestrator.regresion import funciones_criticas_repetibles
+
+            if not funciones_criticas_repetibles(folder_path, seleccion):
+                return {
+                    "status": "perfil_no_disponible",
+                    "mensaje": (
+                        "La regresión profunda requiere al menos una función crítica "
+                        "seleccionada con una prueba guardada válida."
+                    ),
+                }
 
         simulado = modo_simulado()
         es_regresion = profile in PERFILES_REGRESION  # reg y reg_deep (#70): sin IA

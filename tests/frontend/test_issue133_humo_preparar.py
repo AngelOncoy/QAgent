@@ -37,7 +37,10 @@ def test_el_modo_humo_se_traduce_al_perfil_humo() -> None:
 def test_los_demas_modos_siguen_dando_sus_perfiles() -> None:
     cuerpo = cuerpo_de(config(), "function perfilDeEleccion", "function estFor")
 
-    assert "if (modo === 'repetir') return 'reg';" in cuerpo
+    assert (
+        "if (modo === 'repetir') return profundizarRepetir && repetibles > 0 ? 'reg_deep' : 'reg';"
+        in cuerpo
+    )
     assert "if (modo === 'fondo') return prioritarias > 0 ? 'deep' : 'std';" in cuerpo
     assert "  return 'std';\n}" in cuerpo
     # «Generar pruebas nuevas» no se volvió Humo: Humo solo sale si se elige.
@@ -53,7 +56,7 @@ def test_la_estimacion_usa_los_valores_del_perfil_humo() -> None:
     calc = cuerpo_de(config(), "function calc()", "\n}\n")
 
     assert "{k:'humo', n:'Humo'" in estado
-    assert "const e = estFor(profile)" in calc
+    assert "const e = estFor(profile==='reg_deep' ? 'reg' : profile)" in calc
     assert "profile==='humo'" in cuerpo_de(
         config(), "function renderDetallesCorrida", "\n}\n"
     )
