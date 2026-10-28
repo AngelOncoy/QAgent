@@ -19,6 +19,7 @@ from __future__ import annotations
 import functools
 import hashlib
 import threading
+import unicodedata
 from collections.abc import Iterator
 from dataclasses import dataclass
 
@@ -57,8 +58,15 @@ def parsear(fuente: str) -> Tree:
 # Ayudas sobre nodos
 # --------------------------------------------------------------------------- #
 def texto(nodo: Node) -> str:
-    """Texto fuente exacto del nodo."""
-    return (nodo.text or b"").decode("utf-8")
+    """Texto fuente exacto del nodo.
+
+    Los identificadores salen normalizados (NFKC), como en ``ast``: ``µ`` y ``μ`` son
+    el mismo nombre para Python.
+    """
+    contenido = (nodo.text or b"").decode("utf-8")
+    if nodo.type == "identifier" and not contenido.isascii():
+        return unicodedata.normalize("NFKC", contenido)
+    return contenido
 
 
 def hijos(nodo: Node) -> list[Node]:

@@ -295,6 +295,8 @@ def elementos_subindice(subindice: Node) -> tuple[bool, list[Node]]:
 
 def _indices(indices: list[Node], contenedor: Node) -> tuple[bool, list[Node]]:
     coma = any(h.type == "," for h in contenedor.children)
+    if len(indices) == 1 and indices[0].type == "list_splat":
+        return True, indices  # «a[*b]» es una tupla de un elemento en ast
     if len(indices) == 1 and not coma:
         unico = sin_envoltura(indices[0])
         if unico is not None and unico.type == "tuple":
@@ -528,7 +530,9 @@ def _interpolacion(nodo: Node, crudo: bool) -> list[str | _Formateado]:
     igual = next((h for h in nodo.children if h.type == "="), None)
     if igual is not None:
         # f"{x=}": ast agrega el texto «x=» y, sin conversión ni formato, usa repr.
-        bruto = (nodo.text or b"")[1 : igual.end_byte - nodo.start_byte]
+        siguiente = igual.next_sibling
+        fin = siguiente.start_byte if siguiente is not None else igual.end_byte
+        bruto = (nodo.text or b"")[1 : fin - nodo.start_byte]  # «x = » con espacios
         partes.append(bruto.decode("utf-8"))
         if conversion is None and formato is None:
             conversion = "r"
@@ -752,7 +756,15 @@ class _Escritor:
         return self._parentesis(interno, not elementos or precedencia > _P.TUPLE)
 
     def _n_tuple(self, nodo: Node, precedencia: _P) -> str:
-        return self._tupla(_elementos(nodo), precedencia)
+        elementos = _elementos(nodo)
+        if (
+            nodo.type == "tuple_pattern"
+            and len(elementos) == 1
+            and not any(h.type == "," for h in nodo.children)
+        ):
+            # «for i, (x) in ...»: tree-sitter lo deja como tupla; es solo «x».
+            return self.escribir(elementos[0], precedencia)
+        return self._tupla(elementos, precedencia)
 
     _n_expression_list = _n_tuple
     _n_pattern_list = _n_tuple
@@ -876,6 +888,16 @@ class _Escritor:
 
     def _n_conditional_expression(self, nodo: Node, precedencia: _P) -> str:
         cuerpo_nodo, condicion, alternativa = nombrados(nodo)[:3]
+        if cuerpo_nodo.type == "named_expression":
+            # «(x := a if b else c)»: tree-sitter deja el ternario dentro del «:=»
+            # al revés; en Python el «:=» abarca todo el ternario.
+            salida = (
+                f"{self.escribir(campo(cuerpo_nodo, 'name'), _P.ATOM)} := "
+                f"({self.escribir(campo(cuerpo_nodo, 'value'), _P.TEST.siguiente())}"
+                f" if {self.escribir(condicion, _P.TEST.siguiente())} else "
+                f"{self.escribir(alternativa, _P.TEST)})"
+            )
+            return self._parentesis(salida, precedencia > _P.NAMED_EXPR)
         salida = (
             f"{self.escribir(cuerpo_nodo, _P.TEST.siguiente())} if "
             f"{self.escribir(condicion, _P.TEST.siguiente())} else "
