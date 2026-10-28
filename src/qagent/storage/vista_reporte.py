@@ -54,6 +54,14 @@ def _segundos(valor: Any) -> float | None:
     return round(max(0.0, float(valor)), 3)
 
 
+def _primer_entero(*valores: Any) -> int:
+    """Primer entero no negativo, conservando el cero como dato real."""
+    for valor in valores:
+        if isinstance(valor, int) and not isinstance(valor, bool) and valor >= 0:
+            return valor
+    return 0
+
+
 def leer_detalle(raiz_proyecto: str | Path, run_id: str) -> dict[str, Any] | None:
     """detalle.json de la corrida, o None si no existe (corridas anteriores a HU-21)."""
     ruta = Path(raiz_proyecto) / CARPETA_RUNS / Path(run_id).name / ARCHIVO_DETALLE
@@ -85,19 +93,30 @@ def vista_reporte(
     pasaron = sum(1 for o in results["objetivos"] if o["metricas"]["paso"])
     por_agente = resumen.get("por_agente") or {}
 
-    total_seleccionados = (
-        results.get("total_seleccionados")
-        or resumen.get("total_seleccionados")
-        or len(results["objetivos"])
+    omitidos = results.get("omitidos") or []
+    total_omitidos = _primer_entero(
+        results.get("objetivos_omitidos"),
+        resumen.get("objetivos_omitidos"),
+        len(omitidos),
+    )
+    total_seleccionados = _primer_entero(
+        results.get("total_seleccionados"),
+        resumen.get("total_seleccionados"),
+        len(results["objetivos"]) + total_omitidos,
     )
     total_procesados = len(results["objetivos"])
+    total_elegibles = _primer_entero(
+        results.get("total_elegibles"),
+        resumen.get("total_elegibles"),
+        max(0, total_seleccionados - total_omitidos),
+    )
     total_pendientes = (
         results.get("total_pendientes")
         if results.get("total_pendientes") is not None
         else (
             resumen.get("total_pendientes")
             if resumen.get("total_pendientes") is not None
-            else max(0, total_seleccionados - total_procesados)
+            else max(0, total_elegibles - total_procesados)
         )
     )
     tipo_terminacion = (
@@ -116,8 +135,10 @@ def vista_reporte(
 
     return {
         "total_seleccionados": total_seleccionados,
+        "total_elegibles": total_elegibles,
         "total_procesados": total_procesados,
         "total_pendientes": total_pendientes,
+        "total_omitidos": total_omitidos,
         "tipo_terminacion": tipo_terminacion,
         "es_parcial": es_parcial,
         "run_id": results["run_id"],

@@ -1048,8 +1048,10 @@ def datos_informe(
         "duracion_etapas": vista.get("duracion_etapas"),
         "total_funciones": results["resumen"]["total_funciones"],
         "total_seleccionados": vista.get("total_seleccionados"),
+        "total_elegibles": vista.get("total_elegibles"),
         "total_procesados": vista.get("total_procesados"),
         "total_pendientes": vista.get("total_pendientes"),
+        "total_omitidos": vista.get("total_omitidos"),
         "tipo_terminacion": vista.get("tipo_terminacion"),
         "es_parcial": vista.get("es_parcial"),
         # Seleccionados que no se probaron, con su motivo.
@@ -1155,6 +1157,14 @@ def construir_markdown_informe(
     ]
     if datos.get("motivo_fallo"):
         lineas.append(f"- **La corrida se detuvo:** {datos['motivo_fallo']}")
+    lineas.append(
+        "- **Objetivos:** "
+        f"{datos.get('total_seleccionados', total)} seleccionados · "
+        f"{datos.get('total_elegibles', total)} elegibles · "
+        f"{datos.get('total_procesados', total)} procesados · "
+        f"{datos.get('total_omitidos', 0)} omitidos · "
+        f"{datos.get('total_pendientes', 0)} pendientes"
+    )
     lineas.extend(
         [
             "",
@@ -1273,6 +1283,8 @@ def construir_markdown_informe(
             "reviewer": "Reviewer (incluye sandbox)",
             "sandbox": "Sandbox",
             "pytest": "pytest",
+            "entorno": "Entorno aislado (en paralelo)",
+            "espera_entorno": "Espera del entorno",
         }
         detalle = " · ".join(
             f"{nombres.get(clave, clave)} {_fmt_duracion(valor)}"
@@ -1697,6 +1709,13 @@ def construir_html_informe(
     specs = (datos.get("specs") or {}).get("texto") or ""
     specs_txt = esc(specs.split(" · guardados en")[0])
     metricas = datos["metricas"]
+    contadores = esc(
+        f"{datos.get('total_seleccionados', total_fn)} seleccionados · "
+        f"{datos.get('total_elegibles', total_fn)} elegibles · "
+        f"{datos.get('total_procesados', total_fn)} procesados · "
+        f"{datos.get('total_omitidos', 0)} omitidos · "
+        f"{datos.get('total_pendientes', 0)} pendientes"
+    )
 
     funciones = sorted(
         datos.get("funciones") or [],
@@ -2158,6 +2177,7 @@ code{{font-family:ui-monospace,SFMono-Regular,Consolas,monospace}}
     </div>
     <div class="respuesta">{respuesta}</div>
     <p class="header-meta">Proyecto: <b>{proyecto}</b> · Rama: <b>{rama}</b> · Fecha: <b>{fecha}</b> · Perfil: <b>{perfil}</b> · Funciones: <b>{total_fn}</b> ({criticas} críticas){duracion}</p>
+    <p class="header-meta"><small>Objetivos: {contadores}</small></p>
     <p class="header-meta"><small>Etapas: {modelos_str} · Specs: {specs_txt}</small></p>
     <div class="cifras-grid">
       <div class="cifra-card">

@@ -314,3 +314,139 @@ def test_banco_de_la_api_tiene_sus_6_endpoints():
     ] == [404]
     assert rutas["GET /descuento"]["llama_a"] == ["api_mvp.py::calcular_descuento"]
     assert all(e["resuelta"] for e in rutas.values())
+
+
+# --- FIX: routers e imports dentro de try o if --------------------------------------
+def test_router_importado_e_incluido_en_try_resuelve_prefijo(tmp_path: Path):
+    """Reproduce el caso de APP-RF: import e include_router dentro de un bloque try."""
+    escribir(
+        tmp_path,
+        "app/api/face_api.py",
+        "from fastapi import APIRouter\n\n"
+        "router = APIRouter()\n\n"
+        "@router.get('/health')\n"
+        "def health():\n"
+        "    return {'status': 'ok'}\n\n"
+        "@router.post('/comparar')\n"
+        "def comparar():\n"
+        "    return {'similitud': 0.99}\n",
+    )
+    escribir(
+        tmp_path,
+        "app/main.py",
+        "from fastapi import FastAPI\n\n"
+        "app = FastAPI()\n\n"
+        "try:\n"
+        "    from app.api import face_api\n"
+        "    app.include_router(face_api.router, prefix='/api', tags=['Face API'])\n"
+        "except Exception as e:\n"
+        "    print(f'ERROR importando face_api: {e}')\n",
+    )
+    rutas = endpoints(tmp_path)
+    assert "GET /api/health" in rutas
+    assert "POST /api/comparar" in rutas
+    assert rutas["GET /api/health"]["resuelta"] is True
+    assert rutas["POST /api/comparar"]["resuelta"] is True
+    assert rutas["GET /api/health"]["ruta"] == "/api/health"
+    assert rutas["POST /api/comparar"]["ruta"] == "/api/comparar"
+
+
+def test_router_importado_e_incluido_en_if_resuelve_prefijo(tmp_path: Path):
+    """Resuelve cuando el import y el include_router están dentro de un bloque if."""
+    escribir(
+        tmp_path,
+        "app/api/face_api.py",
+        "from fastapi import APIRouter\n\n"
+        "router = APIRouter()\n\n"
+        "@router.get('/health')\n"
+        "def health():\n"
+        "    return {'status': 'ok'}\n",
+    )
+    escribir(
+        tmp_path,
+        "app/main.py",
+        "from fastapi import FastAPI\n\n"
+        "app = FastAPI()\n\n"
+        "if True:\n"
+        "    from app.api import face_api\n"
+        "    app.include_router(face_api.router, prefix='/api')\n",
+    )
+    rutas = endpoints(tmp_path)
+    assert "GET /api/health" in rutas
+    assert rutas["GET /api/health"]["resuelta"] is True
+    assert rutas["GET /api/health"]["ruta"] == "/api/health"
+
+
+def test_app_o_router_instanciado_en_try_o_if(tmp_path: Path):
+    """FastAPI() o APIRouter() asignados dentro de try o if se indexan correctamente."""
+    escribir(
+        tmp_path,
+        "app/api/face_api.py",
+        "from fastapi import APIRouter\n\n"
+        "try:\n"
+        "    router = APIRouter(prefix='/rostros')\n"
+        "except Exception:\n"
+        "    router = APIRouter()\n\n"
+        "@router.get('/ver')\n"
+        "def ver():\n"
+        "    pass\n",
+    )
+    escribir(
+        tmp_path,
+        "app/main.py",
+        "from fastapi import FastAPI\n\n"
+        "try:\n"
+        "    app = FastAPI()\n"
+        "    from app.api import face_api\n"
+        "    app.include_router(face_api.router, prefix='/api')\n"
+        "except Exception:\n"
+        "    pass\n",
+    )
+    rutas = endpoints(tmp_path)
+    assert "GET /api/rostros/ver" in rutas
+    assert rutas["GET /api/rostros/ver"]["resuelta"] is True
+
+
+def test_router_armado_dentro_de_funcion_queda_sin_resolver(tmp_path: Path):
+    """Un router armado dentro de una función no se puede resolver estáticamente."""
+    escribir(
+        tmp_path,
+        "app/api/dinamico.py",
+        "from fastapi import APIRouter\n\n"
+        "router = APIRouter()\n\n"
+        "@router.get('/interno')\n"
+        "def interno():\n"
+        "    pass\n\n"
+        "def configurar(app):\n"
+        "    app.include_router(router, prefix='/api/dinamico')\n",
+    )
+    rutas = endpoints(tmp_path)
+    assert "GET /interno" in rutas
+    assert rutas["GET /interno"]["resuelta"] is False
+
+
+def test_router_con_import_punteado_completo_resuelve_prefijo(tmp_path: Path):
+    """Resuelve cuando se usa import directo punteado (import app.api.face_api)."""
+    escribir(
+        tmp_path,
+        "app/api/face_api.py",
+        "from fastapi import APIRouter\n\n"
+        "router = APIRouter()\n\n"
+        "@router.get('/ping')\n"
+        "def ping():\n"
+        "    pass\n",
+    )
+    escribir(
+        tmp_path,
+        "app/main.py",
+        "from fastapi import FastAPI\n\n"
+        "app = FastAPI()\n"
+        "try:\n"
+        "    import app.api.face_api\n"
+        "    app.include_router(app.api.face_api.router, prefix='/api')\n"
+        "except Exception:\n"
+        "    pass\n",
+    )
+    rutas = endpoints(tmp_path)
+    assert "GET /api/ping" in rutas
+    assert rutas["GET /api/ping"]["resuelta"] is True

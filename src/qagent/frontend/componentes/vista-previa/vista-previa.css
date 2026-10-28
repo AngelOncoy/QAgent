@@ -75,6 +75,7 @@
 .exp-objetivos table .sub{margin-top:2px;font-family:var(--fuente-mono);font-size:11px;color:var(--texto-3)}
 .exp-vacio{color:var(--texto-2);text-align:center;padding:var(--esp-6) var(--esp-4)!important}
 .ep-no-resuelta{opacity:.6}
+.etq-no-resuelta{border-color:var(--aviso-b);color:var(--aviso-t);background:var(--aviso-s)}
 .endpoint-method{font-family:var(--fuente-mono);font-weight:var(--peso-medio);color:var(--texto)}
 .endpoint-route{font-family:var(--fuente-mono);overflow-wrap:anywhere}
 

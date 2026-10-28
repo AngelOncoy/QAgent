@@ -137,6 +137,11 @@
       "minimum": 0,
       "description": "Total de funciones y endpoints seleccionados para la corrida."
     },
+    "total_elegibles": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Objetivos seleccionados que podían procesarse: seleccionados menos omitidos justificados."
+    },
     "total_procesados": {
       "type": "integer",
       "minimum": 0,
@@ -252,7 +257,17 @@
         "generator": { "type": "number", "minimum": 0 },
         "reviewer": { "type": "number", "minimum": 0 },
         "sandbox": { "type": "number", "minimum": 0 },
-        "pytest": { "type": "number", "minimum": 0 }
+        "pytest": { "type": "number", "minimum": 0 },
+        "entorno": {
+          "type": "number",
+          "minimum": 0,
+          "description": "#148. Segundos preparando el entorno aislado (en segundo plano)."
+        },
+        "espera_entorno": {
+          "type": "number",
+          "minimum": 0,
+          "description": "#148. Segundos que la corrida esperó el entorno después de planificar."
+        }
       }
     },
     "mutacion": {
@@ -649,9 +664,10 @@
           "enum": [
             "tiempo_agotado",
             "error_contrato_planner",
+            "error_planner",
             null
           ],
-          "description": "Por qué un objetivo quedó sin veredicto (decision null) sin detener el módulo: tiempo_agotado (un agente o el proveedor de IA no respondió a tiempo). Opcional: las corridas anteriores no lo tienen."
+          "description": "Por qué un objetivo quedó sin veredicto (decision null) sin detener el módulo: tiempo_agotado (un agente o el proveedor de IA no respondió a tiempo), error_contrato_planner (su contrato del Planner no es válido) o error_planner (el Planner falló al planificarlo de forma recuperable, FIX-02). Opcional: las corridas anteriores no lo tienen."
         },
         "motivo_estancado": {
           "enum": [
@@ -830,6 +846,11 @@
           "type": "integer",
           "minimum": 0,
           "description": "Total de objetivos seleccionados inicialmente."
+        },
+        "total_elegibles": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Objetivos seleccionados elegibles para procesamiento."
         },
         "total_procesados": {
           "type": "integer",

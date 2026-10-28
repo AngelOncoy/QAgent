@@ -18,6 +18,7 @@ import json
 from pathlib import Path, PurePosixPath
 from typing import Any, ClassVar
 
+from qagent import contracts
 from qagent.llm.modelos import RespuestaLLM
 
 #: Marcadores de las líneas con datos que escriben los agentes en sus prompts.
@@ -191,7 +192,8 @@ def generar_test_desde_contrato(contrato: dict[str, Any]) -> str:
             ]
         else:
             lineas.append(
-                f"    assert {llamada} {_comparacion(caso['valor_esperado'])}"
+                f"    assert {llamada} "
+                f"{_comparacion(contracts.valor_esperado_python(caso))}"
             )
     return "\n".join(lineas) + "\n"
 

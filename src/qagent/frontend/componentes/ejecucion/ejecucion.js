@@ -30,6 +30,11 @@ registrarComponente('ejecucion/ejecucion', `<!-- ===== 5. PRUEBAS: BANDEJA DE PR
       </div>
     </div>
 
+    <!-- issue 139: en la app, sin resultados no se muestra la demostración sino este aviso -->
+    <div class="np-aviso np-aviso-info hide" id="bnjVacio">${ICO_INFO}<div><b>Este proyecto todavía no tiene resultados</b>
+      <span>Cuando una corrida termine, sus resultados aparecerán aquí. Una corrida que no llegó a terminar (por ejemplo, porque se cerró la aplicación) queda en el Historial como «Interrumpida».</span>
+      <button type="button" class="ini-enlace" onclick="go('preview')">Ir a Explorar</button></div></div>
+
     <div class="exp-cifras bnj-cifras" id="kpis"></div>
     <p class="np-meta" id="bnjResumen"></p>
 
@@ -99,6 +104,12 @@ const MOTIVO_SIN_PRUEBA = {
   rechazado_laundering: 'Las pruebas generadas debilitaban el criterio esperado y se rechazaron.',
   sin_veredicto: 'La verificación no terminó con un veredicto.',
 };
+// Por qué quedó sin veredicto (motivo_sin_veredicto de results.json; FIX-02).
+const MOTIVO_SIN_VEREDICTO = {
+  tiempo_agotado: 'Un agente o el proveedor de IA no respondió a tiempo; la corrida siguió con lo demás.',
+  error_contrato_planner: 'La propuesta del Planner no cumplía el contrato, así que no se generó una prueba.',
+  error_planner: 'El Planner no pudo planificar este objetivo (por ejemplo, respondió con un formato inválido); la corrida siguió con lo demás.',
+};
 
 /* ---------------- Modelo común de cada elemento ---------------- */
 // Corrida real: lista de obtener_ejecucion(); el detalle se completa con obtener_reporte().
@@ -133,6 +144,7 @@ function elementosProbados(v){
       duracionGeneracion: p.duracion_generacion_s, duracionSandbox: p.duracion_sandbox_s,
       duracionPytest: p.duracion_pytest_s,
       cobLineas: p.cobertura_lineas, cobRamas: p.cobertura_ramas, estadoBackend: p.estado,
+      motivoSinVeredicto: p.motivo_sin_veredicto || null,
       ...detalleDeReporte(det),
     };
   }));
@@ -191,7 +203,9 @@ function elementosDemo(){
 
 /* ---------------- Carga de la corrida real ---------------- */
 let cargandoEjecucion = false;
-async function cargarEjecucionReal(runId = null, navegar = true){
+// `silencioso`: sin aviso de error cuando no haber resultados es un caso esperado
+// (al reabrir un proyecto cuyas corridas se interrumpieron, issue 139).
+async function cargarEjecucionReal(runId = null, navegar = true, {silencioso = false} = {}){
   const api = window.pywebview && window.pywebview.api;
   if(!api || !api.obtener_ejecucion) return;
   if(cargandoEjecucion) return;
@@ -199,7 +213,7 @@ async function cargarEjecucionReal(runId = null, navegar = true){
   try {
     const r = await api.obtener_ejecucion(projectPath, runId || null);
     if(!r || !r.ok){
-      if (typeof toastError === 'function') toastError(escHtml((r && r.motivo) || 'No se pudieron leer los resultados de la corrida.'));
+      if (!silencioso && typeof toastError === 'function') toastError(escHtml((r && r.motivo) || 'No se pudieron leer los resultados de la corrida.'));
       return;
     }
     ejecucionReal = r; filterState = 'todos'; filterType = 'todos'; filtroArchivo = 'todos'; seleccionBandeja = null;
@@ -236,11 +250,25 @@ async function cargarDetalleReal(runId){
 
 
 /* ---------------- Renderizado ---------------- */
+// Dentro de la app de escritorio (pywebview) los datos son siempre los del proyecto.
+function enAppEscritorio(){ return !!(window.pywebview && window.pywebview.api); }
 function renderExec(){
   if (typeof desbloquearVista === 'function') {
     desbloquearVista('exec');
   }
   const v = ejecucionReal;
+  // issue 139: la demostración es solo para el navegador sin Python; en la app, sin
+  // resultados se muestra un estado vacío, nunca datos de ejemplo como si fueran reales.
+  const sinResultados = !v && enAppEscritorio();
+  $('s-exec').classList.toggle('bnj-sin-datos', sinResultados);
+  $('bnjVacio').classList.toggle('hide', !sinResultados);
+  if (sinResultados) {
+    $('bnjTitulo').textContent = 'Resultados';
+    $('bnjSub').textContent = document.querySelector('.ini-migas .repoName') ? document.querySelector('.ini-migas .repoName').textContent : '';
+    ['kpis', 'bnjResumen', 'bnjBandejas', 'suites', 'bnjNotaLista', 'bnjDetalle', 'bnjPrioridades'].forEach(id => { $(id).innerHTML = ''; });
+    ELEMENTOS_BANDEJA = [];
+    return;
+  }
   if (v) cargarDetalleReal(v.run_id);
   const todos = v ? elementosReales(v) : elementosDemo();
   todos.sort((a, b) => ORDEN_BANDEJA[a.bandeja] - ORDEN_BANDEJA[b.bandeja] || (b.critica - a.critica));
@@ -292,15 +320,18 @@ function estadoGeneral(todos, v){
   const omitidas = n('omitida'), probados = todos.length - omitidas;
   const sinPrueba = n('sin') + n('tiempo') + n('repetir');
   const incompleta = !!(v && (v.es_parcial || ['detenida_error', 'cancelada', 'limitada_recursos'].includes(v.tipo_terminacion)));
+  const pendientes = v && Number.isFinite(Number(v.total_pendientes)) ? Number(v.total_pendientes) : 0;
   const noSeProbaron = `${omitidas} ${omitidas === 1 ? 'objetivo no se probó' : 'objetivos no se probaron'}`;
+  const quedaronPendientes = `${pendientes} ${pendientes === 1 ? 'objetivo quedó pendiente' : 'objetivos quedaron pendientes'}`;
   // `corto`: la etiqueta del chip de Exportar.
   if (bugs.length) return {tipo:'bug', corto:`${bugs.length} ${bugs.length === 1 ? 'posible bug' : 'posibles bugs'}`,
     texto:`${bugs.length} ${bugs.length === 1 ? 'posible bug' : 'posibles bugs'}. Empieza por ${bugs[0].nombre}.`};
-  if (!probados) return {tipo:'aviso', corto:'Nada probado', texto: incompleta ? 'La corrida se detuvo antes de probar algo.'
+  if (!probados) return {tipo:'aviso', corto:'Nada probado', texto: incompleta ? `La corrida se detuvo antes de probar algo: ${quedaronPendientes}.`
     : omitidas ? `No se probó nada: ${noSeProbaron}.` : 'No se probó ninguna función ni endpoint.'};
   if (sinPrueba) return {tipo:'aviso', corto:'Faltan pruebas por revisar', texto:'Sin posibles bugs, pero faltan pruebas por revisar.'};
+  if (omitidas && incompleta) return {tipo:'aviso', corto:'Corrida incompleta', texto:`Sin posibles bugs en lo probado, pero ${noSeProbaron} y ${quedaronPendientes}.`};
   if (omitidas) return {tipo:'aviso', corto:`${omitidas} sin probar`, texto:`Sin posibles bugs en lo probado, pero ${noSeProbaron}.`};
-  if (incompleta) return {tipo:'aviso', corto:'Corrida incompleta', texto:'Sin posibles bugs en lo probado, pero la corrida no terminó.'};
+  if (incompleta) return {tipo:'aviso', corto:'Corrida incompleta', texto:`Sin posibles bugs en lo probado, pero la corrida no terminó: ${quedaronPendientes}.`};
   return {tipo:'exito', corto:'Todo pasó', texto:`Todo pasó: ${probados} ${probados === 1 ? 'función o endpoint verificado' : 'funciones y endpoints verificados'}.`};
 }
 
@@ -320,8 +351,12 @@ function renderCabeceraBandeja(todos, v){
 
   // Cifras: pruebas que pasan, posibles bugs, cobertura y tokens (nunca costos).
   const total = todos.length, pasaron = n('paso'), omitidas = n('omitida');
-  const porRevisar = total - pasaron - omitidas;
-  const subPasaron = [`${porRevisar} con algo por revisar`, omitidas ? `${omitidas} sin probar` : ''].filter(Boolean).join(' · ');
+  const procesados = v && Number.isFinite(Number(v.total_procesados)) ? Number(v.total_procesados) : total - omitidas;
+  const seleccionados = v && Number.isFinite(Number(v.total_seleccionados)) ? Number(v.total_seleccionados) : total;
+  const elegibles = v && Number.isFinite(Number(v.total_elegibles)) ? Number(v.total_elegibles) : Math.max(0, seleccionados - omitidas);
+  const pendientes = v && Number.isFinite(Number(v.total_pendientes)) ? Number(v.total_pendientes) : Math.max(0, elegibles - procesados);
+  const porRevisar = Math.max(0, procesados - pasaron);
+  const subPasaron = [`${porRevisar} procesados con algo por revisar`, omitidas ? `${omitidas} sin probar (omitidos)` : '', pendientes ? `${pendientes} pendientes` : ''].filter(Boolean).join(' · ');
   const k = v ? v.indicadores : null;
   const cobertura = k ? k.cobertura.lineas : (total ? todos.reduce((s, e) => s + (Number(e.cobLineas) || 0), 0) / total : null);
   const ramas = k ? k.cobertura.ramas : null;
@@ -334,12 +369,17 @@ function renderCabeceraBandeja(todos, v){
     ? `${Number(reales || 0).toLocaleString('es-PE')} reales · ${Number(estimados).toLocaleString('es-PE')} estimados`
     : 'Sumando las tres etapas';
   $('kpis').innerHTML = `
-    <div class="exp-cifra"><span class="exp-cifra-etq">Pasaron</span><b>${pasaron} / ${total}</b><span class="exp-cifra-sub">${subPasaron}</span></div>
-    <div class="exp-cifra"><span class="exp-cifra-etq">Posibles bugs</span><b class="${bugs.length ? 'bnj-cifra-bug' : ''}">${bugs.length}</b><span class="exp-cifra-sub">En ${bugs.length} de ${total} funciones o endpoints</span></div>
+    <div class="exp-cifra"><span class="exp-cifra-etq">Aprobados</span><b>${pasaron} / ${procesados}</b><span class="exp-cifra-sub">${subPasaron}</span></div>
+    <div class="exp-cifra"><span class="exp-cifra-etq">Posibles bugs</span><b class="${bugs.length ? 'bnj-cifra-bug' : ''}">${bugs.length}</b><span class="exp-cifra-sub">En ${bugs.length} de ${procesados} objetivos procesados</span></div>
     <div class="exp-cifra"><span class="exp-cifra-etq" title="Porcentaje de líneas del código que ejecutaron las pruebas">Cobertura ⓘ</span><b>${pctTexto(cobertura)}</b><span class="exp-cifra-sub">${k && k.cobertura.exige_ramas === false ? 'Ramas no exigidas en Humo' : ramas !== null && ramas !== undefined ? pctTexto(ramas) + ' de las ramas' : 'De las líneas del código'}</span></div>
     <div class="exp-cifra"><span class="exp-cifra-etq">Tokens de la corrida</span><b>${tokens === null ? '—' : Number(tokens).toLocaleString('es-PE')}</b><span class="exp-cifra-sub">${subTokens}</span></div>`;
-  $('bnjResumen').textContent = `${total} ${total === 1 ? 'función o endpoint' : 'funciones y endpoints'}: ` +
-    BANDEJAS.map(b => [n(b.k), b.t.toLowerCase()]).filter(([c]) => c).map(([c, t]) => `${c} ${t}`).join(' · ');
+  const etiquetasResumen = {
+    bug: ['posible bug', 'posibles bugs'], sin: ['sin prueba', 'sin pruebas'],
+    tiempo: ['tiempo agotado', 'tiempos agotados'], repetir: ['requiere corrida nueva', 'requieren corrida nueva'],
+    omitida: ['no se probó', 'no se probaron'], paso: ['pasó', 'pasaron'],
+  };
+  $('bnjResumen').textContent = `${seleccionados} seleccionados · ${elegibles} elegibles · ${procesados} procesados · ${omitidas} omitidos · ${pendientes} pendientes: ` +
+    BANDEJAS.map(b => [n(b.k), b.k]).filter(([c]) => c).map(([c, k]) => `${c} ${etiquetasResumen[k][c === 1 ? 0 : 1]}`).join(' · ');
 }
 function renderFiltrosBandeja(todos){
   const tipos = [...new Set(todos.map(e => e.tipo))];
@@ -355,7 +395,8 @@ function renderFiltrosBandeja(todos){
 function renderDetalleBandeja(e){
   if (!e) { $('bnjDetalle').innerHTML = '<p class="np-texto">Elige una función o un endpoint para ver su evidencia.</p>'; return; }
   const b = BANDEJA[e.bandeja];
-  const explicacion = e.explicacion || (e.bandeja === 'sin' ? MOTIVO_SIN_PRUEBA[e.estadoBackend] : null)
+  const explicacion = e.explicacion || MOTIVO_SIN_VEREDICTO[e.motivoSinVeredicto]
+    || (e.bandeja === 'sin' ? MOTIVO_SIN_PRUEBA[e.estadoBackend] : null)
     || (e.bandeja === 'repetir' ? 'El código cambió desde que se guardó esta prueba: hay que generarla de nuevo.' : null)
     || (e.bandeja === 'paso' ? 'La prueba pasó en el entorno aislado.' : null);
   const cargando = e.cargando ? '<p class="np-meta">Cargando la evidencia…</p>' : '';
@@ -377,7 +418,7 @@ function renderDetalleBandeja(e){
       <pre class="bnj-codigo" id="bnjCodigo">${escHtml(e.codigo)}</pre></div>` : ''}
     ${e.lineasSinCubrir ? `<p class="bnj-sin-probar ${e.lineasSinCubrir.length ? '' : 'completo'}">${e.lineasSinCubrir.length ? 'Código sin probar · líneas ' + e.lineasSinCubrir.join(', ') : 'Todas las líneas de la función se ejecutaron en las pruebas'}</p>` : ''}
     <p class="np-meta bnj-datos">${e.intento ? `${e.intento} de 3 intentos` : ''}${e.cobLineas !== null && e.cobLineas !== undefined ? ` · cobertura ${pctTexto(e.cobLineas)} de líneas${e.cobRamas !== null && e.cobRamas !== undefined ? ' y ' + pctTexto(e.cobRamas) + ' de ramas' : ''}` : ''}${e.duracion !== null && e.duracion !== undefined ? ' · ' + tiempoReal(e.duracion) + ' medidos' : ''}${e.duracionGeneracion !== null && e.duracionGeneracion !== undefined ? ` · escritura ${tiempoReal(e.duracionGeneracion)}` : ''}${e.duracionSandbox !== null && e.duracionSandbox !== undefined ? ` · sandbox ${tiempoReal(e.duracionSandbox)}` : ''}${e.duracionPytest !== null && e.duracionPytest !== undefined ? ` · pytest ${tiempoReal(e.duracionPytest)}` : ''}</p>
-    ${e.traza || e.salida ? `<details class="np-detalle"><summary>Ver detalle técnico</summary><pre class="np-log">${escHtml(e.traza || e.salida)}</pre></details>` : ''}
+    ${e.traza || e.salida ? `<details class="np-detalle"><summary>Ver detalle técnico</summary><pre class="np-log bnj-salida-pytest">${escHtml(e.traza || e.salida)}</pre></details>` : ''}
     ${e.debilitada ? `<div class="np-aviso np-aviso-aviso">${ICO_AVISO_CLON}<div><b>Criterio original conservado</b><span>Se bloqueó un intento de debilitar esta prueba. ${e.bandeja === 'bug' ? 'El posible bug sigue visible.' : ''}</span></div></div>` : ''}
     ${evidenciaAuditoria(e)}`;
 }

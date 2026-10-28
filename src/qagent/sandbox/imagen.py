@@ -24,6 +24,7 @@ from qagent.sandbox.cliente import obtener_cliente
 from qagent.sandbox.modelos import (
     IMAGEN_BASE,
     REPOSITORIO,
+    ConstruccionCancelada,
     ErrorConstruccionImagen,
     ImagenNoEncontrada,
 )
@@ -52,6 +53,11 @@ AVISO_DEPENDENCIAS = (
     "Instalando las dependencias del proyecto (requirements.txt): la primera vez "
     "puede tardar varios minutos"
 )
+AVISO_CONSTRUYENDO = "Construyendo la imagen Docker del proyecto"
+AVISO_DEPENDENCIAS_LISTAS = (
+    "Dependencias instaladas; Docker continúa preparando la imagen"
+)
+AVISO_GUARDANDO = "Guardando la imagen Docker para reutilizarla en próximas corridas"
 AVISO_LISTO = "Dependencias instaladas en el entorno aislado"
 
 _COLECTANDO = re.compile(r"^Collecting\s+([A-Za-z0-9][A-Za-z0-9_.\-]*)")
@@ -145,6 +151,7 @@ def preparar_imagen(
     if _imagen_existe(cliente, etiqueta):
         return etiqueta
 
+    _avisar(avanzar, AVISO_CONSTRUYENDO)
     _avisar(avanzar, AVISO_DEPENDENCIAS)
     contexto = Path(tempfile.mkdtemp(prefix="qagent-req-"))
     try:
@@ -166,8 +173,8 @@ def preparar_imagen(
 def describir_linea(linea: str) -> str | None:
     """Traduce una línea del log de construcción a un texto para personas.
 
-    Solo se informan los pasos útiles de pip; el resto (pasos de Docker, rutas,
-    advertencias) devuelve None.
+    Se informan los pasos útiles de pip y las fases de construcción/guardado de
+    Docker; rutas, hashes y advertencias sin acción para la persona devuelven None.
 
     Args:
         linea: una línea del log de `docker build`.
@@ -188,7 +195,19 @@ def describir_linea(linea: str) -> str | None:
         cantidad = len(paquetes)
         return f"Instalando {cantidad} {'paquete' if cantidad == 1 else 'paquetes'}"
     if _INSTALADO.match(texto):
-        return AVISO_LISTO
+        return AVISO_DEPENDENCIAS_LISTAS
+    texto_minusculas = texto.lower()
+    if any(
+        marca in texto_minusculas
+        for marca in (
+            "exporting to image",
+            "exporting layers",
+            "writing image sha256:",
+            "successfully built ",
+            "successfully tagged ",
+        )
+    ):
+        return AVISO_GUARDANDO
     return None
 
 
@@ -234,6 +253,7 @@ def _construir_con_avance(
 ) -> None:
     """`docker build` leyendo el log a medida que llega; cada paso útil va a `avanzar`."""
     log: list[str] = []
+    partes = None
     try:
         partes = cliente.api.build(
             path=str(contexto), tag=etiqueta, rm=True, forcerm=True, decode=True
@@ -252,6 +272,12 @@ def _construir_con_avance(
                 descripcion = describir_linea(linea)
                 if descripcion:
                     _avisar(avanzar, descripcion)
+    except ConstruccionCancelada:
+        # #148: cerrar el log corta la conexión con Docker en vez de esperar el final.
+        cerrar = getattr(partes, "close", None)
+        if cerrar is not None:
+            cerrar()
+        raise
     except APIError as exc:
         raise ErrorConstruccionImagen(
             f"{mensaje}: {exc.explanation}", "".join(log)
@@ -264,6 +290,8 @@ def _avisar(avanzar: Avance | None, texto: str) -> None:
         return
     try:
         avanzar(texto)
+    except ConstruccionCancelada:
+        raise
     except Exception:  # noqa: BLE001 - el avance es solo informativo
         registro.warning(
             "No se pudo informar el avance de la construcción.", exc_info=True

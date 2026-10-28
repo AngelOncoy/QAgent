@@ -95,6 +95,7 @@ def escribir_corrida(
     duracion_s: float | None = None,
     duracion_etapas: dict[str, float] | None = None,
     total_seleccionados: int | None = None,
+    total_elegibles: int | None = None,
     total_procesados: int | None = None,
     total_pendientes: int | None = None,
     tipo_terminacion: str | None = None,
@@ -143,6 +144,7 @@ def escribir_corrida(
         precios,
         metas,
         total_seleccionados=total_seleccionados,
+        total_elegibles=total_elegibles,
         total_procesados=total_procesados,
         total_pendientes=total_pendientes,
         tipo_terminacion=tipo_terminacion,
@@ -324,6 +326,7 @@ def construir_results(
     precios: dict[str, PrecioAgente],
     metas: dict[str, float] | None = None,
     total_seleccionados: int | None = None,
+    total_elegibles: int | None = None,
     total_procesados: int | None = None,
     total_pendientes: int | None = None,
     tipo_terminacion: str | None = None,
@@ -340,6 +343,7 @@ def construir_results(
         tracker,
         metas,
         total_seleccionados=total_seleccionados,
+        total_elegibles=total_elegibles,
         total_procesados=total_procesados,
         total_pendientes=total_pendientes,
         tipo_terminacion=tipo_terminacion,
@@ -354,6 +358,8 @@ def construir_results(
     }
     if total_seleccionados is not None:
         datos_results["total_seleccionados"] = total_seleccionados
+    if total_elegibles is not None:
+        datos_results["total_elegibles"] = total_elegibles
     if total_procesados is not None:
         datos_results["total_procesados"] = total_procesados
     if total_pendientes is not None:
@@ -417,7 +423,8 @@ def _objetivo(
     datos = {
         "modulo": modulo,
         "funcion": objetivo.objetivo,
-        "tipo": (objetivo.contrato or {}).get("tipo", "funcion"),  # EN-16
+        "tipo": getattr(objetivo, "tipo", None)  # sin contrato (FIX-02)
+        or (objetivo.contrato or {}).get("tipo", "funcion"),  # EN-16
         "critical": objetivo.critical,
         "decision": objetivo.decision,
         "motivo_estancado": objetivo.motivo_estancado,  # HU-14
@@ -459,6 +466,7 @@ def _resumen(
     tracker: TokenTracker,
     metas: dict[str, float] | None = None,
     total_seleccionados: int | None = None,
+    total_elegibles: int | None = None,
     total_procesados: int | None = None,
     total_pendientes: int | None = None,
     tipo_terminacion: str | None = None,
@@ -466,8 +474,10 @@ def _resumen(
 ) -> dict[str, Any]:
     total = len(objetivos)
     sel = total_seleccionados if total_seleccionados is not None else total
+    omit = objetivos_omitidos if objetivos_omitidos is not None else 0
+    eleg = total_elegibles if total_elegibles is not None else max(0, sel - omit)
     proc = total_procesados if total_procesados is not None else total
-    pend = total_pendientes if total_pendientes is not None else max(0, sel - proc)
+    pend = total_pendientes if total_pendientes is not None else max(0, eleg - proc)
     pasaron = sum(1 for o in objetivos if o["metricas"]["paso"])
     iteraciones = [
         o["metricas"]["iteraciones"] for o in objetivos if o["metricas"]["iteraciones"]
@@ -475,6 +485,7 @@ def _resumen(
     resumen: dict[str, Any] = {
         "total_funciones": total,
         "total_seleccionados": sel,
+        "total_elegibles": eleg,
         "total_procesados": proc,
         "total_pendientes": pend,
         "aceptadas": _contar(objetivos, "accept"),

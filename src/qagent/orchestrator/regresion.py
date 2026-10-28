@@ -14,6 +14,7 @@ from pathlib import Path
 from typing import Any
 
 from qagent import contracts
+from qagent.agents.planner import contrato_sin_triviales
 from qagent.almacenamiento import AlmacenProyecto
 from qagent.llm.tracker import TokenTracker
 from qagent.orchestrator.estados import Estado
@@ -118,6 +119,33 @@ def _specs_aprobadas(almacen: AlmacenProyecto) -> list[dict[str, Any]]:
     return candidatas
 
 
+def _contrato_para_regresion(spec: dict[str, Any]) -> dict[str, Any] | None:
+    """Contrato guardado sin casos triviales de firma (#149).
+
+    Reutiliza el mismo detector determinista de #138. No inspecciona el texto del
+    test, no ejecuta código del proyecto y no modifica la spec persistida.
+    """
+    return contrato_sin_triviales(spec["contrato"])
+
+
+def _omision_typeerror_trivial(spec: dict[str, Any]) -> dict[str, str]:
+    """Traza visible de una prueba histórica excluida, sin rutas absolutas."""
+    contrato = spec["contrato"]
+    archivo = spec["archivo_prueba"]
+    referencia = spec.get("id") or contrato["objetivo"]
+    return {
+        "modulo": contrato["modulo"],
+        "objetivo": contrato["objetivo"],
+        "tipo": contrato["tipo"],
+        "motivo": (
+            "Requiere corrida nueva: la prueba guardada "
+            f"{archivo} (spec {referencia}) solo comprueba un TypeError provocado "
+            "por argumentos incorrectos y no ejercita el cuerpo de la función. "
+            "El archivo se conservó sin cambios."
+        ),
+    }
+
+
 def objetivos_repetibles(ruta_proyecto: str | Path) -> list[dict[str, str]]:
     """Objetivos cuya prueba aprobada guardada se puede repetir hoy (#70).
 
@@ -130,7 +158,9 @@ def objetivos_repetibles(ruta_proyecto: str | Path) -> list[dict[str, str]]:
     huellas = huellas_de_objetivos(raiz)
     repetibles = []
     for spec in _specs_aprobadas(almacen):
-        contrato = spec["contrato"]
+        contrato = _contrato_para_regresion(spec)
+        if contrato is None:
+            continue
         clave = (contrato["modulo"], contrato["objetivo"])
         esperada = spec.get("huella_objetivo")
         if (
@@ -254,11 +284,36 @@ def ejecutar_regresion(
                 )
                 in elegidos
             ]
-        resumen.total_seleccionados = len(specs)
-        resumen.total_funciones = len(specs)
         if not specs:
             raise RuntimeError("No hay pruebas aprobadas vigentes para Regresion.")
+        resumen.total_seleccionados = len(specs)
+        resumen.total_funciones = len(specs)
+        omitidos: list[dict[str, str]] = []
+        elegibles: list[dict[str, Any]] = []
+        for spec in specs:
+            contrato = _contrato_para_regresion(spec)
+            if contrato is None:
+                omitidos.append(_omision_typeerror_trivial(spec))
+                continue
+            elegibles.append(
+                spec
+                if contrato is spec["contrato"]
+                else {**spec, "_contrato_regresion": contrato}
+            )
+        specs = elegibles
+        resumen.objetivos_omitidos = len(omitidos)
+        resumen.total_elegibles = len(specs)
         emitir("Regresion sin IA: comprobando huellas de pruebas aprobadas")
+        for omitido in omitidos:
+            emitir(
+                f"{omitido['objetivo']}: {omitido['motivo']}",
+                omitido["modulo"],
+                "veredicto",
+                {
+                    "decision": "requiere_corrida_nueva",
+                    "objetivo": omitido["objetivo"],
+                },
+            )
         imagen: str | None = None
         for spec in specs:
             if cancelado is not None and cancelado():
@@ -268,7 +323,7 @@ def ejecutar_regresion(
                 resumen.motivo = "Corrida detenida por el usuario."
                 emitir(resumen.motivo, tipo="fallo")
                 break
-            contrato = spec["contrato"]
+            contrato = spec.get("_contrato_regresion", spec["contrato"])
             modulo, objetivo = contrato["modulo"], contrato["objetivo"]
             objetivo_inicio_reloj = reloj()
             objetivo_inicio_utc = ahora()
@@ -429,7 +484,7 @@ def ejecutar_regresion(
         decisiones = [o.decision for r in resultados for o in r.objetivos]
         resumen.total_procesados = len(decisiones)
         resumen.total_pendientes = max(
-            0, resumen.total_seleccionados - resumen.total_procesados
+            0, resumen.total_elegibles - resumen.total_procesados
         )
         resumen.total_funciones = len(decisiones)
         resumen.aceptadas = decisiones.count("accept")
@@ -465,9 +520,12 @@ def ejecutar_regresion(
             duracion_s=resumen.duracion_s,
             duracion_etapas=resumen.duracion_etapas,
             total_seleccionados=resumen.total_seleccionados,
+            total_elegibles=resumen.total_elegibles,
             total_procesados=resumen.total_procesados,
             total_pendientes=resumen.total_pendientes,
             tipo_terminacion=resumen.tipo_terminacion,
+            objetivos_omitidos=resumen.objetivos_omitidos,
+            omitidos=omitidos,
         )
         resumen.run_id, resumen.carpeta = rutas.run_id, str(rutas.carpeta)
     except Exception as error:  # noqa: BLE001
@@ -481,7 +539,8 @@ def ejecutar_regresion(
     _cerrar_run(almacen, resumen, ["funcion", "endpoint"])
     emitir(
         f"Regresion terminada sin IA: {resumen.aceptadas} aprobadas, "
-        f"{resumen.requieren_corrida_nueva} requieren corrida nueva",
+        f"{resumen.requieren_corrida_nueva} requieren corrida nueva, "
+        f"{resumen.objetivos_omitidos} excluidas por TypeError trivial",
         tipo="fin",
     )
     return resumen

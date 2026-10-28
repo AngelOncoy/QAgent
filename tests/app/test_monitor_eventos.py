@@ -164,3 +164,18 @@ def test_alerta_presupuesto_tokens_formatea_fila_watch() -> None:
     assert fila["tokens_reales"] == 5000
     assert fila["tokens_estimados"] == 3500
     assert fila["limite_tokens"] == 10000
+
+
+def test_la_fila_lleva_el_estado_del_entorno_aislado() -> None:
+    # #148: el entorno se prepara mientras se planifica; el Monitor lo muestra aparte.
+    fila = a_fila_monitor(
+        evento(
+            agente="orquestador",
+            mensaje="Descargando torch (821.0 MB)",
+            datos={"entorno": "avance"},
+        )
+    )
+
+    assert fila is not None
+    assert fila["entorno"] == "avance"
+    assert a_fila_monitor(evento(agente="planner", mensaje="Plan"))["entorno"] is None

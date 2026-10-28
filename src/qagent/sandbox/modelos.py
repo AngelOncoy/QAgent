@@ -91,6 +91,14 @@ class ImagenNoEncontrada(ErrorSandbox):
     """La imagen base del sandbox no existe."""
 
 
+class ConstruccionCancelada(ErrorSandbox):
+    """El usuario canceló la corrida mientras se construía una imagen (#148).
+
+    La lanza quien escucha el avance; deja de leerse el log de `docker build` y se
+    cierra la conexión con Docker.
+    """
+
+
 class ErrorConstruccionImagen(ErrorSandbox):
     """Falló la construcción de una imagen (por ejemplo, pip install).
 

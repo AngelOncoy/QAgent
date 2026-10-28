@@ -1,0 +1,19 @@
+{
+  "version": "1",
+  "lenguaje": "javascript",
+  "modulo": "src/matematicas.js",
+  "objetivo": "sumar",
+  "firma": "sumar(a, b)",
+  "entrada": {"a": 2, "b": 3},
+  "comprobacion": "igualdad",
+  "valor_esperado": 5,
+  "estado_evidencia": "verificable",
+  "evidencia": {
+    "id": "ev-sumar-2-3",
+    "fuente": "contrato_explicito",
+    "caracter": "comportamiento",
+    "ubicacion": {"archivo": "docs/matematicas.md", "linea_inicio": 10, "linea_fin": 12},
+    "referencia": "MAT-SUMA-01",
+    "fragmento": "Para a=2 y b=3, sumar devuelve 5."
+  }
+}

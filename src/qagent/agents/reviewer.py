@@ -23,6 +23,7 @@ from qagent.sandbox import (
     ejecutar_pruebas,
     resumir_ejecucion,
 )
+from qagent.sandbox.ejecucion import ARCHIVO_TEST_GENERADO
 from qagent.sandbox.normalizacion import hash_error
 
 Ejecutor = Callable[[str, Path, Path, str], ResultadoSandbox]
@@ -58,6 +59,10 @@ _PATRONES_ENTORNO = (
 # lanza esta excepción en vez de devolver un 500. Es un bug de la API (EN-16).
 _PATRON_RESPUESTA_INVALIDA = "responsevalidationerror"
 _MODULO_FALTANTE = re.compile(r"No module named '([A-Za-z0-9_.]+)'")
+#: El cargador dinámico no encontró una librería del sistema (issue 142).
+_LIBRERIA_SISTEMA_FALTANTE = re.compile(
+    r"(lib[A-Za-z0-9_.+\-]*?\.so(?:\.[0-9]+)*): cannot open shared object file"
+)
 
 
 class ReviewerAgent:
@@ -135,12 +140,15 @@ class ReviewerAgent:
             self._referencias.pop(clave, None)  # nueva corrida de este objetivo
         referencia = self._referencias.get(clave)
         if referencia is None and test_anterior is not None:
-            referencia = test_anterior["codigo"]
+            codigo_anterior = test_anterior["codigo"]
+            try:
+                if self._validar_oraculo(contrato, codigo_anterior) is None:
+                    referencia = codigo_anterior
+            except (SyntaxError, ValueError):
+                referencia = None
 
         laundering = self._comparar_con_referencia(referencia, codigo)
-        if laundering is None:
-            self._referencias[clave] = codigo
-        else:
+        if laundering is not None:
             return self._resultado(
                 objetivo=contrato["objetivo"],
                 intento=intento,
@@ -156,10 +164,11 @@ class ReviewerAgent:
         problema_oraculo = self._validar_oraculo(contrato, codigo)
         if problema_oraculo is not None:
             return self._error_test(contrato, intento, problema_oraculo)
+        self._referencias[clave] = codigo
 
         with tempfile.TemporaryDirectory(prefix="qagent-reviewer-") as temporal:
             ruta_tests = Path(temporal)
-            (ruta_tests / "test_generado.py").write_text(codigo, encoding="utf-8")
+            (ruta_tests / ARCHIVO_TEST_GENERADO).write_text(codigo, encoding="utf-8")
 
             resultado = self.ejecutor(
                 self.imagen,
@@ -333,7 +342,10 @@ class ReviewerAgent:
         if evasion is not None:
             return f"Oráculo inválido: {evasion}"
 
-        valores_disponibles = cls._valores_de_aserciones(arbol)
+        valores_disponibles = cls._valores_de_aserciones(
+            arbol,
+            None if contrato.get("tipo") == "endpoint" else contrato["objetivo"],
+        )
         excepciones_disponibles = cls._excepciones_esperadas(arbol)
         cantidad_aserciones = sum(
             isinstance(nodo, (ast.Assert, ast.With)) for nodo in ast.walk(arbol)
@@ -346,7 +358,7 @@ class ReviewerAgent:
 
         for caso in contrato["casos"]:
             if "valor_esperado" in caso:
-                esperado = caso["valor_esperado"]
+                esperado = contracts.valor_esperado_python(caso)
                 posicion = cls._buscar_valor(valores_disponibles, esperado)
                 if posicion is None:
                     return (
@@ -428,6 +440,13 @@ class ReviewerAgent:
         for patron in _PATRONES_ENTORNO:
             if patron in texto:
                 return f"el servicio externo no respondió ({patron})"
+        # Issue 142: una librería del sistema que no se pudo cargar es del entorno, no
+        # del test. Reintentar no la instala y empuja al Generator a simular la dependencia.
+        if libreria := _LIBRERIA_SISTEMA_FALTANTE.search(salida):
+            return (
+                f"falta la librería del sistema '{libreria.group(1)}' en el entorno "
+                "aislado (la necesita una dependencia del proyecto)"
+            )
         for nombre in _MODULO_FALTANTE.findall(salida):
             raiz = nombre.split(".")[0]
             if raiz in self._dependencias_declaradas():
@@ -454,20 +473,79 @@ class ReviewerAgent:
         return nombres
 
     @staticmethod
-    def _valores_de_aserciones(arbol: ast.AST) -> list[Any]:
-        """Extrae los valores comparados en las aserciones del test."""
+    def _valores_de_aserciones(
+        arbol: ast.AST, objetivo: str | None = None
+    ) -> list[Any]:
+        """Extrae valores comparados exactamente con el resultado del objetivo.
+
+        Para endpoints conserva el recorrido histórico de todos los comparadores. En
+        funciones exige una igualdad cuyo sujeto sea la llamada al objetivo o una
+        variable asignada desde ella; no confunde longitud, índices ni literales de
+        aserciones ajenas con el oráculo del caso.
+        """
         valores: list[Any] = []
+        variables_resultado: set[str] = set()
+        if objetivo is not None:
+            for nodo in ast.walk(arbol):
+                if isinstance(nodo, (ast.Assign, ast.AnnAssign)):
+                    valor = nodo.value
+                    if not ReviewerAgent._es_resultado_objetivo(
+                        valor, objetivo, variables_resultado
+                    ):
+                        continue
+                    destinos = (
+                        nodo.targets if isinstance(nodo, ast.Assign) else [nodo.target]
+                    )
+                    variables_resultado.update(
+                        destino.id
+                        for destino in destinos
+                        if isinstance(destino, ast.Name)
+                    )
         for nodo in ast.walk(arbol):
             if not isinstance(nodo, ast.Assert):
                 continue
             prueba = nodo.test
             if not isinstance(prueba, ast.Compare):
                 continue
-            for comparador in prueba.comparators:
+            if objetivo is not None:
+                if (
+                    len(prueba.ops) != 1
+                    or not isinstance(prueba.ops[0], (ast.Eq, ast.Is))
+                    or len(prueba.comparators) != 1
+                ):
+                    continue
+                derecha = prueba.comparators[0]
+                if ReviewerAgent._es_resultado_objetivo(
+                    prueba.left, objetivo, variables_resultado
+                ):
+                    candidatos = [derecha]
+                elif ReviewerAgent._es_resultado_objetivo(
+                    derecha, objetivo, variables_resultado
+                ):
+                    candidatos = [prueba.left]
+                else:
+                    continue
+            else:
+                candidatos = prueba.comparators
+            for comparador in candidatos:
                 valor = ReviewerAgent._valor_literal(comparador)
                 if valor is not _NO_LITERAL:
                     valores.append(valor)
         return valores
+
+    @staticmethod
+    def _es_resultado_objetivo(
+        nodo: ast.AST | None, objetivo: str, variables: set[str]
+    ) -> bool:
+        """Si el nodo representa el resultado completo de la función objetivo."""
+        if isinstance(nodo, ast.Name):
+            return nodo.id in variables
+        if not isinstance(nodo, ast.Call):
+            return False
+        funcion = nodo.func
+        if isinstance(funcion, ast.Name):
+            return funcion.id == objetivo
+        return isinstance(funcion, ast.Attribute) and funcion.attr == objetivo
 
     @staticmethod
     def _valor_literal(nodo: ast.AST) -> Any:

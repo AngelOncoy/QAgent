@@ -1,0 +1,166 @@
+{
+  "casos": [
+    {
+      "nombre": "contrato_explicito_js",
+      "codigo": "export function sumar(a, b) { return a + b; }",
+      "documentacion": "MAT-SUMA-01: para a=2 y b=3 el resultado es 5.",
+      "resultado_validacion": "verificable",
+      "justificacion": "Un contrato independiente documenta entrada y salida concretas.",
+      "contrato": {
+        "version": "1",
+        "lenguaje": "javascript",
+        "modulo": "src/matematicas.js",
+        "objetivo": "sumar",
+        "firma": "sumar(a, b)",
+        "entrada": {"a": 2, "b": 3},
+        "comprobacion": "igualdad",
+        "valor_esperado": 5,
+        "estado_evidencia": "verificable",
+        "evidencia": {
+          "id": "ev-sumar-2-3",
+          "fuente": "contrato_explicito",
+          "caracter": "comportamiento",
+          "ubicacion": {"archivo": "docs/matematicas.md", "linea_inicio": 10, "linea_fin": 12},
+          "referencia": "MAT-SUMA-01",
+          "fragmento": "Para a=2 y b=3, sumar devuelve 5."
+        }
+      },
+      "registro": {"valor_documentado": 5}
+    },
+    {
+      "nombre": "ejemplo_jsdoc",
+      "codigo": "export function saludar(nombre) { return `Hola, ${nombre}!`; }",
+      "documentacion": "/** @example saludar('Ana') // 'Hola, Ana!' */",
+      "resultado_validacion": "verificable",
+      "justificacion": "El ejemplo JSDoc fija entrada y salida sin ejecutar la implementación.",
+      "contrato": {
+        "version": "1",
+        "lenguaje": "javascript",
+        "modulo": "src/saludos.js",
+        "objetivo": "saludar",
+        "firma": "saludar(nombre)",
+        "entrada": {"nombre": "Ana"},
+        "comprobacion": "igualdad",
+        "valor_esperado": "Hola, Ana!",
+        "estado_evidencia": "verificable",
+        "evidencia": {
+          "id": "ev-jsdoc-saludar-ana",
+          "fuente": "jsdoc",
+          "caracter": "comportamiento",
+          "ubicacion": {"archivo": "src/saludos.js", "linea_inicio": 1, "linea_fin": 4},
+          "referencia": "JSDoc saludar @example",
+          "fragmento": "@example saludar('Ana') // 'Hola, Ana!'"
+        }
+      },
+      "registro": {"valor_documentado": "Hola, Ana!"}
+    },
+    {
+      "nombre": "especificacion_semantica_typescript",
+      "codigo": "export function estado(activo: boolean): 'activo' | 'inactivo' { return activo ? 'activo' : 'inactivo'; }",
+      "documentacion": "Contrato EST-01: true corresponde a 'activo' y false a 'inactivo'.",
+      "resultado_validacion": "verificable",
+      "justificacion": "La regla semántica determina el literal y la unión de TypeScript confirma su tipo.",
+      "contrato": {
+        "version": "1",
+        "lenguaje": "typescript",
+        "modulo": "src/estado.ts",
+        "objetivo": "estado",
+        "firma": "estado(activo: boolean): 'activo' | 'inactivo'",
+        "entrada": {"activo": true},
+        "comprobacion": "igualdad",
+        "valor_esperado": "activo",
+        "estado_evidencia": "verificable",
+        "evidencia": {
+          "id": "ev-ts-estado-activo",
+          "fuente": "typescript",
+          "caracter": "comportamiento",
+          "ubicacion": {"archivo": "contracts/estado.ts", "linea_inicio": 3, "linea_fin": 5},
+          "referencia": "EST-01",
+          "fragmento": "true corresponde a 'activo' y false a 'inactivo'."
+        }
+      },
+      "registro": {"valor_documentado": "activo"}
+    },
+    {
+      "nombre": "tipo_general_number",
+      "codigo": "export function calcular(a: number, b: number): number { return a + b; }",
+      "documentacion": "Solo existe la firma TypeScript.",
+      "resultado_validacion": "insuficiente",
+      "justificacion": "number limita el tipo, pero no demuestra ningún valor concreto.",
+      "contrato": {
+        "version": "1",
+        "lenguaje": "typescript",
+        "modulo": "src/calcular.ts",
+        "objetivo": "calcular",
+        "firma": "calcular(a: number, b: number): number",
+        "entrada": {"a": 2, "b": 3},
+        "comprobacion": "igualdad",
+        "estado_evidencia": "insuficiente",
+        "motivo": "El tipo number no determina el valor esperado.",
+        "evidencia": {
+          "id": "ev-ts-number-general",
+          "fuente": "typescript",
+          "caracter": "tipo_general",
+          "ubicacion": {"archivo": "src/calcular.ts", "linea_inicio": 1},
+          "referencia": "firma calcular",
+          "fragmento": "calcular(a: number, b: number): number"
+        }
+      },
+      "registro": {}
+    },
+    {
+      "nombre": "jsdoc_generico",
+      "codigo": "export function procesar(valor) { return valor; }",
+      "documentacion": "/** Procesa el valor. @returns {*} valor procesado */",
+      "resultado_validacion": "insuficiente",
+      "justificacion": "El JSDoc no describe una relación verificable entre entrada y salida.",
+      "contrato": {
+        "version": "1",
+        "lenguaje": "javascript",
+        "modulo": "src/procesar.js",
+        "objetivo": "procesar",
+        "firma": "procesar(valor)",
+        "entrada": {"valor": 0},
+        "comprobacion": "igualdad",
+        "estado_evidencia": "insuficiente",
+        "motivo": "La descripción no fija un resultado esperado.",
+        "evidencia": {
+          "id": "ev-jsdoc-generico",
+          "fuente": "jsdoc",
+          "caracter": "descripcion_generica",
+          "ubicacion": {"archivo": "src/procesar.js", "linea_inicio": 1},
+          "referencia": "JSDoc procesar",
+          "fragmento": "Procesa el valor y devuelve el valor procesado."
+        }
+      },
+      "registro": {}
+    },
+    {
+      "nombre": "documentacion_contradictoria",
+      "codigo": "export function convertir(c: number): number { return c; }",
+      "documentacion": "@returns grados Celsius; @example convertir(0) // 32 grados Fahrenheit.",
+      "resultado_validacion": "contradictoria",
+      "justificacion": "Las dos afirmaciones describen unidades incompatibles.",
+      "contrato": {
+        "version": "1",
+        "lenguaje": "javascript",
+        "modulo": "src/temperatura.js",
+        "objetivo": "convertir",
+        "firma": "convertir(c)",
+        "entrada": {"c": 0},
+        "comprobacion": "igualdad",
+        "estado_evidencia": "contradictoria",
+        "motivo": "@returns y @example usan unidades incompatibles.",
+        "evidencia": {
+          "id": "ev-jsdoc-temperatura-contradictoria",
+          "fuente": "jsdoc",
+          "caracter": "contradictoria",
+          "ubicacion": {"archivo": "src/temperatura.js", "linea_inicio": 1, "linea_fin": 4},
+          "referencia": "JSDoc convertir",
+          "fragmento": "@returns grados Celsius; @example convertir(0) // 32 grados Fahrenheit."
+        }
+      },
+      "registro": {}
+    }
+  ]
+}

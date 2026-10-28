@@ -1,0 +1,100 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "explanation.v1.schema.json",
+  "title": "explanation.v1",
+  "description": "EN-18. Explicación de solo lectura sobre un hallazgo existente. El schema valida la forma; validar_explicacion comprueba referencias y verificaciones contra registros confiables.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "explicacion_id", "hallazgo_id", "referencia_resultado", "hallazgo", "explicacion", "recomendacion", "verificacion", "origen"],
+  "properties": {
+    "version": { "const": "1" },
+    "explicacion_id": { "$ref": "#/$defs/id" },
+    "hallazgo_id": { "$ref": "#/$defs/id" },
+    "referencia_resultado": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["run_id", "objetivo"],
+      "properties": {
+        "run_id": { "$ref": "#/$defs/id" },
+        "objetivo": { "type": "string", "minLength": 1 },
+        "resultado_id": { "$ref": "#/$defs/id" }
+      }
+    },
+    "ubicacion": { "$ref": "#/$defs/ubicacion" },
+    "hallazgo": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["tipo", "descripcion", "evidencia_ids"],
+      "properties": {
+        "tipo": { "enum": ["bug_codigo", "error_test", "estancado", "sin_veredicto", "assertion_laundering"] },
+        "descripcion": { "type": "string", "minLength": 1 },
+        "evidencia_ids": { "$ref": "#/$defs/evidencia_ids" }
+      }
+    },
+    "explicacion": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["resumen", "impacto"],
+      "properties": {
+        "resumen": { "type": "string", "minLength": 1 },
+        "impacto": { "type": "string", "minLength": 1 },
+        "limitaciones": { "type": "array", "items": { "type": "string", "minLength": 1 }, "uniqueItems": true }
+      }
+    },
+    "recomendacion": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["accion", "justificacion", "evidencia_ids"],
+      "properties": {
+        "accion": { "type": "string", "minLength": 1 },
+        "justificacion": { "type": "string", "minLength": 1 },
+        "evidencia_ids": { "$ref": "#/$defs/evidencia_ids" }
+      }
+    },
+    "verificacion": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["estado"],
+      "properties": {
+        "estado": { "enum": ["propuesta", "pendiente", "verificada"] },
+        "ejecucion_id": { "$ref": "#/$defs/id" },
+        "run_id": { "$ref": "#/$defs/id" }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "estado": { "const": "verificada" } }, "required": ["estado"] },
+          "then": { "required": ["ejecucion_id", "run_id"] },
+          "else": { "not": { "anyOf": [{ "required": ["ejecucion_id"] }, { "required": ["run_id"] }] } }
+        }
+      ]
+    },
+    "origen": { "enum": ["plantilla", "ia"] },
+    "modelo": { "type": ["string", "null"], "minLength": 1 }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "origen": { "const": "ia" } }, "required": ["origen"] },
+      "then": { "required": ["modelo"], "properties": { "modelo": { "type": "string", "minLength": 1 } } }
+    }
+  ],
+  "$defs": {
+    "id": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{2,127}$" },
+    "evidencia_ids": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": { "$ref": "#/$defs/id" }
+    },
+    "ubicacion": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["archivo"],
+      "properties": {
+        "archivo": { "type": "string", "minLength": 1 },
+        "objetivo": { "type": "string", "minLength": 1 },
+        "linea_inicio": { "type": "integer", "minimum": 1 },
+        "linea_fin": { "type": "integer", "minimum": 1 }
+      }
+    }
+  }
+}

@@ -7,6 +7,9 @@
 .bnj-cifras{grid-template-columns:repeat(4,minmax(0,1fr))}
 .bnj-cifra-bug{color:var(--bug-t)}
 #bnjResumen{margin-top:calc(var(--esp-3) * -1)}
+/* issue 139: sin resultados (en la app) solo queda el aviso; nada de cifras, filtros ni bandejas */
+#s-exec.bnj-sin-datos :is(.bnj-acciones,.bnj-cifras,#bnjResumen,.bnj-filtros,.bnj-rejilla,.bnj-prioridades,.bnj-definiciones){display:none}
+#bnjVacio .ini-enlace{align-self:flex-start;padding:0;margin-top:var(--esp-2)}
 
 /* Filtros: buscador y dos selectores */
 .bnj-filtros{display:flex;gap:var(--esp-3);flex-wrap:wrap}
@@ -60,6 +63,7 @@
 .bnj-bloque-cab b{font-weight:var(--peso-fuerte)}
 .bnj-bloque-cab .ini-enlace{display:inline-flex;align-items:center;gap:var(--esp-1)}
 .bnj-codigo{width:100%;max-height:360px;overflow:auto;padding:var(--esp-4);border-radius:var(--radio-control);background:var(--codigo-fondo);color:var(--codigo-texto);font:12.5px/1.6 var(--fuente-mono);white-space:pre}
+.bnj-salida-pytest{white-space:pre-wrap;overflow-wrap:anywhere;max-width:100%}
 .bnj-datos:empty{display:none}
 
 /* Prioridades */
