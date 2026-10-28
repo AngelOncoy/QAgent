@@ -1,0 +1,998 @@
+{
+  "api/__init__.py::no_existe": null,
+  "api/extra.py::hola": {
+    "imports": [
+      "from fastapi import APIRouter"
+    ],
+    "globales_usados": [
+      "extra_router"
+    ],
+    "codigo": "def hola(nombre: str = \"mundo\"):\n    return nombre",
+    "paquetes": [
+      "fastapi>=0.110",
+      "pydantic"
+    ]
+  },
+  "api/extra.py::no_existe": null,
+  "api/main.py::raiz": {
+    "imports": [
+      "import fastapi",
+      "from fastapi import FastAPI",
+      "from api import rutas",
+      "from api.rutas import otro as router_otro",
+      "from api.extra import extra_router"
+    ],
+    "globales_usados": [
+      "app"
+    ],
+    "codigo": "def raiz():\n    \"\"\"Raíz.\"\"\"\n    return {\"ok\": True}",
+    "paquetes": [
+      "fastapi>=0.110",
+      "pydantic"
+    ]
+  },
+  "api/main.py::crear_item": {
+    "imports": [
+      "import fastapi",
+      "from fastapi import FastAPI",
+      "from api import rutas",
+      "from api.rutas import otro as router_otro",
+      "from api.extra import extra_router"
+    ],
+    "globales_usados": [
+      "app",
+      "fastapi",
+      "rutas"
+    ],
+    "codigo": "async def crear_item(item_id: str, cantidad: int = 1, *, nombre: str, desc: str | None = None):\n    for _ in range(cantidad):\n        pass\n    return rutas.obtener_db()",
+    "paquetes": [
+      "fastapi>=0.110",
+      "pydantic"
+    ]
+  },
+  "api/main.py::en_segunda": {
+    "imports": [
+      "import fastapi",
+      "from fastapi import FastAPI",
+      "from api import rutas",
+      "from api.rutas import otro as router_otro",
+      "from api.extra import extra_router"
+    ],
+    "globales_usados": [
+      "calcular",
+      "segunda"
+    ],
+    "codigo": "def en_segunda():\n    return calcular()",
+    "paquetes": [
+      "fastapi>=0.110",
+      "pydantic"
+    ]
+  },
+  "api/main.py::calcular": {
+    "imports": [
+      "import fastapi",
+      "from fastapi import FastAPI",
+      "from api import rutas",
+      "from api.rutas import otro as router_otro",
+      "from api.extra import extra_router"
+    ],
+    "globales_usados": [
+      "raiz"
+    ],
+    "codigo": "def calcular():\n    return raiz()",
+    "paquetes": [
+      "fastapi>=0.110",
+      "pydantic"
+    ]
+  },
+  "api/main.py::no_existe": null,
+  "api/modelos.py::no_existe": null,
+  "api/rutas.py::obtener_db": {
+    "imports": [
+      "from typing import Annotated",
+      "from fastapi import APIRouter, Body, Cookie, Depends, Form, Header, HTTPException, Path, Query, Request, Security, status",
+      "from . import modelos",
+      "from .modelos import Pedido as PedidoModelo, Usuario",
+      "from ..servicios import calcular_total, validar as validar_servicio",
+      "from paquete.sub import util"
+    ],
+    "globales_usados": [],
+    "codigo": "def obtener_db():\n    return \"db\"",
+    "paquetes": [
+      "fastapi>=0.110",
+      "pydantic"
+    ]
+  },
+  "api/rutas.py::usuario_actual": {
+    "imports": [
+      "from typing import Annotated",
+      "from fastapi import APIRouter, Body, Cookie, Depends, Form, Header, HTTPException, Path, Query, Request, Security, status",
+      "from . import modelos",
+      "from .modelos import Pedido as PedidoModelo, Usuario",
+      "from ..servicios import calcular_total, validar as validar_servicio",
+      "from paquete.sub import util"
+    ],
+    "globales_usados": [
+      "Header"
+    ],
+    "codigo": "def usuario_actual(token: str = Header(...)):\n    return token",
+    "paquetes": [
+      "fastapi>=0.110",
+      "pydantic"
+    ]
+  },
+  "api/rutas.py::leer_usuario": {
+    "imports": [
+      "from typing import Annotated",
+      "from fastapi import APIRouter, Body, Cookie, Depends, Form, Header, HTTPException, Path, Query, Request, Security, status",
+      "from . import modelos",
+      "from .modelos import Pedido as PedidoModelo, Usuario",
+      "from ..servicios import calcular_total, validar as validar_servicio",
+      "from paquete.sub import util"
+    ],
+    "globales_usados": [
+      "Depends",
+      "HTTPException",
+      "Query",
+      "Request",
+      "Usuario",
+      "obtener_db",
+      "router",
+      "status",
+      "util"
+    ],
+    "codigo": "async def leer_usuario(usuario_id: int, request: Request, db=Depends(obtener_db), detalle: bool = Query(False, description=\"x\")):\n    \"\"\"Lee un usuario.\"\"\"\n    if usuario_id < 0:\n        raise HTTPException(status_code=404, detail=\"No existe\")\n    if not db:\n        raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, \"Sin base\")\n    return util.ayuda(usuario_id)",
+    "paquetes": [
+      "fastapi>=0.110",
+      "pydantic"
+    ]
+  },
+  "api/rutas.py::crear_usuario": {
+    "imports": [
+      "from typing import Annotated",
+      "from fastapi import APIRouter, Body, Cookie, Depends, Form, Header, HTTPException, Path, Query, Request, Security, status",
+      "from . import modelos",
+      "from .modelos import Pedido as PedidoModelo, Usuario",
+      "from ..servicios import calcular_total, validar as validar_servicio",
+      "from paquete.sub import util"
+    ],
+    "globales_usados": [
+      "Annotated",
+      "Cookie",
+      "Depends",
+      "Header",
+      "Query",
+      "Security",
+      "Usuario",
+      "calcular_total",
+      "modelos",
+      "obtener_db",
+      "router",
+      "usuario_actual",
+      "validar_servicio"
+    ],
+    "codigo": "def crear_usuario(usuario: Usuario, x_token: Annotated[str, Header()] = \"t\", limite: Annotated[int, Query(gt=0, le=100)] = 10, sesion: str = Cookie(None)):\n    calcular_total(1)\n    validar_servicio()\n    return [usuario]",
+    "paquetes": [
+      "fastapi>=0.110",
+      "pydantic"
+    ]
+  },
+  "api/rutas.py::varios": {
+    "imports": [
+      "from typing import Annotated",
+      "from fastapi import APIRouter, Body, Cookie, Depends, Form, Header, HTTPException, Path, Query, Request, Security, status",
+      "from . import modelos",
+      "from .modelos import Pedido as PedidoModelo, Usuario",
+      "from ..servicios import calcular_total, validar as validar_servicio",
+      "from paquete.sub import util"
+    ],
+    "globales_usados": [
+      "Annotated",
+      "Query",
+      "router"
+    ],
+    "codigo": "def varios(q: Annotated[str | None, Query(min_length=3)] = None):\n    return q",
+    "paquetes": [
+      "fastapi>=0.110",
+      "pydantic"
+    ]
+  },
+  "api/rutas.py::actualizar": {
+    "imports": [
+      "from typing import Annotated",
+      "from fastapi import APIRouter, Body, Cookie, Depends, Form, Header, HTTPException, Path, Query, Request, Security, status",
+      "from . import modelos",
+      "from .modelos import Pedido as PedidoModelo, Usuario",
+      "from ..servicios import calcular_total, validar as validar_servicio",
+      "from paquete.sub import util"
+    ],
+    "globales_usados": [
+      "Annotated",
+      "Body",
+      "Form",
+      "HTTPException",
+      "Path",
+      "PedidoModelo",
+      "otro",
+      "status"
+    ],
+    "codigo": "def actualizar(pedido_id: Annotated[int, Path(ge=1)], pedido: PedidoModelo, nota: str = Body(..., embed=True), archivo: bytes = Form(b\"\")):\n    try:\n        return pedido\n    except KeyError:\n        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=f\"conflicto {pedido_id}\")",
+    "paquetes": [
+      "fastapi>=0.110",
+      "pydantic"
+    ]
+  },
+  "api/rutas.py::borrar": {
+    "imports": [
+      "from typing import Annotated",
+      "from fastapi import APIRouter, Body, Cookie, Depends, Form, Header, HTTPException, Path, Query, Request, Security, status",
+      "from . import modelos",
+      "from .modelos import Pedido as PedidoModelo, Usuario",
+      "from ..servicios import calcular_total, validar as validar_servicio",
+      "from paquete.sub import util"
+    ],
+    "globales_usados": [
+      "Depends",
+      "HTTPException",
+      "otro",
+      "usuario_actual"
+    ],
+    "codigo": "def borrar(pedido_id: int, usuario=Depends(usuario_actual), db: str = Depends()):\n    raise HTTPException(400)",
+    "paquetes": [
+      "fastapi>=0.110",
+      "pydantic"
+    ]
+  },
+  "api/rutas.py::parche": {
+    "imports": [
+      "from typing import Annotated",
+      "from fastapi import APIRouter, Body, Cookie, Depends, Form, Header, HTTPException, Path, Query, Request, Security, status",
+      "from . import modelos",
+      "from .modelos import Pedido as PedidoModelo, Usuario",
+      "from ..servicios import calcular_total, validar as validar_servicio",
+      "from paquete.sub import util"
+    ],
+    "globales_usados": [
+      "dinamico"
+    ],
+    "codigo": "def parche():\n    return 1",
+    "paquetes": [
+      "fastapi>=0.110",
+      "pydantic"
+    ]
+  },
+  "api/rutas.py::ruta_variable": {
+    "imports": [
+      "from typing import Annotated",
+      "from fastapi import APIRouter, Body, Cookie, Depends, Form, Header, HTTPException, Path, Query, Request, Security, status",
+      "from . import modelos",
+      "from .modelos import Pedido as PedidoModelo, Usuario",
+      "from ..servicios import calcular_total, validar as validar_servicio",
+      "from paquete.sub import util"
+    ],
+    "globales_usados": [
+      "router"
+    ],
+    "codigo": "def ruta_variable():\n    return 1",
+    "paquetes": [
+      "fastapi>=0.110",
+      "pydantic"
+    ]
+  },
+  "api/rutas.py::no_existe": null,
+  "con_bom.py::no_existe": null,
+  "crlf.py::crlf": {
+    "imports": [],
+    "globales_usados": [],
+    "codigo": "def crlf(a,\n         b=1):\n    \"\"\"Doc\n    dos.\n    \"\"\"\n    if a:\n        return b\n    return a",
+    "paquetes": [
+      "fastapi>=0.110",
+      "pydantic"
+    ]
+  },
+  "crlf.py::no_existe": null,
+  "funciones.py::simple": {
+    "imports": [
+      "from __future__ import annotations",
+      "import os, sys as sistema",
+      "from typing import Any, Callable, Optional, Union",
+      "import typing as t",
+      "from collections import *",
+      "import ujson as json",
+      "from tomllib import loads",
+      "import json"
+    ],
+    "globales_usados": [
+      "a",
+      "b"
+    ],
+    "codigo": "def simple(a, b):\n    return a + b",
+    "paquetes": [
+      "fastapi>=0.110",
+      "pydantic"
+    ]
+  },
+  "funciones.py::con_tipos": {
+    "imports": [
+      "from __future__ import annotations",
+      "import os, sys as sistema",
+      "from typing import Any, Callable, Optional, Union",
+      "import typing as t",
+      "from collections import *",
+      "import ujson as json",
+      "from tomllib import loads",
+      "import json"
+    ],
+    "globales_usados": [
+      "Any",
+      "Optional"
+    ],
+    "codigo": "def con_tipos(a: int, b: \"str\" = 'hola', *args: int, c: float = 1.5, d, **kw: Any) -> Optional[int]:\n    \"\"\"Docstring de una línea.\"\"\"\n    return None",
+    "paquetes": [
+      "fastapi>=0.110",
+      "pydantic"
+    ]
+  },
+  "funciones.py::multilinea": {
+    "imports": [
+      "from __future__ import annotations",
+      "import os, sys as sistema",
+      "from typing import Any, Callable, Optional, Union",
+      "import typing as t",
+      "from collections import *",
+      "import ujson as json",
+      "from tomllib import loads",
+      "import json"
+    ],
+    "globales_usados": [
+      "a",
+      "t"
+    ],
+    "codigo": "def multilinea(\n    a: int,  # comentario dentro de la firma\n    b: dict[str,   int] = {'x': 1, \"y\": 2},\n    /,\n    c: list[int] = [1,2,3],\n    *,\n    d: tuple = (1,),\n    e: t.Optional[  str ] = None,\n) -> tuple[int, ...]:\n    '''\n    Docstring con sangría.\n\n        Línea más sangrada.\n    Fin.\n    '''\n    return (a,)",
+    "paquetes": [
+      "fastapi>=0.110",
+      "pydantic"
+    ]
+  },
+  "funciones.py::numeros": {
+    "imports": [
+      "from __future__ import annotations",
+      "import os, sys as sistema",
+      "from typing import Any, Callable, Optional, Union",
+      "import typing as t",
+      "from collections import *",
+      "import ujson as json",
+      "from tomllib import loads",
+      "import json"
+    ],
+    "globales_usados": [],
+    "codigo": "def numeros(a=0x10, b=1_000, c=1e3, d=1.5e-3, e=0o17, f=0b101, g=3j, h=-1, i=+2, j=~3, k=1e400, l=0.0, m=10.0) -> None:\n    pass",
+    "paquetes": [
+      "fastapi>=0.110",
+      "pydantic"
+    ]
+  },
+  "funciones.py::cadenas": {
+    "imports": [
+      "from __future__ import annotations",
+      "import os, sys as sistema",
+      "from typing import Any, Callable, Optional, Union",
+      "import typing as t",
+      "from collections import *",
+      "import ujson as json",
+      "from tomllib import loads",
+      "import json"
+    ],
+    "globales_usados": [],
+    "codigo": "def cadenas(a=\"it's\", b='dice \"hola\"', c=\"tab\\there\", d=b\"bytes\", e=r\"raw\\n\", f=\"unié\", g=\"a\" \"b\", h=u\"u\", i=\"\"\"triple\"\"\", j='\\'', k=\"\\\\\", l=\"nueva\\nlinea\", m=\"ñandú\") -> None:\n    \"Docstring con comillas dobles simples.\"",
+    "paquetes": [
+      "fastapi>=0.110",
+      "pydantic"
+    ]
+  },
+  "funciones.py::fstrings": {
+    "imports": [
+      "from __future__ import annotations",
+      "import os, sys as sistema",
+      "from typing import Any, Callable, Optional, Union",
+      "import typing as t",
+      "from collections import *",
+      "import ujson as json",
+      "from tomllib import loads",
+      "import json"
+    ],
+    "globales_usados": [
+      "CONSTANTE"
+    ],
+    "codigo": "def fstrings(a=f\"x{1}\", b=f\"{CONSTANTE!r:>10}\", c=f\"{CONSTANTE=}\", d=f\"{{literal}}\", e=f\"{'anidada'}\", f=\"a\" f\"b{CONSTANTE}\") -> None:\n    pass",
+    "paquetes": [
+      "fastapi>=0.110",
+      "pydantic"
+    ]
+  },
+  "funciones.py::expresiones": {
+    "imports": [
+      "from __future__ import annotations",
+      "import os, sys as sistema",
+      "from typing import Any, Callable, Optional, Union",
+      "import typing as t",
+      "from collections import *",
+      "import ujson as json",
+      "from tomllib import loads",
+      "import json"
+    ],
+    "globales_usados": [
+      "CONSTANTE",
+      "Callable",
+      "Union",
+      "a",
+      "b",
+      "lista_global",
+      "sistema",
+      "w",
+      "x",
+      "y",
+      "z"
+    ],
+    "codigo": "def expresiones(a=lambda x, y=1: x + y, b=[i * 2 for i in range(3) if i], c={k: v for k, v in {}.items()}, d={1, 2}, e=(i for i in []), f=not True, g=1 if CONSTANTE else 2, h=(1 + 2) * 3, i=2 ** -1, j=(2 ** 3) ** 2, k=2 ** (3 ** 2), l=a or b and c, m=(a or b) and c, n=1 < 2 <= 3, o=x is not None, p=x not in [], q=[*lista_global], r={**{}}, s=lista_global[1:2], u=lista_global[::2], v=sistema.argv[0], w=(yield_ := 1), z=-(-1), aa=(1).real, bb=f(*[1], **{}), cc=f(a=1, *[2]), dd=~-1, ee=(lambda: 0)(), ff=x if y else (z if w else 0), gg=(), hh=(1, 2), ii={}, jj=[], kk=..., ll=None, mm=True, nn=a[1, 2], oo=a[(1, 2)], pp=a[()], qq=a[1:2, 3], rr=a @ b, ss=a // b % c, tt=a << 1 | b >> 2 ^ c & d, uu=-a ** 2, vv=(-a) ** 2, ww=not (a and b), xx=(not a) == b, yy=f(x for x in []), zz=f((x for x in []), 1)) -> Callable[[int, str], Union[int, None]]:\n    pass",
+    "paquetes": [
+      "fastapi>=0.110",
+      "pydantic"
+    ]
+  },
+  "funciones.py::anotaciones": {
+    "imports": [
+      "from __future__ import annotations",
+      "import os, sys as sistema",
+      "from typing import Any, Callable, Optional, Union",
+      "import typing as t",
+      "from collections import *",
+      "import ujson as json",
+      "from tomllib import loads",
+      "import json"
+    ],
+    "globales_usados": [
+      "Any",
+      "Callable",
+      "t"
+    ],
+    "codigo": "def anotaciones(a: int | None, b: list[\"Modelo\"], c: Callable[..., Any], d: t.Dict[str, t.List[int]], e: 'Optional[int]' = None) -> int | str:\n    return 1",
+    "paquetes": [
+      "fastapi>=0.110",
+      "pydantic"
+    ]
+  },
+  "funciones.py::asincrona": {
+    "imports": [
+      "from __future__ import annotations",
+      "import os, sys as sistema",
+      "from typing import Any, Callable, Optional, Union",
+      "import typing as t",
+      "from collections import *",
+      "import ujson as json",
+      "from tomllib import loads",
+      "import json"
+    ],
+    "globales_usados": [],
+    "codigo": "async def asincrona(n: int) -> list[int]:\n    \"\"\"Async con ramas.\"\"\"\n    resultado = []\n    async for i in generador():\n        if i:\n            resultado.append(i)\n    async with recurso() as r:\n        pass\n    await asincrona(n - 1)\n    return [i async for i in generador() if i > 1]",
+    "paquetes": [
+      "fastapi>=0.110",
+      "pydantic"
+    ]
+  },
+  "funciones.py::ramas": {
+    "imports": [
+      "from __future__ import annotations",
+      "import os, sys as sistema",
+      "from typing import Any, Callable, Optional, Union",
+      "import typing as t",
+      "from collections import *",
+      "import ujson as json",
+      "from tomllib import loads",
+      "import json"
+    ],
+    "globales_usados": [
+      "a",
+      "x",
+      "y"
+    ],
+    "codigo": "def ramas(x, y=None):\n    if x:\n        return 1\n    elif y:\n        return 2\n    elif x and y:\n        return 3\n    else:\n        for i in range(3):\n            while i:\n                i -= 1\n            else:\n                pass\n        try:\n            pass\n        except (ValueError, KeyError) as e:\n            pass\n        except Exception:\n            pass\n        else:\n            pass\n        finally:\n            pass\n    valor = 1 if x else 2 if y else 3\n    lista = [i for i in range(3) if i if i > 1 for j in range(2) if j]\n    conjunto = {i for i in range(3) if i}\n    dic = {i: i for i in range(3) if i}\n    gen = list(i for i in range(3) if i)\n    f = lambda q: 1 if q else 2\n    match x:\n        case 1 | 2:\n            pass\n        case [a, b, *resto] if a:\n            pass\n        case {\"k\": v}:\n            pass\n        case Punto(x=0):\n            pass\n        case _:\n            pass\n\n    def interna():\n        if x:\n            pass\n\n    class Interna:\n        def metodo(self):\n            if x:\n                pass\n\n    return valor",
+    "paquetes": [
+      "fastapi>=0.110",
+      "pydantic"
+    ]
+  },
+  "funciones.py::grupo_excepciones": {
+    "imports": [
+      "from __future__ import annotations",
+      "import os, sys as sistema",
+      "from typing import Any, Callable, Optional, Union",
+      "import typing as t",
+      "from collections import *",
+      "import ujson as json",
+      "from tomllib import loads",
+      "import json"
+    ],
+    "globales_usados": [],
+    "codigo": "def grupo_excepciones():\n    try:\n        pass\n    except* ValueError:\n        pass\n    except* TypeError:\n        pass",
+    "paquetes": [
+      "fastapi>=0.110",
+      "pydantic"
+    ]
+  },
+  "funciones.py::decorada": {
+    "imports": [
+      "from __future__ import annotations",
+      "import os, sys as sistema",
+      "from typing import Any, Callable, Optional, Union",
+      "import typing as t",
+      "from collections import *",
+      "import ujson as json",
+      "from tomllib import loads",
+      "import json"
+    ],
+    "globales_usados": [
+      "a"
+    ],
+    "codigo": "def decorada(a: int) -> int:\n    \"\"\"Decorada.\"\"\"\n    return a",
+    "paquetes": [
+      "fastapi>=0.110",
+      "pydantic"
+    ]
+  },
+  "funciones.py::_privada": {
+    "imports": [
+      "from __future__ import annotations",
+      "import os, sys as sistema",
+      "from typing import Any, Callable, Optional, Union",
+      "import typing as t",
+      "from collections import *",
+      "import ujson as json",
+      "from tomllib import loads",
+      "import json"
+    ],
+    "globales_usados": [],
+    "codigo": "def _privada():\n    return 1",
+    "paquetes": [
+      "fastapi>=0.110",
+      "pydantic"
+    ]
+  },
+  "funciones.py::redefinida": {
+    "imports": [
+      "from __future__ import annotations",
+      "import os, sys as sistema",
+      "from typing import Any, Callable, Optional, Union",
+      "import typing as t",
+      "from collections import *",
+      "import ujson as json",
+      "from tomllib import loads",
+      "import json"
+    ],
+    "globales_usados": [],
+    "codigo": "def redefinida():\n    \"\"\"Primera.\"\"\"",
+    "paquetes": [
+      "fastapi>=0.110",
+      "pydantic"
+    ]
+  },
+  "funciones.py::sin_docstring_bytes": {
+    "imports": [
+      "from __future__ import annotations",
+      "import os, sys as sistema",
+      "from typing import Any, Callable, Optional, Union",
+      "import typing as t",
+      "from collections import *",
+      "import ujson as json",
+      "from tomllib import loads",
+      "import json"
+    ],
+    "globales_usados": [],
+    "codigo": "def sin_docstring_bytes():\n    b\"no es docstring\"\n    return 1",
+    "paquetes": [
+      "fastapi>=0.110",
+      "pydantic"
+    ]
+  },
+  "funciones.py::docstring_fstring": {
+    "imports": [
+      "from __future__ import annotations",
+      "import os, sys as sistema",
+      "from typing import Any, Callable, Optional, Union",
+      "import typing as t",
+      "from collections import *",
+      "import ujson as json",
+      "from tomllib import loads",
+      "import json"
+    ],
+    "globales_usados": [
+      "CONSTANTE"
+    ],
+    "codigo": "def docstring_fstring():\n    f\"no es docstring {CONSTANTE}\"",
+    "paquetes": [
+      "fastapi>=0.110",
+      "pydantic"
+    ]
+  },
+  "funciones.py::docstring_concatenado": {
+    "imports": [
+      "from __future__ import annotations",
+      "import os, sys as sistema",
+      "from typing import Any, Callable, Optional, Union",
+      "import typing as t",
+      "from collections import *",
+      "import ujson as json",
+      "from tomllib import loads",
+      "import json"
+    ],
+    "globales_usados": [],
+    "codigo": "def docstring_concatenado():\n    \"uno \" 'dos'",
+    "paquetes": [
+      "fastapi>=0.110",
+      "pydantic"
+    ]
+  },
+  "funciones.py::docstring_vacio": {
+    "imports": [
+      "from __future__ import annotations",
+      "import os, sys as sistema",
+      "from typing import Any, Callable, Optional, Union",
+      "import typing as t",
+      "from collections import *",
+      "import ujson as json",
+      "from tomllib import loads",
+      "import json"
+    ],
+    "globales_usados": [],
+    "codigo": "def docstring_vacio():\n    \"\"\"   \"\"\"",
+    "paquetes": [
+      "fastapi>=0.110",
+      "pydantic"
+    ]
+  },
+  "funciones.py::docstring_escapes": {
+    "imports": [
+      "from __future__ import annotations",
+      "import os, sys as sistema",
+      "from typing import Any, Callable, Optional, Union",
+      "import typing as t",
+      "from collections import *",
+      "import ujson as json",
+      "from tomllib import loads",
+      "import json"
+    ],
+    "globales_usados": [],
+    "codigo": "def docstring_escapes():\n    \"\"\"Con \\t tab, \\\\ barra y \\x41 hex.\n    Segunda línea con \\N{GREEK SMALL LETTER ALPHA}.\n    \"\"\"",
+    "paquetes": [
+      "fastapi>=0.110",
+      "pydantic"
+    ]
+  },
+  "funciones.py::docstring_raw": {
+    "imports": [
+      "from __future__ import annotations",
+      "import os, sys as sistema",
+      "from typing import Any, Callable, Optional, Union",
+      "import typing as t",
+      "from collections import *",
+      "import ujson as json",
+      "from tomllib import loads",
+      "import json"
+    ],
+    "globales_usados": [],
+    "codigo": "def docstring_raw():\n    r\"\"\"Raw \\d+ sin escapes.\"\"\"",
+    "paquetes": [
+      "fastapi>=0.110",
+      "pydantic"
+    ]
+  },
+  "funciones.py::llamadas_globales": {
+    "imports": [
+      "from __future__ import annotations",
+      "import os, sys as sistema",
+      "from typing import Any, Callable, Optional, Union",
+      "import typing as t",
+      "from collections import *",
+      "import ujson as json",
+      "from tomllib import loads",
+      "import json"
+    ],
+    "globales_usados": [
+      "CONSTANTE",
+      "a",
+      "b",
+      "con_tipos",
+      "contador",
+      "json",
+      "lista_global",
+      "loads",
+      "os",
+      "simple",
+      "t",
+      "w",
+      "x",
+      "y",
+      "z"
+    ],
+    "codigo": "def llamadas_globales(a):\n    print(CONSTANTE, os.path.join(\"a\", \"b\"), json.dumps({}), loads, x)\n    global contador\n    contador = contador + 1\n    nueva = z\n    del nueva\n    for CONSTANTE2 in lista_global:\n        pass\n    obj.attr = w\n    lista_global.append(b)\n    return simple(a, y) + con_tipos(1) + t.cast(int, a)",
+    "paquetes": [
+      "fastapi>=0.110",
+      "pydantic"
+    ]
+  },
+  "funciones.py::sin_retorno": {
+    "imports": [
+      "from __future__ import annotations",
+      "import os, sys as sistema",
+      "from typing import Any, Callable, Optional, Union",
+      "import typing as t",
+      "from collections import *",
+      "import ujson as json",
+      "from tomllib import loads",
+      "import json"
+    ],
+    "globales_usados": [],
+    "codigo": "def sin_retorno(a: int, b: str):\n    pass",
+    "paquetes": [
+      "fastapi>=0.110",
+      "pydantic"
+    ]
+  },
+  "funciones.py::todo_tipado": {
+    "imports": [
+      "from __future__ import annotations",
+      "import os, sys as sistema",
+      "from typing import Any, Callable, Optional, Union",
+      "import typing as t",
+      "from collections import *",
+      "import ujson as json",
+      "from tomllib import loads",
+      "import json"
+    ],
+    "globales_usados": [],
+    "codigo": "def todo_tipado(a: int, *args: str, b: int = 1, **kw: float) -> None:\n    pass",
+    "paquetes": [
+      "fastapi>=0.110",
+      "pydantic"
+    ]
+  },
+  "funciones.py::vacios": {
+    "imports": [
+      "from __future__ import annotations",
+      "import os, sys as sistema",
+      "from typing import Any, Callable, Optional, Union",
+      "import typing as t",
+      "from collections import *",
+      "import ujson as json",
+      "from tomllib import loads",
+      "import json"
+    ],
+    "globales_usados": [],
+    "codigo": "def vacios(*, a):\n    pass",
+    "paquetes": [
+      "fastapi>=0.110",
+      "pydantic"
+    ]
+  },
+  "funciones.py::solo_varargs": {
+    "imports": [
+      "from __future__ import annotations",
+      "import os, sys as sistema",
+      "from typing import Any, Callable, Optional, Union",
+      "import typing as t",
+      "from collections import *",
+      "import ujson as json",
+      "from tomllib import loads",
+      "import json"
+    ],
+    "globales_usados": [],
+    "codigo": "def solo_varargs(*args, **kwargs):\n    pass",
+    "paquetes": [
+      "fastapi>=0.110",
+      "pydantic"
+    ]
+  },
+  "funciones.py::posicional_solo": {
+    "imports": [
+      "from __future__ import annotations",
+      "import os, sys as sistema",
+      "from typing import Any, Callable, Optional, Union",
+      "import typing as t",
+      "from collections import *",
+      "import ujson as json",
+      "from tomllib import loads",
+      "import json"
+    ],
+    "globales_usados": [],
+    "codigo": "def posicional_solo(a, b=2, /, c=3):\n    pass",
+    "paquetes": [
+      "fastapi>=0.110",
+      "pydantic"
+    ]
+  },
+  "funciones.py::generador_func": {
+    "imports": [
+      "from __future__ import annotations",
+      "import os, sys as sistema",
+      "from typing import Any, Callable, Optional, Union",
+      "import typing as t",
+      "from collections import *",
+      "import ujson as json",
+      "from tomllib import loads",
+      "import json"
+    ],
+    "globales_usados": [],
+    "codigo": "def generador_func():\n    yield 1\n    yield from range(2)\n    x = yield\n    return (yield)",
+    "paquetes": [
+      "fastapi>=0.110",
+      "pydantic"
+    ]
+  },
+  "funciones.py::con_comentario_final": {
+    "imports": [
+      "from __future__ import annotations",
+      "import os, sys as sistema",
+      "from typing import Any, Callable, Optional, Union",
+      "import typing as t",
+      "from collections import *",
+      "import ujson as json",
+      "from tomllib import loads",
+      "import json"
+    ],
+    "globales_usados": [
+      "a"
+    ],
+    "codigo": "def con_comentario_final(a):\n    if a:\n        return 1\n    return 2",
+    "paquetes": [
+      "fastapi>=0.110",
+      "pydantic"
+    ]
+  },
+  "funciones.py::ultima": {
+    "imports": [
+      "from __future__ import annotations",
+      "import os, sys as sistema",
+      "from typing import Any, Callable, Optional, Union",
+      "import typing as t",
+      "from collections import *",
+      "import ujson as json",
+      "from tomllib import loads",
+      "import json"
+    ],
+    "globales_usados": [
+      "a"
+    ],
+    "codigo": "def ultima(\n    a,\n    b,\n):\n    return a",
+    "paquetes": [
+      "fastapi>=0.110",
+      "pydantic"
+    ]
+  },
+  "funciones.py::no_existe": null,
+  "latin1.py::no_existe": null,
+  "paquete/__init__.py::desde_paquete": {
+    "imports": [
+      "from .sub.util import ayuda as ayuda_paquete"
+    ],
+    "globales_usados": [
+      "ayuda_paquete"
+    ],
+    "codigo": "def desde_paquete():\n    return ayuda_paquete(1)",
+    "paquetes": [
+      "fastapi>=0.110",
+      "pydantic"
+    ]
+  },
+  "paquete/__init__.py::no_existe": null,
+  "paquete/sub/__init__.py::no_existe": null,
+  "paquete/sub/util.py::ayuda": {
+    "imports": [
+      "from ... import servicios",
+      "from .. import desde_paquete"
+    ],
+    "globales_usados": [
+      "desde_paquete",
+      "servicios"
+    ],
+    "codigo": "def ayuda(n: int) -> int:\n    \"\"\"Ayuda.\"\"\"\n    return n + desde_paquete() + servicios.validar()",
+    "paquetes": [
+      "fastapi>=0.110",
+      "pydantic"
+    ]
+  },
+  "paquete/sub/util.py::no_existe": null,
+  "servicios.py::calcular_total": {
+    "imports": [
+      "import funciones",
+      "import funciones as fn",
+      "from funciones import simple as sumar, ramas",
+      "from paquete import sub",
+      "from paquete.sub import util as utilidades",
+      "import paquete.sub.util"
+    ],
+    "globales_usados": [
+      "fn",
+      "funciones",
+      "ramas",
+      "sumar",
+      "validar"
+    ],
+    "codigo": "def calcular_total(n: int) -> int:\n    \"\"\"Total.\"\"\"\n    return sumar(n, 1) + fn.simple(1, 2) + funciones.con_tipos(1) + ramas(n) + validar()",
+    "paquetes": [
+      "fastapi>=0.110",
+      "pydantic"
+    ]
+  },
+  "servicios.py::validar": {
+    "imports": [
+      "import funciones",
+      "import funciones as fn",
+      "from funciones import simple as sumar, ramas",
+      "from paquete import sub",
+      "from paquete.sub import util as utilidades",
+      "import paquete.sub.util"
+    ],
+    "globales_usados": [
+      "_interna",
+      "calcular_total",
+      "paquete",
+      "sub",
+      "utilidades"
+    ],
+    "codigo": "def validar():\n    return sub.util.ayuda(1) + utilidades.ayuda(2) + paquete.sub.util.ayuda(3) + _interna() + calcular_total(0)",
+    "paquetes": [
+      "fastapi>=0.110",
+      "pydantic"
+    ]
+  },
+  "servicios.py::_interna": {
+    "imports": [
+      "import funciones",
+      "import funciones as fn",
+      "from funciones import simple as sumar, ramas",
+      "from paquete import sub",
+      "from paquete.sub import util as utilidades",
+      "import paquete.sub.util"
+    ],
+    "globales_usados": [
+      "sumar"
+    ],
+    "codigo": "def _interna():\n    return (sumar)(1, 2)",
+    "paquetes": [
+      "fastapi>=0.110",
+      "pydantic"
+    ]
+  },
+  "servicios.py::recursiva": {
+    "imports": [
+      "import funciones",
+      "import funciones as fn",
+      "from funciones import simple as sumar, ramas",
+      "from paquete import sub",
+      "from paquete.sub import util as utilidades",
+      "import paquete.sub.util"
+    ],
+    "globales_usados": [],
+    "codigo": "def recursiva(n):\n    return recursiva(n - 1) if n else 0",
+    "paquetes": [
+      "fastapi>=0.110",
+      "pydantic"
+    ]
+  },
+  "servicios.py::no_existe": null,
+  "solo_comentarios.py::no_existe": null,
+  "vacio.py::no_existe": null,
+  "binario.py::f": null,
+  "errores/asigna_literal.py::f": null,
+  "errores/defecto_orden.py::f": null,
+  "errores/diferente.py::f": null,
+  "errores/exec_py2.py::f": null,
+  "errores/fin_inesperado.py::f": null,
+  "errores/keyword_pos.py::f": null,
+  "errores/parentesis.py::f": null,
+  "errores/py2_except.py::f": null,
+  "errores/py2_print.py::f": null,
+  "errores/roto.py::f": null,
+  "errores/sangria.py::f": null,
+  "errores/walrus.py::f": null
+}

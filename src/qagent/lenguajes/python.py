@@ -1,7 +1,7 @@
 """Adaptador de Python (EN-17): delega en los módulos que ya usa QAgent.
 
-No reimplementa nada: el análisis es ``qagent.analysis.analizar_proyecto`` (solo
-``ast``, ADR-002), el comando es ``qagent.sandbox.ejecucion.comando_pytest``, el
+No reimplementa nada: el análisis es ``qagent.analysis.analizar_proyecto``
+(tree-sitter con la gramática de Python, ADR-009 y TA-16), el comando es ``qagent.sandbox.ejecucion.comando_pytest``, el
 informe se lee con ``parsear_junit``, la cobertura con ``leer_coverage``, la
 mutación usa ``qagent.sandbox.mutacion.comando_mutacion`` y el laundering
 ``comparar_aserciones``.
@@ -47,7 +47,7 @@ class PythonAdapter(LanguageAdapter):
     frameworks_app = ("fastapi",)
 
     def analizar(self, raiz: str | os.PathLike[str]) -> Estructura:
-        """``analizar_proyecto(raiz)`` con ``lenguaje: "python"``."""
+        """``analizar_proyecto(raiz)`` (tree-sitter) con ``lenguaje: "python"``."""
         return {"lenguaje": self.lenguaje, **analizar_proyecto(raiz)}
 
     def comando_pruebas(self, modulo: str, framework: str | None = None) -> list[str]:
@@ -73,7 +73,11 @@ class PythonAdapter(LanguageAdapter):
         return parsear_junit(informe).a_dict()
 
     def validar_sintaxis(self, codigo: str) -> list[str]:
-        """Parsea con ``ast`` (no ejecuta) y devuelve el error con su línea."""
+        """Parsea con ``ast`` (no ejecuta) y devuelve el error con su línea.
+
+        Revisa las pruebas que genera QAgent, no el código del usuario: sigue con
+        ``ast`` para dar los mismos mensajes que CPython (TA-16).
+        """
         try:
             ast.parse(codigo)
         except SyntaxError as error:

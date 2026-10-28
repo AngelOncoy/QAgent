@@ -1,6 +1,5 @@
-"""Pruebas del analizador AST (EN-02). No llaman a ninguna API de IA."""
+"""Pruebas del analizador estático (EN-02). No llaman a ninguna API de IA."""
 
-import ast
 import json
 from pathlib import Path
 
@@ -8,6 +7,7 @@ import pytest
 
 from qagent.analysis import analizar_proyecto, analizar_proyecto_json
 from qagent.analysis.analyzer import calcular_huella, contar_ramas, main
+from qagent.analysis.arbol_ts import parsear, sentencias
 
 CALCULOS = '''"""Cálculos de ejemplo."""
 
@@ -238,7 +238,7 @@ def test_huella_no_depende_de_los_saltos_de_linea():
 )
 def test_conteo_de_ramas(cuerpo, esperadas):
     codigo = "def f(x, y=None):\n" + "\n".join("    " + l for l in cuerpo.splitlines())
-    funcion = ast.parse(codigo).body[0]
+    funcion = sentencias(parsear(codigo).root_node)[0]
     assert contar_ramas(funcion) == esperadas
 
 

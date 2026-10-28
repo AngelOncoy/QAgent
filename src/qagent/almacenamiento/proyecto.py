@@ -101,6 +101,9 @@ PATRON_RUN_ID = re.compile(r"^\d{8}-\d{6}-[0-9a-f]{4}$")
 PATRON_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_-]*$")
 PATRON_PRUEBA = re.compile(r"^test_[A-Za-z0-9_]+\.py$")
 PATRON_HUELLA = re.compile(r"^[0-9a-f]{64}$")
+#: Cómo se calculó `huella_objetivo` (huella de una función o endpoint). 1: `ast.dump`,
+#: hasta TA-16 (las specs viejas no traen el campo); 2: árbol de tree-sitter.
+VERSION_HUELLA_OBJETIVO = 2
 #: Identificador de un perfil de corrida guardado con cada spec (#75), ej. "humo".
 PATRON_PERFIL = re.compile(r"^[a-z][a-z_]*$")
 
@@ -469,6 +472,7 @@ class AlmacenProyecto:
         }
         if huella_objetivo is not None:
             spec["huella_objetivo"] = huella_objetivo
+            spec["version_huella_objetivo"] = VERSION_HUELLA_OBJETIVO
         if perfil is not None:
             spec["perfil"] = perfil
         _validar_spec(spec)
@@ -546,7 +550,7 @@ class AlmacenProyecto:
             ErrorAlmacen: si algún campo no es válido (no se escribe nada).
         """
         datos = {
-            "version": "1",
+            "version": str(VERSION_HUELLA_OBJETIVO),
             "id": spec_id,
             "huella_objetivo": huella_objetivo,
             "huella_prueba": huella_prueba,
@@ -581,6 +585,41 @@ class AlmacenProyecto:
         ):
             return None
         return datos
+
+    def migrar_huella_objetivo(self, spec_id: str, anterior: str, nueva: str) -> bool:
+        """Pasa la huella de una función de `ast.dump` a tree-sitter (TA-16).
+
+        Solo se llama cuando el módulo no cambió desde que se guardó la spec (su huella
+        de módulo es la misma), así que la función tampoco cambió: la spec y su último
+        Mutation Score siguen sirviendo con la huella nueva.
+
+        Returns:
+            True si la spec tenía la huella `anterior` y se actualizó.
+        """
+        try:
+            spec = leer_json_objeto(self._ruta_spec(spec_id))
+            _validar_spec(spec)
+        except ErrorAlmacen:
+            return False
+        if (
+            spec.get("version_huella_objetivo") == VERSION_HUELLA_OBJETIVO
+            or spec.get("huella_objetivo") != anterior
+        ):
+            return False
+        spec["huella_objetivo"] = nueva
+        spec["version_huella_objetivo"] = VERSION_HUELLA_OBJETIVO
+        _validar_spec(spec)
+        escribir_json_atomico(self._ruta_spec(spec_id), spec)
+        try:
+            mutacion = leer_json_objeto(self._ruta_mutacion(spec_id))
+            _validar_mutacion(mutacion)
+        except ErrorAlmacen:
+            return True
+        if mutacion["huella_objetivo"] == anterior:
+            mutacion["huella_objetivo"] = nueva
+            mutacion["version"] = str(VERSION_HUELLA_OBJETIVO)
+            escribir_json_atomico(self._ruta_mutacion(spec_id), mutacion)
+        return True
 
     def _ruta_mutacion(self, spec_id: str) -> Path:
         if not isinstance(spec_id, str) or not PATRON_ID.match(spec_id):
@@ -857,6 +896,9 @@ def _validar_spec(spec: dict[str, Any]) -> None:
         isinstance(huella, str) and PATRON_HUELLA.fullmatch(huella)
     ):
         raise ErrorAlmacen("huella_objetivo debe ser SHA-256 hexadecimal o null.")
+    version = spec.get("version_huella_objetivo", 1)
+    if not isinstance(version, int) or isinstance(version, bool) or version < 1:
+        raise ErrorAlmacen(f"version_huella_objetivo no válida: {version!r}")
     if "perfil" in spec and not _es_perfil(spec["perfil"]):
         raise ErrorAlmacen(f"perfil de spec no válido: {spec['perfil']!r}")
 
