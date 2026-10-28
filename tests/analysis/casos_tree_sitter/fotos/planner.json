@@ -1,0 +1,380 @@
+{
+  "es_tupla": {
+    "tuple[int, int]": true,
+    "Tuple[int]": true,
+    "typing.Tuple[str, ...]": true,
+    "tuple": true,
+    " tuple [ int ] ": true,
+    "list[tuple[int]]": false,
+    "Literal['a']": false,
+    "Literal[1]": false,
+    "typing.Literal[-1]": false,
+    "Literal['a', 'b']": false,
+    "Literal[None]": false,
+    "Literal[x]": false,
+    "int |": false,
+    "": false,
+    "Literal[('a', 'b')]": false,
+    "Literal[\"x\" \"y\"]": false,
+    "str": false,
+    "Optional[int]": false,
+    "tuple[int, ...]": true,
+    "None": false,
+    "Callable[[int, str], Union[int, None]]": false,
+    "int | str": false,
+    "list[int]": false,
+    "int": false
+  },
+  "literal_unico": {
+    "Literal['a']": "'a'",
+    "Literal[1]": "1",
+    "typing.Literal[-1]": "-1",
+    "Literal[None]": "None",
+    "Literal[\"x\" \"y\"]": "'xy'"
+  },
+  "retorno_de_firma": {
+    "(a, b=1, /, c=2, *args, d, e=3, **kw)": null,
+    "(a: int, b: str = 'x') -> tuple[int, str]": "tuple[int, str]",
+    "(*, a)": null,
+    "() -> None": "None",
+    "(a": null,
+    "sin parentesis": null,
+    "()": null,
+    "(token: str=Header(...))": null,
+    "(a: str='ñ') -> str": "str",
+    "(a, b=1)": null,
+    "(a, b)": null,
+    "(a: int, b: 'str'='hola', *args: int, c: float=1.5, d, **kw: Any) -> Optional[int]": "Optional[int]",
+    "(a: int, b: dict[str, int]={'x': 1, 'y': 2}, /, c: list[int]=[1, 2, 3], *, d: tuple=(1,), e: t.Optional[str]=None) -> tuple[int, ...]": "tuple[int, ...]",
+    "(a=16, b=1000, c=1000.0, d=0.0015, e=15, f=5, g=3j, h=-1, i=+2, j=~3, k=1e309, l=0.0, m=10.0) -> None": "None",
+    "(a=\"it's\", b='dice \"hola\"', c='tab\\there', d=b'bytes', e='raw\\\\n', f='unié', g='ab', h=u'u', i='triple', j=\"'\", k='\\\\', l='nueva\\nlinea', m='ñandú') -> None": "None",
+    "(a=f'x{1}', b=f'{CONSTANTE!r:>10}', c=f'CONSTANTE={CONSTANTE!r}', d=f'{{literal}}', e=f\"{'anidada'}\", f=f'ab{CONSTANTE}') -> None": "None",
+    "(a=lambda x, y=1: x + y, b=[i * 2 for i in range(3) if i], c={k: v for k, v in {}.items()}, d={1, 2}, e=(i for i in []), f=not True, g=1 if CONSTANTE else 2, h=(1 + 2) * 3, i=2 ** (-1), j=(2 ** 3) ** 2, k=2 ** 3 ** 2, l=a or (b and c), m=(a or b) and c, n=1 < 2 <= 3, o=x is not None, p=x not in [], q=[*lista_global], r={**{}}, s=lista_global[1:2], u=lista_global[::2], v=sistema.argv[0], w=(yield_ := 1), z=--1, aa=1 .real, bb=f(*[1], **{}), cc=f(*[2], a=1), dd=~-1, ee=(lambda: 0)(), ff=x if y else z if w else 0, gg=(), hh=(1, 2), ii={}, jj=[], kk=..., ll=None, mm=True, nn=a[1, 2], oo=a[1, 2], pp=a[()], qq=a[1:2, 3], rr=a @ b, ss=a // b % c, tt=a << 1 | b >> 2 ^ c & d, uu=-a ** 2, vv=(-a) ** 2, ww=not (a and b), xx=(not a) == b, yy=f((x for x in [])), zz=f((x for x in []), 1)) -> Callable[[int, str], Union[int, None]]": "Callable[[int, str], Union[int, None]]",
+    "(a: int | None, b: list['Modelo'], c: Callable[..., Any], d: t.Dict[str, t.List[int]], e: 'Optional[int]'=None) -> int | str": "int | str",
+    "(n: int) -> list[int]": "list[int]",
+    "(x, y=None)": null,
+    "(a: int) -> int": "int",
+    "(a: int=1)": null,
+    "(a)": null,
+    "(a: int, b: str)": null,
+    "(a: int, *args: str, b: int=1, **kw: float) -> None": "None",
+    "(*args, **kwargs)": null,
+    "(a, b=2, /, c=3)": null,
+    "(a='ñ')": null,
+    "(n: int) -> int": "int",
+    "(n)": null,
+    "(nombre: str='mundo')": null,
+    "(item_id: str, cantidad: int=1, *, nombre: str, desc: str | None=None)": null,
+    "(usuario_id: int, request: Request, db=Depends(obtener_db), detalle: bool=Query(False, description='x'))": null,
+    "(usuario: Usuario, x_token: Annotated[str, Header()]='t', limite: Annotated[int, Query(gt=0, le=100)]=10, sesion: str=Cookie(None))": null,
+    "(q: Annotated[str | None, Query(min_length=3)]=None)": null,
+    "(pedido_id: Annotated[int, Path(ge=1)], pedido: PedidoModelo, nota: str=Body(..., embed=True), archivo: bytes=Form(b''))": null,
+    "(pedido_id: int, usuario=Depends(usuario_actual), db: str=Depends())": null
+  },
+  "no_liga": {
+    "(a, b=1, /, c=2, *args, d, e=3, **kw)": [
+      true,
+      true,
+      true,
+      true,
+      true,
+      true
+    ],
+    "(a: int, b: str = 'x') -> tuple[int, str]": [
+      true,
+      false,
+      true,
+      true,
+      true,
+      true
+    ],
+    "(*, a)": [
+      true,
+      false,
+      true,
+      true,
+      true,
+      true
+    ],
+    "() -> None": [
+      false,
+      true,
+      true,
+      true,
+      true,
+      true
+    ],
+    "(a": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      false
+    ],
+    "sin parentesis": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      false
+    ],
+    "()": [
+      false,
+      true,
+      true,
+      true,
+      true,
+      true
+    ],
+    "(token: str=Header(...))": [
+      false,
+      true,
+      true,
+      true,
+      true,
+      true
+    ],
+    "(a: str='ñ') -> str": [
+      false,
+      false,
+      true,
+      true,
+      true,
+      true
+    ],
+    "(a, b=1)": [
+      true,
+      false,
+      true,
+      true,
+      true,
+      true
+    ],
+    "(a, b)": [
+      true,
+      true,
+      true,
+      true,
+      true,
+      true
+    ],
+    "(a: int, b: 'str'='hola', *args: int, c: float=1.5, d, **kw: Any) -> Optional[int]": [
+      true,
+      true,
+      false,
+      true,
+      true,
+      true
+    ],
+    "(a: int, b: dict[str, int]={'x': 1, 'y': 2}, /, c: list[int]=[1, 2, 3], *, d: tuple=(1,), e: t.Optional[str]=None) -> tuple[int, ...]": [
+      true,
+      true,
+      true,
+      true,
+      true,
+      true
+    ],
+    "(a=16, b=1000, c=1000.0, d=0.0015, e=15, f=5, g=3j, h=-1, i=+2, j=~3, k=1e309, l=0.0, m=10.0) -> None": [
+      false,
+      false,
+      false,
+      true,
+      false,
+      true
+    ],
+    "(a=\"it's\", b='dice \"hola\"', c='tab\\there', d=b'bytes', e='raw\\\\n', f='unié', g='ab', h=u'u', i='triple', j=\"'\", k='\\\\', l='nueva\\nlinea', m='ñandú') -> None": [
+      false,
+      false,
+      false,
+      true,
+      false,
+      true
+    ],
+    "(a=f'x{1}', b=f'{CONSTANTE!r:>10}', c=f'CONSTANTE={CONSTANTE!r}', d=f'{{literal}}', e=f\"{'anidada'}\", f=f'ab{CONSTANTE}') -> None": [
+      false,
+      false,
+      false,
+      true,
+      false,
+      true
+    ],
+    "(a=lambda x, y=1: x + y, b=[i * 2 for i in range(3) if i], c={k: v for k, v in {}.items()}, d={1, 2}, e=(i for i in []), f=not True, g=1 if CONSTANTE else 2, h=(1 + 2) * 3, i=2 ** (-1), j=(2 ** 3) ** 2, k=2 ** 3 ** 2, l=a or (b and c), m=(a or b) and c, n=1 < 2 <= 3, o=x is not None, p=x not in [], q=[*lista_global], r={**{}}, s=lista_global[1:2], u=lista_global[::2], v=sistema.argv[0], w=(yield_ := 1), z=--1, aa=1 .real, bb=f(*[1], **{}), cc=f(*[2], a=1), dd=~-1, ee=(lambda: 0)(), ff=x if y else z if w else 0, gg=(), hh=(1, 2), ii={}, jj=[], kk=..., ll=None, mm=True, nn=a[1, 2], oo=a[1, 2], pp=a[()], qq=a[1:2, 3], rr=a @ b, ss=a // b % c, tt=a << 1 | b >> 2 ^ c & d, uu=-a ** 2, vv=(-a) ** 2, ww=not (a and b), xx=(not a) == b, yy=f((x for x in [])), zz=f((x for x in []), 1)) -> Callable[[int, str], Union[int, None]]": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      true
+    ],
+    "(a: int | None, b: list['Modelo'], c: Callable[..., Any], d: t.Dict[str, t.List[int]], e: 'Optional[int]'=None) -> int | str": [
+      true,
+      true,
+      true,
+      true,
+      true,
+      true
+    ],
+    "(n: int) -> list[int]": [
+      true,
+      true,
+      true,
+      true,
+      true,
+      true
+    ],
+    "(x, y=None)": [
+      true,
+      true,
+      true,
+      true,
+      true,
+      true
+    ],
+    "(a: int) -> int": [
+      true,
+      false,
+      true,
+      true,
+      true,
+      true
+    ],
+    "(a: int=1)": [
+      false,
+      false,
+      true,
+      true,
+      true,
+      true
+    ],
+    "(a)": [
+      true,
+      false,
+      true,
+      true,
+      true,
+      true
+    ],
+    "(a: int, b: str)": [
+      true,
+      true,
+      true,
+      true,
+      true,
+      true
+    ],
+    "(a: int, *args: str, b: int=1, **kw: float) -> None": [
+      true,
+      false,
+      false,
+      false,
+      true,
+      true
+    ],
+    "(*args, **kwargs)": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      false
+    ],
+    "(a, b=2, /, c=3)": [
+      true,
+      true,
+      true,
+      true,
+      true,
+      true
+    ],
+    "(a='ñ')": [
+      false,
+      false,
+      true,
+      true,
+      true,
+      true
+    ],
+    "(n: int) -> int": [
+      true,
+      true,
+      true,
+      true,
+      true,
+      true
+    ],
+    "(n)": [
+      true,
+      true,
+      true,
+      true,
+      true,
+      true
+    ],
+    "(nombre: str='mundo')": [
+      false,
+      true,
+      true,
+      true,
+      true,
+      true
+    ],
+    "(item_id: str, cantidad: int=1, *, nombre: str, desc: str | None=None)": [
+      true,
+      true,
+      true,
+      true,
+      true,
+      true
+    ],
+    "(usuario_id: int, request: Request, db=Depends(obtener_db), detalle: bool=Query(False, description='x'))": [
+      true,
+      true,
+      true,
+      true,
+      true,
+      true
+    ],
+    "(usuario: Usuario, x_token: Annotated[str, Header()]='t', limite: Annotated[int, Query(gt=0, le=100)]=10, sesion: str=Cookie(None))": [
+      true,
+      true,
+      true,
+      true,
+      true,
+      true
+    ],
+    "(q: Annotated[str | None, Query(min_length=3)]=None)": [
+      false,
+      true,
+      true,
+      true,
+      true,
+      true
+    ],
+    "(pedido_id: Annotated[int, Path(ge=1)], pedido: PedidoModelo, nota: str=Body(..., embed=True), archivo: bytes=Form(b''))": [
+      true,
+      true,
+      true,
+      true,
+      true,
+      true
+    ],
+    "(pedido_id: int, usuario=Depends(usuario_actual), db: str=Depends())": [
+      true,
+      true,
+      true,
+      true,
+      true,
+      true
+    ]
+  },
+  "docstring_tupla": [
+    true,
+    true,
+    false,
+    true,
+    false,
+    true
+  ]
+}

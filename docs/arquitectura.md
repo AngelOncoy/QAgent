@@ -11,7 +11,7 @@ En el **Sprint 2** la arquitectura se amplía sin rehacerse (ADR-010): una capa 
 | Qué cambia en el Sprint 2 | Dónde se describe | Decisión |
 |---|---|---|
 | Capa de adaptadores por lenguaje y contratos versionados | Secciones 4, 9 | ADR-007 (EN-17) |
-| tree-sitter para JS/TS y Java; Python sigue con `ast` | Secciones 4, 11 | ADR-009 (SPK-04) |
+| tree-sitter para todos los lenguajes; Python migrado en TA-16 | Secciones 4, 11 | ADR-009 (SPK-04, TA-16) |
 | Agente Explicador como etapa posterior al veredicto | Secciones 4, 6.5, 8 | ADR-008 (SPK-03) |
 | Imágenes del sandbox por lenguaje | Sección 7 | ADR-010 |
 | Nuevos tipos de prueba (componentes, E2E de humo, arquitectura) | Sección 10.6 | ADR-010 |
@@ -195,7 +195,7 @@ El Sprint 2 agrega dos piezas, ambas fuera de la máquina de estados:
 | Planner | `src/qagent/agents/` | Diseña casos de prueba y valores esperados por función o endpoint. | HU-11, HU-27 |
 | Generator | `src/qagent/agents/` | Escribe el test pytest de una función o endpoint. | HU-11, EN-15 |
 | Reviewer / Executor | `src/qagent/agents/` | Ejecuta en el sandbox, detecta laundering y decide. | HU-14, HU-16 |
-| Analizador | `src/qagent/analysis/` | Análisis estático con `ast`: firmas, tipos, docstrings, ramas, rutas FastAPI, `llama_a`, SHA-256. | EN-02, EN-14 |
+| Analizador | `src/qagent/analysis/` | Análisis estático con tree-sitter: firmas, tipos, docstrings, ramas, rutas FastAPI, `llama_a`, SHA-256. | EN-02, EN-14, TA-16 |
 | Cliente LLM | `src/qagent/llm/` | Llama a la API del modelo de cada agente (o a la IA simulada) y registra el `usage`. | EN-05, EN-11 |
 | Sandbox | `src/qagent/sandbox/` | Prepara la imagen, copia el proyecto y ejecuta pytest, coverage y mutmut. | EN-03, EN-09 |
 | Almacenamiento | `src/qagent/almacenamiento/` | `AlmacenProyecto`: crea `.qagent/` y lee y escribe `runs/<run_id>/run.json`, `specs/`, `tests/` (pruebas aprobadas) y `mutacion/` (último Mutation Score por función, #70); `recientes.py`: `~/.qagent/recientes.json`. Escritura atómica en UTF-8. | EN-07, HU-01, HU-03 |
@@ -417,7 +417,7 @@ Cada función o endpoint seleccionado pasa por estas etapas, en **orden de depen
 ```mermaid
 flowchart LR
     A["1 · Abrir proyecto<br/>HU-01 · HU-02<br/>(0 tokens)"] -.-> L["Detectar lenguaje y<br/>elegir adaptador<br/>propuesto · ADR-007<br/>(0 tokens)"]
-    L -.-> B["2 · Análisis estático<br/>ast (Python) · tree-sitter (JS/TS, Java)<br/>EN-02 · EN-14 · ADR-009<br/>(0 tokens)"]
+    L -.-> B["2 · Análisis estático<br/>tree-sitter (Python, JS/TS, Java)<br/>EN-02 · EN-14 · ADR-009<br/>(0 tokens)"]
     A --> B
     B --> T{"¿Tipo?"}
     T -->|función| C
@@ -438,7 +438,7 @@ flowchart LR
     R -.->|"no cancelada, con presupuesto<br/>y Explicador activo"| X["8 · Explicador · propuesto<br/>explicaciones.json<br/>(0 tokens con plantilla,<br/>tokens bajos con LLM)"]
 ```
 
-Hoy el paso 1 va directo al análisis con `ast`. Con los adaptadores, el registro detecta el lenguaje del proyecto y el análisis, el comando de pruebas y la imagen del sandbox salen del adaptador elegido. El resto del pipeline es el mismo para todos los lenguajes.
+Hoy el paso 1 va directo al análisis de Python con tree-sitter (TA-16). Con los adaptadores, el registro detecta el lenguaje del proyecto y el análisis, el comando de pruebas y la imagen del sandbox salen del adaptador elegido. El resto del pipeline es el mismo para todos los lenguajes.
 
 | Etapa | Qué produce | Métrica que alimenta |
 |---|---|---|
@@ -809,7 +809,7 @@ El tipo de caja (negra, gris o blanca) es una propiedad de la **técnica de dise
 
 Lo que no cambia en ninguna parte es el **oráculo**: el valor esperado sale siempre de la especificación (sección 9), nunca de ejecutar el código. Eso evita que una prueba confirme un bug como si fuera el comportamiento correcto; el Reviewer lo vigila como *Assertion Laundering*.
 
-El análisis con `ast` (EN-02) no convierte las pruebas de funciones en caja gris: solo **extrae** la especificación (firma, tipos, docstring) y cuenta las decisiones para proponer qué funciones profundizar (sección 10.4).
+El análisis estático (EN-02, con tree-sitter desde TA-16) no convierte las pruebas de funciones en caja gris: solo **extrae** la especificación (firma, tipos, docstring) y cuenta las decisiones para proponer qué funciones profundizar (sección 10.4).
 
 ### 10.3 Lo que elige el usuario
 
@@ -837,7 +837,7 @@ Al repetir con `reg_deep`, Profundizar (#70) mide sin gastar tokens qué tan fue
 - **Costo:** por cada función, mutmut crea decenas de versiones alteradas del código y ejecuta las pruebas contra cada una; aplicarlo a todo puede llevar horas. El tiempo máximo por función se fija en `[mutacion]` de `config.toml`.
 - **Cálculo:** Mutation Score = mutantes detectados ÷ (detectados + sobrevivientes) × 100. Un mutante que agota el tiempo cuenta como detectado; uno sin pruebas que lo cubran, como sobreviviente. La meta es 60 % (ADR-001).
 - **Cómo se ejecuta (`sandbox/mutacion.py`):** las pruebas aprobadas se copian dentro de la copia del proyecto antes de llamar a mutmut. mutmut identifica las pruebas con rutas relativas; si quedan fuera del proyecto no las encuentra y cuenta cada mutante como «killed», lo que daría un 100 % falso. Si el proyecto ya tiene `[tool.mutmut]` en `pyproject.toml`, QAgent no la sobrescribe y no ejecuta la mutación.
-- **Reutilización (#70):** cada resultado con puntuación se guarda en `.qagent/mutacion/<spec>.json` con la huella AST de la función y la huella de las pruebas usadas (todas las aprobadas del módulo, porque cualquiera puede detectar un mutante). Si ninguna de las dos cambió, la siguiente corrida con Profundizar reutiliza el resultado sin ejecutar mutmut y el informe dice de qué corrida salió. Un tiempo agotado o un error no se guardan: se vuelven a intentar.
+- **Reutilización (#70):** cada resultado con puntuación se guarda en `.qagent/mutacion/<spec>.json` con la huella de la función (árbol de tree-sitter desde TA-16) y la huella de las pruebas usadas (todas las aprobadas del módulo, porque cualquiera puede detectar un mutante). Si ninguna de las dos cambió, la siguiente corrida con Profundizar reutiliza el resultado sin ejecutar mutmut y el informe dice de qué corrida salió. Un tiempo agotado o un error no se guardan: se vuelven a intentar.
 - **Pruebas basadas en riesgo:** el esfuerzo se concentra donde un fallo es más probable o más grave. Ninguna función se deja sin probar: todas reciben su prueba Estándar.
 
 QAgent propone como prioritaria toda función con al menos una decisión (`if`/`elif`, ternario, `for`, `while`, `except`, `case` o `if` de comprensión; `contar_ramas` en `analysis/analyzer.py`). Una función sin decisiones tiene un solo camino, así que profundizar aporta poco, pero el usuario puede marcarla igual si es importante (por ejemplo, un cálculo de dinero), porque la mutación también cambia operadores y constantes (HU-06).
@@ -881,7 +881,7 @@ Las categorías actuales se aplican a cada lenguaje. **Caja negra:** el valor es
 | Presentación | ![HTML5](https://img.shields.io/badge/HTML5-E34F26?logo=html5&logoColor=white) ![CSS](https://img.shields.io/badge/CSS-663399?logo=css&logoColor=white) ![JavaScript](https://img.shields.io/badge/JavaScript-F7DF1E?logo=javascript&logoColor=black) | Pantallas del demo | EN-08 |
 | Presentación | pywebview | Ventana de escritorio y puente JS ↔ Python | EN-08 |
 | Backend | ![Python](https://img.shields.io/badge/Python_3.10+-3776AB?logo=python&logoColor=white) | Orquestador, agentes y servicios | EN-04 |
-| Análisis | `ast` (biblioteca estándar) | Funciones, rutas FastAPI y `llama_a`, sin ejecutar código | EN-02 · EN-14 |
+| Análisis | tree-sitter con la gramática de Python | Funciones, rutas FastAPI y `llama_a`, sin ejecutar código | EN-02 · EN-14 · TA-16 |
 | Análisis (propuesto) | tree-sitter con gramáticas de JavaScript, TypeScript y Java | Lo mismo para los lenguajes nuevos, con consultas `.scm` por lenguaje | ADR-009 · EP-11a · EP-12a |
 | Configuración | ![TOML](https://img.shields.io/badge/TOML-9C4121?logo=toml&logoColor=white) `tomllib` | `config.toml` | EN-06 |
 | IA | ![Anthropic](https://img.shields.io/badge/Claude_Opus_5.5-191919?logo=anthropic&logoColor=white) | Planner | SPK-01 |
@@ -907,7 +907,7 @@ Las categorías actuales se aplican a cada lenguaje. **Caja negra:** el valor es
 | Sandbox Docker sin red | Las pruebas generadas son código desconocido; se aíslan de archivos, dependencias y red | Sección 7 |
 | Orquestador determinista, sin LLM; el único punto híbrido es `_clasificar_con_llm` del Reviewer | Reglas fijas (reintentos, topes); métricas reproducibles; 0 tokens; un LLM coordinador no tendría nada que decidir que las reglas no decidan | Sección 8 · ADR-008 |
 | Un modelo por agente | Inteligencia solo donde hay ambigüedad; el Planner concentra el gasto | ADR-001 |
-| Análisis con `ast` para Python y tree-sitter para JS/TS y Java; sin Graphify | 0 tokens, determinista, ~3 ms por archivo y sin Node ni JDK en la PC del usuario | ADR-002 · ADR-009 |
+| Análisis con tree-sitter para Python, JS/TS y Java; sin Graphify | 0 tokens, determinista, ~3 ms por archivo y sin Node ni JDK en la PC del usuario | ADR-002 · ADR-009 |
 | Frontend separado, un componente por pantalla, sin bundler ni módulos ES | Cambios por pantalla en lugar de un archivo de 2000 líneas; funciona con `file://` y pywebview sin servidor propio; sin Node ni compilación | ADR-003 |
 | Pruebas de endpoints FastAPI con `TestClient` | Reutiliza el sandbox, pytest y las 5 métricas; integración contra servicios reales y carga siguen fuera; E2E solo de humo, en el Sprint 2 | Backlog EP-09 · ADR-010 |
 | Reintentos solo Generator → Reviewer; bug detectado no se reintenta; orden topológico por `llama_a` | Evita rehacer el plan (el agente más caro) y la cascada de fallos entre funciones | Sección 6.4 |
@@ -950,7 +950,7 @@ Responsables sugeridos en el plan del Sprint 2, a confirmar en el Sprint Plannin
 | Agregar tree-sitter y las gramáticas de JS/TS; analizador y guardrail de `expect` | Castillo Pezo, Mateo | ADR-009 · EP-11a |
 | Adaptador de Java completo y banco equivalente en los 3 lenguajes (brecha B5) | Nuevo integrante | ADR-009 · EP-12a |
 | Imágenes `node`, `java` y `navegador` del sandbox y límites de memoria y tiempo por lenguaje | Sanchez Vargas, Adrián | Sección 7 |
-| Migrar el analizador de Python a tree-sitter, solo si da la misma estructura que `analizar_proyecto()` | Por asignar | ADR-009 |
+| Migrar el analizador de Python a tree-sitter, solo si da la misma estructura que `analizar_proyecto()` | Hecho (TA-16, #154) | ADR-009 |
 | Versionar en `bench/` los bancos y scripts de medición de SPK-03 y SPK-04 | Sanchez Vargas, Adrián y Castillo Pezo, Mateo | ADR-008 · ADR-009 |
 
 ## 14. Aprobación

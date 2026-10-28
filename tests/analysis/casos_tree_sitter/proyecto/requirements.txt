@@ -1,0 +1,4 @@
+fastapi>=0.110  # web
+-r otros.txt
+
+pydantic

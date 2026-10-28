@@ -1,9 +1,11 @@
-"""Analizador estático (AST) del proyecto — EN-02.
+"""Analizador estático del proyecto — EN-02, con tree-sitter desde TA-16.
 
 Extrae la estructura del código Python de un proyecto **sin ejecutarlo**:
-solo usa ``ast.parse`` (nunca ``import``, ``exec`` ni ``eval``), de acuerdo con
-la regla de AGENTS.md. Alimenta al Planner y a las historias HU-04, HU-06,
-HU-16 y HU-24.
+solo lo parsea con tree-sitter (nunca ``import``, ``exec`` ni ``eval``), de acuerdo
+con la regla de AGENTS.md y ADR-009. Alimenta al Planner y a las historias HU-04,
+HU-06, HU-16 y HU-24. La estructura es la misma que daba el analizador anterior
+con ``ast``: tipos, valores por defecto y firmas se escriben como ``ast.unparse``
+(ver :mod:`qagent.analysis.texto_ts`).
 
 Qué analiza:
     * Módulos ``.py`` del proyecto, con rutas relativas en formato POSIX.
@@ -37,7 +39,6 @@ inválida, etc.) se reportan en ``errores`` y **no detienen** el análisis.
 
 from __future__ import annotations
 
-import ast
 import hashlib
 import json
 import os
@@ -46,6 +47,22 @@ import tokenize
 from pathlib import Path
 from typing import Any
 
+from tree_sitter import Node, Tree
+
+from qagent.analysis import texto_ts
+from qagent.analysis.arbol_ts import (
+    KWARGS,
+    VARARGS,
+    cuerpo,
+    definicion,
+    es_async,
+    es_funcion,
+    linea,
+    nombre,
+    parametros,
+    parsear,
+    validar,
+)
 from qagent.analysis.ramas import contar_ramas
 from qagent.analysis.rutas import analizar_rutas, sentencias_modulo
 
@@ -87,76 +104,49 @@ def listar_archivos_py(raiz: Path) -> list[Path]:
     return sorted(encontrados, key=lambda p: p.relative_to(raiz).as_posix())
 
 
-def _texto(nodo: ast.AST | None) -> str | None:
-    """Devuelve el código fuente de un nodo, o ``None`` si no existe."""
-    return None if nodo is None else ast.unparse(nodo)
-
-
-def _parametro(
-    nombre: str, anotacion: ast.expr | None, por_defecto: ast.expr | None
-) -> dict[str, Any]:
-    return {
-        "nombre": nombre,
-        "tipo": _texto(anotacion),
-        "por_defecto": _texto(por_defecto),
-    }
-
-
-def _extraer_parametros(argumentos: ast.arguments) -> list[dict[str, Any]]:
+def _extraer_parametros(funcion: Node) -> list[dict[str, Any]]:
     """Extrae nombre, tipo y valor por defecto de cada parámetro, en orden."""
-    posicionales = [*argumentos.posonlyargs, *argumentos.args]
-    faltantes = len(posicionales) - len(argumentos.defaults)
-    defaults: list[ast.expr | None] = [None] * faltantes + list(argumentos.defaults)
-
-    parametros = [
-        _parametro(a.arg, a.annotation, d) for a, d in zip(posicionales, defaults)
-    ]
-    if argumentos.vararg:
-        va = argumentos.vararg
-        parametros.append(_parametro("*" + va.arg, va.annotation, None))
-    parametros.extend(
-        _parametro(a.arg, a.annotation, d)
-        for a, d in zip(argumentos.kwonlyargs, argumentos.kw_defaults)
-    )
-    if argumentos.kwarg:
-        kw = argumentos.kwarg
-        parametros.append(_parametro("**" + kw.arg, kw.annotation, None))
-    return parametros
+    resultado = []
+    for parametro in parametros(funcion.child_by_field_name("parameters")):
+        prefijo = {VARARGS: "*", KWARGS: "**"}.get(parametro.clase, "")
+        resultado.append(
+            {
+                "nombre": prefijo + parametro.nombre,
+                "tipo": texto_ts.expresion(parametro.tipo),
+                "por_defecto": texto_ts.expresion(parametro.defecto),
+            }
+        )
+    return resultado
 
 
-def _extraer_funcion(
-    nodo: ast.FunctionDef | ast.AsyncFunctionDef,
-) -> dict[str, Any]:
-    """Convierte una función del AST en su descripción JSON."""
-    parametros = _extraer_parametros(nodo.args)
-    retorno = _texto(nodo.returns)
-    firma = f"({ast.unparse(nodo.args)})"
-    if retorno is not None:
-        firma += f" -> {retorno}"
-    docstring = (ast.get_docstring(nodo) or "").strip() or None
+def _extraer_funcion(nodo: Node) -> dict[str, Any]:
+    """Convierte una ``function_definition`` en su descripción JSON."""
+    funcion = definicion(nodo)
+    parametros_funcion = _extraer_parametros(funcion)
+    retorno = texto_ts.expresion(funcion.child_by_field_name("return_type"))
+    docstring = (texto_ts.docstring(cuerpo(funcion)) or "").strip() or None
     return {
-        "nombre": nodo.name,
-        "linea": nodo.lineno,
-        "firma": firma,
-        "parametros": parametros,
+        "nombre": nombre(funcion),
+        "linea": linea(funcion),
+        "firma": texto_ts.firma(funcion),
+        "parametros": parametros_funcion,
         "retorno": retorno,
         "docstring": docstring,
-        "ramas": contar_ramas(nodo),
-        "tipada": retorno is not None and all(p["tipo"] for p in parametros),
-        "es_async": isinstance(nodo, ast.AsyncFunctionDef),
+        "ramas": contar_ramas(funcion),
+        "tipada": retorno is not None and all(p["tipo"] for p in parametros_funcion),
+        "es_async": es_async(funcion),
     }
 
 
-def _funciones_publicas(arbol: ast.Module) -> list[dict[str, Any]]:
+def _funciones_publicas(arbol: Tree) -> list[dict[str, Any]]:
     funciones = []
     vistos: set[str] = set()
-    for nodo in sentencias_modulo(arbol.body):
-        if (
-            isinstance(nodo, (ast.FunctionDef, ast.AsyncFunctionDef))
-            and not nodo.name.startswith("_")
-            and nodo.name not in vistos
-        ):
-            vistos.add(nodo.name)
+    for nodo in sentencias_modulo(arbol.root_node):
+        if not es_funcion(nodo):
+            continue
+        nombre_funcion = nombre(nodo)
+        if not nombre_funcion.startswith("_") and nombre_funcion not in vistos:
+            vistos.add(nombre_funcion)
             funciones.append(_extraer_funcion(nodo))
     return funciones
 
@@ -167,11 +157,12 @@ def calcular_huella(fuente: str) -> str:
     return hashlib.sha256(normalizado.encode("utf-8")).hexdigest()
 
 
-def _analizar_modulo(ruta: Path, relativa: str) -> tuple[dict[str, Any], ast.Module]:
+def _analizar_modulo(ruta: Path, relativa: str) -> tuple[dict[str, Any], Tree]:
     """Analiza un archivo. Lanza las excepciones de lectura o de sintaxis."""
     with tokenize.open(ruta) as archivo:  # respeta BOM y cookie de codificación
         fuente = archivo.read()
-    arbol = ast.parse(fuente, filename=relativa)
+    arbol = parsear(fuente)
+    validar(arbol, fuente, relativa)
     modulo = {
         "ruta": relativa,
         "huella": calcular_huella(fuente),
@@ -180,9 +171,7 @@ def _analizar_modulo(ruta: Path, relativa: str) -> tuple[dict[str, Any], ast.Mod
     return modulo, arbol
 
 
-def _agregar_rutas(
-    modulos: list[dict[str, Any]], arboles: dict[str, ast.Module]
-) -> None:
+def _agregar_rutas(modulos: list[dict[str, Any]], arboles: dict[str, Tree]) -> None:
     """Agrega endpoints, modelos y ``llama_a`` (EN-14) a cada módulo analizado."""
     rutas = analizar_rutas(arboles)
     for modulo in modulos:
@@ -258,7 +247,7 @@ def analizar_proyecto(raiz: str | os.PathLike[str]) -> dict[str, Any]:
         raise NotADirectoryError(f"No es una carpeta: {carpeta}")
 
     modulos: list[dict[str, Any]] = []
-    arboles: dict[str, ast.Module] = {}
+    arboles: dict[str, Tree] = {}
     errores: list[dict[str, Any]] = []
     for ruta in listar_archivos_py(carpeta):
         relativa = ruta.relative_to(carpeta).as_posix()

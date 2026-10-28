@@ -2,13 +2,12 @@
 
 from __future__ import annotations
 
-import ast
-import hashlib
 import json
 import re
 import shutil
 import tempfile
 import time
+import tokenize
 from functools import partial
 from pathlib import Path
 from typing import Any
@@ -16,6 +15,9 @@ from typing import Any
 from qagent import contracts
 from qagent.agents.planner import contrato_sin_triviales
 from qagent.almacenamiento import AlmacenProyecto
+from qagent.almacenamiento.proyecto import VERSION_HUELLA_OBJETIVO
+from qagent.analysis import arbol_ts, texto_ts
+from qagent.analysis.analyzer import calcular_huella
 from qagent.llm.tracker import TokenTracker
 from qagent.orchestrator.estados import Estado
 from qagent.orchestrator.eventos import Evento
@@ -35,7 +37,12 @@ from qagent.storage.registro import PERFIL_REGRESION_PROFUNDA
 
 
 def huellas_de_objetivos(raiz: str | Path) -> dict[tuple[str, str], str]:
-    """Calcula huellas AST por funcion/endpoint sin importar codigo del usuario."""
+    """Calcula la huella de cada función y endpoint sin importar código del usuario.
+
+    La huella sale del árbol de tree-sitter (``huella_de_definicion``, versión 2 desde
+    TA-16). Las specs guardadas con la huella anterior (``ast.dump``) se migran aquí
+    mismo si su módulo no cambió (ver :func:`_migrar_huellas_guardadas`).
+    """
     raiz = Path(raiz)
     resultado: dict[tuple[str, str], str] = {}
     ignorados = {"tests", "venv", "node_modules", "__pycache__"}
@@ -45,32 +52,79 @@ def huellas_de_objetivos(raiz: str | Path) -> dict[tuple[str, str], str]:
             continue
         relativa = ruta.relative_to(raiz).as_posix()
         try:
-            arbol = ast.parse(ruta.read_text(encoding="utf-8"), filename=relativa)
+            fuente = ruta.read_text(encoding="utf-8")
+            arbol = arbol_ts.parsear(fuente)
+            arbol_ts.validar(arbol, fuente, relativa)
         except (OSError, UnicodeDecodeError, SyntaxError, ValueError):
             continue
-        for nodo in arbol.body:
-            if not isinstance(nodo, (ast.FunctionDef, ast.AsyncFunctionDef)):
+        for nodo in arbol_ts.sentencias(arbol.root_node):
+            if not arbol_ts.es_funcion(nodo):
                 continue
-            huella = hashlib.sha256(
-                ast.dump(nodo, annotate_fields=True, include_attributes=False).encode()
-            ).hexdigest()
-            if not nodo.name.startswith("_"):
-                resultado[(relativa, nodo.name)] = huella
-            for decorador in nodo.decorator_list:
-                llamada = decorador if isinstance(decorador, ast.Call) else None
-                atributo = llamada.func if llamada else None
-                if not isinstance(atributo, ast.Attribute) or not llamada.args:
-                    continue
-                metodo = atributo.attr.upper()
-                if metodo not in {"GET", "POST", "PUT", "PATCH", "DELETE"}:
-                    continue
-                try:
-                    camino = ast.literal_eval(llamada.args[0])
-                except (ValueError, TypeError):
-                    continue
-                if isinstance(camino, str):
-                    resultado[(relativa, f"{metodo} {camino}")] = huella
+            funcion = arbol_ts.definicion(nodo)
+            nombre = arbol_ts.nombre(funcion)
+            huella = arbol_ts.huella_de_definicion(funcion)
+            if not nombre.startswith("_"):
+                resultado[(relativa, nombre)] = huella
+            for camino_ruta in _rutas_declaradas(funcion):
+                resultado[(relativa, camino_ruta)] = huella
+    _migrar_huellas_guardadas(raiz, resultado)
     return resultado
+
+
+def _rutas_declaradas(funcion: Any) -> list[str]:
+    """``GET /ruta`` de cada decorador ``@objeto.get("/ruta")`` de la función."""
+    rutas = []
+    for decorador in arbol_ts.decoradores(funcion):
+        llamada = arbol_ts.sin_envoltura(decorador)
+        if llamada is None or llamada.type != "call":
+            continue
+        atributo = arbol_ts.sin_envoltura(llamada.child_by_field_name("function"))
+        argumentos = llamada.child_by_field_name("arguments")
+        posicionales = [
+            a
+            for a in (arbol_ts.nombrados(argumentos) if argumentos is not None else [])
+            if a.type not in ("keyword_argument", "dictionary_splat")
+        ]
+        if atributo is None or atributo.type != "attribute" or not posicionales:
+            continue
+        metodo = arbol_ts.texto(atributo.child_by_field_name("attribute")).upper()
+        if metodo not in {"GET", "POST", "PUT", "PATCH", "DELETE"}:
+            continue
+        try:
+            camino = texto_ts.literal(posicionales[0])
+        except (ValueError, TypeError):
+            continue
+        if isinstance(camino, str):
+            rutas.append(f"{metodo} {camino}")
+    return rutas
+
+
+def _migrar_huellas_guardadas(raiz: Path, huellas: dict[tuple[str, str], str]) -> None:
+    """Pasa a la huella de tree-sitter las specs guardadas con la de ``ast.dump``.
+
+    Una spec vieja sigue sirviendo si su módulo no cambió (misma huella de módulo
+    que en su contrato): la función tampoco cambió. Si el módulo cambió, la spec se
+    queda como está y la función se trata como modificada, igual que antes.
+    """
+    almacen = AlmacenProyecto(raiz)
+    huellas_modulo: dict[str, str | None] = {}
+    for spec in almacen.listar_specs():
+        if spec.get("version_huella_objetivo", 1) == VERSION_HUELLA_OBJETIVO:
+            continue
+        anterior = spec.get("huella_objetivo")
+        contrato = spec["contrato"]
+        nueva = huellas.get((contrato["modulo"], contrato["objetivo"]))
+        if not anterior or nueva is None:
+            continue
+        modulo = contrato["modulo"]
+        if modulo not in huellas_modulo:
+            try:
+                with tokenize.open(raiz / modulo) as archivo:
+                    huellas_modulo[modulo] = calcular_huella(archivo.read())
+            except (OSError, SyntaxError, UnicodeDecodeError):
+                huellas_modulo[modulo] = None
+        if huellas_modulo[modulo] == contrato.get("huella"):
+            almacen.migrar_huella_objetivo(spec["id"], anterior, nueva)
 
 
 def _cobertura(datos: dict[str, Any] | None) -> dict[str, float | None] | None:
@@ -587,15 +641,20 @@ def _mutar_criticas(
 
 
 def _lineas_de(raiz: Path, modulo: str) -> list[dict[str, Any]]:
-    """Línea del `def` de cada función de primer nivel del módulo (solo `ast`)."""
+    """Línea del `def` de cada función de primer nivel del módulo (tree-sitter)."""
     try:
-        arbol = ast.parse((raiz / modulo).read_text(encoding="utf-8"))
+        fuente = (raiz / modulo).read_text(encoding="utf-8")
+        arbol = arbol_ts.parsear(fuente)
+        arbol_ts.validar(arbol, fuente, modulo)
     except (OSError, UnicodeDecodeError, SyntaxError, ValueError):
         return []
     return [
-        {"nombre": nodo.name, "linea": nodo.lineno}
-        for nodo in arbol.body
-        if isinstance(nodo, (ast.FunctionDef, ast.AsyncFunctionDef))
+        {
+            "nombre": arbol_ts.nombre(nodo),
+            "linea": arbol_ts.linea(arbol_ts.definicion(nodo)),
+        }
+        for nodo in arbol_ts.sentencias(arbol.root_node)
+        if arbol_ts.es_funcion(nodo)
     ]
 
 

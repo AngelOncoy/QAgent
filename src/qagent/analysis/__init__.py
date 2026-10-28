@@ -1,4 +1,4 @@
-"""Análisis estático del código del usuario (solo AST, nunca se ejecuta)."""
+"""Análisis estático del código del usuario (tree-sitter, nunca se ejecuta)."""
 
 from qagent.analysis.analyzer import analizar_proyecto, analizar_proyecto_json
 from qagent.analysis.laundering import (

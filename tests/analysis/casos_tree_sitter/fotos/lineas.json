@@ -1,0 +1,242 @@
+{
+  "api/__init__.py": [],
+  "api/extra.py": [
+    {
+      "nombre": "hola",
+      "linea": 7
+    }
+  ],
+  "api/main.py": [
+    {
+      "nombre": "raiz",
+      "linea": 21
+    },
+    {
+      "nombre": "crear_item",
+      "linea": 27
+    },
+    {
+      "nombre": "en_segunda",
+      "linea": 34
+    },
+    {
+      "nombre": "calcular",
+      "linea": 38
+    }
+  ],
+  "api/modelos.py": [],
+  "api/rutas.py": [
+    {
+      "nombre": "obtener_db",
+      "linea": 16
+    },
+    {
+      "nombre": "usuario_actual",
+      "linea": 20
+    },
+    {
+      "nombre": "leer_usuario",
+      "linea": 25
+    },
+    {
+      "nombre": "crear_usuario",
+      "linea": 35
+    },
+    {
+      "nombre": "varios",
+      "linea": 42
+    },
+    {
+      "nombre": "actualizar",
+      "linea": 47
+    },
+    {
+      "nombre": "borrar",
+      "linea": 55
+    },
+    {
+      "nombre": "parche",
+      "linea": 60
+    },
+    {
+      "nombre": "ruta_variable",
+      "linea": 65
+    }
+  ],
+  "con_bom.py": [],
+  "crlf.py": [
+    {
+      "nombre": "crlf",
+      "linea": 1
+    }
+  ],
+  "funciones.py": [
+    {
+      "nombre": "simple",
+      "linea": 39
+    },
+    {
+      "nombre": "con_tipos",
+      "linea": 43
+    },
+    {
+      "nombre": "multilinea",
+      "linea": 48
+    },
+    {
+      "nombre": "numeros",
+      "linea": 66
+    },
+    {
+      "nombre": "cadenas",
+      "linea": 70
+    },
+    {
+      "nombre": "fstrings",
+      "linea": 74
+    },
+    {
+      "nombre": "expresiones",
+      "linea": 78
+    },
+    {
+      "nombre": "anotaciones",
+      "linea": 82
+    },
+    {
+      "nombre": "asincrona",
+      "linea": 86
+    },
+    {
+      "nombre": "ramas",
+      "linea": 98
+    },
+    {
+      "nombre": "grupo_excepciones",
+      "linea": 151
+    },
+    {
+      "nombre": "decorada",
+      "linea": 162
+    },
+    {
+      "nombre": "_privada",
+      "linea": 167
+    },
+    {
+      "nombre": "redefinida",
+      "linea": 171
+    },
+    {
+      "nombre": "redefinida",
+      "linea": 175
+    },
+    {
+      "nombre": "sin_docstring_bytes",
+      "linea": 212
+    },
+    {
+      "nombre": "docstring_fstring",
+      "linea": 217
+    },
+    {
+      "nombre": "docstring_concatenado",
+      "linea": 221
+    },
+    {
+      "nombre": "docstring_vacio",
+      "linea": 225
+    },
+    {
+      "nombre": "docstring_escapes",
+      "linea": 229
+    },
+    {
+      "nombre": "docstring_raw",
+      "linea": 235
+    },
+    {
+      "nombre": "llamadas_globales",
+      "linea": 239
+    },
+    {
+      "nombre": "sin_retorno",
+      "linea": 252
+    },
+    {
+      "nombre": "todo_tipado",
+      "linea": 256
+    },
+    {
+      "nombre": "vacios",
+      "linea": 260
+    },
+    {
+      "nombre": "solo_varargs",
+      "linea": 264
+    },
+    {
+      "nombre": "posicional_solo",
+      "linea": 268
+    },
+    {
+      "nombre": "generador_func",
+      "linea": 272
+    },
+    {
+      "nombre": "con_comentario_final",
+      "linea": 286
+    },
+    {
+      "nombre": "ultima",
+      "linea": 295
+    }
+  ],
+  "latin1.py": [],
+  "paquete/__init__.py": [
+    {
+      "nombre": "desde_paquete",
+      "linea": 4
+    }
+  ],
+  "paquete/sub/__init__.py": [],
+  "paquete/sub/util.py": [
+    {
+      "nombre": "ayuda",
+      "linea": 5
+    }
+  ],
+  "servicios.py": [
+    {
+      "nombre": "calcular_total",
+      "linea": 10
+    },
+    {
+      "nombre": "validar",
+      "linea": 15
+    },
+    {
+      "nombre": "_interna",
+      "linea": 19
+    },
+    {
+      "nombre": "recursiva",
+      "linea": 23
+    }
+  ],
+  "solo_comentarios.py": [],
+  "vacio.py": [],
+  "binario.py": [],
+  "errores/asigna_literal.py": [],
+  "errores/defecto_orden.py": [],
+  "errores/diferente.py": [],
+  "errores/exec_py2.py": [],
+  "errores/fin_inesperado.py": [],
+  "errores/keyword_pos.py": [],
+  "errores/parentesis.py": [],
+  "errores/py2_except.py": [],
+  "errores/py2_print.py": [],
+  "errores/roto.py": [],
+  "errores/sangria.py": [],
+  "errores/walrus.py": []
+}

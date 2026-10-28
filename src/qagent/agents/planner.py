@@ -25,13 +25,15 @@ si se omiten todas las del módulo, el módulo termina sin objetivos.
 
 from __future__ import annotations
 
-import ast
 import json
 import re
 from collections.abc import Callable
 from typing import Any
 
+from tree_sitter import Node
+
 from qagent import contracts
+from qagent.analysis import arbol_ts, texto_ts
 from qagent.contracts import ContratoInvalido, categoria_de, es_caso_de_error
 from qagent.llm import ClienteLLM, TokenTracker
 from qagent.llm.fake import MARCA_MODULO, MARCA_OBJETIVOS
@@ -859,16 +861,16 @@ def _anotacion_es_tupla(anotacion: Any) -> bool:
     """Reconoce ``tuple[...]``, ``Tuple[...]`` y ``typing.Tuple[...]`` sin evaluar."""
     if not isinstance(anotacion, str):
         return False
-    try:
-        nodo = ast.parse(anotacion.strip(), mode="eval").body
-    except (SyntaxError, ValueError):
+    nodo = texto_ts.expresion_de_texto(anotacion.strip())
+    if nodo is None:
         return False
-    base = nodo.value if isinstance(nodo, ast.Subscript) else nodo
-    return ast.unparse(base) in {"tuple", "Tuple", "typing.Tuple"}
+    partes = texto_ts.partes_subindice(nodo)
+    base = partes[0] if partes is not None else nodo
+    return texto_ts.expresion(base) in {"tuple", "Tuple", "typing.Tuple"}
 
 
 def _docstring_respalda_tupla(docstring: Any, caso: dict[str, Any]) -> bool:
-    """Comprueba una tupla literal tras ``->`` en el docstring mediante AST seguro."""
+    """Comprueba una tupla literal tras ``->`` en el docstring, sin evaluar código."""
     if not isinstance(docstring, str) or not isinstance(
         caso.get("valor_esperado"), list
     ):
@@ -879,8 +881,8 @@ def _docstring_respalda_tupla(docstring: Any, caso: dict[str, Any]) -> bool:
             continue
         texto = linea.split("->", 1)[1].strip()
         try:
-            literal = ast.literal_eval(texto)
-        except (SyntaxError, ValueError, TypeError):
+            literal = texto_ts.literal_de_texto(texto)
+        except (ValueError, TypeError):
             continue
         if isinstance(literal, tuple) and literal == esperado:
             return True
@@ -892,17 +894,16 @@ _SIN_LITERAL = object()
 
 def _literal_unico(anotacion: str) -> Any:
     """Valor de ``Literal[x]`` cuando declara exactamente una posibilidad."""
+    nodo = texto_ts.expresion_de_texto(anotacion)
+    partes = texto_ts.partes_subindice(nodo) if nodo is not None else None
+    if partes is None:
+        return _SIN_LITERAL
+    valor, es_tupla, indices = partes
+    nombre = texto_ts.expresion(valor)
+    if nombre not in {"Literal", "typing.Literal"} or es_tupla or not indices:
+        return _SIN_LITERAL
     try:
-        nodo = ast.parse(anotacion, mode="eval").body
-    except (SyntaxError, ValueError):
-        return _SIN_LITERAL
-    if not isinstance(nodo, ast.Subscript):
-        return _SIN_LITERAL
-    nombre = ast.unparse(nodo.value)
-    if nombre not in {"Literal", "typing.Literal"} or isinstance(nodo.slice, ast.Tuple):
-        return _SIN_LITERAL
-    try:
-        return ast.literal_eval(nodo.slice)
+        return texto_ts.literal(indices[0])
     except (ValueError, TypeError):
         return _SIN_LITERAL
 
@@ -910,7 +911,9 @@ def _literal_unico(anotacion: str) -> Any:
 def _retorno_de_firma(firma: Any) -> str | None:
     """Extrae la anotación de retorno de la firma sin evaluar código."""
     funcion = _nodo_firma(firma)
-    return ast.unparse(funcion.returns) if funcion and funcion.returns else None
+    if funcion is None:
+        return None
+    return texto_ts.expresion(funcion.child_by_field_name("return_type"))
 
 
 def es_caso_trivial(funcion: dict[str, Any], caso: dict[str, Any]) -> bool:
@@ -951,36 +954,40 @@ def _llamada_no_liga(funcion: dict[str, Any], entrada: Any) -> bool:
     nodo = _nodo_firma(funcion.get("firma"))
     if nodo is None:
         return False
-    argumentos = nodo.args
-    posicionales = [*argumentos.posonlyargs, *argumentos.args]
-    faltantes = len(posicionales) - len(argumentos.defaults)
-    requeridos_pos = {arg.arg for arg in posicionales[:faltantes]}
-    requeridos_kw = {
-        arg.arg
-        for arg, defecto in zip(argumentos.kwonlyargs, argumentos.kw_defaults)
-        if defecto is None
+    lista = arbol_ts.parametros(nodo.child_by_field_name("parameters"))
+    requeridos = {
+        p.nombre
+        for p in lista
+        if p.clase
+        in (arbol_ts.POSICIONAL_SOLO, arbol_ts.POSICIONAL, arbol_ts.SOLO_NOMBRE)
+        and p.defecto is None
     }
     claves = set(entrada)
-    posonly = {arg.arg for arg in argumentos.posonlyargs}
-    permitidas = {arg.arg for arg in argumentos.args} | {
-        arg.arg for arg in argumentos.kwonlyargs
+    posonly = {p.nombre for p in lista if p.clase == arbol_ts.POSICIONAL_SOLO}
+    permitidas = {
+        p.nombre
+        for p in lista
+        if p.clase in (arbol_ts.POSICIONAL, arbol_ts.SOLO_NOMBRE)
     }
-    faltan = (requeridos_pos | requeridos_kw) - claves
+    faltan = requeridos - claves
     posonly_por_nombre = claves & posonly
-    sobran = set() if argumentos.kwarg else claves - permitidas
+    con_kwargs = any(p.clase == arbol_ts.KWARGS for p in lista)
+    sobran = set() if con_kwargs else claves - permitidas
     return bool(faltan or posonly_por_nombre or sobran)
 
 
-def _nodo_firma(firma: Any) -> ast.FunctionDef | None:
-    """Convierte una firma textual en AST sin importar ni ejecutar el módulo."""
+def _nodo_firma(firma: Any) -> Node | None:
+    """La ``function_definition`` de una firma textual, sin importar ni ejecutar nada."""
     if not isinstance(firma, str) or not firma.startswith("("):
         return None
-    try:
-        arbol = ast.parse(f"def _objetivo{firma}:\n    pass\n")
-    except (SyntaxError, ValueError):
+    codigo = f"def _objetivo{firma}:\n    pass\n"
+    arbol = arbol_ts.parsear(codigo)
+    if arbol_ts.error_de_sintaxis(arbol, codigo) is not None:
         return None
-    nodo = arbol.body[0]
-    return nodo if isinstance(nodo, ast.FunctionDef) else None
+    sentencias = arbol_ts.sentencias(arbol.root_node)
+    if len(sentencias) != 1 or sentencias[0].type != "function_definition":
+        return None
+    return sentencias[0]
 
 
 def motivo_limite_endpoint(
