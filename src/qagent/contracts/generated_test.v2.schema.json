@@ -1,0 +1,52 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "generated_test.v2.schema.json",
+  "title": "generated_test.v2",
+  "description": "EN-17. Test escrito por el Generator para un objetivo en un intento, con lenguaje y framework. Es v1 más `lenguaje`, `framework_pruebas` y `archivo`; un v1 se convierte con `contracts.normalizar_generated_test()`.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "lenguaje", "framework_pruebas", "objetivo", "intento", "codigo", "casos_cubiertos"],
+  "properties": {
+    "version": { "const": "2" },
+    "lenguaje": { "enum": ["python", "javascript", "typescript", "java"] },
+    "framework_pruebas": { "enum": ["pytest", "jest", "vitest", "junit5"] },
+    "objetivo": { "type": "string", "minLength": 1 },
+    "intento": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 3,
+      "description": "Número de intento; máximo 3 por objetivo."
+    },
+    "codigo": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Código completo del test. El adaptador del lenguaje valida su sintaxis antes de entregarlo."
+    },
+    "archivo": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9_][A-Za-z0-9_.-]*$",
+      "description": "Nombre del archivo del test, sin carpetas (test_precios.py, precios.test.ts, PreciosTest.java). Si falta, lo decide el adaptador."
+    },
+    "casos_cubiertos": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": { "type": "string", "pattern": "^[a-z0-9_]+$" },
+      "description": "Ids de los casos del contrato del Planner que cubre el test."
+    }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "lenguaje": { "const": "python" } } },
+      "then": { "properties": { "framework_pruebas": { "const": "pytest" } } }
+    },
+    {
+      "if": { "properties": { "lenguaje": { "enum": ["javascript", "typescript"] } } },
+      "then": { "properties": { "framework_pruebas": { "enum": ["jest", "vitest"] } } }
+    },
+    {
+      "if": { "properties": { "lenguaje": { "const": "java" } } },
+      "then": { "properties": { "framework_pruebas": { "const": "junit5" } } }
+    }
+  ]
+}

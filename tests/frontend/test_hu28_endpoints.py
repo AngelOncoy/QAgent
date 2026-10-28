@@ -74,3 +74,19 @@ def test_estados_vacios_no_inventan_resultados() -> None:
 
     assert "No hay resultados en esta bandeja." in resultados
     assert "Nada coincide con la búsqueda." in resultados
+
+
+def test_explorar_muestra_aviso_en_endpoints_sin_ruta_resuelta() -> None:
+    """Los endpoints con ruta sin resolver muestran un aviso en Explorar indicando que no se podrán probar."""
+    js = leer("componentes/vista-previa/vista-previa.js")
+    css = leer("componentes/vista-previa/vista-previa.css")
+
+    # En cargarDatosVistaPrevia se propaga el estado de resolución y se desmarca
+    assert "const resuelto = e.resuelta !== false;" in js
+    assert "inc: resuelto" in js
+    assert "resuelta: resuelto" in js
+
+    # En renderEndpoints se incluye la etiqueta con aviso
+    assert "etq-no-resuelta" in js
+    assert "Ruta sin resolver: no se podrá probar" in js
+    assert ".etq-no-resuelta{" in css

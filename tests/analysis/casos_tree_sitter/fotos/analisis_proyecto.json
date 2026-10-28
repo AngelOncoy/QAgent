@@ -1,0 +1,2139 @@
+{
+  "modulos": [
+    {
+      "ruta": "api/__init__.py",
+      "huella": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "funciones": [],
+      "endpoints": [],
+      "modelos": []
+    },
+    {
+      "ruta": "api/extra.py",
+      "huella": "a2a4913de6e1b904da267d0a0ae9bd325f5e6cc9daa473a45c3385912d593b4a",
+      "funciones": [],
+      "endpoints": [
+        {
+          "objetivo": "GET /extra/e/hola",
+          "metodo": "GET",
+          "ruta": "/extra/e/hola",
+          "resuelta": true,
+          "app": "extra_router",
+          "manejador": "hola",
+          "linea": 7,
+          "linea_fin": 8,
+          "es_async": false,
+          "firma": "(nombre: str='mundo')",
+          "docstring": null,
+          "ramas": 0,
+          "parametros_ruta": [],
+          "parametros_consulta": [
+            {
+              "nombre": "nombre",
+              "tipo": "str",
+              "requerido": false,
+              "por_defecto": "'mundo'",
+              "restricciones": {}
+            }
+          ],
+          "cabeceras": [],
+          "cuerpo": null,
+          "response_model": null,
+          "status_code": 200,
+          "status_code_declarado": false,
+          "dependencias": [],
+          "excepciones_http": [],
+          "llama_a": []
+        }
+      ],
+      "modelos": []
+    },
+    {
+      "ruta": "api/main.py",
+      "huella": "120d0cb76cc82ef4f4f4bc9fe87d719d1afa604a0a975f4387cb20dae9487f4d",
+      "funciones": [
+        {
+          "nombre": "calcular",
+          "linea": 38,
+          "firma": "()",
+          "parametros": [],
+          "retorno": null,
+          "docstring": null,
+          "ramas": 0,
+          "tipada": false,
+          "es_async": false,
+          "llama_a": []
+        }
+      ],
+      "endpoints": [
+        {
+          "objetivo": "GET /",
+          "metodo": "GET",
+          "ruta": "/",
+          "resuelta": true,
+          "app": "app",
+          "manejador": "raiz",
+          "linea": 21,
+          "linea_fin": 23,
+          "es_async": false,
+          "firma": "()",
+          "docstring": "Raíz.",
+          "ramas": 0,
+          "parametros_ruta": [],
+          "parametros_consulta": [],
+          "cabeceras": [],
+          "cuerpo": null,
+          "response_model": null,
+          "status_code": 200,
+          "status_code_declarado": false,
+          "dependencias": [],
+          "excepciones_http": [],
+          "llama_a": []
+        },
+        {
+          "objetivo": "POST /items/{item_id}",
+          "metodo": "POST",
+          "ruta": "/items/{item_id}",
+          "resuelta": true,
+          "app": "app",
+          "manejador": "crear_item",
+          "linea": 27,
+          "linea_fin": 30,
+          "es_async": true,
+          "firma": "(item_id: str, cantidad: int=1, *, nombre: str, desc: str | None=None)",
+          "docstring": null,
+          "ramas": 1,
+          "parametros_ruta": [
+            {
+              "nombre": "item_id",
+              "tipo": "str",
+              "requerido": true,
+              "por_defecto": null,
+              "restricciones": {}
+            }
+          ],
+          "parametros_consulta": [
+            {
+              "nombre": "cantidad",
+              "tipo": "int",
+              "requerido": false,
+              "por_defecto": "1",
+              "restricciones": {}
+            },
+            {
+              "nombre": "nombre",
+              "tipo": "str",
+              "requerido": true,
+              "por_defecto": null,
+              "restricciones": {}
+            },
+            {
+              "nombre": "desc",
+              "tipo": "str | None",
+              "requerido": false,
+              "por_defecto": "None",
+              "restricciones": {}
+            }
+          ],
+          "cabeceras": [],
+          "cuerpo": null,
+          "response_model": null,
+          "status_code": 201,
+          "status_code_declarado": true,
+          "dependencias": [],
+          "excepciones_http": [],
+          "llama_a": [
+            "api/rutas.py::obtener_db"
+          ]
+        },
+        {
+          "objetivo": "GET /s",
+          "metodo": "GET",
+          "ruta": "/s",
+          "resuelta": true,
+          "app": "segunda",
+          "manejador": "en_segunda",
+          "linea": 34,
+          "linea_fin": 35,
+          "es_async": false,
+          "firma": "()",
+          "docstring": null,
+          "ramas": 0,
+          "parametros_ruta": [],
+          "parametros_consulta": [],
+          "cabeceras": [],
+          "cuerpo": null,
+          "response_model": null,
+          "status_code": 200,
+          "status_code_declarado": false,
+          "dependencias": [],
+          "excepciones_http": [],
+          "llama_a": [
+            "api/main.py::calcular"
+          ]
+        }
+      ],
+      "modelos": []
+    },
+    {
+      "ruta": "api/modelos.py",
+      "huella": "6660b093b133debbfcc7e6004960057241b830d48827441ad3464c6f08322504",
+      "funciones": [],
+      "endpoints": [],
+      "modelos": [
+        {
+          "nombre": "Base",
+          "linea": 8,
+          "docstring": "Modelo base.",
+          "hereda_de": [],
+          "campos": [
+            {
+              "nombre": "id",
+              "tipo": "int",
+              "requerido": true,
+              "por_defecto": null,
+              "restricciones": {}
+            },
+            {
+              "nombre": "creado",
+              "tipo": "str",
+              "requerido": false,
+              "por_defecto": "'hoy'",
+              "restricciones": {}
+            }
+          ]
+        },
+        {
+          "nombre": "Usuario",
+          "linea": 14,
+          "docstring": "Usuario con restricciones.",
+          "hereda_de": [
+            "Base"
+          ],
+          "campos": [
+            {
+              "nombre": "id",
+              "tipo": "int",
+              "requerido": false,
+              "por_defecto": "0",
+              "restricciones": {
+                "ge": -1
+              }
+            },
+            {
+              "nombre": "creado",
+              "tipo": "str",
+              "requerido": false,
+              "por_defecto": "'hoy'",
+              "restricciones": {}
+            },
+            {
+              "nombre": "nombre",
+              "tipo": "str",
+              "requerido": true,
+              "por_defecto": null,
+              "restricciones": {
+                "min_length": 1,
+                "max_length": 50
+              }
+            },
+            {
+              "nombre": "edad",
+              "tipo": "int",
+              "requerido": false,
+              "por_defecto": "18",
+              "restricciones": {
+                "ge": 0,
+                "lt": 150
+              }
+            },
+            {
+              "nombre": "correo",
+              "tipo": "Optional[str]",
+              "requerido": false,
+              "por_defecto": "None",
+              "restricciones": {
+                "pattern": "^\\S+@\\S+$"
+              }
+            },
+            {
+              "nombre": "etiquetas",
+              "tipo": "list[str]",
+              "requerido": false,
+              "por_defecto": null,
+              "restricciones": {}
+            },
+            {
+              "nombre": "puntaje",
+              "tipo": "float",
+              "requerido": false,
+              "por_defecto": "1.0",
+              "restricciones": {
+                "gt": 0.0,
+                "multiple_of": 0.5
+              }
+            },
+            {
+              "nombre": "saldo",
+              "tipo": "float",
+              "requerido": false,
+              "por_defecto": "-1.5",
+              "restricciones": {
+                "le": 1000000.0
+              }
+            },
+            {
+              "nombre": "activo",
+              "tipo": "bool",
+              "requerido": false,
+              "por_defecto": "True",
+              "restricciones": {}
+            }
+          ]
+        },
+        {
+          "nombre": "Pedido",
+          "linea": 26,
+          "docstring": null,
+          "hereda_de": [],
+          "campos": [
+            {
+              "nombre": "usuario",
+              "tipo": "Usuario",
+              "requerido": true,
+              "por_defecto": null,
+              "restricciones": {}
+            },
+            {
+              "nombre": "articulos",
+              "tipo": "list['Articulo']",
+              "requerido": false,
+              "por_defecto": "[]",
+              "restricciones": {}
+            },
+            {
+              "nombre": "nota",
+              "tipo": "'Optional[str]'",
+              "requerido": false,
+              "por_defecto": "None",
+              "restricciones": {}
+            },
+            {
+              "nombre": "total",
+              "tipo": "float",
+              "requerido": false,
+              "por_defecto": "0",
+              "restricciones": {
+                "ge": 0
+              }
+            }
+          ]
+        },
+        {
+          "nombre": "Articulo",
+          "linea": 33,
+          "docstring": null,
+          "hereda_de": [],
+          "campos": [
+            {
+              "nombre": "nombre",
+              "tipo": "str",
+              "requerido": true,
+              "por_defecto": null,
+              "restricciones": {}
+            },
+            {
+              "nombre": "precio",
+              "tipo": "float",
+              "requerido": true,
+              "por_defecto": null,
+              "restricciones": {
+                "gt": 0
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "ruta": "api/rutas.py",
+      "huella": "e36690cebf4012c12cd5e50eea93c5e9111e67027e837913ad65150d4ed1fae6",
+      "funciones": [
+        {
+          "nombre": "obtener_db",
+          "linea": 16,
+          "firma": "()",
+          "parametros": [],
+          "retorno": null,
+          "docstring": null,
+          "ramas": 0,
+          "tipada": false,
+          "es_async": false,
+          "llama_a": []
+        },
+        {
+          "nombre": "usuario_actual",
+          "linea": 20,
+          "firma": "(token: str=Header(...))",
+          "parametros": [
+            {
+              "nombre": "token",
+              "tipo": "str",
+              "por_defecto": "Header(...)"
+            }
+          ],
+          "retorno": null,
+          "docstring": null,
+          "ramas": 0,
+          "tipada": false,
+          "es_async": false,
+          "llama_a": []
+        }
+      ],
+      "endpoints": [
+        {
+          "objetivo": "GET /v1/usuarios/{usuario_id}",
+          "metodo": "GET",
+          "ruta": "/v1/usuarios/{usuario_id}",
+          "resuelta": true,
+          "app": "router",
+          "manejador": "leer_usuario",
+          "linea": 25,
+          "linea_fin": 31,
+          "es_async": true,
+          "firma": "(usuario_id: int, request: Request, db=Depends(obtener_db), detalle: bool=Query(False, description='x'))",
+          "docstring": "Lee un usuario.",
+          "ramas": 2,
+          "parametros_ruta": [
+            {
+              "nombre": "usuario_id",
+              "tipo": "int",
+              "requerido": true,
+              "por_defecto": null,
+              "restricciones": {}
+            }
+          ],
+          "parametros_consulta": [
+            {
+              "nombre": "detalle",
+              "tipo": "bool",
+              "requerido": false,
+              "por_defecto": "False",
+              "restricciones": {}
+            }
+          ],
+          "cabeceras": [],
+          "cuerpo": null,
+          "response_model": "Usuario",
+          "status_code": 200,
+          "status_code_declarado": true,
+          "dependencias": [
+            {
+              "parametro": "db",
+              "funcion": "obtener_db",
+              "en_proyecto": "api/rutas.py::obtener_db"
+            }
+          ],
+          "excepciones_http": [
+            {
+              "status_code": 404,
+              "detalle": "No existe",
+              "linea": 28
+            },
+            {
+              "status_code": 503,
+              "detalle": "Sin base",
+              "linea": 30
+            }
+          ],
+          "llama_a": [
+            "paquete/sub/util.py::ayuda"
+          ]
+        },
+        {
+          "objetivo": "POST /v1/usuarios",
+          "metodo": "POST",
+          "ruta": "/v1/usuarios",
+          "resuelta": true,
+          "app": "router",
+          "manejador": "crear_usuario",
+          "linea": 35,
+          "linea_fin": 38,
+          "es_async": false,
+          "firma": "(usuario: Usuario, x_token: Annotated[str, Header()]='t', limite: Annotated[int, Query(gt=0, le=100)]=10, sesion: str=Cookie(None))",
+          "docstring": null,
+          "ramas": 0,
+          "parametros_ruta": [],
+          "parametros_consulta": [
+            {
+              "nombre": "limite",
+              "tipo": "int",
+              "requerido": false,
+              "por_defecto": "10",
+              "restricciones": {
+                "gt": 0,
+                "le": 100
+              }
+            }
+          ],
+          "cabeceras": [
+            {
+              "nombre": "x_token",
+              "tipo": "str",
+              "requerido": false,
+              "por_defecto": "'t'",
+              "restricciones": {}
+            },
+            {
+              "nombre": "sesion",
+              "tipo": "str",
+              "requerido": false,
+              "por_defecto": "None",
+              "restricciones": {}
+            }
+          ],
+          "cuerpo": {
+            "nombre": "usuario",
+            "tipo": "Usuario",
+            "requerido": true,
+            "por_defecto": null,
+            "restricciones": {},
+            "modelo": "Usuario"
+          },
+          "response_model": "list[modelos.Usuario]",
+          "status_code": 201,
+          "status_code_declarado": true,
+          "dependencias": [
+            {
+              "parametro": null,
+              "funcion": "usuario_actual",
+              "en_proyecto": "api/rutas.py::usuario_actual"
+            },
+            {
+              "parametro": null,
+              "funcion": "obtener_db",
+              "en_proyecto": "api/rutas.py::obtener_db"
+            }
+          ],
+          "excepciones_http": [],
+          "llama_a": [
+            "servicios.py::calcular_total",
+            "servicios.py::validar"
+          ]
+        },
+        {
+          "objetivo": "GET /v1/usuarios/varios",
+          "metodo": "GET",
+          "ruta": "/v1/usuarios/varios",
+          "resuelta": true,
+          "app": "router",
+          "manejador": "varios",
+          "linea": 42,
+          "linea_fin": 43,
+          "es_async": false,
+          "firma": "(q: Annotated[str | None, Query(min_length=3)]=None)",
+          "docstring": null,
+          "ramas": 0,
+          "parametros_ruta": [],
+          "parametros_consulta": [
+            {
+              "nombre": "q",
+              "tipo": "str | None",
+              "requerido": false,
+              "por_defecto": "None",
+              "restricciones": {
+                "min_length": 3
+              }
+            }
+          ],
+          "cabeceras": [],
+          "cuerpo": null,
+          "response_model": null,
+          "status_code": 200,
+          "status_code_declarado": false,
+          "dependencias": [],
+          "excepciones_http": [],
+          "llama_a": []
+        },
+        {
+          "objetivo": "POST /v1/usuarios/varios",
+          "metodo": "POST",
+          "ruta": "/v1/usuarios/varios",
+          "resuelta": true,
+          "app": "router",
+          "manejador": "varios",
+          "linea": 42,
+          "linea_fin": 43,
+          "es_async": false,
+          "firma": "(q: Annotated[str | None, Query(min_length=3)]=None)",
+          "docstring": null,
+          "ramas": 0,
+          "parametros_ruta": [],
+          "parametros_consulta": [
+            {
+              "nombre": "q",
+              "tipo": "str | None",
+              "requerido": false,
+              "por_defecto": "None",
+              "restricciones": {
+                "min_length": 3
+              }
+            }
+          ],
+          "cabeceras": [],
+          "cuerpo": null,
+          "response_model": null,
+          "status_code": 200,
+          "status_code_declarado": false,
+          "dependencias": [],
+          "excepciones_http": [],
+          "llama_a": []
+        },
+        {
+          "objetivo": "PUT /pedidos/{pedido_id}",
+          "metodo": "PUT",
+          "ruta": "/pedidos/{pedido_id}",
+          "resuelta": false,
+          "app": "otro",
+          "manejador": "actualizar",
+          "linea": 47,
+          "linea_fin": 51,
+          "es_async": false,
+          "firma": "(pedido_id: Annotated[int, Path(ge=1)], pedido: PedidoModelo, nota: str=Body(..., embed=True), archivo: bytes=Form(b''))",
+          "docstring": null,
+          "ramas": 1,
+          "parametros_ruta": [
+            {
+              "nombre": "pedido_id",
+              "tipo": "int",
+              "requerido": true,
+              "por_defecto": null,
+              "restricciones": {
+                "ge": 1
+              }
+            }
+          ],
+          "parametros_consulta": [],
+          "cabeceras": [],
+          "cuerpo": [
+            {
+              "nombre": "pedido",
+              "tipo": "PedidoModelo",
+              "requerido": true,
+              "por_defecto": null,
+              "restricciones": {},
+              "modelo": "Pedido"
+            },
+            {
+              "nombre": "nota",
+              "tipo": "str",
+              "requerido": true,
+              "por_defecto": null,
+              "restricciones": {},
+              "modelo": null
+            },
+            {
+              "nombre": "archivo",
+              "tipo": "bytes",
+              "requerido": false,
+              "por_defecto": "b''",
+              "restricciones": {},
+              "modelo": null
+            }
+          ],
+          "response_model": null,
+          "status_code": 200,
+          "status_code_declarado": false,
+          "dependencias": [],
+          "excepciones_http": [
+            {
+              "status_code": 409,
+              "detalle": null,
+              "linea": 51
+            }
+          ],
+          "llama_a": []
+        },
+        {
+          "objetivo": "DELETE /pedidos/{pedido_id}",
+          "metodo": "DELETE",
+          "ruta": "/pedidos/{pedido_id}",
+          "resuelta": false,
+          "app": "otro",
+          "manejador": "borrar",
+          "linea": 55,
+          "linea_fin": 56,
+          "es_async": false,
+          "firma": "(pedido_id: int, usuario=Depends(usuario_actual), db: str=Depends())",
+          "docstring": null,
+          "ramas": 0,
+          "parametros_ruta": [
+            {
+              "nombre": "pedido_id",
+              "tipo": "int",
+              "requerido": true,
+              "por_defecto": null,
+              "restricciones": {}
+            }
+          ],
+          "parametros_consulta": [],
+          "cabeceras": [],
+          "cuerpo": null,
+          "response_model": null,
+          "status_code": 204,
+          "status_code_declarado": true,
+          "dependencias": [
+            {
+              "parametro": "usuario",
+              "funcion": "usuario_actual",
+              "en_proyecto": "api/rutas.py::usuario_actual"
+            },
+            {
+              "parametro": "db",
+              "funcion": "str",
+              "en_proyecto": null
+            }
+          ],
+          "excepciones_http": [
+            {
+              "status_code": 400,
+              "detalle": null,
+              "linea": 56
+            }
+          ],
+          "llama_a": []
+        },
+        {
+          "objetivo": "PATCH /x",
+          "metodo": "PATCH",
+          "ruta": "/x",
+          "resuelta": false,
+          "app": "dinamico",
+          "manejador": "parche",
+          "linea": 60,
+          "linea_fin": 61,
+          "es_async": false,
+          "firma": "()",
+          "docstring": null,
+          "ramas": 0,
+          "parametros_ruta": [],
+          "parametros_consulta": [],
+          "cabeceras": [],
+          "cuerpo": null,
+          "response_model": null,
+          "status_code": 200,
+          "status_code_declarado": false,
+          "dependencias": [],
+          "excepciones_http": [],
+          "llama_a": []
+        },
+        {
+          "objetivo": null,
+          "metodo": "GET",
+          "ruta": null,
+          "resuelta": false,
+          "app": "router",
+          "manejador": "ruta_variable",
+          "linea": 65,
+          "linea_fin": 66,
+          "es_async": false,
+          "firma": "()",
+          "docstring": null,
+          "ramas": 0,
+          "parametros_ruta": [],
+          "parametros_consulta": [],
+          "cabeceras": [],
+          "cuerpo": null,
+          "response_model": null,
+          "status_code": 200,
+          "status_code_declarado": false,
+          "dependencias": [],
+          "excepciones_http": [],
+          "llama_a": []
+        }
+      ],
+      "modelos": []
+    },
+    {
+      "ruta": "con_bom.py",
+      "huella": "63120f13874066a1af29b61d2659443b23a831889cb807a63cb9ed3a5271fa61",
+      "funciones": [
+        {
+          "nombre": "con_bom",
+          "linea": 4,
+          "firma": "(a: str='ñ') -> str",
+          "parametros": [
+            {
+              "nombre": "a",
+              "tipo": "str",
+              "por_defecto": "'ñ'"
+            }
+          ],
+          "retorno": "str",
+          "docstring": "Doc ñ.",
+          "ramas": 0,
+          "tipada": true,
+          "es_async": false,
+          "llama_a": []
+        }
+      ],
+      "endpoints": [],
+      "modelos": []
+    },
+    {
+      "ruta": "crlf.py",
+      "huella": "2021f0f79f04b078d3a8edcbc56688cd5c0e11c5d7b6a165df6d56c8c05c95b7",
+      "funciones": [
+        {
+          "nombre": "crlf",
+          "linea": 1,
+          "firma": "(a, b=1)",
+          "parametros": [
+            {
+              "nombre": "a",
+              "tipo": null,
+              "por_defecto": null
+            },
+            {
+              "nombre": "b",
+              "tipo": null,
+              "por_defecto": "1"
+            }
+          ],
+          "retorno": null,
+          "docstring": "Doc\ndos.",
+          "ramas": 1,
+          "tipada": false,
+          "es_async": false,
+          "llama_a": []
+        }
+      ],
+      "endpoints": [],
+      "modelos": []
+    },
+    {
+      "ruta": "funciones.py",
+      "huella": "4d45f9e0ddd7f910074b37556e35556e1c1144e975edaf4ad4da3928cc6fb3f0",
+      "funciones": [
+        {
+          "nombre": "simple",
+          "linea": 39,
+          "firma": "(a, b)",
+          "parametros": [
+            {
+              "nombre": "a",
+              "tipo": null,
+              "por_defecto": null
+            },
+            {
+              "nombre": "b",
+              "tipo": null,
+              "por_defecto": null
+            }
+          ],
+          "retorno": null,
+          "docstring": null,
+          "ramas": 0,
+          "tipada": false,
+          "es_async": false,
+          "llama_a": []
+        },
+        {
+          "nombre": "con_tipos",
+          "linea": 43,
+          "firma": "(a: int, b: 'str'='hola', *args: int, c: float=1.5, d, **kw: Any) -> Optional[int]",
+          "parametros": [
+            {
+              "nombre": "a",
+              "tipo": "int",
+              "por_defecto": null
+            },
+            {
+              "nombre": "b",
+              "tipo": "'str'",
+              "por_defecto": "'hola'"
+            },
+            {
+              "nombre": "*args",
+              "tipo": "int",
+              "por_defecto": null
+            },
+            {
+              "nombre": "c",
+              "tipo": "float",
+              "por_defecto": "1.5"
+            },
+            {
+              "nombre": "d",
+              "tipo": null,
+              "por_defecto": null
+            },
+            {
+              "nombre": "**kw",
+              "tipo": "Any",
+              "por_defecto": null
+            }
+          ],
+          "retorno": "Optional[int]",
+          "docstring": "Docstring de una línea.",
+          "ramas": 0,
+          "tipada": false,
+          "es_async": false,
+          "llama_a": []
+        },
+        {
+          "nombre": "multilinea",
+          "linea": 48,
+          "firma": "(a: int, b: dict[str, int]={'x': 1, 'y': 2}, /, c: list[int]=[1, 2, 3], *, d: tuple=(1,), e: t.Optional[str]=None) -> tuple[int, ...]",
+          "parametros": [
+            {
+              "nombre": "a",
+              "tipo": "int",
+              "por_defecto": null
+            },
+            {
+              "nombre": "b",
+              "tipo": "dict[str, int]",
+              "por_defecto": "{'x': 1, 'y': 2}"
+            },
+            {
+              "nombre": "c",
+              "tipo": "list[int]",
+              "por_defecto": "[1, 2, 3]"
+            },
+            {
+              "nombre": "d",
+              "tipo": "tuple",
+              "por_defecto": "(1,)"
+            },
+            {
+              "nombre": "e",
+              "tipo": "t.Optional[str]",
+              "por_defecto": "None"
+            }
+          ],
+          "retorno": "tuple[int, ...]",
+          "docstring": "Docstring con sangría.\n\n    Línea más sangrada.\nFin.",
+          "ramas": 0,
+          "tipada": true,
+          "es_async": false,
+          "llama_a": []
+        },
+        {
+          "nombre": "numeros",
+          "linea": 66,
+          "firma": "(a=16, b=1000, c=1000.0, d=0.0015, e=15, f=5, g=3j, h=-1, i=+2, j=~3, k=1e309, l=0.0, m=10.0) -> None",
+          "parametros": [
+            {
+              "nombre": "a",
+              "tipo": null,
+              "por_defecto": "16"
+            },
+            {
+              "nombre": "b",
+              "tipo": null,
+              "por_defecto": "1000"
+            },
+            {
+              "nombre": "c",
+              "tipo": null,
+              "por_defecto": "1000.0"
+            },
+            {
+              "nombre": "d",
+              "tipo": null,
+              "por_defecto": "0.0015"
+            },
+            {
+              "nombre": "e",
+              "tipo": null,
+              "por_defecto": "15"
+            },
+            {
+              "nombre": "f",
+              "tipo": null,
+              "por_defecto": "5"
+            },
+            {
+              "nombre": "g",
+              "tipo": null,
+              "por_defecto": "3j"
+            },
+            {
+              "nombre": "h",
+              "tipo": null,
+              "por_defecto": "-1"
+            },
+            {
+              "nombre": "i",
+              "tipo": null,
+              "por_defecto": "+2"
+            },
+            {
+              "nombre": "j",
+              "tipo": null,
+              "por_defecto": "~3"
+            },
+            {
+              "nombre": "k",
+              "tipo": null,
+              "por_defecto": "1e309"
+            },
+            {
+              "nombre": "l",
+              "tipo": null,
+              "por_defecto": "0.0"
+            },
+            {
+              "nombre": "m",
+              "tipo": null,
+              "por_defecto": "10.0"
+            }
+          ],
+          "retorno": "None",
+          "docstring": null,
+          "ramas": 0,
+          "tipada": false,
+          "es_async": false,
+          "llama_a": []
+        },
+        {
+          "nombre": "cadenas",
+          "linea": 70,
+          "firma": "(a=\"it's\", b='dice \"hola\"', c='tab\\there', d=b'bytes', e='raw\\\\n', f='unié', g='ab', h=u'u', i='triple', j=\"'\", k='\\\\', l='nueva\\nlinea', m='ñandú') -> None",
+          "parametros": [
+            {
+              "nombre": "a",
+              "tipo": null,
+              "por_defecto": "\"it's\""
+            },
+            {
+              "nombre": "b",
+              "tipo": null,
+              "por_defecto": "'dice \"hola\"'"
+            },
+            {
+              "nombre": "c",
+              "tipo": null,
+              "por_defecto": "'tab\\there'"
+            },
+            {
+              "nombre": "d",
+              "tipo": null,
+              "por_defecto": "b'bytes'"
+            },
+            {
+              "nombre": "e",
+              "tipo": null,
+              "por_defecto": "'raw\\\\n'"
+            },
+            {
+              "nombre": "f",
+              "tipo": null,
+              "por_defecto": "'unié'"
+            },
+            {
+              "nombre": "g",
+              "tipo": null,
+              "por_defecto": "'ab'"
+            },
+            {
+              "nombre": "h",
+              "tipo": null,
+              "por_defecto": "u'u'"
+            },
+            {
+              "nombre": "i",
+              "tipo": null,
+              "por_defecto": "'triple'"
+            },
+            {
+              "nombre": "j",
+              "tipo": null,
+              "por_defecto": "\"'\""
+            },
+            {
+              "nombre": "k",
+              "tipo": null,
+              "por_defecto": "'\\\\'"
+            },
+            {
+              "nombre": "l",
+              "tipo": null,
+              "por_defecto": "'nueva\\nlinea'"
+            },
+            {
+              "nombre": "m",
+              "tipo": null,
+              "por_defecto": "'ñandú'"
+            }
+          ],
+          "retorno": "None",
+          "docstring": "Docstring con comillas dobles simples.",
+          "ramas": 0,
+          "tipada": false,
+          "es_async": false,
+          "llama_a": []
+        },
+        {
+          "nombre": "fstrings",
+          "linea": 74,
+          "firma": "(a=f'x{1}', b=f'{CONSTANTE!r:>10}', c=f'CONSTANTE={CONSTANTE!r}', d=f'{{literal}}', e=f\"{'anidada'}\", f=f'ab{CONSTANTE}') -> None",
+          "parametros": [
+            {
+              "nombre": "a",
+              "tipo": null,
+              "por_defecto": "f'x{1}'"
+            },
+            {
+              "nombre": "b",
+              "tipo": null,
+              "por_defecto": "f'{CONSTANTE!r:>10}'"
+            },
+            {
+              "nombre": "c",
+              "tipo": null,
+              "por_defecto": "f'CONSTANTE={CONSTANTE!r}'"
+            },
+            {
+              "nombre": "d",
+              "tipo": null,
+              "por_defecto": "f'{{literal}}'"
+            },
+            {
+              "nombre": "e",
+              "tipo": null,
+              "por_defecto": "f\"{'anidada'}\""
+            },
+            {
+              "nombre": "f",
+              "tipo": null,
+              "por_defecto": "f'ab{CONSTANTE}'"
+            }
+          ],
+          "retorno": "None",
+          "docstring": null,
+          "ramas": 0,
+          "tipada": false,
+          "es_async": false,
+          "llama_a": []
+        },
+        {
+          "nombre": "expresiones",
+          "linea": 78,
+          "firma": "(a=lambda x, y=1: x + y, b=[i * 2 for i in range(3) if i], c={k: v for k, v in {}.items()}, d={1, 2}, e=(i for i in []), f=not True, g=1 if CONSTANTE else 2, h=(1 + 2) * 3, i=2 ** (-1), j=(2 ** 3) ** 2, k=2 ** 3 ** 2, l=a or (b and c), m=(a or b) and c, n=1 < 2 <= 3, o=x is not None, p=x not in [], q=[*lista_global], r={**{}}, s=lista_global[1:2], u=lista_global[::2], v=sistema.argv[0], w=(yield_ := 1), z=--1, aa=1 .real, bb=f(*[1], **{}), cc=f(*[2], a=1), dd=~-1, ee=(lambda: 0)(), ff=x if y else z if w else 0, gg=(), hh=(1, 2), ii={}, jj=[], kk=..., ll=None, mm=True, nn=a[1, 2], oo=a[1, 2], pp=a[()], qq=a[1:2, 3], rr=a @ b, ss=a // b % c, tt=a << 1 | b >> 2 ^ c & d, uu=-a ** 2, vv=(-a) ** 2, ww=not (a and b), xx=(not a) == b, yy=f((x for x in [])), zz=f((x for x in []), 1)) -> Callable[[int, str], Union[int, None]]",
+          "parametros": [
+            {
+              "nombre": "a",
+              "tipo": null,
+              "por_defecto": "lambda x, y=1: x + y"
+            },
+            {
+              "nombre": "b",
+              "tipo": null,
+              "por_defecto": "[i * 2 for i in range(3) if i]"
+            },
+            {
+              "nombre": "c",
+              "tipo": null,
+              "por_defecto": "{k: v for k, v in {}.items()}"
+            },
+            {
+              "nombre": "d",
+              "tipo": null,
+              "por_defecto": "{1, 2}"
+            },
+            {
+              "nombre": "e",
+              "tipo": null,
+              "por_defecto": "(i for i in [])"
+            },
+            {
+              "nombre": "f",
+              "tipo": null,
+              "por_defecto": "not True"
+            },
+            {
+              "nombre": "g",
+              "tipo": null,
+              "por_defecto": "1 if CONSTANTE else 2"
+            },
+            {
+              "nombre": "h",
+              "tipo": null,
+              "por_defecto": "(1 + 2) * 3"
+            },
+            {
+              "nombre": "i",
+              "tipo": null,
+              "por_defecto": "2 ** (-1)"
+            },
+            {
+              "nombre": "j",
+              "tipo": null,
+              "por_defecto": "(2 ** 3) ** 2"
+            },
+            {
+              "nombre": "k",
+              "tipo": null,
+              "por_defecto": "2 ** 3 ** 2"
+            },
+            {
+              "nombre": "l",
+              "tipo": null,
+              "por_defecto": "a or (b and c)"
+            },
+            {
+              "nombre": "m",
+              "tipo": null,
+              "por_defecto": "(a or b) and c"
+            },
+            {
+              "nombre": "n",
+              "tipo": null,
+              "por_defecto": "1 < 2 <= 3"
+            },
+            {
+              "nombre": "o",
+              "tipo": null,
+              "por_defecto": "x is not None"
+            },
+            {
+              "nombre": "p",
+              "tipo": null,
+              "por_defecto": "x not in []"
+            },
+            {
+              "nombre": "q",
+              "tipo": null,
+              "por_defecto": "[*lista_global]"
+            },
+            {
+              "nombre": "r",
+              "tipo": null,
+              "por_defecto": "{**{}}"
+            },
+            {
+              "nombre": "s",
+              "tipo": null,
+              "por_defecto": "lista_global[1:2]"
+            },
+            {
+              "nombre": "u",
+              "tipo": null,
+              "por_defecto": "lista_global[::2]"
+            },
+            {
+              "nombre": "v",
+              "tipo": null,
+              "por_defecto": "sistema.argv[0]"
+            },
+            {
+              "nombre": "w",
+              "tipo": null,
+              "por_defecto": "(yield_ := 1)"
+            },
+            {
+              "nombre": "z",
+              "tipo": null,
+              "por_defecto": "--1"
+            },
+            {
+              "nombre": "aa",
+              "tipo": null,
+              "por_defecto": "1 .real"
+            },
+            {
+              "nombre": "bb",
+              "tipo": null,
+              "por_defecto": "f(*[1], **{})"
+            },
+            {
+              "nombre": "cc",
+              "tipo": null,
+              "por_defecto": "f(*[2], a=1)"
+            },
+            {
+              "nombre": "dd",
+              "tipo": null,
+              "por_defecto": "~-1"
+            },
+            {
+              "nombre": "ee",
+              "tipo": null,
+              "por_defecto": "(lambda: 0)()"
+            },
+            {
+              "nombre": "ff",
+              "tipo": null,
+              "por_defecto": "x if y else z if w else 0"
+            },
+            {
+              "nombre": "gg",
+              "tipo": null,
+              "por_defecto": "()"
+            },
+            {
+              "nombre": "hh",
+              "tipo": null,
+              "por_defecto": "(1, 2)"
+            },
+            {
+              "nombre": "ii",
+              "tipo": null,
+              "por_defecto": "{}"
+            },
+            {
+              "nombre": "jj",
+              "tipo": null,
+              "por_defecto": "[]"
+            },
+            {
+              "nombre": "kk",
+              "tipo": null,
+              "por_defecto": "..."
+            },
+            {
+              "nombre": "ll",
+              "tipo": null,
+              "por_defecto": "None"
+            },
+            {
+              "nombre": "mm",
+              "tipo": null,
+              "por_defecto": "True"
+            },
+            {
+              "nombre": "nn",
+              "tipo": null,
+              "por_defecto": "a[1, 2]"
+            },
+            {
+              "nombre": "oo",
+              "tipo": null,
+              "por_defecto": "a[1, 2]"
+            },
+            {
+              "nombre": "pp",
+              "tipo": null,
+              "por_defecto": "a[()]"
+            },
+            {
+              "nombre": "qq",
+              "tipo": null,
+              "por_defecto": "a[1:2, 3]"
+            },
+            {
+              "nombre": "rr",
+              "tipo": null,
+              "por_defecto": "a @ b"
+            },
+            {
+              "nombre": "ss",
+              "tipo": null,
+              "por_defecto": "a // b % c"
+            },
+            {
+              "nombre": "tt",
+              "tipo": null,
+              "por_defecto": "a << 1 | b >> 2 ^ c & d"
+            },
+            {
+              "nombre": "uu",
+              "tipo": null,
+              "por_defecto": "-a ** 2"
+            },
+            {
+              "nombre": "vv",
+              "tipo": null,
+              "por_defecto": "(-a) ** 2"
+            },
+            {
+              "nombre": "ww",
+              "tipo": null,
+              "por_defecto": "not (a and b)"
+            },
+            {
+              "nombre": "xx",
+              "tipo": null,
+              "por_defecto": "(not a) == b"
+            },
+            {
+              "nombre": "yy",
+              "tipo": null,
+              "por_defecto": "f((x for x in []))"
+            },
+            {
+              "nombre": "zz",
+              "tipo": null,
+              "por_defecto": "f((x for x in []), 1)"
+            }
+          ],
+          "retorno": "Callable[[int, str], Union[int, None]]",
+          "docstring": null,
+          "ramas": 0,
+          "tipada": false,
+          "es_async": false,
+          "llama_a": []
+        },
+        {
+          "nombre": "anotaciones",
+          "linea": 82,
+          "firma": "(a: int | None, b: list['Modelo'], c: Callable[..., Any], d: t.Dict[str, t.List[int]], e: 'Optional[int]'=None) -> int | str",
+          "parametros": [
+            {
+              "nombre": "a",
+              "tipo": "int | None",
+              "por_defecto": null
+            },
+            {
+              "nombre": "b",
+              "tipo": "list['Modelo']",
+              "por_defecto": null
+            },
+            {
+              "nombre": "c",
+              "tipo": "Callable[..., Any]",
+              "por_defecto": null
+            },
+            {
+              "nombre": "d",
+              "tipo": "t.Dict[str, t.List[int]]",
+              "por_defecto": null
+            },
+            {
+              "nombre": "e",
+              "tipo": "'Optional[int]'",
+              "por_defecto": "None"
+            }
+          ],
+          "retorno": "int | str",
+          "docstring": null,
+          "ramas": 0,
+          "tipada": true,
+          "es_async": false,
+          "llama_a": []
+        },
+        {
+          "nombre": "asincrona",
+          "linea": 86,
+          "firma": "(n: int) -> list[int]",
+          "parametros": [
+            {
+              "nombre": "n",
+              "tipo": "int",
+              "por_defecto": null
+            }
+          ],
+          "retorno": "list[int]",
+          "docstring": "Async con ramas.",
+          "ramas": 3,
+          "tipada": true,
+          "es_async": true,
+          "llama_a": []
+        },
+        {
+          "nombre": "ramas",
+          "linea": 98,
+          "firma": "(x, y=None)",
+          "parametros": [
+            {
+              "nombre": "x",
+              "tipo": null,
+              "por_defecto": null
+            },
+            {
+              "nombre": "y",
+              "tipo": null,
+              "por_defecto": "None"
+            }
+          ],
+          "retorno": null,
+          "docstring": null,
+          "ramas": 21,
+          "tipada": false,
+          "es_async": false,
+          "llama_a": []
+        },
+        {
+          "nombre": "grupo_excepciones",
+          "linea": 151,
+          "firma": "()",
+          "parametros": [],
+          "retorno": null,
+          "docstring": null,
+          "ramas": 2,
+          "tipada": false,
+          "es_async": false,
+          "llama_a": []
+        },
+        {
+          "nombre": "decorada",
+          "linea": 162,
+          "firma": "(a: int) -> int",
+          "parametros": [
+            {
+              "nombre": "a",
+              "tipo": "int",
+              "por_defecto": null
+            }
+          ],
+          "retorno": "int",
+          "docstring": "Decorada.",
+          "ramas": 0,
+          "tipada": true,
+          "es_async": false,
+          "llama_a": []
+        },
+        {
+          "nombre": "redefinida",
+          "linea": 171,
+          "firma": "()",
+          "parametros": [],
+          "retorno": null,
+          "docstring": "Primera.",
+          "ramas": 0,
+          "tipada": false,
+          "es_async": false,
+          "llama_a": []
+        },
+        {
+          "nombre": "en_if",
+          "linea": 180,
+          "firma": "(a: int=1)",
+          "parametros": [
+            {
+              "nombre": "a",
+              "tipo": "int",
+              "por_defecto": "1"
+            }
+          ],
+          "retorno": null,
+          "docstring": "Dentro de un if de módulo.",
+          "ramas": 0,
+          "tipada": false,
+          "es_async": false,
+          "llama_a": []
+        },
+        {
+          "nombre": "en_else",
+          "linea": 184,
+          "firma": "()",
+          "parametros": [],
+          "retorno": null,
+          "docstring": null,
+          "ramas": 0,
+          "tipada": false,
+          "es_async": false,
+          "llama_a": []
+        },
+        {
+          "nombre": "en_try",
+          "linea": 188,
+          "firma": "()",
+          "parametros": [],
+          "retorno": null,
+          "docstring": null,
+          "ramas": 0,
+          "tipada": false,
+          "es_async": false,
+          "llama_a": []
+        },
+        {
+          "nombre": "en_except",
+          "linea": 191,
+          "firma": "()",
+          "parametros": [],
+          "retorno": null,
+          "docstring": null,
+          "ramas": 0,
+          "tipada": false,
+          "es_async": false,
+          "llama_a": []
+        },
+        {
+          "nombre": "en_with",
+          "linea": 195,
+          "firma": "()",
+          "parametros": [],
+          "retorno": null,
+          "docstring": null,
+          "ramas": 0,
+          "tipada": false,
+          "es_async": false,
+          "llama_a": []
+        },
+        {
+          "nombre": "en_for",
+          "linea": 199,
+          "firma": "()",
+          "parametros": [],
+          "retorno": null,
+          "docstring": null,
+          "ramas": 0,
+          "tipada": false,
+          "es_async": false,
+          "llama_a": []
+        },
+        {
+          "nombre": "en_while",
+          "linea": 203,
+          "firma": "()",
+          "parametros": [],
+          "retorno": null,
+          "docstring": null,
+          "ramas": 0,
+          "tipada": false,
+          "es_async": false,
+          "llama_a": []
+        },
+        {
+          "nombre": "en_match",
+          "linea": 208,
+          "firma": "()",
+          "parametros": [],
+          "retorno": null,
+          "docstring": null,
+          "ramas": 0,
+          "tipada": false,
+          "es_async": false,
+          "llama_a": []
+        },
+        {
+          "nombre": "sin_docstring_bytes",
+          "linea": 212,
+          "firma": "()",
+          "parametros": [],
+          "retorno": null,
+          "docstring": null,
+          "ramas": 0,
+          "tipada": false,
+          "es_async": false,
+          "llama_a": []
+        },
+        {
+          "nombre": "docstring_fstring",
+          "linea": 217,
+          "firma": "()",
+          "parametros": [],
+          "retorno": null,
+          "docstring": null,
+          "ramas": 0,
+          "tipada": false,
+          "es_async": false,
+          "llama_a": []
+        },
+        {
+          "nombre": "docstring_concatenado",
+          "linea": 221,
+          "firma": "()",
+          "parametros": [],
+          "retorno": null,
+          "docstring": "uno dos",
+          "ramas": 0,
+          "tipada": false,
+          "es_async": false,
+          "llama_a": []
+        },
+        {
+          "nombre": "docstring_vacio",
+          "linea": 225,
+          "firma": "()",
+          "parametros": [],
+          "retorno": null,
+          "docstring": null,
+          "ramas": 0,
+          "tipada": false,
+          "es_async": false,
+          "llama_a": []
+        },
+        {
+          "nombre": "docstring_escapes",
+          "linea": 229,
+          "firma": "()",
+          "parametros": [],
+          "retorno": null,
+          "docstring": "Con      tab, \\ barra y A hex.\nSegunda línea con α.",
+          "ramas": 0,
+          "tipada": false,
+          "es_async": false,
+          "llama_a": []
+        },
+        {
+          "nombre": "docstring_raw",
+          "linea": 235,
+          "firma": "()",
+          "parametros": [],
+          "retorno": null,
+          "docstring": "Raw \\d+ sin escapes.",
+          "ramas": 0,
+          "tipada": false,
+          "es_async": false,
+          "llama_a": []
+        },
+        {
+          "nombre": "llamadas_globales",
+          "linea": 239,
+          "firma": "(a)",
+          "parametros": [
+            {
+              "nombre": "a",
+              "tipo": null,
+              "por_defecto": null
+            }
+          ],
+          "retorno": null,
+          "docstring": null,
+          "ramas": 1,
+          "tipada": false,
+          "es_async": false,
+          "llama_a": [
+            "funciones.py::con_tipos",
+            "funciones.py::simple"
+          ]
+        },
+        {
+          "nombre": "sin_retorno",
+          "linea": 252,
+          "firma": "(a: int, b: str)",
+          "parametros": [
+            {
+              "nombre": "a",
+              "tipo": "int",
+              "por_defecto": null
+            },
+            {
+              "nombre": "b",
+              "tipo": "str",
+              "por_defecto": null
+            }
+          ],
+          "retorno": null,
+          "docstring": null,
+          "ramas": 0,
+          "tipada": false,
+          "es_async": false,
+          "llama_a": []
+        },
+        {
+          "nombre": "todo_tipado",
+          "linea": 256,
+          "firma": "(a: int, *args: str, b: int=1, **kw: float) -> None",
+          "parametros": [
+            {
+              "nombre": "a",
+              "tipo": "int",
+              "por_defecto": null
+            },
+            {
+              "nombre": "*args",
+              "tipo": "str",
+              "por_defecto": null
+            },
+            {
+              "nombre": "b",
+              "tipo": "int",
+              "por_defecto": "1"
+            },
+            {
+              "nombre": "**kw",
+              "tipo": "float",
+              "por_defecto": null
+            }
+          ],
+          "retorno": "None",
+          "docstring": null,
+          "ramas": 0,
+          "tipada": true,
+          "es_async": false,
+          "llama_a": []
+        },
+        {
+          "nombre": "vacios",
+          "linea": 260,
+          "firma": "(*, a)",
+          "parametros": [
+            {
+              "nombre": "a",
+              "tipo": null,
+              "por_defecto": null
+            }
+          ],
+          "retorno": null,
+          "docstring": null,
+          "ramas": 0,
+          "tipada": false,
+          "es_async": false,
+          "llama_a": []
+        },
+        {
+          "nombre": "solo_varargs",
+          "linea": 264,
+          "firma": "(*args, **kwargs)",
+          "parametros": [
+            {
+              "nombre": "*args",
+              "tipo": null,
+              "por_defecto": null
+            },
+            {
+              "nombre": "**kwargs",
+              "tipo": null,
+              "por_defecto": null
+            }
+          ],
+          "retorno": null,
+          "docstring": null,
+          "ramas": 0,
+          "tipada": false,
+          "es_async": false,
+          "llama_a": []
+        },
+        {
+          "nombre": "posicional_solo",
+          "linea": 268,
+          "firma": "(a, b=2, /, c=3)",
+          "parametros": [
+            {
+              "nombre": "a",
+              "tipo": null,
+              "por_defecto": null
+            },
+            {
+              "nombre": "b",
+              "tipo": null,
+              "por_defecto": "2"
+            },
+            {
+              "nombre": "c",
+              "tipo": null,
+              "por_defecto": "3"
+            }
+          ],
+          "retorno": null,
+          "docstring": null,
+          "ramas": 0,
+          "tipada": false,
+          "es_async": false,
+          "llama_a": []
+        },
+        {
+          "nombre": "generador_func",
+          "linea": 272,
+          "firma": "()",
+          "parametros": [],
+          "retorno": null,
+          "docstring": null,
+          "ramas": 0,
+          "tipada": false,
+          "es_async": false,
+          "llama_a": []
+        },
+        {
+          "nombre": "con_comentario_final",
+          "linea": 286,
+          "firma": "(a)",
+          "parametros": [
+            {
+              "nombre": "a",
+              "tipo": null,
+              "por_defecto": null
+            }
+          ],
+          "retorno": null,
+          "docstring": null,
+          "ramas": 1,
+          "tipada": false,
+          "es_async": false,
+          "llama_a": []
+        },
+        {
+          "nombre": "ultima",
+          "linea": 295,
+          "firma": "(a, b)",
+          "parametros": [
+            {
+              "nombre": "a",
+              "tipo": null,
+              "por_defecto": null
+            },
+            {
+              "nombre": "b",
+              "tipo": null,
+              "por_defecto": null
+            }
+          ],
+          "retorno": null,
+          "docstring": null,
+          "ramas": 0,
+          "tipada": false,
+          "es_async": false,
+          "llama_a": []
+        }
+      ],
+      "endpoints": [],
+      "modelos": []
+    },
+    {
+      "ruta": "latin1.py",
+      "huella": "c1f0883a175aaed61fcaecc3b813aa6eab7ab5938a267fe7405487d080cfc9b3",
+      "funciones": [
+        {
+          "nombre": "latino",
+          "linea": 2,
+          "firma": "(a='ñ')",
+          "parametros": [
+            {
+              "nombre": "a",
+              "tipo": null,
+              "por_defecto": "'ñ'"
+            }
+          ],
+          "retorno": null,
+          "docstring": "Año.",
+          "ramas": 0,
+          "tipada": false,
+          "es_async": false,
+          "llama_a": []
+        }
+      ],
+      "endpoints": [],
+      "modelos": []
+    },
+    {
+      "ruta": "paquete/__init__.py",
+      "huella": "2fbaef944c85b8c8b21d61c262df050239c66da173006ae52fc6915aad75a6a9",
+      "funciones": [
+        {
+          "nombre": "desde_paquete",
+          "linea": 4,
+          "firma": "()",
+          "parametros": [],
+          "retorno": null,
+          "docstring": null,
+          "ramas": 0,
+          "tipada": false,
+          "es_async": false,
+          "llama_a": [
+            "paquete/sub/util.py::ayuda"
+          ]
+        }
+      ],
+      "endpoints": [],
+      "modelos": []
+    },
+    {
+      "ruta": "paquete/sub/__init__.py",
+      "huella": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "funciones": [],
+      "endpoints": [],
+      "modelos": []
+    },
+    {
+      "ruta": "paquete/sub/util.py",
+      "huella": "1a0701d82907b2c4dcd11f9fb9bf5f63e7d864bcf18ca23e2fbb2e45fa25355c",
+      "funciones": [
+        {
+          "nombre": "ayuda",
+          "linea": 5,
+          "firma": "(n: int) -> int",
+          "parametros": [
+            {
+              "nombre": "n",
+              "tipo": "int",
+              "por_defecto": null
+            }
+          ],
+          "retorno": "int",
+          "docstring": "Ayuda.",
+          "ramas": 0,
+          "tipada": true,
+          "es_async": false,
+          "llama_a": [
+            "paquete/__init__.py::desde_paquete",
+            "servicios.py::validar"
+          ]
+        }
+      ],
+      "endpoints": [],
+      "modelos": []
+    },
+    {
+      "ruta": "servicios.py",
+      "huella": "1f83dd24383ff45aeea7e7b8401f3c9604989c2ea17a7979fe54f0405fdfa403",
+      "funciones": [
+        {
+          "nombre": "calcular_total",
+          "linea": 10,
+          "firma": "(n: int) -> int",
+          "parametros": [
+            {
+              "nombre": "n",
+              "tipo": "int",
+              "por_defecto": null
+            }
+          ],
+          "retorno": "int",
+          "docstring": "Total.",
+          "ramas": 0,
+          "tipada": true,
+          "es_async": false,
+          "llama_a": [
+            "funciones.py::con_tipos",
+            "funciones.py::ramas",
+            "funciones.py::simple",
+            "servicios.py::validar"
+          ]
+        },
+        {
+          "nombre": "validar",
+          "linea": 15,
+          "firma": "()",
+          "parametros": [],
+          "retorno": null,
+          "docstring": null,
+          "ramas": 0,
+          "tipada": false,
+          "es_async": false,
+          "llama_a": [
+            "paquete/sub/util.py::ayuda",
+            "servicios.py::calcular_total"
+          ]
+        },
+        {
+          "nombre": "recursiva",
+          "linea": 23,
+          "firma": "(n)",
+          "parametros": [
+            {
+              "nombre": "n",
+              "tipo": null,
+              "por_defecto": null
+            }
+          ],
+          "retorno": null,
+          "docstring": null,
+          "ramas": 1,
+          "tipada": false,
+          "es_async": false,
+          "llama_a": []
+        }
+      ],
+      "endpoints": [],
+      "modelos": []
+    },
+    {
+      "ruta": "solo_comentarios.py",
+      "huella": "bd0e6101c9a3570a9deb976b37b91be850841ae01cc7797c151a2d8d54529eca",
+      "funciones": [],
+      "endpoints": [],
+      "modelos": []
+    },
+    {
+      "ruta": "vacio.py",
+      "huella": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "funciones": [],
+      "endpoints": [],
+      "modelos": []
+    }
+  ],
+  "errores": [
+    {
+      "ruta": "binario.py",
+      "tipo": "UnicodeDecodeError",
+      "linea": null,
+      "mensaje": "'utf-8' codec can't decode byte 0xff in position 21: invalid start byte"
+    },
+    {
+      "ruta": "errores/asigna_literal.py",
+      "tipo": "SyntaxError",
+      "linea": 3,
+      "mensaje": "cannot assign to literal here. Maybe you meant '==' instead of '='?"
+    },
+    {
+      "ruta": "errores/defecto_orden.py",
+      "tipo": "SyntaxError",
+      "linea": 1,
+      "mensaje": "non-default argument follows default argument"
+    },
+    {
+      "ruta": "errores/diferente.py",
+      "tipo": "SyntaxError",
+      "linea": 2,
+      "mensaje": "invalid syntax"
+    },
+    {
+      "ruta": "errores/exec_py2.py",
+      "tipo": "SyntaxError",
+      "linea": 1,
+      "mensaje": "Missing parentheses in call to 'exec'. Did you mean exec(...)?"
+    },
+    {
+      "ruta": "errores/fin_inesperado.py",
+      "tipo": "IndentationError",
+      "linea": 1,
+      "mensaje": "expected an indented block after function definition on line 1"
+    },
+    {
+      "ruta": "errores/keyword_pos.py",
+      "tipo": "SyntaxError",
+      "linea": 1,
+      "mensaje": "positional argument follows keyword argument"
+    },
+    {
+      "ruta": "errores/parentesis.py",
+      "tipo": "SyntaxError",
+      "linea": 2,
+      "mensaje": "'(' was never closed"
+    },
+    {
+      "ruta": "errores/py2_except.py",
+      "tipo": "SyntaxError",
+      "linea": 3,
+      "mensaje": "multiple exception types must be parenthesized"
+    },
+    {
+      "ruta": "errores/py2_print.py",
+      "tipo": "SyntaxError",
+      "linea": 4,
+      "mensaje": "Missing parentheses in call to 'print'. Did you mean print(...)?"
+    },
+    {
+      "ruta": "errores/roto.py",
+      "tipo": "SyntaxError",
+      "linea": 1,
+      "mensaje": "invalid syntax"
+    },
+    {
+      "ruta": "errores/sangria.py",
+      "tipo": "IndentationError",
+      "linea": 3,
+      "mensaje": "unexpected indent"
+    },
+    {
+      "ruta": "errores/walrus.py",
+      "tipo": "SyntaxError",
+      "linea": 1,
+      "mensaje": "invalid syntax"
+    }
+  ],
+  "resumen": {
+    "total_modulos": 15,
+    "total_funciones_publicas": 47,
+    "total_endpoints": 12,
+    "total_errores": 13,
+    "inconsistencias": {
+      "sin_docstring": {
+        "cantidad": 32,
+        "porcentaje": 68.1
+      },
+      "sin_tipos": {
+        "cantidad": 39,
+        "porcentaje": 83.0
+      },
+      "con_alguna": {
+        "cantidad": 41,
+        "porcentaje": 87.2
+      }
+    }
+  }
+}

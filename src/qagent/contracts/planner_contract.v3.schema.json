@@ -1,0 +1,249 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "planner_contract.v3.schema.json",
+  "title": "planner_contract.v3",
+  "description": "EN-17. Contrato del Planner para UNA función o endpoint, con lenguaje y framework. Es v2 más `lenguaje`, `framework_pruebas` y `framework_app`; un v2 se convierte a v3 con `contracts.normalizar_planner()` sin perder datos. El flujo de Python sigue produciendo y guardando v2.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "lenguaje", "framework_pruebas", "modulo", "huella", "tipo", "objetivo", "firma", "critical", "casos"],
+  "properties": {
+    "version": { "const": "3" },
+    "lenguaje": {
+      "enum": ["python", "javascript", "typescript", "java"],
+      "description": "Lenguaje del código del usuario. Lo decide el adaptador de lenguaje (qagent.lenguajes)."
+    },
+    "framework_pruebas": {
+      "enum": ["pytest", "jest", "vitest", "junit5"],
+      "description": "Framework con el que el Generator escribe el test y el sandbox lo ejecuta. Debe corresponder al lenguaje."
+    },
+    "framework_app": {
+      "enum": ["fastapi", "express", "spring"],
+      "description": "Framework web del endpoint. Obligatorio en endpoints; debe corresponder al lenguaje."
+    },
+    "modulo": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Ruta del archivo relativa a la raíz del proyecto (POSIX), ej. tienda/precios.py o src/precios.ts."
+    },
+    "huella": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$",
+      "description": "SHA-256 del archivo calculado por el analizador. Sirve para la caché de specs (HU-24)."
+    },
+    "tipo": { "enum": ["funcion", "endpoint"] },
+    "objetivo": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Nombre de la función (calcular_descuento, Precios.calcular) o método y ruta del endpoint (GET /items/{id})."
+    },
+    "manejador": {
+      "$ref": "#/$defs/nombre_calificado",
+      "description": "Endpoints: función o método que atiende la ruta. Sirve para medir la cobertura de su cuerpo."
+    },
+    "aplicacion": {
+      "$ref": "#/$defs/nombre_calificado",
+      "description": "Símbolo de la aplicación web que el test importa (app de FastAPI o de Express, clase de Spring)."
+    },
+    "dependencias": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/dependencia" },
+      "uniqueItems": true,
+      "description": "Dependencias que el test reemplaza por dobles de prueba (Depends en FastAPI)."
+    },
+    "firma": { "type": "string", "minLength": 1 },
+    "critical": {
+      "type": "boolean",
+      "description": "true = se aplica mutation testing a este objetivo."
+    },
+    "llama_a": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "uniqueItems": true,
+      "description": "Funciones del proyecto que el objetivo llama; el Generator las simula."
+    },
+    "casos": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/caso" }
+    }
+  },
+  "allOf": [
+    {
+      "description": "Python: pytest y FastAPI; los nombres son identificadores de Python (igual que v2).",
+      "if": { "properties": { "lenguaje": { "const": "python" } } },
+      "then": {
+        "properties": {
+          "framework_pruebas": { "const": "pytest" },
+          "framework_app": { "const": "fastapi" },
+          "manejador": { "$ref": "#/$defs/identificador_python" },
+          "aplicacion": { "$ref": "#/$defs/identificador_python" }
+        }
+      }
+    },
+    {
+      "description": "JavaScript y TypeScript: Jest o Vitest y Express.",
+      "if": { "properties": { "lenguaje": { "enum": ["javascript", "typescript"] } } },
+      "then": {
+        "properties": {
+          "framework_pruebas": { "enum": ["jest", "vitest"] },
+          "framework_app": { "const": "express" }
+        }
+      }
+    },
+    {
+      "description": "Java: JUnit 5 y Spring.",
+      "if": { "properties": { "lenguaje": { "const": "java" } } },
+      "then": {
+        "properties": {
+          "framework_pruebas": { "const": "junit5" },
+          "framework_app": { "const": "spring" }
+        }
+      }
+    },
+    {
+      "if": {
+        "required": ["tipo", "lenguaje"],
+        "properties": { "tipo": { "const": "funcion" }, "lenguaje": { "const": "python" } }
+      },
+      "then": { "properties": { "objetivo": { "$ref": "#/$defs/identificador_python" } } }
+    },
+    {
+      "if": {
+        "required": ["tipo", "lenguaje"],
+        "properties": { "tipo": { "const": "funcion" }, "lenguaje": { "not": { "const": "python" } } }
+      },
+      "then": {
+        "properties": {
+          "objetivo": { "$ref": "#/$defs/nombre_calificado" },
+          "casos": {
+            "items": { "not": { "required": ["tipo_valor_esperado"] } }
+          }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "tipo": { "const": "endpoint" } } },
+      "then": {
+        "required": ["manejador", "aplicacion", "framework_app"],
+        "properties": {
+          "objetivo": { "pattern": "^(GET|POST|PUT|PATCH|DELETE) /" },
+          "casos": { "items": { "$ref": "#/$defs/caso_endpoint" } }
+        }
+      }
+    },
+    {
+      "description": "FastAPI declara siempre sus Depends (igual que v2).",
+      "if": { "required": ["framework_app"], "properties": { "framework_app": { "const": "fastapi" } } },
+      "then": { "required": ["dependencias"] }
+    }
+  ],
+  "$defs": {
+    "identificador_python": {
+      "type": "string",
+      "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+    },
+    "nombre_calificado": {
+      "type": "string",
+      "pattern": "^[A-Za-z_$][A-Za-z0-9_$]*(\\.[A-Za-z_$][A-Za-z0-9_$]*)*$",
+      "description": "Identificador, opcionalmente calificado con puntos (Clase.metodo). Admite $ por JavaScript y Java."
+    },
+    "dependencia": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["funcion", "reemplazo"],
+      "properties": {
+        "funcion": { "$ref": "#/$defs/nombre_calificado", "description": "Dependencia real del endpoint." },
+        "reemplazo": { "$ref": "#/$defs/nombre_calificado", "description": "Doble de prueba que la reemplaza." }
+      }
+    },
+    "caso_endpoint": {
+      "description": "Un caso de endpoint es una petición HTTP y su respuesta esperada; un error es un código de estado, no una excepción.",
+      "required": ["valor_esperado"],
+      "not": {
+        "anyOf": [
+          { "required": ["excepcion"] },
+          { "required": ["tipo_valor_esperado"] }
+        ]
+      },
+      "properties": {
+        "entrada": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["metodo", "ruta"],
+          "properties": {
+            "metodo": { "enum": ["GET", "POST", "PUT", "PATCH", "DELETE"] },
+            "ruta": { "type": "string", "pattern": "^/", "description": "Ruta con los parámetros ya sustituidos, ej. /items/1." },
+            "query": { "type": "object" },
+            "json": {},
+            "headers": { "type": "object", "additionalProperties": { "type": "string" } },
+            "preparacion": {
+              "type": "array",
+              "items": { "$ref": "#/$defs/preparacion_endpoint" }
+            }
+          }
+        },
+        "valor_esperado": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["status_code"],
+          "not": { "required": ["json", "json_contiene"] },
+          "properties": {
+            "status_code": { "type": "integer", "minimum": 100, "maximum": 599 },
+            "json": {},
+            "json_contiene": { "type": "object" }
+          }
+        }
+      }
+    },
+    "preparacion_endpoint": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["dependencia", "metodo", "modelo", "argumentos"],
+      "properties": {
+        "dependencia": { "$ref": "#/$defs/nombre_calificado" },
+        "metodo": { "$ref": "#/$defs/nombre_calificado" },
+        "modelo": { "$ref": "#/$defs/nombre_calificado" },
+        "argumentos": { "type": "object" }
+      }
+    },
+    "caso": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "entrada", "origen"],
+      "anyOf": [{ "required": ["valor_esperado"] }, { "required": ["excepcion"] }],
+      "allOf": [
+        {
+          "if": { "required": ["tipo_valor_esperado"] },
+          "then": {
+            "required": ["valor_esperado"],
+            "properties": { "valor_esperado": { "type": "array" } }
+          }
+        }
+      ],
+      "properties": {
+        "id": { "type": "string", "pattern": "^[a-z0-9_]+$" },
+        "descripcion": { "type": "string" },
+        "entrada": {
+          "description": "Argumentos de la función, o método/ruta/cuerpo de la petición para un endpoint."
+        },
+        "valor_esperado": {
+          "description": "Valor esperado. Sale del contrato (oráculo), nunca de ejecutar el código."
+        },
+        "tipo_valor_esperado": {
+          "const": "tuple",
+          "description": "Semántica Python perdida al serializar en JSON: valor_esperado es una tupla, no una lista. Si falta, un array JSON conserva el significado histórico de lista."
+        },
+        "excepcion": {
+          "type": "string",
+          "pattern": "^[A-Za-z_$][A-Za-z0-9_$.]*$",
+          "description": "Excepción esperada (ValueError, TypeError, IllegalArgumentException)."
+        },
+        "origen": {
+          "enum": ["firma", "tipo", "docstring", "response_model", "status_code", "modelo_pydantic"],
+          "description": "De dónde sale el valor esperado. `docstring` incluye JSDoc y Javadoc. No existe la opción 'ejecucion' a propósito."
+        },
+        "categoria": { "enum": ["normal", "limite", "error"] }
+      }
+    }
+  }
+}

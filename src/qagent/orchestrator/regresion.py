@@ -2,19 +2,22 @@
 
 from __future__ import annotations
 
-import ast
-import hashlib
 import json
 import re
 import shutil
 import tempfile
 import time
+import tokenize
 from functools import partial
 from pathlib import Path
 from typing import Any
 
 from qagent import contracts
+from qagent.agents.planner import contrato_sin_triviales
 from qagent.almacenamiento import AlmacenProyecto
+from qagent.almacenamiento.proyecto import VERSION_HUELLA_OBJETIVO
+from qagent.analysis import arbol_ts, texto_ts
+from qagent.analysis.analyzer import calcular_huella
 from qagent.llm.tracker import TokenTracker
 from qagent.orchestrator.estados import Estado
 from qagent.orchestrator.eventos import Evento
@@ -34,7 +37,12 @@ from qagent.storage.registro import PERFIL_REGRESION_PROFUNDA
 
 
 def huellas_de_objetivos(raiz: str | Path) -> dict[tuple[str, str], str]:
-    """Calcula huellas AST por funcion/endpoint sin importar codigo del usuario."""
+    """Calcula la huella de cada función y endpoint sin importar código del usuario.
+
+    La huella sale del árbol de tree-sitter (``huella_de_definicion``, versión 2 desde
+    TA-16). Las specs guardadas con la huella anterior (``ast.dump``) se migran aquí
+    mismo si su módulo no cambió (ver :func:`_migrar_huellas_guardadas`).
+    """
     raiz = Path(raiz)
     resultado: dict[tuple[str, str], str] = {}
     ignorados = {"tests", "venv", "node_modules", "__pycache__"}
@@ -44,32 +52,79 @@ def huellas_de_objetivos(raiz: str | Path) -> dict[tuple[str, str], str]:
             continue
         relativa = ruta.relative_to(raiz).as_posix()
         try:
-            arbol = ast.parse(ruta.read_text(encoding="utf-8"), filename=relativa)
+            fuente = ruta.read_text(encoding="utf-8")
+            arbol = arbol_ts.parsear(fuente)
+            arbol_ts.validar(arbol, fuente, relativa)
         except (OSError, UnicodeDecodeError, SyntaxError, ValueError):
             continue
-        for nodo in arbol.body:
-            if not isinstance(nodo, (ast.FunctionDef, ast.AsyncFunctionDef)):
+        for nodo in arbol_ts.sentencias(arbol.root_node):
+            if not arbol_ts.es_funcion(nodo):
                 continue
-            huella = hashlib.sha256(
-                ast.dump(nodo, annotate_fields=True, include_attributes=False).encode()
-            ).hexdigest()
-            if not nodo.name.startswith("_"):
-                resultado[(relativa, nodo.name)] = huella
-            for decorador in nodo.decorator_list:
-                llamada = decorador if isinstance(decorador, ast.Call) else None
-                atributo = llamada.func if llamada else None
-                if not isinstance(atributo, ast.Attribute) or not llamada.args:
-                    continue
-                metodo = atributo.attr.upper()
-                if metodo not in {"GET", "POST", "PUT", "PATCH", "DELETE"}:
-                    continue
-                try:
-                    camino = ast.literal_eval(llamada.args[0])
-                except (ValueError, TypeError):
-                    continue
-                if isinstance(camino, str):
-                    resultado[(relativa, f"{metodo} {camino}")] = huella
+            funcion = arbol_ts.definicion(nodo)
+            nombre = arbol_ts.nombre(funcion)
+            huella = arbol_ts.huella_de_definicion(funcion)
+            if not nombre.startswith("_"):
+                resultado[(relativa, nombre)] = huella
+            for camino_ruta in _rutas_declaradas(funcion):
+                resultado[(relativa, camino_ruta)] = huella
+    _migrar_huellas_guardadas(raiz, resultado)
     return resultado
+
+
+def _rutas_declaradas(funcion: Any) -> list[str]:
+    """``GET /ruta`` de cada decorador ``@objeto.get("/ruta")`` de la función."""
+    rutas = []
+    for decorador in arbol_ts.decoradores(funcion):
+        llamada = arbol_ts.sin_envoltura(decorador)
+        if llamada is None or llamada.type != "call":
+            continue
+        atributo = arbol_ts.sin_envoltura(llamada.child_by_field_name("function"))
+        argumentos = llamada.child_by_field_name("arguments")
+        posicionales = [
+            a
+            for a in (arbol_ts.nombrados(argumentos) if argumentos is not None else [])
+            if a.type not in ("keyword_argument", "dictionary_splat")
+        ]
+        if atributo is None or atributo.type != "attribute" or not posicionales:
+            continue
+        metodo = arbol_ts.texto(atributo.child_by_field_name("attribute")).upper()
+        if metodo not in {"GET", "POST", "PUT", "PATCH", "DELETE"}:
+            continue
+        try:
+            camino = texto_ts.literal(posicionales[0])
+        except (ValueError, TypeError):
+            continue
+        if isinstance(camino, str):
+            rutas.append(f"{metodo} {camino}")
+    return rutas
+
+
+def _migrar_huellas_guardadas(raiz: Path, huellas: dict[tuple[str, str], str]) -> None:
+    """Pasa a la huella de tree-sitter las specs guardadas con la de ``ast.dump``.
+
+    Una spec vieja sigue sirviendo si su módulo no cambió (misma huella de módulo
+    que en su contrato): la función tampoco cambió. Si el módulo cambió, la spec se
+    queda como está y la función se trata como modificada, igual que antes.
+    """
+    almacen = AlmacenProyecto(raiz)
+    huellas_modulo: dict[str, str | None] = {}
+    for spec in almacen.listar_specs():
+        if spec.get("version_huella_objetivo", 1) == VERSION_HUELLA_OBJETIVO:
+            continue
+        anterior = spec.get("huella_objetivo")
+        contrato = spec["contrato"]
+        nueva = huellas.get((contrato["modulo"], contrato["objetivo"]))
+        if not anterior or nueva is None:
+            continue
+        modulo = contrato["modulo"]
+        if modulo not in huellas_modulo:
+            try:
+                with tokenize.open(raiz / modulo) as archivo:
+                    huellas_modulo[modulo] = calcular_huella(archivo.read())
+            except (OSError, SyntaxError, UnicodeDecodeError):
+                huellas_modulo[modulo] = None
+        if huellas_modulo[modulo] == contrato.get("huella"):
+            almacen.migrar_huella_objetivo(spec["id"], anterior, nueva)
 
 
 def _cobertura(datos: dict[str, Any] | None) -> dict[str, float | None] | None:
@@ -118,6 +173,33 @@ def _specs_aprobadas(almacen: AlmacenProyecto) -> list[dict[str, Any]]:
     return candidatas
 
 
+def _contrato_para_regresion(spec: dict[str, Any]) -> dict[str, Any] | None:
+    """Contrato guardado sin casos triviales de firma (#149).
+
+    Reutiliza el mismo detector determinista de #138. No inspecciona el texto del
+    test, no ejecuta código del proyecto y no modifica la spec persistida.
+    """
+    return contrato_sin_triviales(spec["contrato"])
+
+
+def _omision_typeerror_trivial(spec: dict[str, Any]) -> dict[str, str]:
+    """Traza visible de una prueba histórica excluida, sin rutas absolutas."""
+    contrato = spec["contrato"]
+    archivo = spec["archivo_prueba"]
+    referencia = spec.get("id") or contrato["objetivo"]
+    return {
+        "modulo": contrato["modulo"],
+        "objetivo": contrato["objetivo"],
+        "tipo": contrato["tipo"],
+        "motivo": (
+            "Requiere corrida nueva: la prueba guardada "
+            f"{archivo} (spec {referencia}) solo comprueba un TypeError provocado "
+            "por argumentos incorrectos y no ejercita el cuerpo de la función. "
+            "El archivo se conservó sin cambios."
+        ),
+    }
+
+
 def objetivos_repetibles(ruta_proyecto: str | Path) -> list[dict[str, str]]:
     """Objetivos cuya prueba aprobada guardada se puede repetir hoy (#70).
 
@@ -130,7 +212,9 @@ def objetivos_repetibles(ruta_proyecto: str | Path) -> list[dict[str, str]]:
     huellas = huellas_de_objetivos(raiz)
     repetibles = []
     for spec in _specs_aprobadas(almacen):
-        contrato = spec["contrato"]
+        contrato = _contrato_para_regresion(spec)
+        if contrato is None:
+            continue
         clave = (contrato["modulo"], contrato["objetivo"])
         esperada = spec.get("huella_objetivo")
         if (
@@ -254,11 +338,36 @@ def ejecutar_regresion(
                 )
                 in elegidos
             ]
-        resumen.total_seleccionados = len(specs)
-        resumen.total_funciones = len(specs)
         if not specs:
             raise RuntimeError("No hay pruebas aprobadas vigentes para Regresion.")
+        resumen.total_seleccionados = len(specs)
+        resumen.total_funciones = len(specs)
+        omitidos: list[dict[str, str]] = []
+        elegibles: list[dict[str, Any]] = []
+        for spec in specs:
+            contrato = _contrato_para_regresion(spec)
+            if contrato is None:
+                omitidos.append(_omision_typeerror_trivial(spec))
+                continue
+            elegibles.append(
+                spec
+                if contrato is spec["contrato"]
+                else {**spec, "_contrato_regresion": contrato}
+            )
+        specs = elegibles
+        resumen.objetivos_omitidos = len(omitidos)
+        resumen.total_elegibles = len(specs)
         emitir("Regresion sin IA: comprobando huellas de pruebas aprobadas")
+        for omitido in omitidos:
+            emitir(
+                f"{omitido['objetivo']}: {omitido['motivo']}",
+                omitido["modulo"],
+                "veredicto",
+                {
+                    "decision": "requiere_corrida_nueva",
+                    "objetivo": omitido["objetivo"],
+                },
+            )
         imagen: str | None = None
         for spec in specs:
             if cancelado is not None and cancelado():
@@ -268,7 +377,7 @@ def ejecutar_regresion(
                 resumen.motivo = "Corrida detenida por el usuario."
                 emitir(resumen.motivo, tipo="fallo")
                 break
-            contrato = spec["contrato"]
+            contrato = spec.get("_contrato_regresion", spec["contrato"])
             modulo, objetivo = contrato["modulo"], contrato["objetivo"]
             objetivo_inicio_reloj = reloj()
             objetivo_inicio_utc = ahora()
@@ -429,7 +538,7 @@ def ejecutar_regresion(
         decisiones = [o.decision for r in resultados for o in r.objetivos]
         resumen.total_procesados = len(decisiones)
         resumen.total_pendientes = max(
-            0, resumen.total_seleccionados - resumen.total_procesados
+            0, resumen.total_elegibles - resumen.total_procesados
         )
         resumen.total_funciones = len(decisiones)
         resumen.aceptadas = decisiones.count("accept")
@@ -465,9 +574,12 @@ def ejecutar_regresion(
             duracion_s=resumen.duracion_s,
             duracion_etapas=resumen.duracion_etapas,
             total_seleccionados=resumen.total_seleccionados,
+            total_elegibles=resumen.total_elegibles,
             total_procesados=resumen.total_procesados,
             total_pendientes=resumen.total_pendientes,
             tipo_terminacion=resumen.tipo_terminacion,
+            objetivos_omitidos=resumen.objetivos_omitidos,
+            omitidos=omitidos,
         )
         resumen.run_id, resumen.carpeta = rutas.run_id, str(rutas.carpeta)
     except Exception as error:  # noqa: BLE001
@@ -481,7 +593,8 @@ def ejecutar_regresion(
     _cerrar_run(almacen, resumen, ["funcion", "endpoint"])
     emitir(
         f"Regresion terminada sin IA: {resumen.aceptadas} aprobadas, "
-        f"{resumen.requieren_corrida_nueva} requieren corrida nueva",
+        f"{resumen.requieren_corrida_nueva} requieren corrida nueva, "
+        f"{resumen.objetivos_omitidos} excluidas por TypeError trivial",
         tipo="fin",
     )
     return resumen
@@ -528,15 +641,20 @@ def _mutar_criticas(
 
 
 def _lineas_de(raiz: Path, modulo: str) -> list[dict[str, Any]]:
-    """Línea del `def` de cada función de primer nivel del módulo (solo `ast`)."""
+    """Línea del `def` de cada función de primer nivel del módulo (tree-sitter)."""
     try:
-        arbol = ast.parse((raiz / modulo).read_text(encoding="utf-8"))
+        fuente = (raiz / modulo).read_text(encoding="utf-8")
+        arbol = arbol_ts.parsear(fuente)
+        arbol_ts.validar(arbol, fuente, modulo)
     except (OSError, UnicodeDecodeError, SyntaxError, ValueError):
         return []
     return [
-        {"nombre": nodo.name, "linea": nodo.lineno}
-        for nodo in arbol.body
-        if isinstance(nodo, (ast.FunctionDef, ast.AsyncFunctionDef))
+        {
+            "nombre": arbol_ts.nombre(nodo),
+            "linea": arbol_ts.linea(arbol_ts.definicion(nodo)),
+        }
+        for nodo in arbol_ts.sentencias(arbol.root_node)
+        if arbol_ts.es_funcion(nodo)
     ]
 
 

@@ -8,7 +8,7 @@ from typing import Any
 
 import webview
 
-from qagent.almacenamiento import AlmacenProyecto, recientes
+from qagent.almacenamiento import AlmacenProyecto, BloqueoCorrida, recientes
 from qagent.app import bitacora
 from qagent.app.monitor_eventos import a_evento_bitacora, a_fila_monitor
 from qagent.proyectos import proyecto_local
@@ -158,7 +158,8 @@ class DesktopAPI:
         _preparar_almacen(proyecto["ruta"])
         almacen = AlmacenProyecto(proyecto["ruta"])
         tiene_pruebas = almacen.tiene_pruebas_aprobadas()
-        tiene_corridas = len(almacen.listar_runs()) > 0
+        # #139: solo cuentan las corridas con resultados (no las interrumpidas).
+        tiene_corridas = _corridas_al_abrir(almacen)
         return {
             **proyecto,
             "tiene_pruebas": tiene_pruebas,
@@ -195,9 +196,9 @@ class DesktopAPI:
             _preparar_almacen(proyecto["ruta"])
             almacen = AlmacenProyecto(proyecto["ruta"])
             tiene_pruebas = almacen.tiene_pruebas_aprobadas()
-            tiene_corridas = len(almacen.listar_runs()) > 0 or bool(
-                reciente.get("ultima_corrida")
-            )
+            # #139: solo cuentan las corridas con resultados (no las interrumpidas ni
+            # la fecha de recientes, que se anota aunque la corrida no deje resultados).
+            tiene_corridas = _corridas_al_abrir(almacen)
         return {
             **proyecto,
             "origen": reciente["origen"],
@@ -229,6 +230,25 @@ class DesktopAPI:
     def analizar_proyecto(self, ruta: str) -> dict:
         """Alias de obtener_vista_previa para la interfaz JavaScript (HU-04)."""
         return self.obtener_vista_previa(ruta)
+
+    def obtener_seleccion_objetivos(self, ruta: str) -> dict:
+        """Recupera la selección de Explorar guardada para este proyecto."""
+        from qagent.proyectos.preferencias import cargar_seleccion_objetivos
+
+        return {"ok": True, "seleccion": cargar_seleccion_objetivos(ruta)}
+
+    def guardar_seleccion_objetivos(self, ruta: str, seleccion: dict) -> dict:
+        """Persiste la selección de Explorar dentro del almacén del proyecto."""
+        from qagent.proyectos.preferencias import guardar_seleccion_objetivos
+
+        try:
+            guardar_seleccion_objetivos(ruta, seleccion)
+        except (OSError, TypeError, ValueError) as exc:
+            bitacora.registro.warning(
+                "No se pudo guardar la selección de objetivos en '%s': %s", ruta, exc
+            )
+            return {"ok": False, "error": str(exc)}
+        return {"ok": True}
 
     def verificar_entorno(self) -> dict:
         """Verifica config.toml, claves de .env, Docker y Git (EN-06).
@@ -690,14 +710,36 @@ class DesktopAPI:
         simulado: bool,
         seleccion: list[dict[str, Any]] | None,
     ) -> None:
-        """Ejecuta la corrida en un hilo para no congelar la ventana."""
+        """Ejecuta la corrida en un hilo para no congelar la ventana.
+
+        #139: antes toma el bloqueo de la corrida, que dice a otras ventanas (y a la
+        próxima apertura del proyecto) que sigue viva; si la app se cierra, el sistema
+        lo libera solo. El hilo lo suelta al terminar.
+        """
+        bloqueo = _tomar_bloqueo(ruta, run_id)
         self._corrida = threading.Thread(
-            target=self._correr,
-            args=(ruta, perfil, run_id, simulado, seleccion),
+            target=self._correr_y_liberar,
+            args=(ruta, perfil, run_id, simulado, seleccion, bloqueo),
             name="qagent-corrida",
             daemon=True,
         )
         self._corrida.start()
+
+    def _correr_y_liberar(
+        self,
+        ruta: str,
+        perfil: str,
+        run_id: str | None,
+        simulado: bool,
+        seleccion: list[dict[str, Any]] | None,
+        bloqueo: BloqueoCorrida | None,
+    ) -> None:
+        """Corre la corrida y suelta su bloqueo al terminar, pase lo que pase (#139)."""
+        try:
+            self._correr(ruta, perfil, run_id, simulado, seleccion)
+        finally:
+            if bloqueo is not None:
+                bloqueo.liberar()
 
     def _correr(
         self,
@@ -924,6 +966,36 @@ def _registrar_run(ruta: str, usa_docker: bool) -> str | None:
         return None
     bitacora.registro.info("Corrida registrada: %s", almacen.carpeta_run(run["run_id"]))
     return run["run_id"]
+
+
+def _tomar_bloqueo(ruta: str, run_id: str | None) -> BloqueoCorrida | None:
+    """Bloquea la corrida que empieza (#139). Si no se puede, la corrida sigue igual."""
+    if run_id is None:
+        return None
+    try:
+        return BloqueoCorrida.tomar(AlmacenProyecto(ruta).carpeta_run(run_id))
+    except OSError as exc:
+        bitacora.registro.warning(
+            "No se pudo bloquear la corrida %s (si la app se cierra, podría verse "
+            "como interrumpida aunque siga en otra ventana): %s",
+            run_id,
+            exc,
+        )
+        return None
+
+
+def _corridas_al_abrir(almacen: AlmacenProyecto) -> bool:
+    """Cierra las corridas interrumpidas y dice si alguna dejó resultados (#139)."""
+    try:
+        marcadas = almacen.cerrar_interrumpidas()
+    except OSError as exc:
+        bitacora.registro.warning("No se revisaron las corridas interrumpidas: %s", exc)
+        marcadas = []
+    if marcadas:
+        bitacora.registro.info(
+            "Corridas interrumpidas (la app se cerró a mitad): %s", ", ".join(marcadas)
+        )
+    return almacen.tiene_corridas_con_resultados()
 
 
 def _ocultar_claves_en_bitacora() -> None:

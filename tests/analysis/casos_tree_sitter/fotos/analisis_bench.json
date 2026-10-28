@@ -1,0 +1,151 @@
+{
+  "modulos": [
+    {
+      "ruta": "banco_mvp.py",
+      "huella": "11ebd9c5b8e042bdc0407320590e7f767c2971f2d543625272a79c9d45641fa5",
+      "funciones": [
+        {
+          "nombre": "calcular_descuento",
+          "linea": 10,
+          "firma": "(precio: float, porcentaje: float) -> float",
+          "parametros": [
+            {
+              "nombre": "precio",
+              "tipo": "float",
+              "por_defecto": null
+            },
+            {
+              "nombre": "porcentaje",
+              "tipo": "float",
+              "por_defecto": null
+            }
+          ],
+          "retorno": "float",
+          "docstring": "Calcula el precio final tras aplicar un porcentaje de descuento.\n\nArgs:\n    precio: Monto original del producto, debe ser mayor o igual a 0.\n    porcentaje: Porcentaje de descuento, valor entre 0 y 100 inclusive.\n\nReturns:\n    float: Precio final con el descuento aplicado.\n\nRaises:\n    ValueError: Si el precio es negativo o el porcentaje no está entre 0 y 100.",
+          "ramas": 2,
+          "tipada": true,
+          "es_async": false,
+          "llama_a": []
+        },
+        {
+          "nombre": "clasificar_edad",
+          "linea": 32,
+          "firma": "(edad: int) -> str",
+          "parametros": [
+            {
+              "nombre": "edad",
+              "tipo": "int",
+              "por_defecto": null
+            }
+          ],
+          "retorno": "str",
+          "docstring": "Clasifica a una persona según su rango etario.\n\nCategorías:\n    - \"menor\": edad menor estricta a 18 años (0 a 17 años).\n    - \"adulto\": edad entre 18 y 64 años inclusive.\n    - \"adulto mayor\": edad mayor o igual a 65 años.\n\nArgs:\n    edad: Años cumplidos, debe ser mayor o igual a 0.\n\nReturns:\n    str: Categoría correspondiente ('menor', 'adulto', 'adulto mayor').\n\nRaises:\n    ValueError: Si la edad es menor a 0.",
+          "ramas": 3,
+          "tipada": true,
+          "es_async": false,
+          "llama_a": []
+        },
+        {
+          "nombre": "buscar_elemento_mayor",
+          "linea": 60,
+          "firma": "(numeros: list[int | float]) -> int | float",
+          "parametros": [
+            {
+              "nombre": "numeros",
+              "tipo": "list[int | float]",
+              "por_defecto": null
+            }
+          ],
+          "retorno": "int | float",
+          "docstring": "Encuentra el valor numérico máximo en una lista.\n\nArgs:\n    numeros: Lista de números (enteros o flotantes), no debe estar vacía.\n\nReturns:\n    int | float: El número de mayor valor en la lista.\n\nRaises:\n    ValueError: Si la lista está vacía.",
+          "ramas": 3,
+          "tipada": true,
+          "es_async": false,
+          "llama_a": []
+        },
+        {
+          "nombre": "es_palindromo",
+          "linea": 82,
+          "firma": "(texto: str) -> bool",
+          "parametros": [
+            {
+              "nombre": "texto",
+              "tipo": "str",
+              "por_defecto": null
+            }
+          ],
+          "retorno": "bool",
+          "docstring": "Verifica si una palabra o frase es un palíndromo.\n\nIgnora diferencias entre mayúsculas, minúsculas y espacios en blanco.\n\nArgs:\n    texto: Cadena a evaluar.\n\nReturns:\n    bool: True si se lee igual en ambos sentidos, False en caso contrario.",
+          "ramas": 1,
+          "tipada": true,
+          "es_async": false,
+          "llama_a": []
+        },
+        {
+          "nombre": "invertir_palabras",
+          "linea": 97,
+          "firma": "(frase: str) -> str",
+          "parametros": [
+            {
+              "nombre": "frase",
+              "tipo": "str",
+              "por_defecto": null
+            }
+          ],
+          "retorno": "str",
+          "docstring": "Invierte el orden de las palabras en una oración conservando espacios simples.\n\nArgs:\n    frase: Oración de entrada.\n\nReturns:\n    str: Frase con el orden de las palabras invertido.",
+          "ramas": 0,
+          "tipada": true,
+          "es_async": false,
+          "llama_a": []
+        },
+        {
+          "nombre": "formatear_moneda",
+          "linea": 110,
+          "firma": "(cantidad: float, simbolo: str='$') -> str",
+          "parametros": [
+            {
+              "nombre": "cantidad",
+              "tipo": "float",
+              "por_defecto": null
+            },
+            {
+              "nombre": "simbolo",
+              "tipo": "str",
+              "por_defecto": "'$'"
+            }
+          ],
+          "retorno": "str",
+          "docstring": "Formatea una cantidad numérica a formato de moneda con dos decimales.\n\nArgs:\n    cantidad: Valor numérico a formatear.\n    simbolo: Prefijo del símbolo de moneda (por defecto '$').\n\nReturns:\n    str: Texto formateado, por ejemplo '$12.50'.",
+          "ramas": 0,
+          "tipada": true,
+          "es_async": false,
+          "llama_a": []
+        }
+      ],
+      "endpoints": [],
+      "modelos": []
+    }
+  ],
+  "errores": [],
+  "resumen": {
+    "total_modulos": 1,
+    "total_funciones_publicas": 6,
+    "total_endpoints": 0,
+    "total_errores": 0,
+    "inconsistencias": {
+      "sin_docstring": {
+        "cantidad": 0,
+        "porcentaje": 0.0
+      },
+      "sin_tipos": {
+        "cantidad": 0,
+        "porcentaje": 0.0
+      },
+      "con_alguna": {
+        "cantidad": 0,
+        "porcentaje": 0.0
+      }
+    }
+  }
+}

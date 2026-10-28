@@ -29,6 +29,7 @@ from typing import Any
 from zipfile import ZIP_DEFLATED, ZipFile
 
 from qagent import contracts
+from qagent.almacenamiento.bloqueo import corrida_activa
 from qagent.almacenamiento.disco import (
     DatoCorrupto,
     DatoNoEncontrado,
@@ -50,8 +51,15 @@ CONTENIDO_GITIGNORE = (
 ARCHIVO_RUN = "run.json"
 
 # Estados de una corrida: "en_curso" hasta que termina; luego el estado final del
-# orquestador ("fin" o "fallo_controlado"). Si la app se cierra a mitad, queda "en_curso".
-ESTADOS_RUN = ("en_curso", "fin", "fallo_controlado")
+# orquestador ("fin" o "fallo_controlado"). Si la app se cierra a mitad, queda "en_curso"
+# hasta que se vuelve a abrir el proyecto y se marca "interrumpida" (#139).
+ESTADOS_RUN = ("en_curso", "fin", "fallo_controlado", "interrumpida")
+INTERRUMPIDA = "interrumpida"
+MOTIVO_INTERRUMPIDA = (
+    "La aplicación se cerró antes de que la corrida terminara; no dejó resultados."
+)
+#: Archivo que confirma que una corrida dejó resultados (lo escribe storage/registro).
+ARCHIVO_RESULTADOS = "results.json"
 
 
 def migrar_carpeta_anterior(raiz: str | Path) -> bool:
@@ -93,6 +101,9 @@ PATRON_RUN_ID = re.compile(r"^\d{8}-\d{6}-[0-9a-f]{4}$")
 PATRON_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_-]*$")
 PATRON_PRUEBA = re.compile(r"^test_[A-Za-z0-9_]+\.py$")
 PATRON_HUELLA = re.compile(r"^[0-9a-f]{64}$")
+#: Cómo se calculó `huella_objetivo` (huella de una función o endpoint). 1: `ast.dump`,
+#: hasta TA-16 (las specs viejas no traen el campo); 2: árbol de tree-sitter.
+VERSION_HUELLA_OBJETIVO = 2
 #: Identificador de un perfil de corrida guardado con cada spec (#75), ej. "humo".
 PATRON_PERFIL = re.compile(r"^[a-z][a-z_]*$")
 
@@ -264,10 +275,14 @@ class AlmacenProyecto:
             datos["tipo_terminacion"] = run["tipo_terminacion"]
         if run.get("total_seleccionados") is not None:
             datos["total_seleccionados"] = run["total_seleccionados"]
+        if run.get("total_elegibles") is not None:
+            datos["total_elegibles"] = run["total_elegibles"]
         if run.get("procesados") is not None:
             datos["procesados"] = run["procesados"]
         if run.get("pendientes") is not None:
             datos["pendientes"] = run["pendientes"]
+        if run.get("objetivos_omitidos") is not None:
+            datos["objetivos_omitidos"] = run["objetivos_omitidos"]
         if run.get("motivo") is not None:
             datos["motivo"] = run["motivo"]
         escribir_json_atomico(ruta, datos)
@@ -283,6 +298,10 @@ class AlmacenProyecto:
         ahora: datetime | None = None,
         duracion_s: float | None = None,
         total_seleccionados: int | None = None,
+        total_elegibles: int | None = None,
+        total_procesados: int | None = None,
+        total_pendientes: int | None = None,
+        objetivos_omitidos: int | None = None,
         tipo_terminacion: str | None = None,
         motivo: str | None = None,
     ) -> dict[str, Any]:
@@ -303,10 +322,27 @@ class AlmacenProyecto:
         )
         if total_seleccionados is not None:
             sel = int(total_seleccionados)
-            proc = pasaron + fallaron
+            omitidos = int(objetivos_omitidos or 0)
+            elegibles = (
+                int(total_elegibles)
+                if total_elegibles is not None
+                else max(0, sel - omitidos)
+            )
+            proc = (
+                int(total_procesados)
+                if total_procesados is not None
+                else pasaron + fallaron
+            )
+            pendientes = (
+                int(total_pendientes)
+                if total_pendientes is not None
+                else max(0, elegibles - proc)
+            )
             run["total_seleccionados"] = sel
+            run["total_elegibles"] = elegibles
             run["procesados"] = proc
-            run["pendientes"] = max(0, sel - proc)
+            run["pendientes"] = pendientes
+            run["objetivos_omitidos"] = omitidos
         if tipo_terminacion is not None:
             run["tipo_terminacion"] = str(tipo_terminacion)
         if motivo is not None:
@@ -352,6 +388,46 @@ class AlmacenProyecto:
                 continue
         return runs
 
+    def tiene_corridas_con_resultados(self) -> bool:
+        """Si alguna corrida dejó `results.json` (las interrumpidas no cuentan, #139)."""
+        if not self.carpeta_runs.is_dir():
+            return False
+        return any(
+            (carpeta / ARCHIVO_RESULTADOS).is_file()
+            for carpeta in self.carpeta_runs.iterdir()
+            if carpeta.is_dir() and PATRON_RUN_ID.match(carpeta.name)
+        )
+
+    def cerrar_interrumpidas(self, ahora: datetime | None = None) -> list[str]:
+        """Marca como interrumpidas las corridas «en curso» que nadie está ejecutando.
+
+        Una corrida queda «en curso» si la app se cerró o se cayó a mitad. Si ningún
+        proceso de QAgent mantiene su bloqueo (`bloqueo.corrida_activa`), se marca
+        `interrumpida` con su hora de cierre. No se borra nada. Una corrida dañada o que
+        no se puede escribir se deja como está.
+
+        Returns:
+            Los `run_id` que se marcaron.
+        """
+        marcadas = []
+        for run in self.listar_runs():
+            if run["estado"] != "en_curso":
+                continue
+            if corrida_activa(self.carpeta_run(run["run_id"])):
+                continue
+            run.update(
+                fin=_iso(ahora),
+                estado=INTERRUMPIDA,
+                tipo_terminacion=INTERRUMPIDA,
+                motivo=MOTIVO_INTERRUMPIDA,
+            )
+            try:
+                self.guardar_run(run)
+            except (OSError, ErrorAlmacen):
+                continue
+            marcadas.append(run["run_id"])
+        return marcadas
+
     # --- Specs ----------------------------------------------------------------------
 
     def guardar_spec(
@@ -396,6 +472,7 @@ class AlmacenProyecto:
         }
         if huella_objetivo is not None:
             spec["huella_objetivo"] = huella_objetivo
+            spec["version_huella_objetivo"] = VERSION_HUELLA_OBJETIVO
         if perfil is not None:
             spec["perfil"] = perfil
         _validar_spec(spec)
@@ -473,7 +550,7 @@ class AlmacenProyecto:
             ErrorAlmacen: si algún campo no es válido (no se escribe nada).
         """
         datos = {
-            "version": "1",
+            "version": str(VERSION_HUELLA_OBJETIVO),
             "id": spec_id,
             "huella_objetivo": huella_objetivo,
             "huella_prueba": huella_prueba,
@@ -508,6 +585,41 @@ class AlmacenProyecto:
         ):
             return None
         return datos
+
+    def migrar_huella_objetivo(self, spec_id: str, anterior: str, nueva: str) -> bool:
+        """Pasa la huella de una función de `ast.dump` a tree-sitter (TA-16).
+
+        Solo se llama cuando el módulo no cambió desde que se guardó la spec (su huella
+        de módulo es la misma), así que la función tampoco cambió: la spec y su último
+        Mutation Score siguen sirviendo con la huella nueva.
+
+        Returns:
+            True si la spec tenía la huella `anterior` y se actualizó.
+        """
+        try:
+            spec = leer_json_objeto(self._ruta_spec(spec_id))
+            _validar_spec(spec)
+        except ErrorAlmacen:
+            return False
+        if (
+            spec.get("version_huella_objetivo") == VERSION_HUELLA_OBJETIVO
+            or spec.get("huella_objetivo") != anterior
+        ):
+            return False
+        spec["huella_objetivo"] = nueva
+        spec["version_huella_objetivo"] = VERSION_HUELLA_OBJETIVO
+        _validar_spec(spec)
+        escribir_json_atomico(self._ruta_spec(spec_id), spec)
+        try:
+            mutacion = leer_json_objeto(self._ruta_mutacion(spec_id))
+            _validar_mutacion(mutacion)
+        except ErrorAlmacen:
+            return True
+        if mutacion["huella_objetivo"] == anterior:
+            mutacion["huella_objetivo"] = nueva
+            mutacion["version"] = str(VERSION_HUELLA_OBJETIVO)
+            escribir_json_atomico(self._ruta_mutacion(spec_id), mutacion)
+        return True
 
     def _ruta_mutacion(self, spec_id: str) -> Path:
         if not isinstance(spec_id, str) or not PATRON_ID.match(spec_id):
@@ -748,6 +860,17 @@ def _validar_run(run: dict[str, Any]) -> None:
         isinstance(sel, bool) or not isinstance(sel, int) or sel < 0
     ):
         raise ErrorAlmacen("total_seleccionados debe ser un entero no negativo o null.")
+    for campo in (
+        "total_elegibles",
+        "procesados",
+        "pendientes",
+        "objetivos_omitidos",
+    ):
+        valor = run.get(campo)
+        if valor is not None and (
+            isinstance(valor, bool) or not isinstance(valor, int) or valor < 0
+        ):
+            raise ErrorAlmacen(f"{campo} debe ser un entero no negativo o null.")
 
 
 def _validar_spec(spec: dict[str, Any]) -> None:
@@ -773,6 +896,9 @@ def _validar_spec(spec: dict[str, Any]) -> None:
         isinstance(huella, str) and PATRON_HUELLA.fullmatch(huella)
     ):
         raise ErrorAlmacen("huella_objetivo debe ser SHA-256 hexadecimal o null.")
+    version = spec.get("version_huella_objetivo", 1)
+    if not isinstance(version, int) or isinstance(version, bool) or version < 1:
+        raise ErrorAlmacen(f"version_huella_objetivo no válida: {version!r}")
     if "perfil" in spec and not _es_perfil(spec["perfil"]):
         raise ErrorAlmacen(f"perfil de spec no válido: {spec['perfil']!r}")
 

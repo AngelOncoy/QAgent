@@ -1,0 +1,28 @@
+{
+  "version": "3",
+  "lenguaje": "java",
+  "framework_pruebas": "junit5",
+  "framework_app": "spring",
+  "modulo": "src/main/java/com/tienda/ItemController.java",
+  "huella": "9c8b7a6f5e4d3c2b1a0f9e8d7c6b5a4f3e2d1c0b9a8f7e6d5c4b3a2f1e0d9c8b",
+  "tipo": "endpoint",
+  "objetivo": "GET /items/{id}",
+  "manejador": "ItemController.obtener",
+  "aplicacion": "com.tienda.TiendaApplication",
+  "dependencias": [
+    { "funcion": "ItemRepository", "reemplazo": "ItemRepositoryFalso" }
+  ],
+  "firma": "ResponseEntity<Item> obtener(@PathVariable long id)",
+  "critical": false,
+  "llama_a": [],
+  "casos": [
+    {
+      "id": "item_inexistente",
+      "descripcion": "Un id que no existe responde 404 (declarado en la ruta)",
+      "entrada": { "metodo": "GET", "ruta": "/items/999" },
+      "valor_esperado": { "status_code": 404 },
+      "origen": "status_code",
+      "categoria": "error"
+    }
+  ]
+}

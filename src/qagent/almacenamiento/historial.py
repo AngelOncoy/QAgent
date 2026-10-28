@@ -16,6 +16,8 @@ NOMBRES_TERMINACION = {
     "detenida_error": "Detenida por error",
     "cancelada": "Cancelada",
     "limitada_recursos": "Limitada por recursos",
+    # #139: la app se cerró a mitad; se marca al volver a abrir el proyecto.
+    "interrumpida": "Interrumpida",
 }
 
 
@@ -113,23 +115,46 @@ def _fila_corrida(almacen: AlmacenProyecto, run: dict[str, Any]) -> dict[str, An
         if total > 0:
             pass_rate = round(pasaron / total * 100.0, 1)
 
-    total_procesados = (
-        results.get("total_procesados")
-        or resumen.get("total_procesados")
-        or (len(objetivos) if objetivos else None)
-        or run.get("procesados")
-        or (
-            run.get("resumen", {}).get("pasaron", 0)
-            + run.get("resumen", {}).get("fallaron", 0)
-            if isinstance(run.get("resumen"), dict)
-            else 0
+    resumen_run = run.get("resumen") if isinstance(run.get("resumen"), dict) else {}
+    contadores_disponibles = (
+        bool(objetivos)
+        or any(
+            clave in origen
+            for origen in (results, resumen, run)
+            for clave in (
+                "total_seleccionados",
+                "total_procesados",
+                "objetivos_omitidos",
+                "procesados",
+                "pendientes",
+            )
         )
+        or any(clave in resumen_run for clave in ("pasaron", "fallaron"))
     )
-    total_seleccionados = (
-        results.get("total_seleccionados")
-        or resumen.get("total_seleccionados")
-        or run.get("total_seleccionados")
-        or total_procesados
+    total_procesados = _primer_entero(
+        results.get("total_procesados"),
+        resumen.get("total_procesados"),
+        len(objetivos) if objetivos else None,
+        run.get("procesados"),
+        resumen_run.get("pasaron", 0) + resumen_run.get("fallaron", 0),
+    )
+    objetivos_omitidos_val = _primer_entero(
+        results.get("objetivos_omitidos"),
+        resumen.get("objetivos_omitidos"),
+        run.get("objetivos_omitidos"),
+        len(results.get("omitidos") or []),
+    )
+    total_seleccionados = _primer_entero(
+        results.get("total_seleccionados"),
+        resumen.get("total_seleccionados"),
+        run.get("total_seleccionados"),
+        total_procesados + objetivos_omitidos_val,
+    )
+    total_elegibles = _primer_entero(
+        results.get("total_elegibles"),
+        resumen.get("total_elegibles"),
+        run.get("total_elegibles"),
+        max(0, total_seleccionados - objetivos_omitidos_val),
     )
     total_pendientes = (
         results.get("total_pendientes")
@@ -137,7 +162,7 @@ def _fila_corrida(almacen: AlmacenProyecto, run: dict[str, Any]) -> dict[str, An
         else (
             run.get("pendientes")
             if run.get("pendientes") is not None
-            else max(0, total_seleccionados - total_procesados)
+            else max(0, total_elegibles - total_procesados)
         )
     )
 
@@ -150,7 +175,7 @@ def _fila_corrida(almacen: AlmacenProyecto, run: dict[str, Any]) -> dict[str, An
     )
 
     pasaron_val = (
-        sum(1 for o in objetivos if (o.get("metricas") or {}).get("paso"))
+        sum(1 for o in objetivos if o.get("decision") == "accept")
         if objetivos
         else (
             run.get("resumen", {}).get("pasaron")
@@ -178,9 +203,6 @@ def _fila_corrida(almacen: AlmacenProyecto, run: dict[str, Any]) -> dict[str, An
         )
         if objetivos
         else max(0, total_procesados - ((pasaron_val or 0) + posibles_bugs_val))
-    )
-    objetivos_omitidos_val = results.get("objetivos_omitidos") or resumen.get(
-        "objetivos_omitidos", 0
     )
     no_procesados_val = total_pendientes
     pruebas_ejecutadas_val = (
@@ -220,6 +242,8 @@ def _fila_corrida(almacen: AlmacenProyecto, run: dict[str, Any]) -> dict[str, An
         if (objetivos or run.get("resumen"))
         else None,
         "total_seleccionados": total_seleccionados,
+        "contadores_disponibles": contadores_disponibles,
+        "total_elegibles": total_elegibles,
         "total_procesados": total_procesados,
         "total_pendientes": total_pendientes,
         "tipo_terminacion": tipo_terminacion,
@@ -257,6 +281,14 @@ def _numero(valor: Any) -> float | None:
     if isinstance(valor, bool) or not isinstance(valor, (int, float)):
         return None
     return round(max(0.0, float(valor)), 3)
+
+
+def _primer_entero(*valores: Any) -> int:
+    """Primer entero no negativo, conservando el cero como dato real."""
+    for valor in valores:
+        if isinstance(valor, int) and not isinstance(valor, bool) and valor >= 0:
+            return valor
+    return 0
 
 
 def _fila_spec(plan: dict[str, Any]) -> dict[str, Any]:

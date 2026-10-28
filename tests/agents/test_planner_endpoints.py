@@ -314,3 +314,61 @@ def test_planificar_funciones_no_cambia(modulo_api):
     """Las funciones sueltas del mismo módulo se siguen planificando aparte."""
     agente = PlannerAgent(FakeLLMClient(), TokenTracker(), es_simulado=True)
     assert agente.planificar(modulo_api) == []  # sin grabaciones para sus funciones
+
+
+def test_planificar_endpoints_app_rf_con_ruta_completa(tmp_path: Path):
+    """Los endpoints de APP-RF resuelven su ruta completa y se planifican con ella."""
+    api_dir = tmp_path / "app" / "api"
+    api_dir.mkdir(parents=True)
+    face_api_src = (
+        "from fastapi import APIRouter\n\n"
+        "router = APIRouter()\n\n"
+        "@router.get('/health')\n"
+        "def health():\n"
+        "    return {'status': 'ok'}\n\n"
+        "@router.post('/comparar')\n"
+        "def comparar():\n"
+        "    return {'score': 0.95}\n"
+    )
+    (api_dir / "face_api.py").write_text(face_api_src, encoding="utf-8")
+    (tmp_path / "app" / "main.py").write_text(
+        "from fastapi import FastAPI\n\n"
+        "app = FastAPI()\n\n"
+        "try:\n"
+        "    from app.api import face_api\n"
+        "    app.include_router(face_api.router, prefix='/api', tags=['Face API'])\n"
+        "except Exception as e:\n"
+        "    print(f'ERROR: {e}')\n",
+        encoding="utf-8",
+    )
+    modulos = {m["ruta"]: m for m in analizar_proyecto(tmp_path)["modulos"]}
+    modulo_face = modulos["app/api/face_api.py"]
+
+    # Verifica que el análisis estático resolvió la ruta completa y resuelta = True
+    assert [e["objetivo"] for e in modulo_face["endpoints"]] == [
+        "GET /api/health",
+        "POST /api/comparar",
+    ]
+    assert all(e["resuelta"] for e in modulo_face["endpoints"])
+
+    respuesta_llm = [
+        {
+            "objetivo": "GET /api/health",
+            "casos": [
+                caso("salud_ok", "GET", "/api/health", 200),
+            ],
+        },
+        {
+            "objetivo": "POST /api/comparar",
+            "casos": [
+                caso("comparar_ok", "POST", "/api/comparar", 200),
+            ],
+        },
+    ]
+    agente, cliente, _ = planner(respuesta_llm)
+    plan = agente.planificar_endpoints(modulo_face, face_api_src)
+
+    assert [c["objetivo"] for c in plan] == ["GET /api/health", "POST /api/comparar"]
+    assert not any("ruta sin resolver" in a for a in agente.avisos)
+    assert "GET /api/health" in cliente.prompts[0]
+    assert "POST /api/comparar" in cliente.prompts[0]

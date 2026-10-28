@@ -28,10 +28,10 @@ registrarComponente('monitor/monitor', `<!-- ===== 4. EN CURSO: PROGRESO EN VIVO
 
     <div class="prg-avance">
       <div class="prg-avance-cab"><span id="prgAvanceTxt">Preparando…</span><span class="prg-pct" id="prgPct"></span></div>
-      <div class="np-barra prg-barra"><i id="prgBarra"></i></div>
+      <div class="np-barra prg-barra" id="prgBarraCont"><i id="prgBarra"></i></div>
     </div>
 
-    <div class="np-aviso np-aviso-info hide" id="prgEntorno">${ICO_GIRANDO}<div><b>Instalando las dependencias del proyecto en el entorno aislado</b><span>La primera corrida con este requirements.txt instala sus librerías (por ejemplo torch u opencv) y puede tardar varios minutos según tu conexión. Las siguientes corridas reutilizan lo instalado.</span><span class="prg-entorno-paso" id="prgEntornoPaso"></span></div></div>
+    <div class="np-aviso np-aviso-info hide" id="prgEntorno">${ICO_GIRANDO}<div><b id="prgEntornoTitulo">Preparando el entorno Docker</b><span>La primera corrida con este requirements.txt puede tardar varios minutos. QAgent mostrará cada etapa disponible sin inventar porcentajes.</span><span class="prg-entorno-paralelo" id="prgEntornoParalelo">Mientras tanto ya se analiza tu código; las pruebas se escriben y verifican cuando el entorno esté listo.</span><span class="prg-entorno-paso" id="prgEntornoPaso"></span></div></div>
 
     <div class="np-aviso np-aviso-aviso hide" id="prgAlerta">${ICO_AVISO_CLON}<div><b id="prgAlertaTitulo"></b><span id="prgAlertaTxt"></span></div></div>
 
@@ -112,7 +112,7 @@ function transcurrido(){
 }
 
 // Registra una fila (real o de la demostración) y vuelve a pintar la pantalla.
-function registrarPaso({a, f, fn, t, guard, hechos, total, tipo_objetivo, transcurrido_s, duracion_objetivo_s}){
+function registrarPaso({a, f, fn, t, guard, hechos, total, tipo_objetivo, transcurrido_s, duracion_objetivo_s, entorno}){
   // El backend es la fuente de verdad del tiempo; este reloj solo interpola
   // entre eventos. Si llega el tiempo medido, se reancla el inicio local.
   if (typeof transcurrido_s === 'number' && isFinite(transcurrido_s)) {
@@ -129,9 +129,19 @@ function registrarPaso({a, f, fn, t, guard, hechos, total, tipo_objetivo, transc
   // con ese requirements.txt). El backend no informa avance en ese paso: se explica la espera.
   // El backend informa cada paso de la instalación («Descargando torch (821.0 MB)»): el aviso sigue
   // visible con el último paso hasta que llega la primera etapa de la corrida.
-  if (etapa) PRG.preparandoEntorno = false;
-  else if (/entorno aislado/i.test(String(t || ''))) PRG.preparandoEntorno = true;
-  if (PRG.preparandoEntorno && !etapa) PRG.pasoEntorno = textoPlano(t || '');
+  // issue 148: el backend avisa el estado del entorno (`entorno`), que se prepara mientras se
+  // analiza el código; así el aviso no se oculta con los eventos del análisis. Sin ese
+  // dato (la demostración), el aviso sigue hasta la primera etapa.
+  if (entorno) {
+    PRG.entornoInformado = true;
+    if (entorno === 'preparando' || entorno === 'avance') PRG.preparandoEntorno = true;
+    else PRG.preparandoEntorno = false;
+    if (entorno === 'avance') PRG.pasoEntorno = textoPlano(t || '');
+  } else if (!PRG.entornoInformado) {
+    if (etapa) PRG.preparandoEntorno = false;
+    else if (/entorno aislado|dependencias|imagen docker/i.test(String(t || ''))) PRG.preparandoEntorno = true;
+    if (PRG.preparandoEntorno && !etapa) PRG.pasoEntorno = textoPlano(t || '');
+  }
   if (a === 'guard') PRG.alerta ={titulo:'Se bloqueó un intento de debilitar una prueba', texto:`En ${fn || 'una función'} la prueba generada relajaba la comprobación. Se mantiene el criterio original: el posible bug no se esconde.`};
   if (a === 'oracle') PRG.alerta = {titulo:'Posible bug detectado', texto:`En ${fn || 'una función'} el resultado no coincide con lo que dice el contrato. Se conserva la prueba para que lo revises.`};
   PRG.pasos.unshift({hora: Date.now(), a, fn, t, guard});
@@ -151,9 +161,14 @@ function pintarProgreso(){
       : PRG.fin.ok ? 'Corrida completada'
       : 'Corrida detenida'
     )
-    : PRG.preparandoEntorno ? 'Preparando el entorno aislado'
-    : etapaActual ? etapaActual.titulo : 'Preparando la corrida';
+    : etapaActual ? etapaActual.titulo
+    : PRG.preparandoEntorno ? 'Preparando el entorno aislado' : 'Preparando la corrida';
   $('prgEntorno').classList.toggle('hide', !(PRG.preparandoEntorno && !PRG.fin));
+  $('prgEntornoParalelo').classList.toggle('hide', !PRG.etapa);
+  const pasoEntorno = String(PRG.pasoEntorno || '');
+  $('prgEntornoTitulo').textContent = /guardando/i.test(pasoEntorno) ? 'Guardando la imagen Docker'
+    : /dependencias|descargando|instalando|preparando [a-z0-9_.-]+$/i.test(pasoEntorno) ? 'Instalando dependencias'
+    : 'Construyendo la imagen Docker';
   $('prgEntornoPaso').textContent = PRG.pasoEntorno && !/^Preparando el entorno aislado/i.test(PRG.pasoEntorno) ? PRG.pasoEntorno : '';
   const proyecto = (document.querySelector('.ini-migas .repoName') || {}).textContent || '';
   $('prgSub').textContent = [proyecto, `Corrida iniciada a las ${new Date(PRG.inicio).toLocaleTimeString('es-PE', {hour:'2-digit', minute:'2-digit'})}`, transcurrido()].filter(Boolean).join(' · ');
@@ -172,12 +187,18 @@ function pintarProgreso(){
 
   // Lo omitido (sin resultado esperado verificable o ruta sin resolver) también está resuelto.
   const omitidos = PRG.fin ? (PRG.fin.omitidos || 0) : 0;
+  const pendientes = PRG.fin ? (PRG.fin.pendientes || 0) : 0;
   const pct = PRG.total ? Math.min(100, Math.round((PRG.hechos + omitidos) / PRG.total * 100)) : (PRG.fin ? 100 : 0);
-  $('prgAvanceTxt').textContent = PRG.total
-    ? `${PRG.hechos} de ${PRG.total} funciones y endpoints completados` + (omitidos ? ` · ${omitidos} no se ${omitidos === 1 ? 'probó' : 'probaron'}` : '')
+  const indeterminado = !!(PRG.preparandoEntorno && !PRG.fin && !PRG.etapa);
+  $('prgAvanceTxt').textContent = indeterminado
+    ? (PRG.pasoEntorno || 'Preparando el entorno Docker…')
+    : PRG.total
+    ? `${PRG.hechos} procesados · ${omitidos} omitidos · ${pendientes} pendientes de ${PRG.total} seleccionados`
     : (PRG.fin ? 'Corrida terminada' : 'Preparando la corrida…');
-  $('prgPct').textContent = PRG.total || PRG.fin ? pct + ' %' : '';
-  $('prgBarra').style.width = pct + '%';
+  $('prgPct').textContent = !indeterminado && (PRG.total || PRG.fin) ? pct + ' %' : '';
+  $('prgBarraCont').classList.toggle('prg-indeterminada', indeterminado);
+  $('prgBarraCont').setAttribute('aria-busy', indeterminado ? 'true' : 'false');
+  $('prgBarra').style.width = indeterminado ? '' : pct + '%';
 
   $('prgAlerta').classList.toggle('hide', !PRG.alerta);
   if (PRG.alerta) { $('prgAlertaTitulo').textContent = PRG.alerta.titulo; $('prgAlertaTxt').textContent = PRG.alerta.texto; }
@@ -335,9 +356,15 @@ function monitorEventoReal(d){
     PRG.alerta = {titulo:'Presupuesto de tokens', texto: d.t || 'Se ha alcanzado un umbral alto de consumo de tokens.'};
     if($('prgAlerta')) $('prgAlerta').classList.remove('hide');
   }
+  // issue 142: una librería del sistema que no se pudo instalar en el entorno aislado.
+  if(d.guard && d.guard[1] === 'ENTORNO' && PRG){
+    PRG.alerta = {titulo: d.guard[0], texto: d.t || ''};
+    if($('prgAlerta')) $('prgAlerta').classList.remove('hide');
+  }
   registrarPaso({a:d.a, f:d.f, fn:d.identificador || d.fn, t:d.t || '', guard:d.guard, hechos:d.total ? Number(d.hechos) : undefined, total:Number(d.total) || null, tipo_objetivo:d.tipo_objetivo,
     transcurrido_s: typeof d.transcurrido_s === 'number' ? d.transcurrido_s : undefined,
-    duracion_objetivo_s: typeof d.duracion_objetivo_s === 'number' ? d.duracion_objetivo_s : undefined});
+    duracion_objetivo_s: typeof d.duracion_objetivo_s === 'number' ? d.duracion_objetivo_s : undefined,
+    entorno: d.entorno || undefined});
 }
 function monitorFinReal(r){
   if(!modoReal || !r) return;
@@ -348,7 +375,8 @@ function monitorFinReal(r){
   const duracion = typeof r.duracion_s === 'number' && isFinite(r.duracion_s) && r.duracion_s >= 0 ? r.duracion_s : null;
   if (duracion !== null) PRG.inicio = Date.now() - duracion * 1000;
   const omitidos = Number(r.objetivos_omitidos || 0);
-  PRG.fin = {ok, cancelada, conErrores, conAvisos: ok && omitidos > 0, omitidos, t: Date.now(), runId: r.run_id && r.carpeta ? r.run_id : null, duracion};
+  const pendientes = Number(r.total_pendientes || 0);
+  PRG.fin = {ok, cancelada, conErrores, conAvisos: ok && omitidos > 0, omitidos, pendientes, t: Date.now(), runId: r.run_id && r.carpeta ? r.run_id : null, duracion};
   // El total y lo procesado salen del resumen final, no de los eventos en vivo.
   if (Number(r.total_seleccionados) > 0) PRG.total = Number(r.total_seleccionados);
   if (Number.isFinite(Number(r.total_procesados))) PRG.hechos = Number(r.total_procesados);

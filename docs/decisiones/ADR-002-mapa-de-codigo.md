@@ -1,11 +1,13 @@
 # ADR-002: Mapa del código — Graphify frente al análisis con `ast`
 
-- **Estado:** Aceptado (evaluación documental) · medición empírica pendiente (ver sección 7)
+- **Estado:** Reemplazado por [ADR-009](ADR-009-parser-por-lenguaje.md) (tree-sitter) para todos los lenguajes, Python incluido, desde TA-16 (#154). Se conserva la decisión de no usar Graphify y el mapa de llamadas propio `llama_a` (opción C); lo que cambia es el parser.
 - **Fecha:** 2026-09-30
 - **Ítem:** SPK-02 — Evaluar Graphify frente al análisis con ast
 - **Responsable de la investigación:** Oncoy Patricio, Angel
 - **Revisión:** Castillo Pezo, Mateo (responsable de EN-02 y EN-14)
 - **Relacionado:** EN-02 (analizador AST), EN-14 (analizador de rutas FastAPI), HU-04, HU-05, HU-24, ADR-001
+
+> **Nota (TA-16):** desde la migración del #154 el análisis del código del usuario ya no usa el módulo `ast`, sino tree-sitter (ADR-009, sección 6). La estructura que recibe el Planner es idéntica a la que describe este ADR. `ast` solo queda para revisar las pruebas que genera QAgent (`analysis/laundering.py`, el Reviewer y el Generator).
 
 ## 1. Contexto
 

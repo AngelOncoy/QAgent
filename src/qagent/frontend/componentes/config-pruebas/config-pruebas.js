@@ -1,6 +1,6 @@
 // config-pruebas.js — pantalla «Preparar»: qué hacer, tipos de prueba, críticas y comprobaciones previas
 // HTML del componente (se monta en el marcador data-componente="config-pruebas/config-pruebas" de index.html)
-// Cuatro formas de correr (#69, #70 y #133): generar pruebas nuevas, revisión rápida (Humo), volver a correr
+// Cuatro formas de correr (#69, #70 y issue 133): generar pruebas nuevas, revisión rápida (Humo), volver a correr
 // las guardadas o analizar a fondo las críticas. Esta última activa la columna Profundizar de Explorar.
 // Los íconos (ICO_*) vienen de inicio/modal-abrir.js, que se carga antes.
 const ICO_INICIAR = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M7 5v14l11-7z"/></svg>';
@@ -24,7 +24,7 @@ registrarComponente('config-pruebas/config-pruebas', `<!-- ===== 3. PREPARAR ===
       <button type="button" class="ini-btn ini-btn-principal" id="toPlan" onclick="accionPrincipalPreparar()"><span id="toPlanIco">${ICO_INICIAR}</span><span id="toPlanTxt">Iniciar prueba</span></button>
     </div>
 
-    <div class="np-aviso np-aviso-aviso hide" id="prepBloqueo">${ICO_AVISO_CLON}<div><b>Todavía no podemos iniciar la prueba</b><span id="prepBloqueoTxt"></span></div></div>
+    <div class="np-aviso np-aviso-info prep-estado" id="prepBloqueo" aria-live="polite">${ICO_AVISO_CLON}<div><b id="prepBloqueoTitulo">Configuración lista</b><span id="prepBloqueoTxt"></span></div></div>
 
     <div class="prep-rejilla">
       <div class="np-columna">
@@ -60,7 +60,7 @@ registrarComponente('config-pruebas/config-pruebas', `<!-- ===== 3. PREPARAR ===
 
 // #69: la elección de la pantalla se traduce al perfil que recibe start_run (humo, std, deep o reg, #70).
 // Sin críticas marcadas no hay nada que analizar a fondo: se corre como Estándar.
-// #133: la revisión rápida es la estrategia Humo (un caso normal por objetivo, #75); se combina con
+// issue 133: la revisión rápida es la estrategia Humo (un caso normal por objetivo, #75); se combina con
 // Unitarias y Endpoints API igual que Estándar. Solo se usa si el usuario la elige.
 function perfilDeEleccion({modo}, prioritarias){
   if (modo === 'humo') return 'humo';
@@ -120,7 +120,7 @@ function renderModosPreparar(){
     return `<button type="button" role="radio" class="prep-modo ${modo===o.k?'on':''}" aria-checked="${modo===o.k}"
       ${bloqueado ? 'disabled title="Requiere una corrida previa de este proyecto"' : (o.tip ? `title="${o.tip}"` : '')} onclick="elegirPruebas({modo:'${o.k}'})">
       <span class="prep-radio" aria-hidden="true"></span>
-      <span><b>${o.t}</b><span class="prep-desc">${bloqueado ? 'Disponible después de la primera corrida de este proyecto.' : o.d}</span></span>
+      <span><b>${o.t}</b><span class="prep-desc">${bloqueado ? 'Disponible cuando haya pruebas aprobadas y guardadas de este proyecto.' : o.d}</span></span>
     </button>`;
   }).join('');
 }
@@ -147,7 +147,7 @@ function renderCriticas(){
     (m.endpoints || []).forEach((e, ei) => { if(endpointElegible(e) && e.inc && e.crit) criticas.push({n:e.objetivo, fn:`toggleEndpointCrit(${mi},${ei})`}); });
   });
   $('prepCritTitulo').textContent = `Funciones críticas · ${criticas.length}`;
-  // #133: con Humo no hay análisis a fondo; la mutación necesita la prueba completa (arquitectura §10.3).
+  // issue 133: con Humo no hay análisis a fondo; la mutación necesita la prueba completa (arquitectura §10.3).
   const humo = eleccionPruebas.modo === 'humo';
   $('prepFortaleza').classList.toggle('prep-no-aplica', humo);
   $('prepFortalezaTxt').textContent = humo
@@ -297,7 +297,7 @@ function calc(){
 
   // Cabecera: título, resumen y botón principal según el estado.
   const resumen = `${total} ${total === 1 ? 'seleccionada' : 'seleccionadas'} · ${fns.length} ${fns.length === 1 ? 'función' : 'funciones'} y ${endpoints.length} ${endpoints.length === 1 ? 'endpoint' : 'endpoints'} · Python`;
-  $('prepSub').textContent = bloqueado ? 'Tu selección está guardada. Resuelve estos puntos antes de empezar.' : resumen;
+  $('prepSub').textContent = bloqueado ? 'Resuelve estos puntos antes de empezar.' : resumen;
   $('prepTitulo').textContent = verificando ? 'Comprobando tu entorno…'
     : !bloqueado ? 'Prepara una corrida fiable'
     : pendientes <= 1 ? 'Falta una comprobación' : `Faltan ${NUMEROS[pendientes] || pendientes} comprobaciones`;
@@ -312,8 +312,12 @@ function calc(){
     : {preview:'Volver a Explorar', tipos:'Elegir tipo de prueba', config:'Resolver en Configuración'}[destinoBloqueo];
   $('toPlan').disabled = verificando;
   const problemas = lista.filter(c => c.ok === false).map(c => c.t.toLowerCase());
-  $('prepBloqueo').classList.toggle('hide', !bloqueado);
-  $('prepBloqueoTxt').textContent = problemas.length ? `Falta: ${problemas.join(', ')}.` : entornoMotivo;
+  $('prepBloqueo').classList.toggle('np-aviso-aviso', bloqueado);
+  $('prepBloqueo').classList.toggle('np-aviso-info', !bloqueado);
+  $('prepBloqueoTitulo').textContent = bloqueado ? 'Todavía no podemos iniciar la prueba' : 'Configuración lista';
+  $('prepBloqueoTxt').textContent = bloqueado
+    ? (problemas.length ? `Falta: ${problemas.join(', ')}.` : entornoMotivo)
+    : 'La selección de objetivos se conserva en este proyecto. Puedes ajustar las opciones o iniciar la corrida.';
 
   renderDetallesCorrida(e, bloqueado, prioritarias, epsPrioritarios);
 }

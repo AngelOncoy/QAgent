@@ -203,7 +203,8 @@ async function doExport(){
 /* ---------------- Renderizado ---------------- */
 function renderExport(){
   const v = typeof ejecucionReal !== 'undefined' ? ejecucionReal : null;
-  const todos = v ? elementosReales(v) : elementosDemo();
+  // issue 139: en la app, sin corrida no hay nada que exportar; la demo es solo del navegador.
+  const todos = v ? elementosReales(v) : (enAppEscritorio() ? [] : elementosDemo());
   const n = k => todos.filter(e => e.bandeja === k).length;
   const total = todos.length, pasaron = n('paso'), bugs = n('bug');
   const proyecto = document.querySelector('#s-export .repoName') ? document.querySelector('#s-export .repoName').textContent : '';

@@ -94,7 +94,12 @@
     "caso_endpoint": {
       "description": "Restricciones extra de un caso de endpoint (EN-14): la entrada es una petición HTTP y el valor esperado, la respuesta. Un endpoint no espera excepciones de Python: un error es un código de estado.",
       "required": ["valor_esperado"],
-      "not": { "required": ["excepcion"] },
+      "not": {
+        "anyOf": [
+          { "required": ["excepcion"] },
+          { "required": ["tipo_valor_esperado"] }
+        ]
+      },
       "properties": {
         "entrada": {
           "type": "object",
@@ -142,6 +147,15 @@
       "additionalProperties": false,
       "required": ["id", "entrada", "origen"],
       "anyOf": [{ "required": ["valor_esperado"] }, { "required": ["excepcion"] }],
+      "allOf": [
+        {
+          "if": { "required": ["tipo_valor_esperado"] },
+          "then": {
+            "required": ["valor_esperado"],
+            "properties": { "valor_esperado": { "type": "array" } }
+          }
+        }
+      ],
       "properties": {
         "id": { "type": "string", "pattern": "^[a-z0-9_]+$" },
         "descripcion": { "type": "string" },
@@ -150,6 +164,10 @@
         },
         "valor_esperado": {
           "description": "Valor esperado. Sale del contrato (oráculo), nunca de ejecutar el código."
+        },
+        "tipo_valor_esperado": {
+          "const": "tuple",
+          "description": "Semántica Python perdida al serializar en JSON: valor_esperado es una tupla, no una lista. Si falta, un array JSON conserva el significado histórico de lista."
         },
         "excepcion": {
           "type": "string",

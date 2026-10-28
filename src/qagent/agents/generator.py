@@ -143,6 +143,10 @@ REGLAS OBLIGATORIAS:
 {reglas_objetivo}
 - Escribe una función test_<id> por cada caso del contrato.
 - Usa exactamente los valores esperados del contrato (pytest.approx para float).
+- Si un caso trae "tipo_valor_esperado": "tuple", compara exactamente con un
+  literal tupla (incluida la coma de una tupla unitaria); no conviertas el resultado
+  con list() ni reemplaces la igualdad por longitud o elementos parciales.
+- Un array sin esa metadata conserva su significado de lista.
 - No ejecutes el código para descubrir resultados.
 - No elimines, cambies ni debilites las aserciones; sin try/except, skip ni xfail.
 - Simula con mocks las funciones incluidas en llama_a.

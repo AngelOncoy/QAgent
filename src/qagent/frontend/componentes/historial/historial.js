@@ -154,14 +154,22 @@ function renderHistoryReal(datos){
     const sinIA = h.perfil === 'reg' || h.perfil === 'reg_deep';
     const abrir = datos.demo ? "go('exec')" : `cargarEjecucionReal('${escHtml(h.run_id)}')`;
     const tokens = sinIA ? '— (sin IA)' : numero(h.total_tokens);
-    const sel = h.total_seleccionados || h.total_objetivos || 0;
-    const proc = h.total_procesados || h.total_objetivos || 0;
-    const pend = h.total_pendientes || 0;
+    const haySeleccion = h.contadores_disponibles !== false && h.total_seleccionados !== null && h.total_seleccionados !== undefined;
+    const sel = haySeleccion ? h.total_seleccionados : h.total_objetivos;
+    const omit = h.objetivos_omitidos ?? 0;
+    const eleg = h.total_elegibles ?? (sel === null || sel === undefined ? null : Math.max(0, sel - omit));
+    const proc = h.total_procesados ?? h.total_objetivos;
+    const pend = h.total_pendientes ?? (eleg === null || eleg === undefined || proc === null || proc === undefined ? null : Math.max(0, eleg - proc));
+    const desglose = [omit ? `${omit} omitidos` : '', pend ? `${pend} pend. de ${sel}` : ''].filter(Boolean).join(' · ');
     const pasanCelda = h.pasaron === null || h.pasaron === undefined
       ? '—'
-      : h.es_parcial && pend > 0
-        ? `<div class="hst-pasan" title="${h.pasaron} objetivos pasaron de ${proc} procesados con veredicto (${sel} seleccionados inicialmente, ${pend} no procesados por detención)"><b>${h.pasaron} / ${proc}</b> <span class="np-meta">procesados</span><span class="np-meta hst-pasan-sub">(${pend} pend. de ${sel})</span></div>`
-        : `<div class="hst-pasan" title="${h.pasaron} objetivos pasaron de ${proc} procesados con veredicto (${sel} seleccionados)"><b>${h.pasaron} / ${proc}</b> <span class="np-meta">procesados</span></div>`;
+      : h.contadores_disponibles === false || sel === null || sel === undefined || proc === null || proc === undefined
+        ? '<span class="np-meta" title="La corrida es anterior a estos contadores">Información no disponible</span>'
+        : sel === 0
+          ? '<span class="np-meta">Sin objetivos seleccionados</span>'
+          : proc === 0 && omit === sel
+            ? `<div class="hst-pasan" title="${sel} objetivos seleccionados y omitidos sin ejecutarse"><b>${sel} sin probar</b><span class="np-meta hst-pasan-sub">Todos fueron omitidos</span></div>`
+            : `<div class="hst-pasan" title="${h.pasaron} objetivos aprobados de ${proc} procesados (${sel} seleccionados, ${eleg} elegibles, ${omit} omitidos y ${pend} pendientes)"><b>${h.pasaron} / ${proc}</b> <span class="np-meta">procesados</span>${desglose ? `<span class="np-meta hst-pasan-sub">(${desglose})</span>` : ''}</div>`;
 
     return `<tr class="${h.run_id === histSel ? 'on' : ''}" tabindex="0" aria-selected="${h.run_id === histSel}" onclick="seleccionarCorridaHistorial('${escHtml(h.run_id)}')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click()}">
       <td>${escHtml(fechaCorta(h.fecha))}</td>
@@ -170,7 +178,7 @@ function renderHistoryReal(datos){
       <td class="np-mono" title="${h.duracion_s === null || h.duracion_s === undefined ? 'Corrida anterior a la medición de duración' : 'Duración medida de la corrida'}">${duracionCorta(h.duracion_s)}</td>
       <td class="np-mono">${pasanCelda}</td>
       <td class="np-mono" title="${sinIA ? 'Repetir pruebas guardadas no llama a la IA' : 'Analizando: ' + numero(h.tokens_planner) + ' tokens'}">${tokens}</td>
-      <td><button type="button" class="ini-enlace" onclick="event.stopPropagation();${abrir}">Abrir</button></td></tr>`;
+      <td>${datos.demo || tieneResultados(h) ? `<button type="button" class="ini-enlace" onclick="event.stopPropagation();${abrir}">Abrir</button>` : '<span class="np-meta" title="Esta corrida no dejó resultados">—</span>'}</td></tr>`;
   }).join('');
 
   renderComparacionHistorial(corridas);
@@ -179,7 +187,11 @@ function renderHistoryReal(datos){
 
 function chipResultadoHistorial(h){
   const repetir = h.requieren_corrida_nueva ? `<span class="np-meta hst-nota">${h.requieren_corrida_nueva} requieren corrida nueva</span>` : '';
-  if(h.pasaron === null || h.pasaron === undefined) return `<span class="np-chip np-chip-aviso">${ICO_AVISO_CLON}Sin resultados</span>${repetir}`;
+  if(h.pasaron === null || h.pasaron === undefined) {
+    // issue 139: una corrida que la app no llegó a terminar se ve como tal, no «en curso».
+    const sin = h.tipo_terminacion === 'interrumpida' ? 'Interrumpida' : 'Sin resultados';
+    return `<span class="np-chip np-chip-aviso">${ICO_AVISO_CLON}${sin}</span>${repetir}`;
+  }
 
   const term = h.tipo_terminacion || (h.estado === 'fallo_controlado' ? 'detenida_error' : 'completada');
   const termNombre = h.terminacion_nombre || (term === 'completada' ? 'Completada' : term === 'completada_con_errores' ? 'Completada con errores' : term === 'cancelada' ? 'Cancelada' : term === 'limitada_recursos' ? 'Limitada por recursos' : 'Detenida por error');
@@ -200,7 +212,7 @@ function chipResultadoHistorial(h){
     chipBugs = `<span class="np-chip np-chip-bug">${ICO_ERROR}${h.posibles_bugs} ${h.posibles_bugs === 1 ? 'posible bug' : 'posibles bugs'}</span>`;
   }
 
-  const parcial = h.es_parcial && h.total_pendientes ? `<span class="np-meta hst-nota">Parcial (${h.total_procesados || h.total_objetivos} de ${h.total_seleccionados})</span>` : '';
+  const parcial = h.es_parcial && h.total_pendientes ? `<span class="np-meta hst-nota">Parcial (${h.total_procesados ?? h.total_objetivos} procesados, ${h.total_pendientes} pendientes)</span>` : '';
 
   return `<div class="hst-chips">${chipTerm}${chipBugs}</div>${parcial}${repetir}`;
 }
@@ -211,9 +223,19 @@ function seleccionarCorridaHistorial(runId){
 }
 function abrirCorridaSeleccionada(){
   if(!histSel) return;
-  if(historialDatos && historialDatos.demo) go('exec');
-  else cargarEjecucionReal(histSel);
+  if(historialDatos && historialDatos.demo) { go('exec'); return; }
+  // issue 139: una corrida interrumpida (o sin results.json) no tiene resultados que abrir.
+  const fila = ((historialDatos && historialDatos.corridas) || []).find(h => h.run_id === histSel);
+  if (fila && !tieneResultados(fila)) {
+    toast(fila.tipo_terminacion === 'interrumpida'
+      ? 'Esta corrida se interrumpió antes de terminar: no dejó resultados que abrir.'
+      : 'Esta corrida no dejó resultados que abrir.', I('alertc', 'var(--aviso-t)', 16));
+    return;
+  }
+  cargarEjecucionReal(histSel);
 }
+// Si la corrida dejó resultados que se puedan abrir en Resultados.
+function tieneResultados(h){ return !(h.pasaron === null || h.pasaron === undefined); }
 
 // La corrida elegida frente a la anterior (la lista viene de la más reciente a la más antigua).
 function renderComparacionHistorial(corridas){
