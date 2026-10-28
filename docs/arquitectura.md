@@ -820,7 +820,8 @@ La pantalla Preparar hace dos preguntas. «¿Qué quieres hacer?» elige la estr
 |---|---|---|
 | Generar pruebas nuevas (opción por defecto) | — | `std` |
 | Revisión rápida (humo) | — | `humo` |
-| Volver a correr las guardadas | Requiere una corrida previa del proyecto | `reg` |
+| Volver a correr las guardadas | Casilla «Medir la fortaleza de las críticas» desmarcada | `reg` |
+| Volver a correr las guardadas | Casilla marcada y al menos una función crítica seleccionada con prueba guardada válida | `reg_deep` |
 | Análisis a fondo de críticas | Con funciones o endpoints críticos marcados | `deep` |
 | Análisis a fondo de críticas | Sin críticas marcadas | `std` |
 
@@ -828,9 +829,9 @@ Humo solo se usa si el usuario lo elige: QAgent no lo activa por su cuenta, por 
 
 El análisis a fondo no se ofrece con Humo porque añade la capa de caja blanca encima de las pruebas normales: la mutación mide qué tan buenas son las pruebas que ya existen, así que necesita una base completa. Con Humo (un solo caso por objetivo) casi todos los mutantes sobrevivirían y el resultado no aportaría información. «Volver a correr las guardadas» tampoco es un nivel de profundidad: es otra acción, que vuelve a ejecutar sin IA las pruebas aprobadas cuyo código no cambió (HU-25).
 
-El backend también acepta `reg_deep` (repetir y mutar las críticas, #70), pero desde el rediseño de Preparar (18/10/2026) la pantalla no ofrece esa combinación.
+Desde la issue #150, «Volver a correr las guardadas» vuelve a ofrecer la casilla opcional «Medir la fortaleza de las críticas». La decisión de recuperarla como una opción interna de Regresión —no como un quinto modo— fue comunicada por el responsable el 28/10/2026; su registro formal en GitHub queda pendiente. Desmarcada conserva `reg`; marcada envía `reg_deep` a `start_run`. Cambiar de modo o perder la elegibilidad la desmarca para que una regresión normal nunca active mutación de forma silenciosa.
 
-Al repetir con `reg_deep`, Profundizar (#70) mide sin gastar tokens qué tan fuertes son las pruebas que ya están guardadas, por ejemplo las que se aprobaron con Estándar. Solo cuentan las funciones marcadas que tienen hoy una prueba guardada vigente (`objetivos_repetibles`): las que requieren corrida nueva o fallaron no se mutan, porque su prueba no sirve hoy para juzgar a los mutantes. La casilla viene desmarcada, para que repetir no se vuelva lento sin pedirlo.
+Al repetir con `reg_deep`, Profundizar (#70) mide sin gastar tokens qué tan fuertes son las pruebas que ya están guardadas, por ejemplo las que se aprobaron con Estándar. Solo habilitan la casilla las funciones críticas seleccionadas que tienen hoy una prueba guardada vigente (`objetivos_repetibles`): las que requieren corrida nueva, tienen metadatos incompletos, fallaron o solo comprueban un `TypeError` trivial de firma (#149) no cuentan. El backend vuelve a validar la selección antes de iniciar. La casilla viene desmarcada, porque mutmut añade tiempo de CPU aunque no realiza llamadas LLM.
 
 ### 10.4 Por qué Profundizar solo en funciones prioritarias
 
@@ -852,7 +853,7 @@ QAgent propone como prioritaria toda función con al menos una decisión (`if`/`
 | Humo con un solo caso por objetivo | Implementado: un caso normal por objetivo, sin exigir ramas; se elige en Preparar como «Revisión rápida (humo)» | #75 · #133 |
 | Marcas de función prioritaria hasta la corrida | Implementado: la selección envía las marcas y el spec reutilizado toma la marca actual | HU-06 |
 | Mutación (Profundizar) | Implementado en el perfil Profundo: mutmut en el sandbox solo sobre las funciones críticas aprobadas; Mutation Score y sobrevivientes en `results.json` y en el informe | EN-09 |
-| Mutación al repetir pruebas guardadas | Implementado (`reg_deep`): sin IA, solo sobre las críticas con prueba guardada vigente, con reutilización del resultado si nada cambió | #70 |
+| Mutación al repetir pruebas guardadas | Implementado (`reg_deep`) y disponible en Preparar mediante una casilla de Regresión: sin IA, solo sobre las críticas con prueba guardada vigente, con validación backend y reutilización del resultado si nada cambió | #70 · #150 |
 | Mutación en endpoints | Pendiente | Issue de endpoints con caja blanca |
 | Categoría de cada caso (normal / límite / error) | Pendiente | Issue «Feat: categoría de cada caso de prueba» |
 
