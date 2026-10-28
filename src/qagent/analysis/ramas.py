@@ -1,4 +1,4 @@
-"""Conteo de ramas (puntos de decisión) de una función, solo con ``ast``.
+"""Conteo de ramas (puntos de decisión) de una función, con tree-sitter (TA-16).
 
 Vive aparte para que lo usen tanto :mod:`qagent.analysis.analyzer` (funciones) como
 :mod:`qagent.analysis.rutas` (manejadores de endpoints, #74) sin importarse entre sí.
@@ -6,34 +6,51 @@ Vive aparte para que lo usen tanto :mod:`qagent.analysis.analyzer` (funciones) c
 
 from __future__ import annotations
 
-import ast
+from tree_sitter import Node
 
-_NODOS_RAMA = (
-    ast.If,
-    ast.IfExp,
-    ast.For,
-    ast.AsyncFor,
-    ast.While,
-    ast.ExceptHandler,
-    ast.match_case,
+from qagent.analysis.arbol_ts import NODOS_DEFINICION, cuerpo, hijos
+
+#: Un punto de decisión cada uno: ``if``, cada ``elif``, el ternario, los bucles, cada
+#: ``except`` (también ``except*``) y cada ``case``.
+_NODOS_RAMA = frozenset(
+    {
+        "if_statement",
+        "elif_clause",
+        "conditional_expression",
+        "for_statement",
+        "while_statement",
+        "except_clause",
+        "except_group_clause",
+        "case_clause",
+    }
 )
-_NODOS_ANIDADOS = (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)
+_COMPRENSIONES = frozenset(
+    {
+        "list_comprehension",
+        "set_comprehension",
+        "dictionary_comprehension",
+        "generator_expression",
+    }
+)
 
 
-def contar_ramas(funcion: ast.FunctionDef | ast.AsyncFunctionDef) -> int:
+def contar_ramas(funcion: Node) -> int:
     """Cuenta los puntos de decisión propios de una función.
 
-    No desciende a funciones ni clases anidadas: sus ramas no son de ``funcion``.
+    Cada condición ``if`` de una comprensión también cuenta (la guarda ``if`` de un
+    ``case`` no). No desciende a funciones ni clases anidadas: sus ramas no son de
+    ``funcion``.
     """
     total = 0
-    pendientes: list[ast.AST] = list(funcion.body)
+    bloque = cuerpo(funcion)
+    pendientes: list[Node] = [] if bloque is None else hijos(bloque)
     while pendientes:
         nodo = pendientes.pop()
-        if isinstance(nodo, _NODOS_ANIDADOS):
+        if nodo.type in NODOS_DEFINICION:
             continue
-        if isinstance(nodo, _NODOS_RAMA):
+        if nodo.type in _NODOS_RAMA:
             total += 1
-        elif isinstance(nodo, ast.comprehension):
-            total += len(nodo.ifs)
-        pendientes.extend(ast.iter_child_nodes(nodo))
+        elif nodo.type in _COMPRENSIONES:
+            total += sum(1 for h in hijos(nodo) if h.type == "if_clause")
+        pendientes.extend(hijos(nodo))
     return total

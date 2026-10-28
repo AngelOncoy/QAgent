@@ -63,7 +63,7 @@ contracts.normalizar_planner(contrato_v2)  # copia en v3 (python + pytest)
 1. Trabaja solo en tu archivo (`javascript.py` o `java.py`) y en `tests/lenguajes/`.
 2. Reemplaza los métodos de `AdaptadorEnDesarrollo` **uno por uno**; los que falten siguen lanzando `NoImplementado`.
 3. `analizar` debe devolver objetivos cuyo `objetivo` cumpla el contrato v3: un nombre (`calcularDescuento`, `Precios.calcular`) o `MÉTODO /ruta` para endpoints.
-4. El parser es **tree-sitter** (decisión de SPK-04, ver ADR-007, sección 3): úsalo para `analizar` y para `validar_sintaxis` (nodos `ERROR` del árbol). Su dependencia y la gramática de tu lenguaje se agregan a `pyproject.toml` en tu tarea. Python sigue con `ast` hasta su propia migración.
+4. El parser es **tree-sitter** (decisión de SPK-04, ver ADR-007, sección 3): úsalo para `analizar` y para `validar_sintaxis` (nodos `ERROR` del árbol). Su dependencia y la gramática de tu lenguaje se agregan a `pyproject.toml` en tu tarea. Python ya usa tree-sitter (TA-16): su parser y sus utilidades están en `qagent/analysis/arbol_ts.py` y `texto_ts.py`.
 5. Si cambian los lenguajes o frameworks admitidos, actualiza a la vez los `enum` de `planner_contract.v3` / `generated_test.v2` y `contracts.FRAMEWORKS_PRUEBAS` / `FRAMEWORKS_APP` (una prueba lo exige).
 
 Reglas que no se rompen (AGENTS.md): nada del usuario se ejecuta fuera del sandbox, el valor esperado sale del contrato y nunca de ejecutar el código, y este paquete no importa `qagent.app` ni `webview`.

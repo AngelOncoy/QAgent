@@ -108,7 +108,7 @@ QAgent/
 ├── src/qagent/
 │   ├── agents/             Planner, Generator y Reviewer (EN-04)
 │   ├── almacenamiento/     .qagent/ del proyecto y ~/.qagent/recientes.json (EN-07)
-│   ├── analysis/           Analizador estático con ast (EN-02, EN-14)
+│   ├── analysis/           Analizador estático con tree-sitter (EN-02, EN-14, TA-16)
 │   ├── app/                Puente pywebview y bitácora (EN-08); sin lógica de negocio
 │   ├── config/             config.toml del equipo, carga de .env, auditoría de claves, entorno (EN-06)
 │   ├── contracts/          JSON Schema de los mensajes entre agentes y validar() (EN-01)

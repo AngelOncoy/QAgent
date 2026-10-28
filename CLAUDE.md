@@ -27,7 +27,7 @@ ruff check . && ruff format .  # lint y formato (bench/ está excluido a propós
 | `src/qagent/frontend/` | Interfaz HTML/CSS/JS sin build, un componente por pantalla | `src/qagent/frontend/README.md` |
 | `src/qagent/lenguajes/` | Adaptadores por lenguaje (EN-17 #129): `LanguageAdapter`, registro y detección. Lo específico de un lenguaje va aquí, no en los agentes | `src/qagent/lenguajes/README.md`, ADR-007 |
 | `tests/` | Refleja `src/` (`almacenamiento`, `analysis`, `app`, `config`, `lenguajes`, `llm`, `orchestrator`, `proyectos`, `sandbox`, `storage`) más `frontend/` (estructura de la interfaz) | — |
-| `docs/decisiones/` | ADR: modelos (001), análisis con `ast` (002), frontend modular (003), nombre único QAgent (004), distribución (005), rediseño y tema claro (006), adaptadores por lenguaje (007), orquestador y Explicador (008), parser por lenguaje (009), arquitectura del Sprint 2 (010) | `docs/arquitectura.md` |
+| `docs/decisiones/` | ADR: modelos (001), análisis con `ast` (002, reemplazado por 009), frontend modular (003), nombre único QAgent (004), distribución (005), rediseño y tema claro (006), adaptadores por lenguaje (007), orquestador y Explicador (008), parser por lenguaje (009), arquitectura del Sprint 2 (010) | `docs/arquitectura.md` |
 
 Regla de dependencia: la interfaz (`app/`) llama a la lógica; la lógica (`proyectos/`, `analysis/`, `sandbox/`…) nunca importa `qagent.app` ni `webview`.
 
