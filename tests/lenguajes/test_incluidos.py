@@ -12,7 +12,6 @@ import pytest
 from qagent import contracts
 from qagent.lenguajes import (
     REGISTRO,
-    JavaAdapter,
     JavaScriptAdapter,
     NoImplementado,
     TypeScriptAdapter,
@@ -70,7 +69,7 @@ def test_detectar_lenguaje_en_disco(tmp_path: Path) -> None:
     assert deteccion.lenguaje == "javascript"
 
 
-@pytest.mark.parametrize("clase", [JavaScriptAdapter, TypeScriptAdapter, JavaAdapter])
+@pytest.mark.parametrize("clase", [JavaScriptAdapter, TypeScriptAdapter])
 def test_los_esqueletos_avisan_lo_que_falta(clase: type, tmp_path: Path) -> None:
     with pytest.raises(NoImplementado, match=clase.lenguaje):
         clase().analizar(tmp_path)

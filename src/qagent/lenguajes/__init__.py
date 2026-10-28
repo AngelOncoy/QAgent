@@ -2,7 +2,7 @@
 
 ``REGISTRO`` trae los cuatro lenguajes de los contratos. Python está completo (delega
 en el flujo actual); JavaScript y TypeScript validan sintaxis con tree-sitter (ADR-009);
-Java solo detecta por ahora.
+Java detecta, analiza fuentes y valida sintaxis como prototipo de EN-19.
 
 Ver ``src/qagent/lenguajes/README.md`` y ``docs/decisiones/ADR-007-adaptadores-por-lenguaje.md``.
 """

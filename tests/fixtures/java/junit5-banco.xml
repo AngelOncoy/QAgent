@@ -1,0 +1,18 @@
+<?xml version='1.0' encoding='utf-8'?>
+<testsuites xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+  <testsuite xsi:noNamespaceSchemaLocation="https://maven.apache.org/surefire/maven-surefire-plugin/xsd/surefire-test-report.xsd" version="3.0.2" name="org.qagent.bench.BancoCorrectoTest" time="0.111" tests="8" errors="0" skipped="0" failures="0">
+    <testcase name="descuentoTotalDevuelveCero" classname="org.qagent.bench.BancoCorrectoTest" time="0.036" />
+    <testcase name="sumaLosPrecios" classname="org.qagent.bench.BancoCorrectoTest" time="0.009" />
+    <testcase name="edadSuperiorEsMayorDeEdad" classname="org.qagent.bench.BancoCorrectoTest" time="0.0" />
+    <testcase name="diecisieteEsMenorDeEdad" classname="org.qagent.bench.BancoCorrectoTest" time="0.009" />
+    <testcase name="aplicaElDescuento" classname="org.qagent.bench.BancoCorrectoTest" time="0.0" />
+    <testcase name="dieciochoEsMayorDeEdad" classname="org.qagent.bench.BancoCorrectoTest" time="0.004" />
+    <testcase name="descuentoCeroConservaElPrecio" classname="org.qagent.bench.BancoCorrectoTest" time="0.002" />
+    <testcase name="listaVaciaDevuelveCero" classname="org.qagent.bench.BancoCorrectoTest" time="0.002" />
+  </testsuite>
+  <testsuite xsi:noNamespaceSchemaLocation="https://maven.apache.org/surefire/maven-surefire-plugin/xsd/surefire-test-report.xsd" version="3.0.2" name="org.qagent.bench.BancoDefectuosoTest" time="0.016" tests="3" errors="0" skipped="0" failures="0">
+    <testcase name="detectaImpuestoRestado" classname="org.qagent.bench.BancoDefectuosoTest" time="0.009" />
+    <testcase name="detectaDivisionEntera" classname="org.qagent.bench.BancoDefectuosoTest" time="0.003" />
+    <testcase name="detectaLimiteDeEnvioIncorrecto" classname="org.qagent.bench.BancoDefectuosoTest" time="0.002" />
+  </testsuite>
+</testsuites>
