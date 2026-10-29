@@ -121,14 +121,14 @@ def test_guardar_y_leer_la_configuracion_de_un_rol(rutas):
 def test_cada_rol_usa_su_proveedor_sin_afectar_a_los_otros(rutas):
     _guardar(rutas, "planner", "gemini", "gemini-2.5-flash", CLAVE_GEMINI)
     _guardar(rutas, "generator", "xiaomi", "mimo-v2.6-pro", CLAVE_XIAOMI)
-    _guardar(rutas, "reviewer", "openai", "gpt-5-mini", CLAVE_OPENAI)
+    _guardar(rutas, "reviewer", "openai", "gpt-6.1-terra", CLAVE_OPENAI)
     _guardar(rutas, "generator", "xiaomi", "mimo-v2.6-flash")  # cambiar solo uno
 
     roles = _roles(rutas)
     assert {a: (r["proveedor"], r["modelo"]) for a, r in roles.items()} == {
         "planner": ("gemini", "gemini-2.5-flash"),
         "generator": ("xiaomi", "mimo-v2.6-flash"),
-        "reviewer": ("openai", "gpt-5-mini"),
+        "reviewer": ("openai", "gpt-6.1-terra"),
     }
     carga = cargar_configuracion(*rutas, simulado=False)
     assert carga.ok, carga.avisos
@@ -318,9 +318,9 @@ def test_editar_sin_key_mantiene_la_propia(rutas):
 
 def test_cambiar_de_proveedor_pide_key_y_quita_la_anterior(rutas):
     _guardar(rutas, "planner", "gemini", "gemini-2.5-flash", CLAVE_GEMINI)
-    assert not _guardar(rutas, "planner", "openai", "gpt-5-mini")["ok"]
+    assert not _guardar(rutas, "planner", "openai", "gpt-6.1-terra")["ok"]
 
-    assert _guardar(rutas, "planner", "openai", "gpt-5-mini", CLAVE_OPENAI)["ok"]
+    assert _guardar(rutas, "planner", "openai", "gpt-6.1-terra", CLAVE_OPENAI)["ok"]
     valores = leer_env(rutas[1])
     assert "GEMINI_API_KEY_PLANNER" not in valores
     assert valores["OPENAI_API_KEY_PLANNER"] == CLAVE_OPENAI
