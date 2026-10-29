@@ -46,8 +46,8 @@ from qagent.almacenamiento import (
     id_de_spec,
     nombre_prueba,
 )
-from qagent.analysis.analyzer import analizar_proyecto
 from qagent.config.carga import Mutacion
+from qagent.lenguajes import LenguajeNoSoportado, adaptador_del_proyecto
 from qagent.llm import TokenTracker, crear_cliente
 from qagent.llm.fabrica import FuenteClaves
 from qagent.orchestrator.eventos import BusEventos, Evento
@@ -290,7 +290,13 @@ def ejecutar_corrida(
 
         from qagent.proyectos.seleccion import filtrar_modulos
 
-        analisis = analizar_proyecto(ruta)
+        # #168: el adaptador del lenguaje del proyecto analiza y planifica. Un
+        # lenguaje todavía en desarrollo se avisa aquí, antes de gastar nada.
+        try:
+            adaptador = adaptador_del_proyecto(ruta)
+        except LenguajeNoSoportado as error:
+            raise ErrorCorrida(str(error)) from error
+        analisis = adaptador.analizar(ruta)
         modulos = [
             _con_fuente(ruta, m)
             for m in filtrar_modulos(analisis["modulos"], seleccion)
@@ -366,7 +372,11 @@ def ejecutar_corrida(
         }
         orquestador = Orquestador(
             PlannerAgent(
-                clientes["planner"], tracker, es_simulado=simulado, perfil=perfil
+                clientes["planner"],
+                tracker,
+                es_simulado=simulado,
+                perfil=perfil,
+                adaptador=adaptador,
             ),
             GeneratorAgent(
                 clientes["generator"], tracker, es_simulado=simulado, ruta_proyecto=ruta

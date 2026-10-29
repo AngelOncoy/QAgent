@@ -8,7 +8,6 @@ import shutil
 import tempfile
 import time
 import tokenize
-from functools import partial
 from pathlib import Path
 from typing import Any
 
@@ -16,8 +15,8 @@ from qagent import contracts
 from qagent.agents.planner import contrato_sin_triviales
 from qagent.almacenamiento import AlmacenProyecto
 from qagent.almacenamiento.proyecto import VERSION_HUELLA_OBJETIVO
-from qagent.analysis import arbol_ts, texto_ts
 from qagent.analysis.analyzer import calcular_huella
+from qagent.lenguajes import REGISTRO, LanguageAdapter, adaptador_de_contrato
 from qagent.llm.tracker import TokenTracker
 from qagent.orchestrator.estados import Estado
 from qagent.orchestrator.eventos import Evento
@@ -31,7 +30,8 @@ from qagent.orchestrator.tiempos import (
 )
 from qagent.proyectos.proyecto_local import detectar_rama
 from qagent.sandbox import LIMITES_POR_DEFECTO, clasificar_resultado, ejecutar_pruebas
-from qagent.sandbox.informe_pytest import JUnitInvalido, parsear_junit
+from qagent.sandbox.ejecucion import ejecutar_comando_pruebas
+from qagent.sandbox.informe_pytest import JUnitInvalido
 from qagent.storage import escribir_corrida
 from qagent.storage.registro import PERFIL_REGRESION_PROFUNDA
 
@@ -39,64 +39,46 @@ from qagent.storage.registro import PERFIL_REGRESION_PROFUNDA
 def huellas_de_objetivos(raiz: str | Path) -> dict[tuple[str, str], str]:
     """Calcula la huella de cada función y endpoint sin importar código del usuario.
 
-    La huella sale del árbol de tree-sitter (``huella_de_definicion``, versión 2 desde
-    TA-16). Las specs guardadas con la huella anterior (``ast.dump``) se migran aquí
-    mismo si su módulo no cambió (ver :func:`_migrar_huellas_guardadas`).
+    Recorre los archivos fuente de los lenguajes con adaptador completo
+    (``es_fuente``, #168) y pide a su adaptador la huella de cada objetivo
+    (``huellas_de_archivo``). Las specs guardadas con la huella anterior
+    (``ast.dump``) se migran aquí mismo si su módulo no cambió (ver
+    :func:`_migrar_huellas_guardadas`).
     """
     raiz = Path(raiz)
     resultado: dict[tuple[str, str], str] = {}
     ignorados = {"tests", "venv", "node_modules", "__pycache__"}
-    for ruta in sorted(raiz.rglob("*.py")):
+    adaptadores = _adaptadores_completos()
+    for ruta in sorted(raiz.rglob("*")):
+        adaptador = _adaptador_de_archivo(adaptadores, ruta.name)
+        if adaptador is None or not ruta.is_file():
+            continue
         partes = ruta.relative_to(raiz).parts
         if any(p.startswith(".") or p in ignorados for p in partes[:-1]):
             continue
         relativa = ruta.relative_to(raiz).as_posix()
         try:
             fuente = ruta.read_text(encoding="utf-8")
-            arbol = arbol_ts.parsear(fuente)
-            arbol_ts.validar(arbol, fuente, relativa)
-        except (OSError, UnicodeDecodeError, SyntaxError, ValueError):
+        except (OSError, UnicodeDecodeError):
             continue
-        for nodo in arbol_ts.sentencias(arbol.root_node):
-            if not arbol_ts.es_funcion(nodo):
-                continue
-            funcion = arbol_ts.definicion(nodo)
-            nombre = arbol_ts.nombre(funcion)
-            huella = arbol_ts.huella_de_definicion(funcion)
-            if not nombre.startswith("_"):
-                resultado[(relativa, nombre)] = huella
-            for camino_ruta in _rutas_declaradas(funcion):
-                resultado[(relativa, camino_ruta)] = huella
+        huellas = adaptador.huellas_de_archivo(fuente, relativa)
+        for objetivo, huella in (huellas or {}).items():
+            resultado[(relativa, objetivo)] = huella
     _migrar_huellas_guardadas(raiz, resultado)
     return resultado
 
 
-def _rutas_declaradas(funcion: Any) -> list[str]:
-    """``GET /ruta`` de cada decorador ``@objeto.get("/ruta")`` de la función."""
-    rutas = []
-    for decorador in arbol_ts.decoradores(funcion):
-        llamada = arbol_ts.sin_envoltura(decorador)
-        if llamada is None or llamada.type != "call":
-            continue
-        atributo = arbol_ts.sin_envoltura(llamada.child_by_field_name("function"))
-        argumentos = llamada.child_by_field_name("arguments")
-        posicionales = [
-            a
-            for a in (arbol_ts.nombrados(argumentos) if argumentos is not None else [])
-            if a.type not in ("keyword_argument", "dictionary_splat")
-        ]
-        if atributo is None or atributo.type != "attribute" or not posicionales:
-            continue
-        metodo = arbol_ts.texto(atributo.child_by_field_name("attribute")).upper()
-        if metodo not in {"GET", "POST", "PUT", "PATCH", "DELETE"}:
-            continue
-        try:
-            camino = texto_ts.literal(posicionales[0])
-        except (ValueError, TypeError):
-            continue
-        if isinstance(camino, str):
-            rutas.append(f"{metodo} {camino}")
-    return rutas
+def _adaptadores_completos() -> list[LanguageAdapter]:
+    """Adaptadores con los que se puede correr y repetir pruebas (#168)."""
+    adaptadores = (REGISTRO.adaptador_para(nombre) for nombre in REGISTRO.lenguajes)
+    return [a for a in adaptadores if a.completo]
+
+
+def _adaptador_de_archivo(
+    adaptadores: list[LanguageAdapter], nombre: str
+) -> LanguageAdapter | None:
+    """El adaptador cuyo lenguaje tiene a `nombre` como archivo fuente."""
+    return next((a for a in adaptadores if a.es_fuente(nombre)), None)
 
 
 def _migrar_huellas_guardadas(raiz: Path, huellas: dict[tuple[str, str], str]) -> None:
@@ -290,11 +272,10 @@ def ejecutar_regresion(
     inicio = reloj()
     inicio_utc = ahora()
     raiz = Path(ruta_proyecto)
-    if ejecutor is ejecutar_pruebas:  # límites de `[sandbox]`; los dobles de prueba no
-        ejecutor = partial(
-            ejecutar_pruebas,
-            limites=getattr(configuracion, "sandbox", LIMITES_POR_DEFECTO),
-        )
+    # #168: sin un doble de prueba, cada prueba corre con el comando de su adaptador
+    # y los límites de `[sandbox]`.
+    ejecutor_propio = None if ejecutor is ejecutar_pruebas else ejecutor
+    limites = getattr(configuracion, "sandbox", LIMITES_POR_DEFECTO)
     almacen = AlmacenProyecto(raiz)
     resumen = ResumenCorrida(
         run_id,
@@ -474,13 +455,31 @@ def ejecutar_regresion(
             t0 = reloj()
             with tempfile.TemporaryDirectory(prefix="qagent-regresion-") as temporal:
                 shutil.copy2(ruta_test, Path(temporal) / ruta_test.name)
-                modulo_cov = Path(modulo).with_suffix("").as_posix().replace("/", ".")
-                salida = ejecutor(imagen, raiz, temporal, modulo_cov)
+                adaptador = adaptador_de_contrato(contrato)
+                modulo_cov = adaptador.modulo_cobertura(modulo)
+                if ejecutor_propio is not None:
+                    salida = ejecutor_propio(imagen, raiz, temporal, modulo_cov)
+                else:
+                    salida = ejecutar_comando_pruebas(
+                        imagen,
+                        adaptador.comando_pruebas(
+                            modulo_cov,
+                            contracts.normalizar_planner(contrato)["framework_pruebas"],
+                        ),
+                        raiz,
+                        temporal,
+                        leer_cobertura=adaptador.leer_cobertura,
+                        archivo_informe=adaptador.entorno_sandbox().informe,
+                        variables=adaptador.variables_pruebas(),
+                        limites=limites,
+                    )
             duracion_sandbox = segundos(t0, reloj())
             duracion_pytest = 0.0
             if salida.junit_xml:
                 try:
-                    duracion_pytest = parsear_junit(salida.junit_xml).duracion_s
+                    duracion_pytest = adaptador.interpretar_resultados(
+                        salida.junit_xml
+                    )["duracion_s"]
                 except (JUnitInvalido, ValueError):
                     duracion_pytest = 0.0
             estado = clasificar_resultado(salida)
@@ -675,21 +674,11 @@ def _mutar_criticas(
 
 
 def _lineas_de(raiz: Path, modulo: str) -> list[dict[str, Any]]:
-    """Línea del `def` de cada función de primer nivel del módulo (tree-sitter)."""
-    try:
-        fuente = (raiz / modulo).read_text(encoding="utf-8")
-        arbol = arbol_ts.parsear(fuente)
-        arbol_ts.validar(arbol, fuente, modulo)
-    except (OSError, UnicodeDecodeError, SyntaxError, ValueError):
+    """Línea de cada función de primer nivel del módulo, según su adaptador (#168)."""
+    adaptador = _adaptador_de_archivo(_adaptadores_completos(), Path(modulo).name)
+    if adaptador is None:
         return []
-    return [
-        {
-            "nombre": arbol_ts.nombre(nodo),
-            "linea": arbol_ts.linea(arbol_ts.definicion(nodo)),
-        }
-        for nodo in arbol_ts.sentencias(arbol.root_node)
-        if arbol_ts.es_funcion(nodo)
-    ]
+    return adaptador.funciones_de_modulo(raiz, modulo)
 
 
 def _preparar_imagen(ruta: Path) -> str:

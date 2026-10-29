@@ -274,6 +274,7 @@ async function startMonitor(){
     }
     if (r && r.status === 'blocked') { await verificarEntorno(); toastError(escHtml(r.motivo)); return; }
     if (r && r.status === 'seleccion_invalida') { toastError(escHtml(r.mensaje)); return; }
+    if (r && r.status === 'lenguaje_no_soportado') { toastError(escHtml(r.mensaje)); return; }
     if (r && r.status === 'perfil_no_disponible') { toastError(escHtml(r.mensaje)); go('tests'); return; }
     if (r && r.status === 'en_curso') { toast(escHtml(r.mensaje)); return; }
     // Docker listo: la corrida real corre en Python y las filas llegan por corrida_evento.
