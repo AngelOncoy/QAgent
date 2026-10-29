@@ -12,9 +12,17 @@ import json
 from pathlib import Path
 from typing import Any
 
-from qagent.contracts import categoria_de, contar_categorias
+from qagent.contracts import (
+    EXPLICACIONES,
+    ContratoInvalido,
+    categoria_de,
+    contar_categorias,
+    validar,
+    validar_explicacion,
+)
 from qagent.storage.registro import (
     ARCHIVO_DETALLE,
+    ARCHIVO_EXPLICACIONES,
     CARPETA_RUNS,
     MUTATION_SCORE_MIN,
     PERFIL_HUMO,
@@ -72,10 +80,56 @@ def leer_detalle(raiz_proyecto: str | Path, run_id: str) -> dict[str, Any] | Non
     return datos if isinstance(datos, dict) else None
 
 
+#: Campos de una explicación (HU-32) que muestran la pantalla y el informe.
+CAMPOS_EXPLICACION = ("resumen", "que_se_esperaba", "que_paso", "que_hacer")
+
+
+def leer_explicaciones(
+    raiz_proyecto: str | Path, results: dict[str, Any]
+) -> dict[tuple[str, str], dict[str, str]]:
+    """Explicaciones válidas de la corrida por `(modulo, objetivo)` (HU-32).
+
+    Sin `explicaciones.json`, con un archivo que no cumple el contrato o con una
+    explicación cuya decisión no coincide con `results.json`, esa explicación no se
+    usa y la pantalla y el informe siguen como antes.
+    """
+    ruta = (
+        Path(raiz_proyecto)
+        / CARPETA_RUNS
+        / Path(str(results["run_id"])).name
+        / ARCHIVO_EXPLICACIONES
+    )
+    try:
+        datos = json.loads(ruta.read_text(encoding="utf-8"))
+        validar(EXPLICACIONES, datos)
+    except (OSError, json.JSONDecodeError, ContratoInvalido):
+        return {}
+    lista = datos if isinstance(datos, list) else datos["explicaciones"]
+    objetivos = {(o["modulo"], o["funcion"]): o for o in results["objetivos"]}
+    validas: dict[tuple[str, str], dict[str, str]] = {}
+    for explicacion in lista:
+        clave = (explicacion.get("modulo"), explicacion["objetivo"])
+        objetivo = objetivos.get(clave)  # type: ignore[arg-type]
+        if objetivo is None:
+            continue
+        try:
+            validar_explicacion(explicacion, resultado_confiable=objetivo)
+        except ContratoInvalido:
+            continue
+        validas[clave] = {c: explicacion[c] for c in CAMPOS_EXPLICACION}  # type: ignore[index]
+    return validas
+
+
 def vista_reporte(
-    results: dict[str, Any], detalle: dict[str, Any] | None
+    results: dict[str, Any],
+    detalle: dict[str, Any] | None,
+    explicaciones: dict[tuple[str, str], dict[str, str]] | None = None,
 ) -> dict[str, Any]:
-    """Cabecera, 4 indicadores, filtros y una tarjeta por función."""
+    """Cabecera, 4 indicadores, filtros y una tarjeta por función.
+
+    `explicaciones` son las de `leer_explicaciones()` (HU-32); sin ellas cada
+    tarjeta lleva `explicacion: None`.
+    """
     resumen = results["resumen"]
     metas = resumen.get("metas") or {}
     textos = {
@@ -84,7 +138,12 @@ def vista_reporte(
         if isinstance(f, dict)
     }
     funciones = [
-        _funcion(o, textos.get((o["modulo"], o["funcion"])), metas, results["perfil"])
+        {
+            **_funcion(
+                o, textos.get((o["modulo"], o["funcion"])), metas, results["perfil"]
+            ),
+            "explicacion": (explicaciones or {}).get((o["modulo"], o["funcion"])),
+        }
         for o in results["objetivos"]
     ]
     total_categorias = resumen.get("casos_por_categoria")

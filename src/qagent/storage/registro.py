@@ -29,6 +29,8 @@ if (
 # Igual que `qagent.almacenamiento.proyecto.CARPETA` (no se importa: sería circular).
 CARPETA_RUNS = Path(".qagent") / "runs"
 ARCHIVO_DETALLE = "detalle.json"
+#: Explicaciones de los hallazgos (HU-32); nunca van dentro de results.json.
+ARCHIVO_EXPLICACIONES = "explicaciones.json"
 #: Mínimo de cobertura si la corrida no trae metas (meta de la carta, ADR-001).
 COBERTURA_MINIMA = 60.0
 #: Meta de Mutation Score de las funciones críticas (ADR-001).
@@ -185,6 +187,18 @@ def escribir_corrida(
     _escribir_json(rutas.results, results)
     _escribir_json(rutas.detalle, detalle)
     return rutas
+
+
+def escribir_explicaciones(carpeta: str | Path, datos: dict[str, Any]) -> Path:
+    """Valida y escribe `explicaciones.json` en la carpeta de la corrida (HU-32).
+
+    Raises:
+        ContratoInvalido: si no cumple el contrato `explicaciones` (no se escribe).
+    """
+    contracts.validar(contracts.EXPLICACIONES, datos)
+    ruta = Path(carpeta) / ARCHIVO_EXPLICACIONES
+    _escribir_json(ruta, datos)
+    return ruta
 
 
 def construir_detalle(

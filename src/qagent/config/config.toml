@@ -57,9 +57,16 @@ precio_cache_lectura_usd_m = 0.0036
 
 [agentes.reviewer]
 proveedor = "openai"
-modelo = "gpt-6-luna"            # confirmar el ID exacto en la documentación de OpenAI
+modelo = "gpt-6-luna"            # ID confirmado en developers.openai.com/api/docs/models
 esfuerzo = "max"
 precio_entrada_usd_m = 0.10
 precio_salida_usd_m = 0.50
 precio_cache_lectura_usd_m = 0.01
 # Si la entrada supera 272K tokens, toda la petición cuesta 0.20 / 0.75
+
+# Agente Explicador (HU-32, ADR-008): después del veredicto explica en palabras simples
+# por qué no pasó cada función. Con modo = "plantilla" no usa IA (0 tokens). Para
+# apagarlo en tu equipo: `activo = false` en ~/.qagent/config.local.toml.
+[agentes.explicador]
+activo = true
+modo = "plantilla"

@@ -108,6 +108,9 @@ UMBRALES = ("pass_rate_min", "cobertura_lineas_min", "iteraciones_promedio_max")
 #: Tiempo máximo de mutmut por función crítica si `[mutacion]` no lo define (EN-09).
 TIEMPO_MUTACION_POR_DEFECTO_S = 120
 
+#: Modos del Explicador (HU-32). El paso 2, con IA opcional, agregará el suyo.
+MODOS_EXPLICADOR = ("plantilla",)
+
 #: Memoria en formato Docker: un entero y una unidad (b, k, m o g), p. ej. "512m" o "3g".
 #: Secciones que solo define el equipo en `config.toml`: `config.local.toml` no las
 #: cambia. Los límites del sandbox no son un ajuste del usuario final (EN-03).
@@ -145,6 +148,14 @@ class Mutacion:
 
 
 @dataclass(frozen=True)
+class Explicador:
+    """Agente Explicador (HU-32, ADR-008): explica los hallazgos tras el veredicto."""
+
+    activo: bool = True
+    modo: str = MODOS_EXPLICADOR[0]
+
+
+@dataclass(frozen=True)
 class Configuracion:
     """Contenido validado de `config.toml`."""
 
@@ -154,6 +165,7 @@ class Configuracion:
     agentes: dict[str, PrecioAgente]
     mutacion: Mutacion = Mutacion()
     sandbox: LimitesSandbox = LIMITES_POR_DEFECTO
+    explicador: Explicador = Explicador()
 
     def proveedores(self) -> dict[str, list[str]]:
         """Agentes que usa cada proveedor: `{"openai": ["reviewer"], ...}`."""
@@ -512,10 +524,13 @@ def _leer_config(
         avisos,
         sin_configurar if sin_configurar is not None else [],
     )
+    explicador = _leer_explicador(
+        (datos.get("agentes") or {}).get("explicador", {}), avisos
+    )
     if len(avisos) > antes:
         return None
     return Configuracion(
-        presupuesto, max_intentos, umbrales, agentes, mutacion, sandbox
+        presupuesto, max_intentos, umbrales, agentes, mutacion, sandbox, explicador
     )  # type: ignore[arg-type]
 
 
@@ -626,6 +641,24 @@ def _leer_mutacion(tabla: Mapping[str, Any], avisos: list[str]) -> Mutacion | No
         )
         return None
     return Mutacion(int(tiempo))
+
+
+def _leer_explicador(tabla: Mapping[str, Any], avisos: list[str]) -> Explicador | None:
+    """`[agentes.explicador]` es opcional: sin él, el Explicador queda activo (HU-32)."""
+    if not isinstance(tabla, Mapping):
+        avisos.append("[agentes.explicador] de config.toml debe ser una sección.")
+        return None
+    activo = tabla.get("activo", True)
+    modo = tabla.get("modo", MODOS_EXPLICADOR[0])
+    antes = len(avisos)
+    if not isinstance(activo, bool):
+        avisos.append("activo en [agentes.explicador] debe ser true o false.")
+    if modo not in MODOS_EXPLICADOR:
+        validos = ", ".join(f'"{m}"' for m in MODOS_EXPLICADOR)
+        avisos.append(f"modo en [agentes.explicador] debe ser {validos}.")
+    if len(avisos) > antes:
+        return None
+    return Explicador(activo, modo)
 
 
 def _leer_sandbox(tabla: Mapping[str, Any], avisos: list[str]) -> LimitesSandbox | None:

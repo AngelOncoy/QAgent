@@ -450,14 +450,19 @@ class DesktopAPI:
             ResultadosNoDisponibles,
             leer_results,
         )
-        from qagent.storage.vista_reporte import leer_detalle, vista_reporte
+        from qagent.storage.vista_reporte import (
+            leer_detalle,
+            leer_explicaciones,
+            vista_reporte,
+        )
 
         try:
             results = leer_results(ruta, run_id)
         except ResultadosNoDisponibles as error:
             return {"ok": False, "motivo": str(error)}
         detalle = leer_detalle(ruta, results["run_id"])
-        return {"ok": True, **vista_reporte(results, detalle)}
+        explicaciones = leer_explicaciones(ruta, results)
+        return {"ok": True, **vista_reporte(results, detalle, explicaciones)}
 
     def carpeta_corrida(self, ruta: str, run_id: str | None = None) -> str:
         """Devuelve la carpeta por defecto `<proyecto>/.qagent/runs/<run_id>/` para exportar."""

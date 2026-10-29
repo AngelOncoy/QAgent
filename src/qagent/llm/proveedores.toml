@@ -55,10 +55,9 @@ modelos_url = "https://api.openai.com/v1/models"
 param_limite = "max_completion_tokens"
 tipo = "texto"
 modelos = [
-  { id = "gpt-6-luna", nombre = "GPT-6 Luna (verificar)", entrada = 0.10, salida = 0.50 },
-  { id = "gpt-5", nombre = "GPT-5" },
-  { id = "gpt-5-mini", nombre = "GPT-5 mini" },
-  { id = "gpt-4.1-mini", nombre = "GPT-4.1 mini" },
+  { id = "gpt-6-luna", nombre = "GPT-6 Luna", entrada = 0.10, salida = 0.50 },
+  { id = "gpt-6.1-terra", nombre = "GPT-6.1 Terra", entrada = 1.00, salida = 5.00 },
+  { id = "gpt-6.1-sol", nombre = "GPT-6.1 Sol", entrada = 2.00, salida = 10.00 },
 ]
 
 # API compatible con OpenAI: se reutiliza esa integración. Los modelos llevan el
