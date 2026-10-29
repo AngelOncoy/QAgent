@@ -395,9 +395,13 @@ function renderFiltrosBandeja(todos){
 }
 
 // HU-32: qué se esperaba, qué pasó y qué hacer, en palabras simples.
+// Issue 166: si la redactó un LLM, se avisa debajo con el modelo.
 function explicacionSimple(s){
   const fila = (etq, txt) => txt ? `<div><dt>${etq}</dt><dd>${escHtml(txt)}</dd></div>` : '';
-  return `<dl class="bnj-simple">${fila('Qué se esperaba', s.que_se_esperaba)}${fila('Qué pasó', s.que_paso)}${fila('Qué hacer', s.que_hacer)}</dl>`;
+  const ia = s.origen === 'ia'
+    ? `<p class="bnj-origen-ia">Explicación generada por IA${s.modelo ? ` (${escHtml(s.modelo)})` : ''}</p>`
+    : '';
+  return `<dl class="bnj-simple">${fila('Qué se esperaba', s.que_se_esperaba)}${fila('Qué pasó', s.que_paso)}${fila('Qué hacer', s.que_hacer)}</dl>${ia}`;
 }
 
 // Panel derecho: la evidencia del elemento elegido.

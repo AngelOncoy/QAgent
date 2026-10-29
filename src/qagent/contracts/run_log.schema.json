@@ -242,10 +242,12 @@
   ],
   "$defs": {
     "agente": {
+      "description": "Agente que llamó a la IA. El explicador (#166) solo aparece en llamadas y totales, después del veredicto.",
       "enum": [
         "planner",
         "generator",
-        "reviewer"
+        "reviewer",
+        "explicador"
       ]
     },
     "etapas": {

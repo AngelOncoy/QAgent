@@ -253,3 +253,32 @@ def test_varios_modulos_en_un_solo_results(tmp_path: Path, precios) -> None:
         "otro.py",
     ]
     assert results["resumen"]["total_funciones"] == 2
+
+
+# --- #166: el Explicador suma sus tokens después de escribir la corrida -----------
+
+
+def test_actualizar_consumo_suma_al_explicador_en_log_y_results(
+    tmp_path: Path, precios
+) -> None:
+    from qagent.storage.registro import actualizar_consumo
+
+    tracker, resultado = correr(precios, decisiones=["bug_detectado"])
+    rutas = escribir_corrida(tmp_path, resultado, tracker, precios, "deep")
+    decisiones_antes = [o["decision"] for o in leer(rutas.results)["objetivos"]]
+    tokens_antes = tracker.total_tokens
+
+    tracker.registrar("explicador", "modelo-x", 700, 200, costo_usd=0.0005)
+    actualizar_consumo(rutas, tracker)
+
+    log, results = leer(rutas.log), leer(rutas.results)
+    validar(RUN_LOG, log)
+    validar(RUN_LOG, results)
+    assert log["totales_por_agente"]["explicador"]["llamadas"] == 1
+    assert log["llamadas"][-1]["agente"] == "explicador"
+    assert log["total_tokens"] == tokens_antes + 900
+    assert results["resumen"]["por_agente"] == log["totales_por_agente"]
+    assert results["resumen"]["total_tokens"] == log["total_tokens"]
+    assert results["resumen"]["costo_total_usd"] == log["total_costo_usd"]
+    # Solo cambia el consumo: los veredictos quedan como estaban.
+    assert [o["decision"] for o in results["objetivos"]] == decisiones_antes
