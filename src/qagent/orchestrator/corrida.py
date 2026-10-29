@@ -67,6 +67,7 @@ from qagent.proyectos.proyecto_local import detectar_rama
 from qagent.sandbox import (
     LIMITES_POR_DEFECTO,
     ConstruccionCancelada,
+    LimitesSandbox,
     ejecutar_mutacion,
     ejecutar_pruebas,
 )
@@ -358,7 +359,9 @@ def ejecutar_corrida(
 
         bus = BusEventos()
         bus.suscribir(emitir)
-        limites = getattr(configuracion, "sandbox", LIMITES_POR_DEFECTO)
+        # #168: memoria y tiempo del lenguaje (`[sandbox.<lenguaje>]`, #169); Python
+        # usa `[sandbox]` como siempre.
+        limites = limites_del_lenguaje(configuracion, adaptador.lenguaje)
         tope_tokens = getattr(configuracion.presupuesto, "max_tokens_por_corrida", None)
         opciones: dict[str, Any] = {
             "max_intentos": configuracion.max_intentos,
@@ -692,6 +695,14 @@ def ejecutar_corrida(
 
     avisar(f"{titulo_fin}: {texto_resumen}", "fin")
     return resumen
+
+
+def limites_del_lenguaje(configuracion: Any, lenguaje: str) -> LimitesSandbox:
+    """Límites del sandbox de `lenguaje` (#169); `[sandbox]` si no tiene propios."""
+    por_lenguaje = getattr(configuracion, "limites_sandbox", None)
+    if callable(por_lenguaje):
+        return por_lenguaje(lenguaje)
+    return getattr(configuracion, "sandbox", LIMITES_POR_DEFECTO)
 
 
 class ErrorCorrida(RuntimeError):

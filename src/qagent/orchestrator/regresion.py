@@ -266,7 +266,12 @@ def ejecutar_regresion(
     Vista previa (`criticas` de la selección, HU-06); sin selección, las del contrato
     guardado.
     """
-    from qagent.orchestrator.corrida import ResumenCorrida, _cerrar_run, metas_de
+    from qagent.orchestrator.corrida import (
+        ResumenCorrida,
+        _cerrar_run,
+        limites_del_lenguaje,
+        metas_de,
+    )
 
     inicio = reloj()
     inicio_utc = ahora()
@@ -274,7 +279,6 @@ def ejecutar_regresion(
     # #168: sin un doble de prueba, cada prueba corre con el comando de su adaptador
     # y los límites de `[sandbox]`.
     ejecutor_propio = None if ejecutor is ejecutar_pruebas else ejecutor
-    limites = getattr(configuracion, "sandbox", LIMITES_POR_DEFECTO)
     almacen = AlmacenProyecto(raiz)
     resumen = ResumenCorrida(
         run_id,
@@ -470,7 +474,7 @@ def ejecutar_regresion(
                         leer_cobertura=adaptador.leer_cobertura,
                         archivo_informe=adaptador.entorno_sandbox().informe,
                         variables=adaptador.variables_pruebas(),
-                        limites=limites,
+                        limites=limites_del_lenguaje(configuracion, adaptador.lenguaje),
                     )
             duracion_sandbox = segundos(t0, reloj())
             duracion_pytest = 0.0
