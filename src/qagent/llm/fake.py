@@ -8,6 +8,9 @@ según lo que se le pide:
 - **Generator:** arma pytest para funciones o TestClient para endpoints directamente
   desde el contrato del Planner.
 - **Reviewer:** no clasifica fallos ambiguos (la decisión queda en manos de las reglas).
+- **Explicador (#166):** devuelve la explicación grabada en `ia_simulada.json` para el
+  objetivo (un texto tal cual, para simular respuestas inválidas); si no hay, arma una
+  válida que repite la decisión recibida.
 
 Si el prompt no trae esos datos, devuelve las respuestas grabadas de siempre.
 """
@@ -25,6 +28,7 @@ from qagent.llm.modelos import RespuestaLLM
 MARCA_MODULO = "MODULO:"
 MARCA_OBJETIVOS = "OBJETIVOS_JSON:"
 MARCA_CONTRATO = "CONTRATO_JSON:"
+MARCA_EXPLICACION = "EXPLICACION_JSON:"
 
 # Viaja dentro del paquete para que el modo de demostración funcione instalado.
 RUTA_GRABACIONES = Path(__file__).resolve().with_name("ia_simulada.json")
@@ -83,6 +87,7 @@ class FakeLLMClient:
         self,
         modelo: str = "fake-model-v1",
         grabaciones: dict[str, list[dict[str, Any]]] | None = None,
+        explicaciones: dict[str, Any] | None = None,
     ) -> None:
         """Inicializa el cliente simulado.
 
@@ -91,10 +96,17 @@ class FakeLLMClient:
             grabaciones: casos por `"<archivo>.py::<función>"` o
                 `"<archivo>.py::<MÉTODO> <ruta>"`; si es None se leen de
                 `qagent/llm/ia_simulada.json` (o quedan vacías si no existe).
+            explicaciones: respuestas del Explicador por `"<archivo>.py::<objetivo>"`;
+                si es None se leen de la sección `explicaciones` de ese archivo.
         """
         self.modelo = modelo
         self.grabaciones = (
             grabaciones if grabaciones is not None else cargar_grabaciones()
+        )
+        self.explicaciones = (
+            explicaciones
+            if explicaciones is not None
+            else cargar_grabaciones(seccion="explicaciones")
         )
 
     def generar(self, prompt: str, rol: str = "generator") -> RespuestaLLM:
@@ -113,6 +125,8 @@ class FakeLLMClient:
             contenido = self._planificar(prompt)
         elif rol == "generator":
             contenido = self._generar_test(prompt)
+        elif rol == "explicador":
+            contenido = self._explicar(prompt)
         if contenido is None:
             contenido = self.RESPUESTAS_GRABADAS.get(
                 rol, f"Respuesta simulada para prompt: {prompt[:30]}..."
@@ -143,6 +157,36 @@ class FakeLLMClient:
                 plan.append({"objetivo": nombre, "casos": casos})
         return json.dumps(plan, ensure_ascii=False)
 
+    # --- Explicador -------------------------------------------------------------------
+
+    def _explicar(self, prompt: str) -> str | None:
+        entrada = _json_marcado(prompt, MARCA_EXPLICACION)
+        if not isinstance(entrada, dict):
+            return None
+        archivo = PurePosixPath(
+            str(entrada.get("modulo") or "").replace("\\", "/")
+        ).name
+        grabada = self.explicaciones.get(f"{archivo}::{entrada.get('objetivo')}")
+        if isinstance(grabada, str):
+            return grabada
+        sujeto = (
+            f"la ruta {entrada.get('objetivo')}"
+            if entrada.get("tipo") == "endpoint"
+            else f"la función {entrada.get('objetivo')}"
+        )
+        explicacion = {
+            "decision": entrada.get("decision"),
+            "resumen": f"Explicación simulada de {sujeto}.",
+            "que_se_esperaba": f"Que {sujeto} cumpliera lo que promete su documentación.",
+            "que_paso": (
+                f"Se revisaron {len(entrada.get('traza') or [])} intento(s) de la prueba."
+            ),
+            "que_hacer": f"Revisa {sujeto} y vuelve a ejecutar las pruebas.",
+        }
+        if isinstance(grabada, dict):
+            explicacion.update(grabada)
+        return json.dumps(explicacion, ensure_ascii=False)
+
     # --- Generator --------------------------------------------------------------------
 
     @staticmethod
@@ -154,15 +198,15 @@ class FakeLLMClient:
 
 
 def cargar_grabaciones(
-    ruta: Path = RUTA_GRABACIONES,
-) -> dict[str, list[dict[str, Any]]]:
-    """Lee los casos grabados de la IA simulada; {} si el archivo no existe o es inválido."""
+    ruta: Path = RUTA_GRABACIONES, seccion: str = "casos"
+) -> dict[str, Any]:
+    """Una sección grabada de la IA simulada; {} si el archivo no existe o es inválido."""
     try:
         datos = json.loads(ruta.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError):
         return {}
-    casos = datos.get("casos") if isinstance(datos, dict) else None
-    return casos if isinstance(casos, dict) else {}
+    grabadas = datos.get(seccion) if isinstance(datos, dict) else None
+    return grabadas if isinstance(grabadas, dict) else {}
 
 
 def generar_test_desde_contrato(contrato: dict[str, Any]) -> str:

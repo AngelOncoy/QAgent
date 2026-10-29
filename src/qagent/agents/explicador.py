@@ -28,6 +28,7 @@ from typing import Any
 
 from qagent import contracts
 from qagent.llm.cliente import estimar_tokens
+from qagent.llm.fake import MARCA_EXPLICACION
 from qagent.llm.modelos import ClienteLLM, RespuestaLLM
 from qagent.llm.precios import PrecioAgente
 from qagent.llm.tracker import TokenTracker
@@ -454,8 +455,6 @@ def _limpiar(texto: str) -> str:
 
 # --- Paso 2: explicaciones redactadas por un LLM (#166, ADR-008) ----------------------
 
-#: Marca de la línea con la entrada del objetivo en el prompt; la IA simulada la lee.
-MARCA_ENTRADA = "EXPLICACION_JSON:"
 
 _INSTRUCCIONES = """Eres el Agente Explicador de QAgent. Explica a una persona con poca
 experiencia en programación por qué una prueba automática no terminó bien. Habla de
@@ -535,7 +534,7 @@ class RedactorIA:
             raise SinExplicacionIA("la corrida se canceló")
         entrada = entrada_ia(objetivo, funcion, docstring)
         prompt = (
-            f"{_INSTRUCCIONES}\n{MARCA_ENTRADA} "
+            f"{_INSTRUCCIONES}\n{MARCA_EXPLICACION} "
             f"{json.dumps(entrada, ensure_ascii=False)}"
         )
         self._revisar_presupuesto(prompt)
