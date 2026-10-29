@@ -611,14 +611,14 @@ flowchart TB
         end
         subgraph DD["Docker Desktop"]
             IMG["qagent-sandbox:base<br/>Python 3.11 · pytest · coverage · mutmut"]
-            IMGN["qagent-sandbox:node · propuesto<br/>Node LTS · Vitest · coverage-v8 · Stryker"]
-            IMGJ["qagent-sandbox:java · propuesto<br/>JDK · Maven/Gradle · JUnit 5 · JaCoCo · PIT"]
+            IMGN["qagent-sandbox:node<br/>Node 26 LTS · Vitest · coverage-v8 · Stryker"]
+            IMGJ["qagent-sandbox:java<br/>JDK 25 · Maven/Gradle · JUnit 5 · JaCoCo · PIT"]
             IMGE["qagent-sandbox:navegador · propuesto<br/>Chromium headless · Playwright (solo E2E)"]
             IMGP["Imagen derivada por proyecto<br/>+ dependencias del usuario"]
             CT["Contenedor efímero por prueba<br/>--network none · --rm"]
             IMG --> IMGP --> CT
-            IMGN -.-> IMGP
-            IMGJ -.-> IMGP
+            IMGN --> IMGP
+            IMGJ --> IMGP
             IMGE -.-> IMGP
         end
         FS[("Disco<br/>proyecto del usuario · .qagent/ · ~/.qagent/")]
@@ -634,12 +634,34 @@ flowchart TB
 |---|---|---|
 | HTTPS a APIs LLM | Backend → Anthropic, Xiaomi, OpenAI | Cada llamada del Planner, Generator o Reviewer (salvo con IA simulada) |
 | `git clone` | Backend → repositorio remoto | Solo si el usuario clona por URL (HU-02) |
-| Instalación de dependencias | Docker → PyPI (propuesto: npm, Maven Central) | Una vez por proyecto, al construir la imagen derivada (`npm ci`, `mvn dependency:go-offline`) |
+| Instalación de dependencias | Docker → PyPI, npm, Maven Central / Gradle | Una vez por proyecto, al construir la imagen derivada (`pip install`, `npm ci`, `mvn dependency:go-offline` o el equivalente de Gradle) |
 | **Ejecución de pruebas** | **Sin red** | Siempre (`--network none`) |
 
 **Requisitos de la máquina:** Windows 10/11, Python 3.10+, Docker Desktop y Git. EN-06 los verifica al abrir un proyecto. Analizar JS/TS o Java **no** exige Node ni un JDK en la PC del usuario: tree-sitter corre dentro de QAgent (ADR-009) y los runtimes solo viven en las imágenes del sandbox.
 
-**Imágenes por lenguaje (propuesto).** La imagen de cada lenguaje la declara su adaptador (`LanguageAdapter.entorno_sandbox()`, ADR-007). Las reglas del sandbox son las mismas para todas: contenedor efímero, sin red al ejecutar, sistema de archivos de solo lectura salvo las carpetas de trabajo y límites de CPU, memoria y tiempo. Los límites por lenguaje están pendientes de medir (sección 13): la JVM necesita más memoria y tiempo que Python, y la imagen con navegador es la más pesada, así que solo se usa para E2E.
+**Imágenes por lenguaje (#169).** La imagen de cada lenguaje la declara su adaptador (`LanguageAdapter.entorno_sandbox()`, ADR-007): Python usa `qagent-sandbox:base`, JavaScript y TypeScript `qagent-sandbox:node` y Java `qagent-sandbox:java`. Sus Dockerfile están junto al de Python (`src/qagent/sandbox/Dockerfile.node` y `Dockerfile.java`) con versiones fijas, y `sandbox/imagen.py` tiene una receta por imagen. Una imagen se construye solo la primera vez que un proyecto de su lenguaje la pide (`asegurar_imagen`); un proyecto de Python nunca descarga Node ni el JDK. La imagen `navegador` (E2E) sigue propuesta para EP-13b.
+
+| Imagen | Contenido (versión fija) | Dependencias del proyecto (imagen derivada, con red) |
+|---|---|---|
+| `qagent-sandbox:base` | Python 3.11, pytest, pytest-cov, coverage, mutmut, httpx | `requirements.txt` → `pip install` · etiqueta `req-<hash>` |
+| `qagent-sandbox:node` | Node 26.13.0 (LTS), Vitest 5.0.5, @vitest/coverage-v8 5.0.5, Stryker 10.1.1 (+ vitest-runner), TypeScript 7.0.2 | `package.json` + `package-lock.json` → `npm ci` (sin lockfile, `npm install`) en `/work/node_modules` · etiqueta `node-<hash>` |
+| `qagent-sandbox:java` | Temurin JDK 25.0.4, Maven 3.9.16, Gradle 9.8.2, JUnit 5.14.4, JaCoCo 0.8.16, PIT 1.30.1 (+ junit5-plugin 1.2.3) | `pom.xml` → `mvn dependency:go-offline` en `/opt/qagent/m2`; o `build.gradle(.kts)` (+ settings, `gradle.properties`, `libs.versions.toml`) → caché de solo lectura `GRADLE_RO_DEP_CACHE` · etiqueta `java-<hash>` |
+
+La etiqueta de la derivada sale del hash de sus archivos de dependencias: mientras no cambien, se reutiliza entre corridas (igual que con `requirements.txt`), y la limpieza al abrir la app borra las `req-`, `node-` y `java-` sin uso en 30 días. El contexto de build solo lleva esos archivos, nunca el código del proyecto ni su `.env`. Las dependencias quedan fuera de `/work/proyecto` (Node las busca subiendo hasta `/work/node_modules`; Maven y Gradle las leen de su repositorio en `/opt/qagent`), así el montaje de la copia del proyecto no las tapa. La imagen de Java se construye con un proyecto de calentamiento (`sandbox/java/calentamiento`) para que los plugins de JUnit 5, JaCoCo y PIT queden descargados y funcionen sin red.
+
+Las reglas del sandbox son las mismas para todas: contenedor efímero (`--rm`), `--network none`, sistema de archivos de solo lectura salvo `/work/proyecto` (copia), `/out` y `/tmp` (64 MB), y los mismos CPU que Python (`ajustar_cpus_a_docker`). La memoria y el tiempo pueden cambiar por lenguaje en `[sandbox.<lenguaje>]` de `config.toml`; lo que no se fija (y los CPU) sale de `[sandbox]`, que sigue siendo el de Python (3 GB, 120 s).
+
+**Mediciones** (29/10/2026, Windows 11 con Docker Desktop 29.8.1, 16 CPU y 15,6 GB para Docker; construcción con `imagen.py` sin caché de construcción, con la imagen de origen ya descargada). La memoria es el pico del contenedor (`memory.max_usage_in_bytes`) en una prueba típica: un módulo con dos funciones y sus pruebas, ejecutado con `ejecutar_en_sandbox` y sin red.
+
+| Imagen | Tamaño | Construcción de la base | Derivada (dependencias de ejemplo) | Prueba típica: tiempo · memoria pico |
+|---|---|---|---|---|
+| `base` (Python, referencia) | 255 MB | — | — | límites actuales: 3 GB · 120 s |
+| `node` | 532 MB | ≈ 45 s | 9 s (`npm ci`, 2 paquetes) | Vitest + coverage-v8: 1,0 s · 100-130 MB; Stryker (3 mutantes): 3,2 s · 340 MB |
+| `java` | 998 MB | ≈ 200 s | 51 s (`mvn dependency:go-offline`) · 25 s (Gradle) | Maven `verify` (JUnit 5 + JaCoCo): 5,8 s · 300 MB; + PIT: 11,3 s · 340 MB; Gradle `test`: 17,9 s · 790 MB |
+
+Con eso se fijan los límites por defecto en `config.toml`: **JavaScript y TypeScript, 2 GB y 120 s** (unas 6 veces el pico medido con Stryker; un proyecto Node rara vez necesita más) y **Java, 4 GB y 300 s** (la JVM arranca en cada ejecución, Gradle ya usa casi 0,8 GB con un proyecto mínimo y un proyecto real suma compilación y, con Spring, el contexto). Python no cambia. Si un proyecto real los supera, el equipo los ajusta en `[sandbox.<lenguaje>]`.
+
+Limitaciones conocidas: la derivada de Java copia solo el `pom.xml` o el `build.gradle` de la raíz (los proyectos multimódulo quedan pendientes), y si el proyecto fija plugins de Maven en versiones distintas a las de la imagen, `go-offline` los descarga al construir la derivada.
 
 ---
 
@@ -951,7 +973,7 @@ Responsables sugeridos en el plan del Sprint 2, a confirmar en el Sprint Plannin
 | Conectar el registro de adaptadores a la corrida y usar `planner_contract.v3` en el flujo | Oncoy Patricio, Angel | ADR-007 |
 | Agregar tree-sitter y las gramáticas de JS/TS; analizador y guardrail de `expect` | Castillo Pezo, Mateo | ADR-009 · EP-11a |
 | Adaptador de Java completo y banco equivalente en los 3 lenguajes (brecha B5) | Nuevo integrante | ADR-009 · EP-12a |
-| Imágenes `node`, `java` y `navegador` del sandbox y límites de memoria y tiempo por lenguaje | Sanchez Vargas, Adrián | Sección 7 |
+| Imágenes `node` y `java` del sandbox y límites de memoria y tiempo por lenguaje (**Resuelto**, #169); falta `navegador` con EP-13b | Sanchez Vargas, Adrián | Sección 7 |
 | Migrar el analizador de Python a tree-sitter, solo si da la misma estructura que `analizar_proyecto()` | Hecho (TA-16, #154) | ADR-009 |
 | Versionar en `bench/` los bancos y scripts de medición de SPK-03 y SPK-04 | Sanchez Vargas, Adrián y Castillo Pezo, Mateo | ADR-008 · ADR-009 |
 

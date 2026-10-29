@@ -1,6 +1,7 @@
 """Sandbox Docker de QAgent (EN-03): ejecución aislada de pruebas, sin red y con límites.
 
-Paso 1 (con red): `preparar_imagen` instala el requirements.txt del proyecto en una imagen derivada.
+Paso 1 (con red): `preparar_imagen` instala las dependencias del proyecto (requirements.txt,
+package.json, pom.xml o build.gradle) en una imagen derivada de la imagen de su lenguaje.
 Paso 2 (sin red): `ejecutar_pruebas` corre pytest + coverage sobre una copia del proyecto.
 Mutation testing (EN-09): `ejecutar_mutacion` corre mutmut solo sobre las funciones críticas.
 """
@@ -14,7 +15,12 @@ from qagent.sandbox.ejecucion import (
     ejecutar_pruebas,
 )
 from qagent.sandbox.estado import estado_docker, verificar_docker
-from qagent.sandbox.imagen import IMAGEN_BASE, construir_imagen_base, preparar_imagen
+from qagent.sandbox.imagen import (
+    IMAGEN_BASE,
+    asegurar_imagen,
+    construir_imagen_base,
+    preparar_imagen,
+)
 from qagent.sandbox.informe_pytest import (
     CasoPrueba,
     InformePytest,
@@ -24,6 +30,8 @@ from qagent.sandbox.informe_pytest import (
     resumir_ejecucion,
 )
 from qagent.sandbox.modelos import (
+    IMAGEN_JAVA,
+    IMAGEN_NODE,
     LIMITES_POR_DEFECTO,
     MENSAJE_DOCKER_CERRADO,
     ConstruccionCancelada,
@@ -43,6 +51,8 @@ from qagent.sandbox.mutacion import (
 
 __all__ = [
     "IMAGEN_BASE",
+    "IMAGEN_JAVA",
+    "IMAGEN_NODE",
     "LIMITES_POR_DEFECTO",
     "MENSAJE_DOCKER_CERRADO",
     "CasoPrueba",
@@ -58,6 +68,7 @@ __all__ = [
     "ResultadoMutacion",
     "ResultadoSandbox",
     "Sobreviviente",
+    "asegurar_imagen",
     "clasificar_resultado",
     "comando_pytest",
     "construir_imagen_base",

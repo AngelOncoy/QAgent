@@ -1,0 +1,44 @@
+# Imagen del sandbox para JavaScript y TypeScript: qagent-sandbox:node (#169).
+# Solo trae las herramientas de prueba. Las dependencias del proyecto (`npm ci`) van en
+# una imagen derivada (paso 1, con red) y las pruebas corren sin red (paso 2).
+#
+# Dónde queda cada cosa (Node busca `node_modules` subiendo de carpeta en carpeta):
+#   /work/proyecto          copia del proyecto, montada al ejecutar
+#   /work/node_modules      dependencias del proyecto (imagen derivada, `npm ci`)
+#   /node_modules           herramientas de QAgent (enlace a /opt/qagent/node_modules)
+# Así el montaje del proyecto no tapa las dependencias, y si el proyecto trae su propio
+# Vitest se usa el suyo antes que el de QAgent.
+FROM node:26.13.0-trixie-slim
+
+ENV NODE_ENV=test \
+    NPM_CONFIG_UPDATE_NOTIFIER=false \
+    NPM_CONFIG_FUND=false \
+    NPM_CONFIG_AUDIT=false \
+    PATH=/work/node_modules/.bin:/opt/qagent/node_modules/.bin:$PATH
+
+# Stryker usa `ps` para vigilar sus procesos; la imagen slim no lo trae.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends procps \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN mkdir -p /opt/qagent \
+    && cd /opt/qagent \
+    && npm init -y > /dev/null \
+    && npm install --save-exact --no-package-lock \
+        vitest@5.0.5 \
+        @vitest/coverage-v8@5.0.5 \
+        @stryker-mutator/core@10.1.1 \
+        @stryker-mutator/vitest-runner@10.1.1 \
+        typescript@7.0.2 \
+    && npm cache clean --force \
+    && ln -s /opt/qagent/node_modules /node_modules
+
+# La imagen oficial ya trae el usuario `node` con uid 1000: se renombra a `sandbox`
+# para que todas las imágenes del sandbox usen el mismo usuario.
+RUN usermod --login sandbox --move-home --home /home/sandbox node \
+    && groupmod --new-name sandbox node \
+    && mkdir -p /work/proyecto /work/tests /out \
+    && chown -R sandbox:sandbox /work /out
+
+USER sandbox
+WORKDIR /work

@@ -30,6 +30,20 @@ cpus = 4
 memoria = "3g"                   # formato Docker: "512m", "2g", "3g"...
 timeout_s = 120                  # segundos por ejecución; el paso del orquestador espera más
 
+# Límites por lenguaje (#169): solo `memoria` y `timeout_s`; lo que falte (y los CPU) se
+# toma de [sandbox], que es también el de Python. Medidos en docs/arquitectura.md (sección 7).
+[sandbox.javascript]
+memoria = "2g"
+timeout_s = 120
+
+[sandbox.typescript]
+memoria = "2g"
+timeout_s = 120
+
+[sandbox.java]
+memoria = "4g"                   # la JVM (Maven/Gradle + JUnit + JaCoCo) necesita más
+timeout_s = 300                  # arranque de la JVM y compilación antes de las pruebas
+
 # Cada agente usa la URL de chat de su proveedor (src/qagent/llm/fabrica.py).
 # Para otra URL agrega:  endpoint = "https://.../v1/chat/completions"
 # `esfuerzo` se envía como `reasoning_effort`; quítalo si el proveedor no lo acepta.

@@ -3,7 +3,8 @@
 Lee dos fuentes:
 
 - `config.toml` (se versiona): modelo y precio por agente, tope de gasto, reintentos,
-  umbrales de calidad y límites del sandbox Docker (`[sandbox]`, opcional).
+  umbrales de calidad y límites del sandbox Docker (`[sandbox]`, opcional, con
+  memoria y tiempo por lenguaje en `[sandbox.<lenguaje>]`).
 - `.env` (nunca se versiona): claves de API de cada proveedor.
 
 `config.toml` viaja dentro del paquete; `.env` y `config.local.toml` son del usuario y
@@ -33,6 +34,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+from qagent.contracts import LENGUAJES
 from qagent.llm.cliente import VARIABLE_SIMULADA, es_modo_simulado, valor_simulado
 from qagent.llm.precios import AGENTES, PrecioAgente, texto_opcional
 from qagent.llm.precios import RUTA_CONFIG as RUTA_CONFIG_EQUIPO
@@ -166,6 +168,20 @@ class Configuracion:
     mutacion: Mutacion = Mutacion()
     sandbox: LimitesSandbox = LIMITES_POR_DEFECTO
     explicador: Explicador = Explicador()
+    #: Límites de `[sandbox.<lenguaje>]` (#169), ya completados con los de `[sandbox]`.
+    sandbox_lenguajes: dict[str, LimitesSandbox] = field(
+        default_factory=dict, hash=False
+    )
+
+    def limites_sandbox(self, lenguaje: str | None = None) -> LimitesSandbox:
+        """Límites del sandbox para `lenguaje`; los de `[sandbox]` si no tiene propios.
+
+        Python (y cualquier lenguaje sin `[sandbox.<lenguaje>]`) usa `[sandbox]`, así
+        sus límites no cambian. Los CPU son siempre los de `[sandbox]`.
+        """
+        if lenguaje is None:
+            return self.sandbox
+        return self.sandbox_lenguajes.get(lenguaje, self.sandbox)
 
     def proveedores(self) -> dict[str, list[str]]:
         """Agentes que usa cada proveedor: `{"openai": ["reviewer"], ...}`."""
@@ -519,6 +535,9 @@ def _leer_config(
     umbrales = _leer_umbrales(datos.get("umbrales", {}), avisos)
     mutacion = _leer_mutacion(datos.get("mutacion", {}), avisos)
     sandbox = _leer_sandbox(datos.get("sandbox", {}), avisos)
+    sandbox_lenguajes = _leer_sandbox_lenguajes(
+        datos.get("sandbox", {}), sandbox, avisos
+    )
     agentes = _leer_agentes(
         datos.get("agentes", {}),
         avisos,
@@ -530,7 +549,14 @@ def _leer_config(
     if len(avisos) > antes:
         return None
     return Configuracion(
-        presupuesto, max_intentos, umbrales, agentes, mutacion, sandbox, explicador
+        presupuesto,
+        max_intentos,
+        umbrales,
+        agentes,
+        mutacion,
+        sandbox,
+        explicador,
+        sandbox_lenguajes,
     )  # type: ignore[arg-type]
 
 
@@ -674,26 +700,75 @@ def _leer_sandbox(tabla: Mapping[str, Any], avisos: list[str]) -> LimitesSandbox
     cpus = LIMITES_POR_DEFECTO.cpus
     if "cpus" in tabla:
         cpus = _numero(tabla, "cpus", "sandbox", avisos)  # type: ignore[assignment]
-    memoria = LIMITES_POR_DEFECTO.memoria
+    memoria, timeout = _memoria_y_tiempo(tabla, "sandbox", LIMITES_POR_DEFECTO, avisos)
+    if len(avisos) > antes:
+        return None
+    return LimitesSandbox(cpus=cpus, memoria=memoria, timeout_s=timeout)
+
+
+def _leer_sandbox_lenguajes(
+    tabla: Any, respaldo: LimitesSandbox | None, avisos: list[str]
+) -> dict[str, LimitesSandbox]:
+    """`[sandbox.<lenguaje>]`: memoria y `timeout_s` propios de un lenguaje (#169).
+
+    Lo que falte se toma de `[sandbox]`; los CPU son siempre los de `[sandbox]`
+    (`ajustar_cpus_a_docker` los recorta igual para todos). Un lenguaje desconocido
+    o un valor inválido deja un aviso, nunca una excepción.
+    """
+    if not isinstance(tabla, Mapping) or respaldo is None:
+        return {}
+    limites: dict[str, LimitesSandbox] = {}
+    for nombre, subtabla in tabla.items():
+        if not isinstance(subtabla, Mapping):
+            continue
+        seccion = f"sandbox.{nombre}"
+        if nombre not in LENGUAJES:
+            avisos.append(
+                f"[{seccion}] de config.toml no es un lenguaje conocido "
+                f"({', '.join(LENGUAJES)})."
+            )
+            continue
+        desconocidas = sorted(set(subtabla) - {"memoria", "timeout_s"})
+        if desconocidas:
+            avisos.append(
+                f"[{seccion}] solo admite memoria y timeout_s "
+                f"(sobra: {', '.join(desconocidas)})."
+            )
+            continue
+        antes = len(avisos)
+        memoria, timeout = _memoria_y_tiempo(subtabla, seccion, respaldo, avisos)
+        if len(avisos) == antes:
+            limites[nombre] = LimitesSandbox(
+                cpus=respaldo.cpus, memoria=memoria, timeout_s=timeout
+            )
+    return limites
+
+
+def _memoria_y_tiempo(
+    tabla: Mapping[str, Any],
+    seccion: str,
+    respaldo: LimitesSandbox,
+    avisos: list[str],
+) -> tuple[str, int]:
+    """Lee `memoria` y `timeout_s` de una sección; lo que falte sale de `respaldo`."""
+    memoria = respaldo.memoria
     if "memoria" in tabla:
         valor = tabla["memoria"]
         if isinstance(valor, str) and _MEMORIA_DOCKER.match(valor.strip()):
             memoria = valor.strip().lower()
         else:
             avisos.append(
-                "memoria en [sandbox] debe tener el formato de Docker: un entero y "
+                f"memoria en [{seccion}] debe tener el formato de Docker: un entero y "
                 'una unidad (b, k, m o g), p. ej. "512m" o "3g".'
             )
-    timeout = LIMITES_POR_DEFECTO.timeout_s
+    timeout = respaldo.timeout_s
     if "timeout_s" in tabla:
-        leido = _numero(tabla, "timeout_s", "sandbox", avisos)
+        leido = _numero(tabla, "timeout_s", seccion, avisos)
         if leido is not None and leido != int(leido):
-            avisos.append("timeout_s en [sandbox] debe ser un número entero.")
+            avisos.append(f"timeout_s en [{seccion}] debe ser un número entero.")
         elif leido is not None:
             timeout = int(leido)
-    if len(avisos) > antes:
-        return None
-    return LimitesSandbox(cpus=cpus, memoria=memoria, timeout_s=timeout)
+    return memoria, timeout
 
 
 def _leer_umbrales(tabla: Mapping[str, Any], avisos: list[str]) -> Umbrales | None:

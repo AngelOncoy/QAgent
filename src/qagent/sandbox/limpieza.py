@@ -3,7 +3,7 @@
 Cada ejecución borra su contenedor al terminar (`ejecucion._eliminar`), pero si la app se
 cierra de golpe a mitad de una corrida ese paso no llega a correr y el contenedor queda.
 Además, `preparar_imagen` guarda una imagen `qagent-sandbox:req-<hash>` por cada
-requirements.txt distinto; sirve de caché, pero cada una ocupa cientos de MB.
+requirements.txt distinto (y `node-<hash>` / `java-<hash>` en Node y Java, #169); sirve de caché, pero cada una ocupa cientos de MB.
 
 `limpiar_al_iniciar` resuelve las dos cosas al abrir la app. Nunca toca la imagen base ni
 contenedores sin la etiqueta del sandbox, y nunca lanza excepciones.
@@ -30,6 +30,8 @@ registro = logging.getLogger(__name__)
 RUTA_USOS = carpeta_usuario() / "imagenes_sandbox.json"
 #: Prefijo del tag de las imágenes derivadas por requirements.txt.
 PREFIJO_REQ = "req-"
+#: Prefijos de todas las imágenes derivadas por proyecto: Python, Node y Java (#169).
+PREFIJOS_DERIVADAS = (PREFIJO_REQ, "node-", "java-")
 #: Una imagen `req-` sin usar durante este tiempo se borra (se reconstruye si vuelve a hacer falta).
 DIAS_SIN_USO = 30
 #: Un contenedor del sandbox que sigue corriendo se considera huérfano pasado este tiempo.
@@ -165,8 +167,11 @@ def limpiar_al_iniciar(cliente: Any = None, ruta_usos: Path | None = None) -> di
 
 
 def _es_imagen_req(etiqueta: str) -> bool:
-    """True si la etiqueta es una imagen derivada `qagent-sandbox:req-…`."""
-    return etiqueta.startswith(f"{REPOSITORIO}:{PREFIJO_REQ}")
+    """True si la etiqueta es una imagen derivada (`req-…`, `node-…` o `java-…`)."""
+    return any(
+        etiqueta.startswith(f"{REPOSITORIO}:{prefijo}")
+        for prefijo in PREFIJOS_DERIVADAS
+    )
 
 
 def _segundos(fecha: Any) -> float | None:

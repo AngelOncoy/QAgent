@@ -8,6 +8,10 @@ from typing import Any
 
 REPOSITORIO = "qagent-sandbox"
 IMAGEN_BASE = f"{REPOSITORIO}:base"
+#: Imagen de JavaScript y TypeScript: Node LTS, Vitest, coverage-v8 y Stryker (#169).
+IMAGEN_NODE = f"{REPOSITORIO}:node"
+#: Imagen de Java: JDK, Maven, Gradle, JUnit 5, JaCoCo y PIT (#169).
+IMAGEN_JAVA = f"{REPOSITORIO}:java"
 #: Etiqueta Docker de los contenedores del sandbox (para encontrarlos y limpiarlos).
 ETIQUETA_CONTENEDOR = {"qagent": "sandbox"}
 
@@ -38,7 +42,8 @@ class LimitesSandbox:
         memoria: memoria máxima en formato Docker (ej. "3g"); también es el tope de swap.
         timeout_s: segundos máximos de ejecución antes de matar el contenedor.
 
-    Los valores por defecto se pueden cambiar en `[sandbox]` de config.toml.
+    Los valores por defecto se pueden cambiar en `[sandbox]` de config.toml; cada
+    lenguaje puede fijar su memoria y su tiempo en `[sandbox.<lenguaje>]` (#169).
     """
 
     cpus: float = 4.0

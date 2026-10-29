@@ -17,10 +17,15 @@ from typing import Any
 from tree_sitter import Node
 
 from qagent.analysis.analyzer import calcular_huella
-from qagent.lenguajes.base import AdaptadorEnDesarrollo, Estructura
+from qagent.lenguajes.base import AdaptadorEnDesarrollo, EntornoSandbox, Estructura
 from qagent.lenguajes.registro import listar_archivos
 from qagent.lenguajes.treesitter import extraer_errores_sintaxis, obtener_parser
+from qagent.sandbox.ejecucion import ARCHIVO_JUNIT, DIR_SALIDA, DIR_TESTS
 from qagent.sandbox.informe_pytest import JUnitInvalido, parsear_junit
+from qagent.sandbox.modelos import IMAGEN_JAVA
+
+#: Herramientas que trae ``qagent-sandbox:java`` (``sandbox/Dockerfile.java``).
+PAQUETES_JAVA = ("maven", "gradle", "junit-jupiter", "jacoco", "pitest")
 
 
 def _texto(nodo: Node | None) -> str | None:
@@ -169,6 +174,16 @@ class JavaAdapter(AdaptadorEnDesarrollo):
     marcadores = ("pom.xml", "build.gradle", "build.gradle.kts")
     frameworks_pruebas = ("junit5",)
     frameworks_app = ("spring",)
+
+    def entorno_sandbox(self) -> EntornoSandbox:
+        """Imagen ``qagent-sandbox:java`` (#169) y las carpetas comunes del sandbox."""
+        return EntornoSandbox(
+            imagen=IMAGEN_JAVA,
+            paquetes_base=PAQUETES_JAVA,
+            dir_tests=DIR_TESTS,
+            dir_salida=DIR_SALIDA,
+            informe=ARCHIVO_JUNIT,
+        )
 
     def interpretar_resultados(self, informe: str) -> dict[str, Any]:
         """Convierte el contenido XML de Surefire/JUnit en resultados comunes.
