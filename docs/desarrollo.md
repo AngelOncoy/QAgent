@@ -126,4 +126,4 @@ QAgent/
 └── test.py                 python test.py
 ```
 
-Dentro de cada proyecto que QAgent analiza se crea `.qagent/` con sus corridas, specs y pruebas aprobadas (EN-07).
+Dentro de cada proyecto que QAgent analiza se crea `.qagent/` con sus corridas, specs y pruebas aprobadas (EN-07). Las pruebas que detectan bugs se conservan aparte en `evidencias_bugs/<run_id>/`, con código, huella, firma y procedencia; nunca habilitan por sí solas la regresión de HU-25. Las comparaciones inmutables entre una corrida de origen y otra de verificación viven en `comparaciones/<run_verificacion>/` (#193). Todos estos JSON se escriben atómicamente en UTF-8 y las carpetas nuevas son aditivas, por lo que los proyectos históricos siguen siendo legibles.

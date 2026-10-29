@@ -132,7 +132,7 @@ flowchart TB
 | **Interfaz** | HTML, CSS, JS dentro de pywebview (carpeta `src/qagent/frontend/`, sin compilación; un componente por pantalla, ver ADR-003) | Pantallas: Bienvenida, Vista previa, Monitor en vivo, Ejecución, Reporte, Historial, Configuración | EN-08, HU-* |
 | **Backend** | Python 3.10+ | Análisis, orquestación, agentes, cálculo de métricas y costo. En el Sprint 2, también los adaptadores por lenguaje y el Explicador | EN-02 a EN-07, EN-14, EN-15, EN-17, EP-10 |
 | **Configuración** | TOML + variables de entorno | Modelos, precios, topes y reintentos (`config.toml`, se versiona); claves de API (`.env`, no se versiona) | EN-06 |
-| **Almacenamiento** | Archivos JSON | `.qagent/` dentro del proyecto analizado: corridas, specs, pruebas aprobadas. `~/.qagent/recientes.json`: proyectos recientes | EN-07, HU-01, HU-03 |
+| **Almacenamiento** | Archivos JSON | `.qagent/` dentro del proyecto analizado: corridas, specs, pruebas aprobadas, evidencias de bugs y comparaciones entre corridas. `~/.qagent/recientes.json`: proyectos recientes | EN-07, HU-01, HU-03, #193 |
 | **Sandbox** | Docker. Hoy: Python 3.11, pytest, coverage, mutmut, fastapi, httpx. Propuesto: una imagen por lenguaje (sección 7) | Ejecutar cada prueba aislada: `--network none`, `--rm`, 4 CPU (recortados a los de Docker), 3 GB, 120 s; configurables en `[sandbox]` | EN-03, EN-09, EN-15 |
 
 ---
@@ -198,7 +198,7 @@ El Sprint 2 agrega dos piezas, ambas fuera de la máquina de estados:
 | Analizador | `src/qagent/analysis/` | Análisis estático con tree-sitter: firmas, tipos, docstrings, ramas, rutas FastAPI, `llama_a`, SHA-256. | EN-02, EN-14, TA-16 |
 | Cliente LLM | `src/qagent/llm/` | Llama a la API del modelo de cada agente (o a la IA simulada) y registra el `usage`. | EN-05, EN-11 |
 | Sandbox | `src/qagent/sandbox/` | Prepara la imagen, copia el proyecto y ejecuta pytest, coverage y mutmut. | EN-03, EN-09 |
-| Almacenamiento | `src/qagent/almacenamiento/` | `AlmacenProyecto`: crea `.qagent/` y lee y escribe `runs/<run_id>/run.json`, `specs/`, `tests/` (pruebas aprobadas) y `mutacion/` (último Mutation Score por función, #70); `recientes.py`: `~/.qagent/recientes.json`. Escritura atómica en UTF-8. | EN-07, HU-01, HU-03 |
+| Almacenamiento | `src/qagent/almacenamiento/` | `AlmacenProyecto`: crea `.qagent/` y lee y escribe `runs/<run_id>/run.json`, `specs/`, `tests/` (solo pruebas aprobadas), `evidencias_bugs/<run_id>/` (#193), `comparaciones/<run_verificacion>/` (#193) y `mutacion/` (último Mutation Score por función, #70); `recientes.py`: `~/.qagent/recientes.json`. Escritura atómica en UTF-8. | EN-07, HU-01, HU-03, #193 |
 | Registro de corridas | `src/qagent/storage/` | `log.json` y `results.json` de cada corrida, validados contra `run_log.schema.json`. | EN-05 |
 | Configuración | `src/qagent/config/` | Carga `config.toml` y `.env`, audita las claves y verifica Docker y Git. | EN-06 |
 | Contratos | `src/qagent/contracts/` | JSON Schema de cada mensaje; se validan en cada paso. En el Sprint 2, versiones con lenguaje y framework (sección 9). | EN-01, EN-17 |
@@ -799,6 +799,8 @@ Los schemas completos van en `src/qagent/contracts/` y los valida `tests/test_co
 | `log.json` / `results.json` | Orquestador → `.qagent/` | modelos usados, perfil, llamadas con tokens por agente, costo, 5 métricas por función o endpoint | `run_log.schema.json` |
 | `explanation.v1` (EN-18, alineado con ADR-008; Agente Explicador propuesto) | Explicador → validación determinista → `explicaciones.json` → Informes | `version`, `objetivo`, `decision` (eco estricto de `results.json`), `resumen`, `que_se_esperaba`, `que_paso`, `que_hacer`, `origen` y `modelo`. No contiene campos para modificar veredictos ni relajar aserciones | `explanation.v1.schema.json` |
 | `explicaciones.json` (ADR-008) | Explicador → `.qagent/runs/<run_id>/explicaciones.json` | Contenedor de las explicaciones de la corrida (`explanation.v1`), persistido por separado de `results.json` | `explicaciones.schema.json` |
+| `bug_evidence.v1` (#193) | Orquestador → `.qagent/evidencias_bugs/<run_id>/<spec_id>.json` | Evidencia inmutable de una decisión `bug_detectado`: código exacto y su SHA-256, contrato Planner con `firma`, objetivo y corrida de origen. Se guarda separada de `tests/`, que sigue conteniendo solo pruebas aprobadas | `bug_evidence.v1.schema.json` |
+| `run_comparison.v1` (#193) | Comparador determinista → `.qagent/comparaciones/<run_verificacion>/<run_origen>.json` | Comparación por objetivo y prueba entre dos corridas: `corregido`, `sigue_fallando`, `regresion` o `no_comparable`. Un resultado concluyente exige la misma huella de prueba, la misma firma y veredictos confiables; `no_comparable` siempre conserva el motivo | `run_comparison.v1.schema.json` |
 
 **Origen del valor esperado (oráculo):** firma, tipos o docstring de una función (en JS/TS, JSDoc y tipos de TypeScript; en Java, Javadoc y tipos); o la declaración de la ruta (`response_model`, `status_code`, modelos Pydantic) de un endpoint. Nunca el resultado de ejecutar el código.
 
