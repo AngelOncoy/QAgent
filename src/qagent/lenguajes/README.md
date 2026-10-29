@@ -7,9 +7,13 @@ concreto. Decisión completa en `docs/decisiones/ADR-007-adaptadores-por-lenguaj
 
 | Archivo | Contenido | Estado |
 |---|---|---|
-| `base.py` | `LanguageAdapter`, `AdaptadorEnDesarrollo`, `Deteccion`, `EntornoSandbox`, `NoImplementado` | Estable |
-| `registro.py` | `Registro`, `listar_archivos` | Estable |
-| `python.py` | `PythonAdapter` (delega en el flujo actual) | Completo |
+| `base.py` | `LanguageAdapter`, `AdaptadorEnDesarrollo`, `Deteccion`, `EntornoSandbox`, `Clasificacion`, `ReglasPlanificacion`, `ReglasRevision`, `NoImplementado` | Estable |
+| `registro.py` | `Registro`, `listar_archivos`, `LenguajeNoSoportado` | Estable |
+| `python.py` | `PythonAdapter` (delega en los módulos `python_*`) | Completo |
+| `python_planificacion.py` | Prompts del Planner y filtros de casos de pytest y FastAPI (#168) | Completo |
+| `python_generacion.py` | Prompt del Generator: archivo pytest con el contexto del módulo (#168) | Completo |
+| `python_revision.py` | Sintaxis, oráculo y clasificación de la salida de pytest para el Reviewer (#168) | Completo |
+| `python_regresion.py` | Huellas de los objetivos y línea de cada función (#168) | Completo |
 | `javascript.py` | `JavaScriptAdapter`, `TypeScriptAdapter` | Solo detecta |
 | `java.py` | `JavaAdapter` | Detecta, analiza, valida sintaxis y lee JUnit XML (prototipo EN-19) |
 
@@ -31,6 +35,10 @@ adaptador.comando_pruebas("tienda.precios")
 
 # v2 -> PythonAdapter; v3 -> según "lenguaje".
 adaptador_de_contrato(contrato)
+
+# El de la corrida (#168): entre los lenguajes con adaptador completo, el de más
+# archivos fuente. Lanza LenguajeNoSoportado si solo hay lenguajes en desarrollo.
+adaptador_del_proyecto("ruta/al/proyecto")
 ```
 
 Contratos:
@@ -58,9 +66,26 @@ contracts.normalizar_planner(contrato_v2)  # copia en v3 (python + pytest)
 | `archivo_de_prueba(objetivo)` | nombre del archivo, sin carpetas | Valor de `archivo` en `generated_test.v2` (`test_generado.py`, `precios.test.ts`, `PreciosTest.java`). |
 | `comando_mutacion(modulo, funciones)` | `ComandoSandbox` (comando y variables de entorno) | Solo sobre funciones `critical: true`: mutmut, Stryker o PIT. |
 
+### Lo que usan los agentes (#168)
+
+El Planner, el Generator, el Reviewer, la regresión y la mutación son compartidos:
+todo lo del lenguaje se lo piden al adaptador. Estas operaciones no son abstractas;
+mientras falten, el adaptador hereda `completo = False` de `AdaptadorEnDesarrollo`,
+la corrida no lo usa y la app avisa que el lenguaje aún no se soporta. Al terminarlas,
+el lenguaje pone `completo = True`.
+
+| Operación | Qué devuelve | Notas |
+|---|---|---|
+| `reglas_planificacion()` | `ReglasPlanificacion`: `prompt_funciones`, `prompt_endpoints`, `preparar_caso`, `es_caso_trivial`, `motivo_limite_funcion`, `motivo_oraculo_funcion` y las de endpoints | Los prompts deben llevar `MARCA_MODULO` y `MARCA_OBJETIVOS` (los lee la IA simulada). Los filtros descartan casos sin IA. |
+| `prompt_generator(contrato, intento, feedback, ruta_proyecto)` | texto del prompt | `feedback` ya viene recortado; incluir `MARCA_CONTRATO`. |
+| `reglas_revision()` | `ReglasRevision`: `error_de_sintaxis`, `validar_oraculo`, `clasificar_salida` (→ `Clasificacion`), `rango_de_objetivo` | `clasificar_salida` devuelve `entorno`, `bug_respuesta`, `error_test` o `fallo_asercion`; el Reviewer decide igual para todos los lenguajes. |
+| `modulo_cobertura(modulo)` · `variables_pruebas()` | lo que recibe `comando_pruebas` · variables del contenedor | Por defecto, la misma ruta y ninguna variable. |
+| `huellas_de_archivo(fuente, ruta)` · `funciones_de_modulo(raiz, modulo)` | `objetivo -> huella` · `[{"nombre", "linea"}]` | Reutilización de specs (HU-24), regresión (HU-25) y mutación de `reg_deep`. |
+| `ejecutar_mutacion(...)` | `ResultadoMutacion` | Misma firma que `qagent.sandbox.ejecutar_mutacion`. |
+
 ## Cómo implementar un lenguaje
 
-1. Trabaja solo en tu archivo (`javascript.py` o `java.py`) y en `tests/lenguajes/`.
+1. Trabaja solo en tus archivos (`javascript.py` o `java.py`, y sus módulos `<lenguaje>_*` si los necesitas, como los de Python) y en `tests/lenguajes/`.
 2. Reemplaza los métodos de `AdaptadorEnDesarrollo` **uno por uno**; los que falten siguen lanzando `NoImplementado`.
 3. `analizar` debe devolver objetivos cuyo `objetivo` cumpla el contrato v3: un nombre (`calcularDescuento`, `Precios.calcular`) o `MÉTODO /ruta` para endpoints.
 4. El parser es **tree-sitter** (decisión de SPK-04, ver ADR-007, sección 3): úsalo para `analizar` y para `validar_sintaxis` (nodos `ERROR` del árbol). Su dependencia y la gramática de tu lenguaje se agregan a `pyproject.toml` en tu tarea. Python ya usa tree-sitter (TA-16): su parser y sus utilidades están en `qagent/analysis/arbol_ts.py` y `texto_ts.py`.

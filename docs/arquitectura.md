@@ -202,7 +202,7 @@ El Sprint 2 agrega dos piezas, ambas fuera de la máquina de estados:
 | Registro de corridas | `src/qagent/storage/` | `log.json` y `results.json` de cada corrida, validados contra `run_log.schema.json`. | EN-05 |
 | Configuración | `src/qagent/config/` | Carga `config.toml` y `.env`, audita las claves y verifica Docker y Git. | EN-06 |
 | Contratos | `src/qagent/contracts/` | JSON Schema de cada mensaje; se validan en cada paso. En el Sprint 2, versiones con lenguaje y framework (sección 9). | EN-01, EN-17 |
-| Adaptadores por lenguaje | `src/qagent/lenguajes/` | Interfaz `LanguageAdapter` y registro: detección del lenguaje, análisis estático, comando de pruebas, entorno del sandbox, lectura de resultados y guardrail de aserciones. Python completo (delega en el código actual); JS/TS y Java solo detectan por ahora. | EN-17, EP-11a, EP-12a · ADR-007, ADR-009 |
+| Adaptadores por lenguaje | `src/qagent/lenguajes/` | Interfaz `LanguageAdapter` y registro: detección del lenguaje, análisis estático, comando de pruebas, entorno del sandbox, lectura de resultados, guardrail de aserciones y, desde #168, los prompts, filtros y reglas de revisión que usan los agentes. La corrida elige el adaptador con `adaptador_del_proyecto()`. Python completo; JS/TS y Java todavía no son completos y la app avisa que su lenguaje aún no se soporta. | EN-17, #168, EP-11a, EP-12a · ADR-007, ADR-009 |
 | Explicador (propuesto) | por definir en EP-10 | Explica en lenguaje simple los objetivos que no terminaron en `accept`, con plantillas deterministas y un LLM opcional. | EP-10 · ADR-008 |
 
 ### Reglas de dependencia
@@ -402,9 +402,8 @@ Deuda conocida: `config` y `llm` se importan mutuamente (`llm/fabrica.py` lo res
 | Recorrer los módulos en orden topológico por `llama_a`. Hoy `ejecutar_corrida()` recorre todos los módulos seleccionados, en el orden del análisis. | `orchestrator/corrida.py` | Sección 6.4, regla 3 |
 | Tope de gasto antes de cada llamada al LLM. Hoy `ejecutar_corrida()` corta antes del siguiente módulo si se alcanzó el tope de `config.toml`, y el orquestador aplica el límite de tokens antes de cada objetivo y reintento. | `orchestrator/corrida.py`, `orchestrator/orquestador.py` | Sección 6.3 |
 | Corte por causa común entre objetivos distintos. Hoy el hash repetido se detecta solo dentro de un mismo objetivo. | `decidir_corte()` | Sección 6.4, regla 4 |
-| Conectar el registro de adaptadores a la corrida: hoy `ejecutar_corrida()` llama directamente a `analizar_proyecto()`. | `orchestrator/corrida.py` | EN-17, ADR-007 |
 
-Ya resueltos desde la primera versión de este documento: la corrida está conectada (`DesktopAPI.start_run` → `ejecutar_corrida()`) y la caché de specs por huella del módulo existe en `.qagent/specs/` (HU-24).
+Ya resueltos desde la primera versión de este documento: la corrida está conectada (`DesktopAPI.start_run` → `ejecutar_corrida()`), la caché de specs por huella del módulo existe en `.qagent/specs/` (HU-24) y la corrida pide el adaptador al registro y usa `planner_contract.v3` (#168).
 
 ---
 
@@ -416,9 +415,8 @@ Cada función o endpoint seleccionado pasa por estas etapas, en **orden de depen
 
 ```mermaid
 flowchart LR
-    A["1 · Abrir proyecto<br/>HU-01 · HU-02<br/>(0 tokens)"] -.-> L["Detectar lenguaje y<br/>elegir adaptador<br/>propuesto · ADR-007<br/>(0 tokens)"]
-    L -.-> B["2 · Análisis estático<br/>tree-sitter (Python, JS/TS, Java)<br/>EN-02 · EN-14 · ADR-009<br/>(0 tokens)"]
-    A --> B
+    A["1 · Abrir proyecto<br/>HU-01 · HU-02<br/>(0 tokens)"] --> L["Detectar lenguaje y<br/>elegir adaptador<br/>#168 · ADR-007<br/>(0 tokens)"]
+    L --> B["2 · Análisis estático<br/>tree-sitter (Python, JS/TS, Java)<br/>EN-02 · EN-14 · ADR-009<br/>(0 tokens)"]
     B --> T{"¿Tipo?"}
     T -->|función| C
     T -->|endpoint FastAPI| C
@@ -438,7 +436,7 @@ flowchart LR
     R -.->|"no cancelada, con presupuesto<br/>y Explicador activo"| X["8 · Explicador · propuesto<br/>explicaciones.json<br/>(0 tokens con plantilla,<br/>tokens bajos con LLM)"]
 ```
 
-Hoy el paso 1 va directo al análisis de Python con tree-sitter (TA-16). Con los adaptadores, el registro detecta el lenguaje del proyecto y el análisis, el comando de pruebas y la imagen del sandbox salen del adaptador elegido. El resto del pipeline es el mismo para todos los lenguajes.
+Desde #168 el registro detecta el lenguaje del proyecto (`adaptador_del_proyecto()`) y el análisis, los prompts, el comando de pruebas, la lectura de resultados y de la cobertura y el guardrail salen del adaptador elegido. El resto del pipeline es el mismo para todos los lenguajes. Si el proyecto solo tiene lenguajes cuyo adaptador aún no es completo, la app lo avisa al iniciar, sin gastar tokens.
 
 | Etapa | Qué produce | Métrica que alimenta |
 |---|---|---|
@@ -790,7 +788,7 @@ Los schemas completos van en `src/qagent/contracts/` y los valida `tests/test_co
 |---|---|---|---|
 | `estructura.json` | Analizador (o adaptador del lenguaje) → Orquestador / Planner | módulos; funciones (firma, tipos, docstring, n.º de ramas, `llama_a`); endpoints FastAPI (método, ruta, `response_model`, `status_code`, modelo del body); SHA-256 por módulo. Propuesto: campo `lenguaje`, con la misma forma para todos los lenguajes (ADR-009) | salida de EN-02 / EN-14 |
 | `planner_contract.v2` | Planner → Generator (vía orquestador) | módulo, `tipo` (`funcion` \| `endpoint`), función o ruta, firma, `critical`, casos: [id, entrada, valor esperado, origen del valor esperado]. En funciones Python, `tipo_valor_esperado: "tuple"` conserva la semántica de una tupla serializada como array; si falta, sigue siendo lista (#145) | `planner_contract.v2.schema.json` |
-| `planner_contract.v3` (EN-17) | mismo recorrido que v2 | v2 + `lenguaje`, `framework_pruebas` y `framework_app`, con las combinaciones válidas por lenguaje. Un v2 se convierte en memoria sin perder la metadata de tupla; las specs guardadas y el flujo de Python siguen en v2 | `planner_contract.v3.schema.json` |
+| `planner_contract.v3` (EN-17) | mismo recorrido que v2 | v2 + `lenguaje`, `framework_pruebas` y `framework_app`, con las combinaciones válidas por lenguaje. Un v2 se convierte en memoria sin perder la metadata de tupla. Desde #168 el Planner produce v3 y las specs nuevas se guardan en v3; las v2 guardadas se siguen leyendo sin migrarlas | `planner_contract.v3.schema.json` |
 | `oracle.v1` (EN-18) | documentación JS/TS → validación determinista → futuro Planner JS/TS | lenguaje, objetivo, entrada, comprobación, estado de evidencia y procedencia verificable. El schema valida la forma y una capa determinista contrasta la evidencia con un registro confiable | `oracle.v1.schema.json` |
 | `generated_test` | Generator → Reviewer (vía orquestador) | función o ruta, intento, código pytest, ids de casos cubiertos | `generated_test.schema.json` |
 | `generated_test.v2` (EN-17) | mismo recorrido que v1 | v1 + `lenguaje`, `framework_pruebas` y `archivo` del test | `generated_test.v2.schema.json` |
@@ -972,7 +970,7 @@ Responsables sugeridos en el plan del Sprint 2, a confirmar en el Sprint Plannin
 | Integrar `explanation.v1` con el futuro Agente Explicador y su persistencia separada (`explicaciones.json`); contrato y schema alineados con ADR-008 (**Resuelto**) | Rodríguez Malca, Rodrigo | ADR-008 · EN-18 · EP-10 |
 | Si el Explicador propone parches y el orquestador los verifica en el sandbox (necesita su propia decisión) | Rodríguez Malca, Rodrigo, con el equipo | ADR-008 |
 | Medir el Explicador con un LLM real (tokens, costo, latencia y calidad) antes de activarlo por defecto | Rodríguez Malca, Rodrigo y Sanchez Vargas, Adrián | ADR-008, paso 5 |
-| Conectar el registro de adaptadores a la corrida y usar `planner_contract.v3` en el flujo | Oncoy Patricio, Angel | ADR-007 |
+| Conectar el registro de adaptadores a la corrida y usar `planner_contract.v3` en el flujo (**Resuelto**, #168) | Oncoy Patricio, Angel | ADR-007 |
 | Agregar tree-sitter y las gramáticas de JS/TS; analizador y guardrail de `expect` | Castillo Pezo, Mateo | ADR-009 · EP-11a |
 | Adaptador de Java completo y banco equivalente en los 3 lenguajes (brecha B5) | Nuevo integrante | ADR-009 · EP-12a |
 | Imágenes `node` y `java` del sandbox y límites de memoria y tiempo por lenguaje (**Resuelto**, #169); falta `navegador` con EP-13b | Sanchez Vargas, Adrián | Sección 7 |
