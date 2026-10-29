@@ -1,7 +1,7 @@
 ---
 name: "Nueva Tarea"
-about: Plantilla para documentar issues de forma clara con contexto técnico para desarrolladores e IA
-title: "Feat:/Fix:/Refactor:/Docs:/Style:"
+about: "Tarea, historia, enabler, spike o bug. Título: TIPO - Título, sin número (HU, EN, SPK, TA, FIX, BU, DO, EV). Si pertenece a una épica, agrégala como sub-issue."
+title: "TA - "
 labels: "TA"
 assignees: ""
 ---

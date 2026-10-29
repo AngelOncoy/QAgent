@@ -11,17 +11,19 @@ Un informe por tarea terminada, en `docs/evidencias/`, en español, con un forma
 
 - **Un `.md` por tarea.** Cinco issues terminadas = cinco archivos. Si la tarea es una épica, su informe resume las sub-issues y enlaza a sus informes.
 - **En `docs/evidencias/` solo van `.md`.** Nada de carpetas `img/`, scripts, JSON ni tests generados. La carpeta está en `.gitignore`: los informes no se suben a git, se suben a Notion. Nunca hagas commit de esa carpeta.
-- **Nombre del archivo = título del informe**, por ejemplo `FIX-### - Recuperar la opción Humo en la pantalla Preparar.md`.
-- **Título:** `<TIPO>-<NN> - <Título en español>`.
-  - `<TIPO>`: `HU`, `EN`, `SPK`, `TA`, `FIX`, `DOC`, `BU`, `EV`… según el ítem.
-  - `<NN>`: el número **del backlog** si lo tiene (por ejemplo `HU-24`, `EN-07`, `FIX-01`). Si no tiene número de backlog (solo issue de GitHub), usa `###` para que el equipo lo complete: `FIX-### - …`. El número de la issue de GitHub va en la línea de datos, no en el título.
+- **Nombre del archivo = título del informe**, por ejemplo `FIX - Recuperar la opción Humo en la pantalla Preparar.md`.
+- **Título:** `<TIPO> - <Título en español>`, el mismo título del issue de GitHub y de su fila en el backlog de Notion.
+  - `<TIPO>`: `HU`, `EN`, `SPK`, `TA`, `FIX`, `DO`, `BU`, `EV`… según el ítem.
+  - **Las tareas no llevan número:** con tanto ítem nuevo, la numeración se pierde. Se identifican por su issue de GitHub (`#203`), que va en la línea de datos, no en el título.
+  - **Solo las épicas van numeradas:** `EP-<NN> · <Título>`, por ejemplo `EP-14 · Verificar correcciones con las mismas pruebas`.
+  - Los ítems antiguos que ya tenían número (`HU-24`, `EN-07`…) pueden citarse así en el texto, pero los informes nuevos no lo usan en el título.
 - **Sin firmas de IA:** nada de «Generado con…», «Co-Authored-By» ni menciones a la IA como autora. El autor es quien entrega la tarea.
 - **No hay sección «Pendiente» ni «Otra tarea».** Lo que quedó para después se nombra dentro de *Imprevistos* (si surgió al trabajar) o no va.
 - Escribe para alguien que no vio el trabajo: frases cortas, sin jerga inventada, con los nombres reales de pantallas, archivos y corridas.
 
 ## Pasos
 
-1. **Identifica la tarea:** tipo, número de backlog (o `###`), número de issue de GitHub, épica, rama y PR. Si falta algo que no puedas averiguar (`git log`, `git branch`, el texto de la issue), pon `—` en vez de inventarlo.
+1. **Identifica la tarea:** tipo, número de issue de GitHub, épica (`EP-NN` y su issue), rama y PR. Si falta algo que no puedas averiguar (`git log`, `git branch`, el texto de la issue), pon `—` en vez de inventarlo.
 2. **Reúne la evidencia real:**
    - el texto y los criterios de la issue;
    - los commits y el diff de la tarea (`git log --oneline develop..HEAD`, `git show --stat <commit>`);
@@ -60,5 +62,5 @@ El script reemplaza cada `![…](ruta-local)` por la imagen dentro del `.md` (ba
 ## Referencia rápida de la línea de datos
 
 ```markdown
-**Issue:** #133 · **Épica:** FIX-01 (#126) · **Rama:** fix/issue-133-humo-preparar · **PR:** #134 · **Fecha:** 2026-10-26
+**Issue:** #194 · **Épica:** EP-14 (#198) · **Rama:** feat/194-verificar-correccion · **PR:** #205 · **Fecha:** 2026-10-30
 ```

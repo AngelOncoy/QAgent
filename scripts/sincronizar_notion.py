@@ -9,7 +9,9 @@ si existe, actualiza solo lo que viene de GitHub:
 - Responsable, solo si alguna persona asignada en GitHub está en ``EQUIPO``.
 - Épica y Tipo PBI, si el issue es sub-issue de una épica que ya tiene fila.
 - Status: al crear, «Open» o «Closed» según el issue; después solo cambia al cerrar o
-  reabrir, para no pisar «Doing» o «En revision» puestos a mano.
+  reabrir (o si está vacío), para no pisar «Doing» o «En revision» puestos a mano.
+- Épicas: una épica nueva de la plantilla («EP - Título», etiqueta «Epic History») recibe
+  el número siguiente en GitHub («EP-16 - Título») antes de crear su fila.
 - Fecha Inicio al crear; Fecha Fin al cerrar (y se borra si el issue se reabre).
 
 De una fila que ya existe y cuyo issue está cerrado solo se actualizan Status y Fecha Fin:
@@ -47,6 +49,7 @@ EQUIPO = {
     "bel001": "3cfd872b-594c-8149-9e73-0002d00c43f5",
     "Mateo-SV": "2a7d872b-594c-811d-a42e-00027eb67276",
     "Cronos7898": "3cfd872b-594c-81c4-9327-0002d5d9b89c",
+    "AlejoCY": "25dd872b-594c-8139-81bd-0002cd08c858",
 }
 
 TIPOS = ("HU", "EN", "SPK", "TA", "BU", "FIX", "DO", "EV")
@@ -93,6 +96,19 @@ def numero_de_epica(titulo: str) -> int | None:
     """Número de una épica a partir de su título («EP-12 - Java» → 12)."""
     m = re.match(r"\s*EP-?(\d+)", titulo, re.IGNORECASE)
     return int(m.group(1)) if m else None
+
+
+def epica_sin_numero(titulo: str) -> bool:
+    """True si el título es de la plantilla de épica sin número («EP - Algo»)."""
+    return re.match(r"\s*EP\b(?!\s*-?\s*\d)", titulo, re.IGNORECASE) is not None
+
+
+def numerar_epica(titulo: str, titulos_epicas: list[str]) -> str:
+    """Pone el número siguiente a una épica nueva: «EP - Algo» → «EP-16 - Algo»."""
+    usados = [n for n in map(numero_de_epica, titulos_epicas) if n is not None]
+    siguiente = max(usados, default=0) + 1
+    resto = re.sub(r"^\s*EP\b\s*[-—:·.]*\s*", "", titulo, flags=re.IGNORECASE)
+    return f"EP-{siguiente} - {resto.strip()}"
 
 
 def a_markdown(cuerpo: str) -> str:
@@ -183,9 +199,12 @@ def propiedades(
         # Una fila cerrada ya existente puede tener texto escrito a mano (Sprint 1):
         # solo se actualizan su estado y su fecha de cierre.
         props = {}
-    if cerrado and status != CERRADO:
+    if not status:
+        # Fila sin estado (por ejemplo, una épica creada a mano): se toma del issue.
+        props["Status"] = {"select": {"name": CERRADO if cerrado else ABIERTO}}
+    elif cerrado and status != CERRADO:
         props["Status"] = {"select": {"name": CERRADO}}
-    if not cerrado and status == CERRADO:
+    elif not cerrado and status == CERRADO:
         props["Status"] = {"select": {"name": ABIERTO}}
     if cerrado and not fin:
         props["Fecha Fin"] = {"date": fecha(issue["closedAt"])}
@@ -262,6 +281,26 @@ def issues_recientes(dueno: str, repo: str, dias: int) -> list[dict[str, Any]]:
         cursor = datos["pageInfo"]["endCursor"]
 
 
+def titulos_de_epicas(dueno: str, repo: str) -> list[str]:
+    """Títulos de todos los issues con la etiqueta de épica (abiertos y cerrados)."""
+    consulta = (
+        "query($o:String!,$r:String!,$e:[String!]){repository(owner:$o,name:$r)"
+        "{issues(first:100,labels:$e){nodes{title}}}}"
+    )
+    datos = github(consulta, {"o": dueno, "r": repo, "e": [ETIQUETA_EPICA]})
+    return [i["title"] for i in datos["repository"]["issues"]["nodes"]]
+
+
+def renombrar_issue(dueno: str, repo: str, numero: int, titulo: str) -> None:
+    _pedir(
+        f"https://api.github.com/repos/{dueno}/{repo}/issues/{numero}",
+        os.environ["GITHUB_TOKEN"],
+        {"title": titulo},
+        "PATCH",
+        {"Accept": "application/vnd.github+json"},
+    )
+
+
 def notion(ruta: str, datos: Any = None, metodo: str = "POST") -> Any:
     return _pedir(
         f"{NOTION_API}/{ruta}",
@@ -333,7 +372,18 @@ def main(argumentos: list[str] | None = None) -> int:
     base = os.environ["NOTION_DATABASE_ID"]
     sprint = os.environ.get("SPRINT_ACTUAL", "Sprint 2")
     if args.issue:
-        issues = [issue_de_github(dueno, repo, args.issue)]
+        issue = issue_de_github(dueno, repo, args.issue)
+        etiquetas = [e["name"] for e in issue["labels"]["nodes"]]
+        if ETIQUETA_EPICA in etiquetas and epica_sin_numero(issue["title"]):
+            # Épica nueva desde la plantilla: se le pone el número siguiente.
+            nuevo = numerar_epica(issue["title"], titulos_de_epicas(dueno, repo))
+            if args.en_seco:
+                print(f"[en seco] renombrar #{issue['number']}: {nuevo}")
+            else:
+                renombrar_issue(dueno, repo, issue["number"], nuevo)
+                print(f"renombrar #{issue['number']}: {nuevo}")
+            issue["title"] = nuevo
+        issues = [issue]
     else:
         issues = issues_recientes(dueno, repo, args.dias)
     # Las épicas van primero para que sus sub-issues las encuentren al enlazarse.
