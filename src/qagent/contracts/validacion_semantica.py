@@ -17,9 +17,70 @@ from qagent.contracts import (
     EXPLANATION_V1,
     EXPLICACIONES,
     ORACLE_V1,
+    RUN_COMPARISON_V1,
     ContratoInvalido,
     validar,
 )
+
+
+def validar_comparacion(dato: dict[str, Any]) -> dict[str, Any]:
+    """Valida coherencia y trazabilidad de un ``run_comparison.v1`` (#193).
+
+    JSON Schema comprueba vocabulario y combinaciones de veredictos. Aquí se
+    comprueba lo que el schema no puede expresar: ids distintos, referencias a los
+    dos resultados, misma prueba y misma firma para estados comparables.
+    """
+    validar(RUN_COMPARISON_V1, dato)
+    origen = dato["run_origen_id"]
+    verificacion = dato["run_verificacion_id"]
+    errores: list[str] = []
+    if origen == verificacion:
+        errores.append("run_verificacion_id: debe ser distinto de run_origen_id")
+
+    referencia_origen = f"runs/{origen}/results.json"
+    referencia_verificacion = f"runs/{verificacion}/results.json"
+    identidades: set[tuple[str, str]] = set()
+    for indice, comparacion in enumerate(dato["comparaciones"]):
+        prefijo = f"comparaciones/{indice}"
+        objetivo = comparacion["objetivo"]
+        identidad = (objetivo["modulo"], objetivo["nombre"])
+        if identidad in identidades:
+            errores.append(f"{prefijo}/objetivo: está duplicado")
+        identidades.add(identidad)
+        prueba = comparacion["prueba"]
+        if prueba["run_origen_id"] != origen:
+            errores.append(
+                f"{prefijo}/prueba/run_origen_id: no coincide con la corrida de origen"
+            )
+        anterior = comparacion["estado_anterior"]
+        posterior = comparacion["estado_posterior"]
+        if anterior["referencia_resultado"] != referencia_origen:
+            errores.append(
+                f"{prefijo}/estado_anterior/referencia_resultado: no apunta al resultado de origen"
+            )
+        if (
+            posterior["referencia_resultado"] is not None
+            and posterior["referencia_resultado"] != referencia_verificacion
+        ):
+            errores.append(
+                f"{prefijo}/estado_posterior/referencia_resultado: no apunta al resultado de verificación"
+            )
+        if comparacion["resultado"] != "no_comparable":
+            if prueba["huella_verificacion"] != prueba["huella_origen"]:
+                errores.append(
+                    f"{prefijo}/prueba: una comparación concluyente exige la misma prueba"
+                )
+            if comparacion["firma_verificacion"] != comparacion["firma_origen"]:
+                errores.append(
+                    f"{prefijo}/firma_verificacion: una comparación concluyente exige la misma firma"
+                )
+            if posterior["referencia_resultado"] is None:
+                errores.append(
+                    f"{prefijo}/estado_posterior/referencia_resultado: es obligatoria para una comparación concluyente"
+                )
+    if errores:
+        raise ContratoInvalido(RUN_COMPARISON_V1, errores)
+    return dato
 
 
 def validar_oraculo_js_ts(

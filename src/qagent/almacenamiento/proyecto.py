@@ -10,6 +10,7 @@ Estructura::
         specs/<modulo>.spec.json  plan completo y huella para reutilización (HU-24)
         tests/test_*.py     solo las pruebas aprobadas
         evidencias_bugs/<run_id>/<id>.json  prueba, spec y procedencia de cada bug
+        comparaciones/<run_verificacion>/<run_origen>.json  estados antes/después
         mutacion/<id>.json  último Mutation Score de una función crítica, con las huellas
                             de la función y de su prueba, para reutilizarlo (#70)
 
@@ -180,7 +181,7 @@ class AlmacenProyecto:
         raiz: carpeta del proyecto del usuario.
         carpeta: `<raiz>/.qagent`.
         carpeta_runs, carpeta_specs, carpeta_tests, carpeta_evidencias_bugs,
-            carpeta_mutacion: subcarpetas de `carpeta`.
+            carpeta_comparaciones, carpeta_mutacion: subcarpetas de `carpeta`.
     """
 
     def __init__(self, ruta_proyecto: str | Path) -> None:
@@ -191,6 +192,7 @@ class AlmacenProyecto:
         self.carpeta_specs = self.carpeta / "specs"
         self.carpeta_tests = self.carpeta / "tests"
         self.carpeta_evidencias_bugs = self.carpeta / "evidencias_bugs"
+        self.carpeta_comparaciones = self.carpeta / "comparaciones"
         self.carpeta_mutacion = self.carpeta / "mutacion"
 
     def existe(self) -> bool:
@@ -211,6 +213,7 @@ class AlmacenProyecto:
             self.carpeta_specs,
             self.carpeta_tests,
             self.carpeta_evidencias_bugs,
+            self.carpeta_comparaciones,
         ):
             carpeta.mkdir(parents=True, exist_ok=True)
         gitignore = self.carpeta / ".gitignore"
@@ -849,6 +852,86 @@ class AlmacenProyecto:
         if not isinstance(evidencia_id, str) or not PATRON_ID.fullmatch(evidencia_id):
             raise ErrorAlmacen(f"id de evidencia no válido: {evidencia_id!r}")
         return self.carpeta_evidencias_bugs / run_id / f"{evidencia_id}.json"
+
+    # --- Comparaciones entre corridas (#193) ---------------------------------------
+
+    def guardar_comparacion(self, comparacion: dict[str, Any]) -> dict[str, Any]:
+        """Valida y persiste una comparación sin alterar las corridas originales.
+
+        Exige que ambas corridas y sus ``results.json`` existan en este proyecto. El
+        registro es inmutable e idempotente para el mismo par origen/verificación.
+        """
+        contracts.validar_comparacion(comparacion)
+        origen = comparacion["run_origen_id"]
+        verificacion = comparacion["run_verificacion_id"]
+        self._validar_referencias_comparacion(origen, verificacion)
+        ruta = self._ruta_comparacion(origen, verificacion)
+        if ruta.is_file():
+            anterior = self.leer_comparacion(origen, verificacion)
+            if anterior != comparacion:
+                raise ErrorAlmacen(
+                    "La comparación existente no coincide con el nuevo contenido; "
+                    "se conservan los resultados originales."
+                )
+            return anterior
+        self.inicializar()
+        escribir_json_atomico(ruta, comparacion)
+        return comparacion
+
+    def leer_comparacion(
+        self, run_origen_id: str, run_verificacion_id: str
+    ) -> dict[str, Any]:
+        """Lee y valida una comparación persistida."""
+        ruta = self._ruta_comparacion(run_origen_id, run_verificacion_id)
+        comparacion = leer_json_objeto(ruta)
+        try:
+            contracts.validar_comparacion(comparacion)
+        except contracts.ContratoInvalido as exc:
+            raise DatoCorrupto(f"{ruta}: {exc}") from exc
+        if (
+            comparacion["run_origen_id"] != run_origen_id
+            or comparacion["run_verificacion_id"] != run_verificacion_id
+        ):
+            raise DatoCorrupto(f"{ruta}: las corridas no coinciden con su ubicación.")
+        return comparacion
+
+    def listar_comparaciones(self, run_id: str | None = None) -> list[dict[str, Any]]:
+        """Lista comparaciones válidas; opcionalmente filtra por cualquiera de sus runs."""
+        if not self.carpeta_comparaciones.is_dir():
+            return []
+        comparaciones = []
+        for carpeta in sorted(self.carpeta_comparaciones.iterdir(), key=_nombre):
+            if not carpeta.is_dir() or not PATRON_RUN_ID.match(carpeta.name):
+                continue
+            for ruta in sorted(carpeta.glob("*.json"), key=_nombre):
+                try:
+                    dato = self.leer_comparacion(ruta.stem, carpeta.name)
+                except ErrorAlmacen:
+                    continue
+                if run_id is None or run_id in (
+                    dato["run_origen_id"],
+                    dato["run_verificacion_id"],
+                ):
+                    comparaciones.append(dato)
+        return comparaciones
+
+    def _ruta_comparacion(self, run_origen_id: str, run_verificacion_id: str) -> Path:
+        self.carpeta_run(run_origen_id)
+        self.carpeta_run(run_verificacion_id)
+        return (
+            self.carpeta_comparaciones / run_verificacion_id / f"{run_origen_id}.json"
+        )
+
+    def _validar_referencias_comparacion(
+        self, run_origen_id: str, run_verificacion_id: str
+    ) -> None:
+        for run_id in (run_origen_id, run_verificacion_id):
+            self.leer_run(run_id)
+            resultados = self.carpeta_run(run_id) / ARCHIVO_RESULTADOS
+            if not resultados.is_file():
+                raise DatoNoEncontrado(
+                    f"La corrida {run_id} no tiene {ARCHIVO_RESULTADOS}."
+                )
 
     # --- Pruebas aprobadas ----------------------------------------------------------
 

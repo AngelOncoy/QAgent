@@ -29,6 +29,7 @@ ORACLE_V1 = "oracle.v1"
 EXPLANATION_V1 = "explanation.v1"
 EXPLICACIONES = "explicaciones"
 BUG_EVIDENCE_V1 = "bug_evidence.v1"
+RUN_COMPARISON_V1 = "run_comparison.v1"
 CONTRATOS = (
     PLANNER,
     GENERATED_TEST,
@@ -41,6 +42,7 @@ CONTRATOS = (
     EXPLANATION_V1,
     EXPLICACIONES,
     BUG_EVIDENCE_V1,
+    RUN_COMPARISON_V1,
 )
 
 #: Familias de contratos versionados: valor del campo `version` -> contrato.
@@ -49,12 +51,14 @@ FAMILIA_GENERATED_TEST = "generated_test"
 FAMILIA_ORACLE = "oracle"
 FAMILIA_EXPLANATION = "explanation"
 FAMILIA_BUG_EVIDENCE = "bug_evidence"
+FAMILIA_RUN_COMPARISON = "run_comparison"
 VERSIONES: dict[str, dict[str, str]] = {
     FAMILIA_PLANNER: {"2": PLANNER, "3": PLANNER_V3},
     FAMILIA_GENERATED_TEST: {"1": GENERATED_TEST, "2": GENERATED_TEST_V2},
     FAMILIA_ORACLE: {"1": ORACLE_V1},
     FAMILIA_EXPLANATION: {"1": EXPLANATION_V1},
     FAMILIA_BUG_EVIDENCE: {"1": BUG_EVIDENCE_V1},
+    FAMILIA_RUN_COMPARISON: {"1": RUN_COMPARISON_V1},
 }
 
 #: Lenguajes que pueden aparecer en un contrato (EN-17) y sus frameworks válidos.
@@ -256,6 +260,9 @@ def _formatear(ruta: Any, mensaje: str) -> str:
 # Validaciones que necesitan contrastar el contrato con registros confiables.
 # Se importan al final para que el módulo auxiliar pueda reutilizar las constantes y
 # ContratoInvalido sin crear una dependencia circular durante la inicialización.
+from qagent.contracts.validacion_semantica import (
+    validar_comparacion as validar_comparacion,
+)
 from qagent.contracts.validacion_semantica import (
     validar_explicacion as validar_explicacion,
 )

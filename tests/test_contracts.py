@@ -22,6 +22,7 @@ from qagent.contracts import (
     PLANNER,
     PLANNER_V3,
     REVIEW_RESULT,
+    RUN_COMPARISON_V1,
     RUN_LOG,
     ContratoInvalido,
     cargar_schema,
@@ -63,6 +64,7 @@ EJEMPLOS = [
     (EXPLANATION_V1, EXPLANATION_V1),
     (EXPLICACIONES, EXPLICACIONES),
     (BUG_EVIDENCE_V1, BUG_EVIDENCE_V1),
+    (RUN_COMPARISON_V1, RUN_COMPARISON_V1),
 ]
 
 

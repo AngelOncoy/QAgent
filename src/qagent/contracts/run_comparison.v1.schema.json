@@ -1,0 +1,135 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "run_comparison.v1.schema.json",
+  "title": "run_comparison.v1",
+  "description": "#193. Comparación determinista, por objetivo, entre una corrida de origen y una verificación posterior.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "run_origen_id", "run_verificacion_id", "creado", "comparaciones"],
+  "properties": {
+    "version": { "const": "1" },
+    "run_origen_id": { "$ref": "#/$defs/run_id" },
+    "run_verificacion_id": { "$ref": "#/$defs/run_id" },
+    "creado": { "type": "string", "minLength": 1 },
+    "comparaciones": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/comparacion" }
+    }
+  },
+  "$defs": {
+    "run_id": { "type": "string", "pattern": "^\\d{8}-\\d{6}-[0-9a-f]{4}$" },
+    "objetivo": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["modulo", "nombre", "tipo"],
+      "properties": {
+        "modulo": { "type": "string", "minLength": 1 },
+        "nombre": { "type": "string", "minLength": 1 },
+        "tipo": { "enum": ["funcion", "endpoint"] }
+      }
+    },
+    "prueba": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "archivo", "run_origen_id", "huella_origen", "huella_verificacion"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]*$" },
+        "archivo": { "type": "string", "pattern": "^test_[A-Za-z0-9_]+\\.py$" },
+        "run_origen_id": { "$ref": "#/$defs/run_id" },
+        "huella_origen": { "$ref": "#/$defs/huella" },
+        "huella_verificacion": {
+          "oneOf": [{ "$ref": "#/$defs/huella" }, { "type": "null" }]
+        }
+      }
+    },
+    "huella": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "estado": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["decision", "confiable", "referencia_resultado"],
+      "properties": {
+        "decision": {
+          "enum": ["accept", "bug_detectado", "stalled", "sin_veredicto", "requiere_corrida_nueva"]
+        },
+        "confiable": { "type": "boolean" },
+        "referencia_resultado": { "type": ["string", "null"] },
+        "observado": { "type": ["string", "null"] }
+      }
+    },
+    "comparacion": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "objetivo",
+        "prueba",
+        "firma_origen",
+        "firma_verificacion",
+        "estado_anterior",
+        "estado_posterior",
+        "resultado",
+        "motivo"
+      ],
+      "properties": {
+        "objetivo": { "$ref": "#/$defs/objetivo" },
+        "prueba": { "$ref": "#/$defs/prueba" },
+        "firma_origen": { "type": "string", "minLength": 1 },
+        "firma_verificacion": { "type": ["string", "null"], "minLength": 1 },
+        "estado_anterior": { "$ref": "#/$defs/estado" },
+        "estado_posterior": { "$ref": "#/$defs/estado" },
+        "resultado": {
+          "enum": ["corregido", "sigue_fallando", "regresion", "no_comparable"]
+        },
+        "motivo": { "type": ["string", "null"] }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "resultado": { "const": "corregido" } } },
+          "then": {
+            "properties": {
+              "estado_anterior": {
+                "properties": { "decision": { "const": "bug_detectado" }, "confiable": { "const": true } }
+              },
+              "estado_posterior": {
+                "properties": { "decision": { "const": "accept" }, "confiable": { "const": true } }
+              },
+              "motivo": { "type": "null" }
+            }
+          }
+        },
+        {
+          "if": { "properties": { "resultado": { "const": "sigue_fallando" } } },
+          "then": {
+            "properties": {
+              "estado_anterior": {
+                "properties": { "decision": { "const": "bug_detectado" }, "confiable": { "const": true } }
+              },
+              "estado_posterior": {
+                "properties": { "decision": { "const": "bug_detectado" }, "confiable": { "const": true } }
+              },
+              "motivo": { "type": "null" }
+            }
+          }
+        },
+        {
+          "if": { "properties": { "resultado": { "const": "regresion" } } },
+          "then": {
+            "properties": {
+              "estado_anterior": {
+                "properties": { "decision": { "const": "accept" }, "confiable": { "const": true } }
+              },
+              "estado_posterior": {
+                "properties": { "decision": { "const": "bug_detectado" }, "confiable": { "const": true } }
+              },
+              "motivo": { "type": "null" }
+            }
+          }
+        },
+        {
+          "if": { "properties": { "resultado": { "const": "no_comparable" } } },
+          "then": { "properties": { "motivo": { "type": "string", "minLength": 1 } } }
+        }
+      ]
+    }
+  }
+}
