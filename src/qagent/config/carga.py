@@ -145,6 +145,14 @@ class Mutacion:
 
 
 @dataclass(frozen=True)
+class Explicador:
+    """Agente Explicador (HU-32, ADR-008): explica los hallazgos tras el veredicto."""
+
+    activo: bool = True
+    modo: str = "plantilla"
+
+
+@dataclass(frozen=True)
 class Configuracion:
     """Contenido validado de `config.toml`."""
 
@@ -154,6 +162,7 @@ class Configuracion:
     agentes: dict[str, PrecioAgente]
     mutacion: Mutacion = Mutacion()
     sandbox: LimitesSandbox = LIMITES_POR_DEFECTO
+    explicador: Explicador = Explicador()
 
     def proveedores(self) -> dict[str, list[str]]:
         """Agentes que usa cada proveedor: `{"openai": ["reviewer"], ...}`."""

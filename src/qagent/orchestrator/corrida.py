@@ -24,6 +24,7 @@ el motivo en el resumen.
 
 from __future__ import annotations
 
+import json
 import logging
 import threading
 import time
@@ -36,6 +37,7 @@ from typing import Any
 
 from qagent import contracts
 from qagent.agents import GeneratorAgent, PlannerAgent, ReviewerAgent
+from qagent.agents.explicador import explicar_corrida
 from qagent.agents.planner import contrato_humo, contrato_sin_triviales
 from qagent.agents.reviewer import Ejecutor
 from qagent.almacenamiento import (
@@ -69,7 +71,12 @@ from qagent.sandbox import (
     ejecutar_pruebas,
 )
 from qagent.storage import escribir_corrida
-from qagent.storage.registro import PERFIL_HUMO, PERFILES_REGRESION
+from qagent.storage.registro import (
+    PERFIL_HUMO,
+    PERFILES_REGRESION,
+    RutasCorrida,
+    escribir_explicaciones,
+)
 
 AlEvento = Callable[[dict[str, Any]], None]
 PrepararImagen = Callable[[Path], str]
@@ -985,6 +992,7 @@ def _registrar(
         )
         resumen.run_id = rutas.run_id
         resumen.carpeta = str(rutas.carpeta)
+        _explicar(rutas, resumen, perfil, configuracion)
 
     if resumen.run_id is not None and almacen.existe():
         huellas_objetivos = huellas_de_objetivos(ruta)
@@ -1151,6 +1159,39 @@ def _con_fuente(ruta: Path, modulo: dict[str, Any]) -> dict[str, Any]:
     except (OSError, UnicodeDecodeError):
         return modulo
     return {**modulo, "fuente": fuente}
+
+
+def _explicar(
+    rutas: RutasCorrida, resumen: ResumenCorrida, perfil: str, configuracion: Any
+) -> None:
+    """Explicaciones de los hallazgos en `explicaciones.json` (HU-32, ADR-008).
+
+    Lee los results.json y detalle.json ya escritos y no toca nada más: si el
+    Explicador falla, se registra en el log y la corrida termina igual. Se omite en
+    una corrida cancelada, en el perfil Humo o si está desactivado en `config.toml`.
+    """
+    explicador = getattr(configuracion, "explicador", None)
+    if (
+        resumen.cancelada
+        or perfil == PERFIL_HUMO
+        or (explicador is not None and not explicador.activo)
+    ):
+        return
+    try:
+        results = json.loads(rutas.results.read_text(encoding="utf-8"))
+        detalle = None
+        if rutas.detalle is not None and rutas.detalle.is_file():
+            detalle = json.loads(rutas.detalle.read_text(encoding="utf-8"))
+        resultado = explicar_corrida(results, detalle)
+        for motivo in resultado.descartadas:
+            _registro.warning(
+                "Explicación descartada en la corrida %s: %s", resumen.run_id, motivo
+            )
+        escribir_explicaciones(rutas.carpeta, resultado.datos)
+    except Exception as error:  # noqa: BLE001 — el Explicador nunca tumba la corrida
+        _registro.warning(
+            "El Explicador falló en la corrida %s: %s", resumen.run_id, error
+        )
 
 
 def _cerrar_run(
