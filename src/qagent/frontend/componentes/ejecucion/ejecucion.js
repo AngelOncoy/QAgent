@@ -159,8 +159,11 @@ function detalleDeReporte(f){
   const esperado = casos.length
     ? casos.slice(0, 2).map(c => `${c.descripcion || c.id || 'Caso'}: ${JSON.stringify(c.respuesta_esperada)}`).join('\n')
     : comportamiento.slice(0, 3).join('\n');
+  // HU-32: la explicación en palabras simples del Explicador, si la corrida la tiene.
+  const simple = f.explicacion && f.explicacion.resumen ? f.explicacion : null;
   return {
-    explicacion: ultimo.feedback || null,
+    explicacion: (simple && simple.resumen) || ultimo.feedback || null,
+    explicacionSimple: simple,
     codigo: f.codigo || null,
     traza: f.traza || null,
     esperado: esperado || null,
@@ -391,6 +394,12 @@ function renderFiltrosBandeja(todos){
     + archivos.map(a => `<option value="${escHtml(a)}" ${filtroArchivo === a ? 'selected' : ''}>${escHtml(a)}</option>`).join('');
 }
 
+// HU-32: qué se esperaba, qué pasó y qué hacer, en palabras simples.
+function explicacionSimple(s){
+  const fila = (etq, txt) => txt ? `<div><dt>${etq}</dt><dd>${escHtml(txt)}</dd></div>` : '';
+  return `<dl class="bnj-simple">${fila('Qué se esperaba', s.que_se_esperaba)}${fila('Qué pasó', s.que_paso)}${fila('Qué hacer', s.que_hacer)}</dl>`;
+}
+
 // Panel derecho: la evidencia del elemento elegido.
 function renderDetalleBandeja(e){
   if (!e) { $('bnjDetalle').innerHTML = '<p class="np-texto">Elige una función o un endpoint para ver su evidencia.</p>'; return; }
@@ -407,6 +416,7 @@ function renderDetalleBandeja(e){
     </div>
     <span class="np-chip np-chip-${b.cls}">${b.ico()}${e.bandeja === 'bug' ? 'Posible bug en tu código' : b.chip}</span>
     ${explicacion ? `<p class="bnj-explicacion">${escHtml(explicacion)}</p>` : ''}
+    ${e.explicacionSimple ? explicacionSimple(e.explicacionSimple) : ''}
     ${e.omitido && e.tipo === 'funcion' ? '<p class="np-meta">Para probarla, describe en su docstring qué debe devolver o qué error lanza. QAgent no deduce el resultado esperado ejecutando el código.</p>' : ''}
     ${cargando}
     ${e.fallo ? `<div class="bnj-valores">

@@ -55,6 +55,9 @@
 .bnj-det-cab{display:flex;justify-content:space-between;align-items:flex-start;gap:var(--esp-3);width:100%}
 .bnj-det-nombre{font-family:var(--fuente-mono);font-size:20px;font-weight:var(--peso-medio);overflow-wrap:anywhere}
 .bnj-explicacion{color:var(--texto)}
+.bnj-simple{width:100%;display:flex;flex-direction:column;gap:var(--esp-2);margin:0}
+.bnj-simple dt{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--texto-2)}
+.bnj-simple dd{margin:var(--esp-1) 0 0;color:var(--texto)}
 .bnj-esperado{width:100%;padding:var(--esp-3) var(--esp-4);border-radius:var(--radio-control);background:var(--exito-s);border:var(--borde-ancho) solid var(--exito-b)}
 .bnj-caja-etq{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--exito-t)}
 .bnj-esperado pre{margin-top:var(--esp-1);font:13px/1.6 var(--fuente-mono);color:var(--texto);white-space:pre-wrap;overflow-wrap:anywhere}

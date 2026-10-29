@@ -401,6 +401,20 @@ def _caso_que_falla(ej: dict[str, Any] | None) -> dict[str, Any] | None:
 
 
 def _explicacion(f: dict[str, Any]) -> str | None:
+    """Por qué terminó así: la del Explicador si existe (HU-32); si no, como antes.
+
+    La primera línea es el resumen, que las listas muestran solo.
+    """
+    simple = f.get("explicacion")
+    if isinstance(simple, dict) and simple.get("resumen"):
+        return "\n".join(
+            [
+                str(simple["resumen"]),
+                f"Qué se esperaba: {simple.get('que_se_esperaba', '')}",
+                f"Qué pasó: {simple.get('que_paso', '')}",
+                f"Qué hacer: {simple.get('que_hacer', '')}",
+            ]
+        )
     intentos = f.get("intentos") or []
     if intentos and intentos[-1].get("feedback"):
         return str(intentos[-1]["feedback"])

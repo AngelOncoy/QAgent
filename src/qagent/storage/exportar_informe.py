@@ -35,6 +35,7 @@ from qagent.storage.vista_ejecucion import (
 from qagent.storage.vista_reporte import (
     MUTATION_SCORE_MIN,
     leer_detalle,
+    leer_explicaciones,
     vista_reporte,
 )
 
@@ -390,6 +391,14 @@ def _resumen_casos_planner(contrato: dict[str, Any] | None) -> list[dict[str, An
     return casos
 
 
+def _simple(f: dict[str, Any], campo: str) -> str | None:
+    """Un campo de la explicación del Explicador (HU-32), o None si no hay."""
+    explicacion = f.get("explicacion")
+    if not isinstance(explicacion, dict):
+        return None
+    return explicacion.get(campo) or None
+
+
 def _salud_proyecto(datos: dict[str, Any]) -> dict[str, Any]:
     """Sintetiza métricas prácticas, fortalezas, deficiencias y plan de mejora del proyecto."""
     funciones = datos.get("funciones") or []
@@ -507,6 +516,12 @@ def _salud_proyecto(datos: dict[str, Any]) -> dict[str, Any]:
             if prim and prim.get("esperado") is not None
             else ""
         )
+        simple = _simple(fb, "que_paso")
+        if simple:
+            deficiencias.append(
+                f"Posible error en `{fb['modulo']}::{fb['funcion']}`: {simple}"
+            )
+            continue
         deficiencias.append(
             f"Defecto de lógica detectado en `{fb['modulo']}::{fb['funcion']}`: "
             f"Fallo en aserción en `{ubicacion}`{esp_obt}. El código de producción no cumple el contrato esperado."
@@ -517,6 +532,12 @@ def _salud_proyecto(datos: dict[str, Any]) -> dict[str, Any]:
         if f.get("laundering_detectado") or f.get("estado") == "rechazado_laundering"
     ]
     for fl in fns_laund:
+        simple = _simple(fl, "que_paso")
+        if simple:
+            deficiencias.append(
+                f"Prueba debilitada en `{fl['modulo']}::{fl['funcion']}`: {simple}"
+            )
+            continue
         deficiencias.append(
             f"Intento de debilitar pruebas en `{fl['modulo']}::{fl['funcion']}`: "
             f"Se intentó relajar el criterio esperado para ocultar un fallo, lo cual fue bloqueado durante la verificación."
@@ -540,6 +561,12 @@ def _salud_proyecto(datos: dict[str, Any]) -> dict[str, Any]:
     recomendaciones: list[str] = []
     if fns_bugs:
         for fb in fns_bugs:
+            simple = _simple(fb, "que_hacer")
+            if simple:
+                recomendaciones.append(
+                    f"Prioridad 1 — `{fb['modulo']}::{fb['funcion']}`: {simple}"
+                )
+                continue
             recomendaciones.append(
                 f"Prioridad 1 — Corregir la lógica de `{fb['modulo']}::{fb['funcion']}`: "
                 f"Modificar el cálculo o condición en el código de producción para que retorne el valor esperado según la especificación del negocio."
@@ -579,7 +606,7 @@ def _salud_proyecto(datos: dict[str, Any]) -> dict[str, Any]:
                 if primer_fallo
                 else "Discrepancia detectada en aserción de prueba"
             )
-            accion = (
+            accion = _simple(f, "que_hacer") or (
                 f"Corregir cálculo/retorno en `{f['modulo']}::{f['funcion']}`"
                 if f.get("estado") == "bug_detectado"
                 else (
@@ -1006,7 +1033,7 @@ def datos_informe(
         results = leer_results(raiz_proyecto, run_id)
     run_actual = results["run_id"]
     detalle = leer_detalle(raiz_proyecto, run_actual)
-    vista = vista_reporte(results, detalle)
+    vista = vista_reporte(results, detalle, leer_explicaciones(raiz_proyecto, results))
     ejec = vista_ejecucion(results)
     metricas = construir_cinco_metricas(results)
     specs = resumen_specs_corrida(raiz_proyecto, run_actual)
