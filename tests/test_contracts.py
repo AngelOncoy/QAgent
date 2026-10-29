@@ -10,6 +10,7 @@ import pytest
 from jsonschema import Draft202012Validator
 
 from qagent.contracts import (
+    BUG_EVIDENCE_V1,
     CONTRATOS,
     DETALLE,
     DIR_CONTRATOS,
@@ -61,6 +62,7 @@ EJEMPLOS = [
     (ORACLE_V1, ORACLE_V1),
     (EXPLANATION_V1, EXPLANATION_V1),
     (EXPLICACIONES, EXPLICACIONES),
+    (BUG_EVIDENCE_V1, BUG_EVIDENCE_V1),
 ]
 
 

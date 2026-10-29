@@ -1,0 +1,36 @@
+{
+  "version": "1",
+  "id": "tienda_precios_py__calcular_descuento",
+  "categoria": "evidencia_bug",
+  "creado": "2026-10-29T12:00:00+00:00",
+  "run_id": "20261029-120000-abcd",
+  "objetivo": {
+    "modulo": "tienda/precios.py",
+    "nombre": "calcular_descuento",
+    "tipo": "funcion"
+  },
+  "archivo_prueba": "test_tienda_precios_py__calcular_descuento.py",
+  "codigo_prueba": "def test_descuento():\n    assert calcular_descuento(100, 20) == 80\n",
+  "huella_prueba": "4d68a0e89b4d72df420e4d018d70b4779ec34dcec624566ca19e6de10e1278dc",
+  "firma": "(precio: float, porcentaje: float) -> float",
+  "spec": {
+    "version": "2",
+    "modulo": "tienda/precios.py",
+    "huella": "d58c51278a2c2f23d4d25371206f549993798ab2f2d091bfe52b80ec890b19b4",
+    "tipo": "funcion",
+    "objetivo": "calcular_descuento",
+    "firma": "(precio: float, porcentaje: float) -> float",
+    "critical": true,
+    "llama_a": [],
+    "casos": [
+      {
+        "id": "descuento_normal",
+        "entrada": { "precio": 100.0, "porcentaje": 20.0 },
+        "valor_esperado": 80.0,
+        "origen": "docstring",
+        "categoria": "normal"
+      }
+    ]
+  },
+  "decision": "bug_detectado"
+}

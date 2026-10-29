@@ -9,6 +9,7 @@ Estructura::
         specs/<id>.json     spec de cada prueba (contrato del Planner), para regresión
         specs/<modulo>.spec.json  plan completo y huella para reutilización (HU-24)
         tests/test_*.py     solo las pruebas aprobadas
+        evidencias_bugs/<run_id>/<id>.json  prueba, spec y procedencia de cada bug
         mutacion/<id>.json  último Mutation Score de una función crítica, con las huellas
                             de la función y de su prueba, para reutilizarlo (#70)
 
@@ -178,8 +179,8 @@ class AlmacenProyecto:
     Atributos:
         raiz: carpeta del proyecto del usuario.
         carpeta: `<raiz>/.qagent`.
-        carpeta_runs, carpeta_specs, carpeta_tests, carpeta_mutacion: subcarpetas de
-            `carpeta`.
+        carpeta_runs, carpeta_specs, carpeta_tests, carpeta_evidencias_bugs,
+            carpeta_mutacion: subcarpetas de `carpeta`.
     """
 
     def __init__(self, ruta_proyecto: str | Path) -> None:
@@ -189,6 +190,7 @@ class AlmacenProyecto:
         self.carpeta_runs = self.carpeta / "runs"
         self.carpeta_specs = self.carpeta / "specs"
         self.carpeta_tests = self.carpeta / "tests"
+        self.carpeta_evidencias_bugs = self.carpeta / "evidencias_bugs"
         self.carpeta_mutacion = self.carpeta / "mutacion"
 
     def existe(self) -> bool:
@@ -204,7 +206,12 @@ class AlmacenProyecto:
             OSError: si no se puede escribir en la carpeta del proyecto.
         """
         migrar_carpeta_anterior(self.raiz)
-        for carpeta in (self.carpeta_runs, self.carpeta_specs, self.carpeta_tests):
+        for carpeta in (
+            self.carpeta_runs,
+            self.carpeta_specs,
+            self.carpeta_tests,
+            self.carpeta_evidencias_bugs,
+        ):
             carpeta.mkdir(parents=True, exist_ok=True)
         gitignore = self.carpeta / ".gitignore"
         if not gitignore.exists():
@@ -747,6 +754,102 @@ class AlmacenProyecto:
     def _ruta_plan_modulo(self, modulo: str) -> Path:
         return self.carpeta_specs / nombre_spec_modulo(modulo)
 
+    # --- Evidencias de bugs (#193) -------------------------------------------------
+
+    def guardar_evidencia_bug(
+        self,
+        contrato: dict[str, Any],
+        codigo: str,
+        run_id: str,
+        ahora: datetime | None = None,
+    ) -> dict[str, Any]:
+        """Conserva una prueba ``bug_detectado`` sin convertirla en aprobada.
+
+        El registro es inmutable e idempotente por corrida y objetivo. Contiene el
+        código exacto, el contrato Planner original y su ``firma``. Se guarda como un
+        único JSON atómico en ``evidencias_bugs/``, nunca en ``tests/``.
+
+        Raises:
+            ContratoInvalido: si el contrato Planner o la evidencia son inválidos.
+            ErrorAlmacen: si la corrida no existe o una evidencia previa no coincide.
+            OSError: si falla la escritura atómica.
+        """
+        contracts.validar_versionado(contracts.FAMILIA_PLANNER, contrato)
+        if not isinstance(codigo, str) or not codigo.strip():
+            raise ErrorAlmacen("El código de la evidencia de bug no puede estar vacío.")
+        self.leer_run(run_id)
+        evidencia_id = id_de_spec(contrato["modulo"], contrato["objetivo"])
+        evidencia = {
+            "version": "1",
+            "id": evidencia_id,
+            "categoria": "evidencia_bug",
+            "creado": _iso(ahora),
+            "run_id": run_id,
+            "objetivo": {
+                "modulo": contrato["modulo"],
+                "nombre": contrato["objetivo"],
+                "tipo": contrato["tipo"],
+            },
+            "archivo_prueba": nombre_prueba(evidencia_id),
+            "codigo_prueba": codigo,
+            "huella_prueba": huella_de_prueba(codigo),
+            "firma": contrato["firma"],
+            "spec": contrato,
+            "decision": "bug_detectado",
+        }
+        _validar_evidencia_bug(evidencia)
+        ruta = self._ruta_evidencia_bug(run_id, evidencia_id)
+        if ruta.is_file():
+            anterior = self.leer_evidencia_bug(run_id, evidencia_id)
+            sin_fecha = lambda dato: {k: v for k, v in dato.items() if k != "creado"}
+            if sin_fecha(anterior) != sin_fecha(evidencia):
+                raise ErrorAlmacen(
+                    "La evidencia existente no coincide con el nuevo contenido; "
+                    "se conserva su procedencia original."
+                )
+            return anterior
+        self.inicializar()
+        escribir_json_atomico(ruta, evidencia)
+        return evidencia
+
+    def leer_evidencia_bug(self, run_id: str, evidencia_id: str) -> dict[str, Any]:
+        """Lee y valida una evidencia de bug por corrida y objetivo."""
+        ruta = self._ruta_evidencia_bug(run_id, evidencia_id)
+        evidencia = leer_json_objeto(ruta)
+        try:
+            _validar_evidencia_bug(evidencia)
+        except (ErrorAlmacen, contracts.ContratoInvalido) as exc:
+            raise DatoCorrupto(f"{ruta}: {exc}") from exc
+        if evidencia["run_id"] != run_id or evidencia["id"] != evidencia_id:
+            raise DatoCorrupto(f"{ruta}: la identidad no coincide con su ubicación.")
+        return evidencia
+
+    def listar_evidencias_bug(self, run_id: str | None = None) -> list[dict[str, Any]]:
+        """Lista evidencias válidas, sin mezclarlas con las pruebas aprobadas."""
+        if not self.carpeta_evidencias_bugs.is_dir():
+            return []
+        carpetas = (
+            [self.carpeta_evidencias_bugs / run_id]
+            if run_id is not None
+            else sorted(self.carpeta_evidencias_bugs.iterdir(), key=_nombre)
+        )
+        evidencias = []
+        for carpeta in carpetas:
+            if not carpeta.is_dir() or not PATRON_RUN_ID.match(carpeta.name):
+                continue
+            for ruta in sorted(carpeta.glob("*.json"), key=_nombre):
+                try:
+                    evidencias.append(self.leer_evidencia_bug(carpeta.name, ruta.stem))
+                except ErrorAlmacen:
+                    continue
+        return evidencias
+
+    def _ruta_evidencia_bug(self, run_id: str, evidencia_id: str) -> Path:
+        self.carpeta_run(run_id)
+        if not isinstance(evidencia_id, str) or not PATRON_ID.fullmatch(evidencia_id):
+            raise ErrorAlmacen(f"id de evidencia no válido: {evidencia_id!r}")
+        return self.carpeta_evidencias_bugs / run_id / f"{evidencia_id}.json"
+
     # --- Pruebas aprobadas ----------------------------------------------------------
 
     def guardar_prueba_aprobada(self, nombre_archivo: str, codigo: str) -> Path:
@@ -871,6 +974,29 @@ def _validar_run(run: dict[str, Any]) -> None:
             isinstance(valor, bool) or not isinstance(valor, int) or valor < 0
         ):
             raise ErrorAlmacen(f"{campo} debe ser un entero no negativo o null.")
+
+
+def _validar_evidencia_bug(evidencia: dict[str, Any]) -> None:
+    """Valida estructura y procedencia interna de una evidencia #193."""
+    contracts.validar_versionado(contracts.FAMILIA_BUG_EVIDENCE, evidencia)
+    contrato = evidencia["spec"]
+    contracts.validar_versionado(contracts.FAMILIA_PLANNER, contrato)
+    objetivo = evidencia["objetivo"]
+    if objetivo != {
+        "modulo": contrato["modulo"],
+        "nombre": contrato["objetivo"],
+        "tipo": contrato["tipo"],
+    }:
+        raise ErrorAlmacen("El objetivo de la evidencia no coincide con su spec.")
+    if evidencia["firma"] != contrato["firma"]:
+        raise ErrorAlmacen("La firma de la evidencia no coincide con su spec.")
+    esperado = id_de_spec(contrato["modulo"], contrato["objetivo"])
+    if evidencia["id"] != esperado:
+        raise ErrorAlmacen("El id de la evidencia no corresponde a su objetivo.")
+    if evidencia["archivo_prueba"] != nombre_prueba(esperado):
+        raise ErrorAlmacen("El archivo de la evidencia no corresponde a su id.")
+    if evidencia["huella_prueba"] != huella_de_prueba(evidencia["codigo_prueba"]):
+        raise ErrorAlmacen("La huella de la prueba no coincide con su código.")
 
 
 def _validar_spec(spec: dict[str, Any]) -> None:
