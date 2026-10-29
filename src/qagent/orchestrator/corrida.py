@@ -46,8 +46,8 @@ from qagent.almacenamiento import (
     id_de_spec,
     nombre_prueba,
 )
-from qagent.analysis.analyzer import analizar_proyecto
 from qagent.config.carga import Mutacion
+from qagent.lenguajes import LenguajeNoSoportado, adaptador_del_proyecto
 from qagent.llm import TokenTracker, crear_cliente
 from qagent.llm.fabrica import FuenteClaves
 from qagent.orchestrator.eventos import BusEventos, Evento
@@ -67,6 +67,7 @@ from qagent.proyectos.proyecto_local import detectar_rama
 from qagent.sandbox import (
     LIMITES_POR_DEFECTO,
     ConstruccionCancelada,
+    LimitesSandbox,
     ejecutar_mutacion,
     ejecutar_pruebas,
 )
@@ -290,7 +291,13 @@ def ejecutar_corrida(
 
         from qagent.proyectos.seleccion import filtrar_modulos
 
-        analisis = analizar_proyecto(ruta)
+        # #168: el adaptador del lenguaje del proyecto analiza y planifica. Un
+        # lenguaje todavía en desarrollo se avisa aquí, antes de gastar nada.
+        try:
+            adaptador = adaptador_del_proyecto(ruta)
+        except LenguajeNoSoportado as error:
+            raise ErrorCorrida(str(error)) from error
+        analisis = adaptador.analizar(ruta)
         modulos = [
             _con_fuente(ruta, m)
             for m in filtrar_modulos(analisis["modulos"], seleccion)
@@ -352,7 +359,9 @@ def ejecutar_corrida(
 
         bus = BusEventos()
         bus.suscribir(emitir)
-        limites = getattr(configuracion, "sandbox", LIMITES_POR_DEFECTO)
+        # #168: memoria y tiempo del lenguaje (`[sandbox.<lenguaje>]`, #169); Python
+        # usa `[sandbox]` como siempre.
+        limites = limites_del_lenguaje(configuracion, adaptador.lenguaje)
         tope_tokens = getattr(configuracion.presupuesto, "max_tokens_por_corrida", None)
         opciones: dict[str, Any] = {
             "max_intentos": configuracion.max_intentos,
@@ -366,7 +375,11 @@ def ejecutar_corrida(
         }
         orquestador = Orquestador(
             PlannerAgent(
-                clientes["planner"], tracker, es_simulado=simulado, perfil=perfil
+                clientes["planner"],
+                tracker,
+                es_simulado=simulado,
+                perfil=perfil,
+                adaptador=adaptador,
             ),
             GeneratorAgent(
                 clientes["generator"], tracker, es_simulado=simulado, ruta_proyecto=ruta
@@ -682,6 +695,14 @@ def ejecutar_corrida(
 
     avisar(f"{titulo_fin}: {texto_resumen}", "fin")
     return resumen
+
+
+def limites_del_lenguaje(configuracion: Any, lenguaje: str) -> LimitesSandbox:
+    """Límites del sandbox de `lenguaje` (#169); `[sandbox]` si no tiene propios."""
+    por_lenguaje = getattr(configuracion, "limites_sandbox", None)
+    if callable(por_lenguaje):
+        return por_lenguaje(lenguaje)
+    return getattr(configuracion, "sandbox", LIMITES_POR_DEFECTO)
 
 
 class ErrorCorrida(RuntimeError):
@@ -1023,9 +1044,7 @@ def _registrar(
                 contrato, perfil_spec = guardadas.get(
                     (resultado.modulo, objetivo.objetivo), (objetivo.contrato, None)
                 )
-                if contrato is not None and contracts.es_valido(
-                    contracts.PLANNER, contrato
-                ):
+                if contrato is not None and contracts.es_planner_valido(contrato):
                     almacen.guardar_spec(
                         contrato,
                         resumen.run_id,
@@ -1086,7 +1105,7 @@ def _spec_de_modulo(
         perfiles.update({c["objetivo"]: perfil for c in contratos})
     if contratos and preparado.plan_guardado is not None:
         contratos = _combinar_plan(preparado.plan_guardado["contratos"], contratos)
-    validos = [c for c in contratos if contracts.es_valido(contracts.PLANNER, c)]
+    validos = [c for c in contratos if contracts.es_planner_valido(c)]
     if not validos:
         return None
     return {

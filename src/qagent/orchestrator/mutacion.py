@@ -32,8 +32,9 @@ from qagent.almacenamiento import (
     id_de_spec,
     nombre_prueba,
 )
+from qagent.lenguajes import adaptador_de_contrato
 from qagent.orchestrator.orquestador import ResultadoCorrida, ResultadoObjetivo
-from qagent.sandbox import LIMITES_POR_DEFECTO, LimitesSandbox, ejecutar_mutacion
+from qagent.sandbox import LIMITES_POR_DEFECTO, LimitesSandbox
 from qagent.sandbox.mutacion import ERROR, OK, MutacionFuncion, ResultadoMutacion
 from qagent.storage.registro import PERFIL_PROFUNDO
 
@@ -152,7 +153,9 @@ def mutar_modulo(
                 aprobada.codigo or "", encoding="utf-8"
             )
         try:
-            por_funcion = (mutador or ejecutar_mutacion)(
+            # #168: sin un doble de prueba, muta el adaptador del lenguaje del módulo.
+            mutar = mutador or _mutador_del_adaptador(objetivos)
+            por_funcion = mutar(
                 imagen,
                 raiz,
                 carpeta,
@@ -294,3 +297,13 @@ def _guardar(
         _registro.warning(
             "No se guardó la mutación de %s: %s", objetivo.objetivo, error
         )
+
+
+def _mutador_del_adaptador(objetivos: list[ResultadoObjetivo]) -> Mutador:
+    """`ejecutar_mutacion` del adaptador del lenguaje de los objetivos (#168).
+
+    Todos los objetivos de un módulo son del mismo lenguaje: basta el primero que
+    trae contrato (uno sin contrato no llega a aprobarse ni a mutarse).
+    """
+    contrato = next(o.contrato for o in objetivos if o.contrato is not None)
+    return adaptador_de_contrato(contrato).ejecutar_mutacion

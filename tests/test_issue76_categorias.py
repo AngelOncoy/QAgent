@@ -212,7 +212,7 @@ def test_una_categoria_incoherente_se_corrige_con_aviso_sin_descartar() -> None:
         for a in agente.avisos
     )
     for contrato in plan.values():
-        contracts.validar(contracts.PLANNER, contrato)
+        contracts.validar(contracts.PLANNER_V3, contrato)
 
 
 def test_un_limite_sin_especificacion_se_descarta() -> None:

@@ -49,9 +49,30 @@ Paquete nuevo `src/qagent/lenguajes/` con la interfaz `LanguageAdapter` (clase a
 - `normalizar_planner()` / `normalizar_generated_test()` pasan un v2/v1 a la versión nueva **en memoria** (un v2 es siempre Python + pytest, y FastAPI si es endpoint) sin modificar el original.
 - `review_result`, `detalle` y `run_log` no cambian: no dependen del lenguaje (el comando y la imagen ya viajan en `ejecucion.entorno`).
 
-### 2.3 Lo que no cambia
+### 2.3 Lo que no cambió en EN-17
 
-El Planner sigue produciendo v2, las specs se guardan y leen como v2 y el orquestador no usa todavía el registro. Migrar el flujo de Python a v3 y conectar el registro al orquestador son tareas aparte (fuera de alcance de #129).
+En #129 el Planner siguió produciendo v2, las specs se guardaron como v2 y el orquestador no usaba el registro. Eso se resolvió en #168 (sección 2.4).
+
+### 2.4 Conexión al flujo de la corrida (#168)
+
+La corrida habla solo con el adaptador y con los contratos versionados:
+
+- **Qué adaptador.** `adaptador_del_proyecto(raiz)` elige, entre los lenguajes del proyecto con adaptador **completo**, el que tiene más archivos fuente. Un proyecto de Python con algo de JavaScript (una carpeta `static/`) se sigue probando como Python. Si el proyecto solo tiene lenguajes en desarrollo (`AdaptadorEnDesarrollo`, `completo = False`), la app avisa al iniciar «aún no puede probar proyectos en …» (`LenguajeNoSoportado`), sin gastar tokens ni preparar Docker. Sin archivos fuente reconocibles se usa Python, el lenguaje de los contratos anteriores.
+- **Contratos.** El Planner produce `planner_contract.v3` (lenguaje y frameworks del adaptador) y el Generator `generated_test.v2`. Las specs nuevas se guardan como v3; las v2 guardadas se siguen leyendo y reutilizando tal cual (`validar_versionado`, `normalizar_planner` en memoria): no se migra ni se borra nada. `results.json` y `log.json` registran el `lenguaje` de cada objetivo (run_log, opcional).
+- **Agentes compartidos.** El Planner, el Generator, el Reviewer, el orquestador, la regresión y la mutación no tienen lógica de Python: la piden al adaptador del contrato (`adaptador_de_contrato`). Para eso `LanguageAdapter` suma estos puntos de extensión, no abstractos (un lenguaje en desarrollo se registra sin ellos y lanza `NoImplementado`):
+
+| Operación | Qué devuelve | En Python |
+|---|---|---|
+| `reglas_planificacion()` | prompts del Planner y filtros de casos sin IA (`ReglasPlanificacion`) | `lenguajes/python_planificacion.py` |
+| `prompt_generator(contrato, intento, feedback, ruta)` | el prompt del test | `lenguajes/python_generacion.py` |
+| `reglas_revision()` | sintaxis, oráculo, clasificación de la salida y rango de la función (`ReglasRevision`) | `lenguajes/python_revision.py` |
+| `modulo_cobertura(modulo)` · `variables_pruebas()` | lo que recibe `comando_pruebas` y las variables del contenedor | `pkg.mod` y `COVERAGE_FILE` |
+| `huellas_de_archivo(fuente, ruta)` · `funciones_de_modulo(raiz, modulo)` | huellas de los objetivos (HU-24, HU-25) y línea de cada función | `lenguajes/python_regresion.py` |
+| `ejecutar_mutacion(...)` | la mutación de las funciones críticas | `sandbox.ejecutar_mutacion` (mutmut) |
+
+El código de Python se movió **sin cambios** desde los agentes y la regresión: el banco (`bench/banco_mvp.py` y `bench_api/`) da los mismos veredictos, coberturas e intentos que antes.
+
+Queda fuera de #168: el almacén sigue guardando las pruebas aprobadas como `test_*.py` (cada lenguaje lo ajusta al implementar su `archivo_de_prueba`), y los nombres de los campos `duracion_pytest_s` y de la etapa `pytest` de `run_log` se conservan porque son parte de un contrato guardado (miden el tiempo del runner de cualquier lenguaje).
 
 ## 3. Estrategia de parser (SPK-04)
 
@@ -88,7 +109,7 @@ Si algún día un proyecto real muestra que el análisis es el cuello de botella
 | Un Planner/Generator/Reviewer por lenguaje | Duplica la lógica compartida (reintentos, oráculo, métricas) y viola la regla de no duplicar componentes. |
 | Graphify o el parser nativo de cada lenguaje (subproceso de Node, JDK) | No deterministas o lentos y con dependencias en la PC del usuario (sección 3, mediciones de SPK-04). |
 | Elegir el parser según las líneas de código del proyecto | Dos parsers con un umbral arbitrario y sin beneficio medido (sección 3.1). |
-| Migrar ya todo el flujo de Python a v3 | Fuera de alcance; obliga a migrar specs guardadas y arriesga la persistencia histórica. |
+| Migrar las specs guardadas de v2 a v3 | Innecesario: v2 y v3 conviven y un v2 se normaliza en memoria (#168); migrar arriesga la persistencia histórica. |
 
 ## 5. Consecuencias
 

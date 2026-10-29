@@ -8,6 +8,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from qagent import contracts
+from qagent.agents import reviewer as reviewer_mod
 from qagent.agents.reviewer import ReviewerAgent
 from qagent.llm import TokenTracker
 from qagent.sandbox import LimitesSandbox, ResultadoSandbox, ejecutar_pruebas
@@ -138,13 +139,33 @@ def test_las_lineas_sin_cubrir_salen_del_coverage(tmp_path: Path) -> None:
 
 
 def test_el_reviewer_aplica_los_limites_de_config_al_sandbox_real(
-    tmp_path: Path,
+    tmp_path: Path, monkeypatch
 ) -> None:
-    limites = LimitesSandbox(cpus=2.0, memoria="1g", timeout_s=30)
-    reviewer = ReviewerAgent(TokenTracker(), tmp_path, "img", limites=limites)
+    """Sin ejecutor de prueba, el sandbox real recibe los límites de config.toml.
 
-    assert reviewer.ejecutor.func is ejecutar_pruebas
-    assert reviewer.ejecutor.keywords == {"limites": limites}
+    Desde #168 corre con el comando y los lectores del adaptador del contrato.
+    """
+    limites = LimitesSandbox(cpus=2.0, memoria="1g", timeout_s=30)
+    llamadas: list[dict] = []
+
+    def sandbox_real(imagen, comando, proyecto, tests, **opciones):
+        llamadas.append({"imagen": imagen, "comando": comando, **opciones})
+        return _grabado("todo_pasa", 0)
+
+    monkeypatch.setattr(reviewer_mod, "ejecutar_comando_pruebas", sandbox_real)
+    for ejecutor in (None, ejecutar_pruebas):
+        reviewer = ReviewerAgent(
+            TokenTracker(), tmp_path, "img", limites=limites, ejecutor=ejecutor
+        )
+        reviewer.revisar(CONTRATO, dict(TEST), None)
+
+    assert len(llamadas) == 2
+    for llamada in llamadas:
+        assert llamada["limites"] == limites
+        assert llamada["imagen"] == "img"
+        assert "--junitxml=/out/junit.xml" in llamada["comando"]
+        assert llamada["archivo_informe"] == "junit.xml"
+        assert llamada["variables"] == {"COVERAGE_FILE": "/out/.coverage"}
 
 
 def test_el_informe_muestra_los_limites_que_de_verdad_se_aplicaron(

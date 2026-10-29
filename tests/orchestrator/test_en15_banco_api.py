@@ -43,7 +43,7 @@ def contratos_del_banco() -> tuple[dict[str, Any], list[dict[str, Any]]]:
     planner = PlannerAgent(FakeLLMClient(), TokenTracker(), es_simulado=True)
     resultado = planner.planificar_endpoints(modulo, fuente)
     for contrato in resultado:
-        contracts.validar(contracts.PLANNER, contrato)
+        contracts.validar(contracts.PLANNER_V3, contrato)
     return modulo, resultado
 
 

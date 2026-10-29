@@ -17,12 +17,21 @@ from typing import Any
 
 from qagent.analysis import analizar_proyecto, comparar_aserciones
 from qagent.analysis.contexto import PAQUETES_BASE
+from qagent.lenguajes import python_generacion, python_regresion
 from qagent.lenguajes.base import (
     ComandoSandbox,
     ComparacionAserciones,
     EntornoSandbox,
     Estructura,
     LanguageAdapter,
+)
+from qagent.lenguajes.python_planificacion import (
+    REGLAS_PLANIFICACION_PYTHON,
+    ReglasPlanificacionPython,
+)
+from qagent.lenguajes.python_revision import (
+    REGLAS_REVISION_PYTHON,
+    ReglasRevisionPython,
 )
 from qagent.sandbox.ejecucion import (
     ARCHIVO_JUNIT,
@@ -34,7 +43,11 @@ from qagent.sandbox.ejecucion import (
 )
 from qagent.sandbox.informe_pytest import parsear_junit
 from qagent.sandbox.modelos import IMAGEN_BASE
-from qagent.sandbox.mutacion import comando_mutacion
+from qagent.sandbox.mutacion import (
+    ResultadoMutacion,
+    comando_mutacion,
+    ejecutar_mutacion,
+)
 
 
 class PythonAdapter(LanguageAdapter):
@@ -54,6 +67,14 @@ class PythonAdapter(LanguageAdapter):
         """``comando_pytest(modulo)``: pytest con cobertura de ramas y junit.xml."""
         self.elegir_framework(framework)
         return comando_pytest(modulo)
+
+    def modulo_cobertura(self, modulo: str) -> str:
+        """``pkg/mod.py`` -> ``pkg.mod``: lo que mide ``--cov`` (como siempre)."""
+        return Path(modulo).with_suffix("").as_posix().replace("/", ".")
+
+    def variables_pruebas(self) -> dict[str, str]:
+        """El ``.coverage`` de pytest-cov va a ``/out`` (el resto es de solo lectura)."""
+        return {"COVERAGE_FILE": f"{DIR_SALIDA}/.coverage"}
 
     def entorno_sandbox(self) -> EntornoSandbox:
         return EntornoSandbox(
@@ -100,6 +121,38 @@ class PythonAdapter(LanguageAdapter):
     def archivo_de_prueba(self, objetivo: str) -> str:
         """Siempre ``test_generado.py``: cada test corre en su propia carpeta temporal."""
         return ARCHIVO_TEST_GENERADO
+
+    def huellas_de_archivo(self, fuente: str, relativa: str) -> dict[str, str] | None:
+        """Huella tree-sitter de cada función pública y ruta FastAPI (HU-24, HU-25)."""
+        return python_regresion.huellas_de_archivo(fuente, relativa)
+
+    def funciones_de_modulo(self, raiz: Path, modulo: str) -> list[dict[str, Any]]:
+        """Línea del `def` de cada función de primer nivel (mutación de reg_deep)."""
+        return python_regresion.funciones_de_modulo(raiz, modulo)
+
+    def ejecutar_mutacion(self, *args: Any, **opciones: Any) -> ResultadoMutacion:
+        """mutmut en el sandbox, solo sobre las funciones críticas (EN-09, #74)."""
+        return ejecutar_mutacion(*args, **opciones)
+
+    def reglas_planificacion(self) -> ReglasPlanificacionPython:
+        """Prompts y filtros de casos de pytest y FastAPI para el Planner (#168)."""
+        return REGLAS_PLANIFICACION_PYTHON
+
+    def prompt_generator(
+        self,
+        contrato: dict[str, Any],
+        intento: int,
+        feedback: str | None,
+        ruta_proyecto: Path | None,
+    ) -> str:
+        """Prompt del test pytest (o TestClient) de ``contrato`` (#168)."""
+        return python_generacion.prompt_generator(
+            contrato, intento, feedback, ruta_proyecto
+        )
+
+    def reglas_revision(self) -> ReglasRevisionPython:
+        """Sintaxis, oráculo y salida de pytest para el Reviewer (#168)."""
+        return REGLAS_REVISION_PYTHON
 
     def comando_mutacion(self, modulo: str, funciones: list[str]) -> ComandoSandbox:
         """mutmut sobre las funciones críticas, con el script del sandbox (EN-09)."""

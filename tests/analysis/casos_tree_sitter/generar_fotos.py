@@ -18,9 +18,9 @@ AQUI = Path(__file__).resolve().parent
 RAIZ_REPO = AQUI.parents[2]
 sys.path.insert(0, str(RAIZ_REPO / "src"))
 
-from qagent.agents import planner
 from qagent.analysis import analizar_proyecto
 from qagent.analysis.contexto import contexto_de_funcion
+from qagent.lenguajes import python_planificacion as planner
 from qagent.orchestrator import regresion
 from qagent.sandbox import manejadores
 

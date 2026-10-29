@@ -59,6 +59,18 @@ def listar_archivos(raiz: str | os.PathLike[str]) -> list[str]:
     return sorted(encontrados)
 
 
+class LenguajeNoSoportado(RuntimeError):
+    """El proyecto es de un lenguaje cuyo adaptador todavía no permite corridas."""
+
+    def __init__(self, lenguaje: str, nombre: str, soportados: Sequence[str]) -> None:
+        self.lenguaje = lenguaje
+        lista = ", ".join(soportados) or "ninguno"
+        super().__init__(
+            f"QAgent aún no puede probar proyectos en {nombre}: su soporte está en "
+            f"desarrollo. Por ahora se admiten proyectos en {lista}."
+        )
+
+
 class Registro:
     """Adaptadores disponibles, uno por lenguaje."""
 
@@ -137,6 +149,35 @@ class Registro:
         """Lenguaje con más archivos fuente del proyecto, o ``None`` si no hay."""
         detecciones = [d for d in self.detectar(raiz) if d.archivos]
         return detecciones[0].lenguaje if detecciones else None
+
+    def adaptador_del_proyecto(
+        self, raiz: str | os.PathLike[str], predeterminado: str
+    ) -> LanguageAdapter:
+        """Adaptador con el que se corre el proyecto en ``raiz`` (#168).
+
+        Es el del lenguaje con más archivos fuente entre los que tienen adaptador
+        completo: un proyecto de Python con algo de JavaScript (una carpeta
+        ``static/``) se sigue probando como antes. Sin archivos fuente de ningún
+        lenguaje se usa ``predeterminado``.
+
+        Raises:
+            LenguajeNoSoportado: si el proyecto solo tiene lenguajes cuyo adaptador
+                todavía no permite corridas (hoy JS/TS y Java).
+        """
+        detecciones = [d for d in self.detectar(raiz) if d.archivos]
+        for deteccion in detecciones:
+            adaptador = self.adaptador_para(deteccion.lenguaje)
+            if adaptador.completo:
+                return adaptador
+        if detecciones:
+            principal = self.adaptador_para(detecciones[0].lenguaje)
+            soportados = [
+                a.nombre_visible for a in self._adaptadores.values() if a.completo
+            ]
+            raise LenguajeNoSoportado(
+                principal.lenguaje, principal.nombre_visible, soportados
+            )
+        return self.adaptador_para(predeterminado)
 
 
 def _verificar(adaptador: LanguageAdapter) -> None:

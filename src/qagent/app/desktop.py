@@ -623,16 +623,26 @@ class DesktopAPI:
             del entorno, ``{"status": "blocked", "motivo": str, "problemas": list}``;
             si ya hay una corrida en curso, ``{"status": "en_curso", "mensaje": str}``.
             Una selección que no coincida con el AST devuelve
-            ``{"status": "seleccion_invalida", "mensaje": str}``.
+            ``{"status": "seleccion_invalida", "mensaje": str}``. Un proyecto de un
+            lenguaje que aún no se soporta devuelve
+            ``{"status": "lenguaje_no_soportado", "mensaje": str}`` (#168).
         """
-        from qagent.analysis import analizar_proyecto
         from qagent.config import modo_simulado
+        from qagent.lenguajes import LenguajeNoSoportado, adaptador_del_proyecto
         from qagent.proyectos.seleccion import filtrar_modulos
         from qagent.sandbox import DockerNoDisponible, verificar_docker
 
-        if seleccion is not None:
+        try:
+            adaptador = adaptador_del_proyecto(folder_path)
+        except LenguajeNoSoportado as exc:
+            return {"status": "lenguaje_no_soportado", "mensaje": str(exc)}
+        except OSError as exc:
+            if seleccion is not None:
+                return {"status": "seleccion_invalida", "mensaje": str(exc)}
+            adaptador = None  # la corrida informa que la carpeta no existe
+        if seleccion is not None and adaptador is not None:
             try:
-                filtrar_modulos(analizar_proyecto(folder_path)["modulos"], seleccion)
+                filtrar_modulos(adaptador.analizar(folder_path)["modulos"], seleccion)
             except (OSError, ValueError) as exc:
                 return {"status": "seleccion_invalida", "mensaje": str(exc)}
 

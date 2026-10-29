@@ -91,7 +91,7 @@ def test_generator_devuelve_generated_test_valido() -> None:
 
     resultado = generator.generar(CONTRATO, intento=1, feedback=None)
 
-    assert contracts.es_valido(contracts.GENERATED_TEST, resultado)
+    assert contracts.es_valido(contracts.GENERATED_TEST_V2, resultado)
     assert resultado["objetivo"] == "duplicar"
     assert resultado["intento"] == 1
     assert resultado["casos_cubiertos"] == ["duplica_positivo"]
