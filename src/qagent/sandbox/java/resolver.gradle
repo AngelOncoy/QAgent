@@ -1,0 +1,21 @@
+// Script de inicio de Gradle para la imagen derivada de qagent-sandbox:java (#169).
+// Equivale a `mvn dependency:go-offline`: resuelve (y descarga) todas las
+// configuraciones de cada proyecto, con red, solo al construir la imagen. No compila
+// ni ejecuta el código del usuario: la imagen derivada solo recibe los archivos de build.
+allprojects {
+    tasks.register("qagentResolverDependencias") {
+        notCompatibleWithConfigurationCache("resuelve configuraciones del proyecto")
+        doLast {
+            project.configurations
+                .findAll { it.canBeResolved }
+                .each { configuracion ->
+                    configuracion.resolvedConfiguration.lenientConfiguration.artifacts
+                }
+            project.buildscript.configurations
+                .findAll { it.canBeResolved }
+                .each { configuracion ->
+                    configuracion.resolvedConfiguration.lenientConfiguration.artifacts
+                }
+        }
+    }
+}
