@@ -95,11 +95,13 @@ La interfaz, los contratos y `config.toml` viajan dentro del paquete (`src/qagen
 
 ## Flujo de trabajo
 
-- Ramas desde `develop`: `feat/`, `fix/`, `refactor/`, `test/`, `docs/`, `chore/` + ID del backlog. Ej.: `feat/en-01-contratos`.
-- Commits: `tipo(ID): mensaje`. Ej.: `feat(EN-01): add planner contract schema`.
+- **Identificación de las tareas:** las tareas no llevan número de backlog; se titulan `TIPO - Título` (`HU - …`, `EN - …`, `TA - …`) y se identifican por su issue de GitHub (`#203`). Solo las épicas van numeradas: `EP-NN - Título` en GitHub y `EP-NN · Título` en Notion. Los ítems antiguos con número (`HU-24`, `EN-17`…) lo conservan.
+- Ramas desde `develop`: `feat/`, `fix/`, `refactor/`, `test/`, `docs/`, `chore/` + número del issue y un nombre corto. Ej.: `feat/194-verificar-correccion`.
+- Commits: `tipo(#issue): mensaje`. Ej.: `chore(#203): sincronizar los issues de GitHub con el backlog de Notion`.
 - Todo entra por PR a `develop` con la plantilla de `.github/pull_request_template.md` y al menos 1 aprobación.
-- Cada PR indica el ítem del backlog (HU, EN, SPK, EV, DO) y sus criterios de aceptación.
-- **Documentación de cada tarea:** al terminarla, un informe `.md` en `docs/evidencias/` con el título `<TIPO>-<NN> - <Título>` (`###` si no tiene número de backlog) y las secciones Resumen, Objetivo, Qué se revisó y qué se hizo (tabla), Pruebas e Imprevistos. La plantilla y las reglas están en `.claude/skills/documentar-issue/`.
+- Cada PR indica su issue (y su épica, si tiene) y sus criterios de aceptación.
+- **Backlog en Notion:** cada issue se sincroniza solo con «Backlog fixeado» mediante la Action «Backlog de Notion» (`scripts/sincronizar_notion.py`); no hace falta copiarlo a mano.
+- **Documentación de cada tarea:** al terminarla, un informe `.md` en `docs/evidencias/` con el título `<TIPO> - <Título>` (sin número; solo las épicas van como `EP-NN · Título`) y las secciones Resumen, Objetivo, Qué se revisó y qué se hizo (tabla), Pruebas e Imprevistos. La plantilla y las reglas están en `.claude/skills/documentar-issue/`.
 - **Autoría:** commits, PR e issues son del integrante del equipo que los hace. Un asistente de IA nunca se agrega como autor ni coautor: sin `Co-Authored-By:`, sin «Generated with …» ni firmas equivalentes.
 
 ## Para ahorrar tokens

@@ -1,6 +1,6 @@
-# TIPO-### - Título de la tarea
+# TIPO - Título de la tarea
 
-**Issue:** #000 · **Épica:** — · **Rama:** — · **PR:** — · **Fecha:** AAAA-MM-DD
+**Issue:** #000 · **Épica:** EP-NN (#000) o — · **Rama:** — · **PR:** — · **Fecha:** AAAA-MM-DD
 
 ## Resumen
 

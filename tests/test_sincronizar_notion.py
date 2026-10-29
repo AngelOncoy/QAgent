@@ -94,7 +94,7 @@ def test_fila_nueva_con_epica():
 
 
 def test_responsable_fuera_del_equipo_no_se_toca():
-    issue = _issue(assignees={"nodes": [{"login": "AlejoCY"}]})
+    issue = _issue(assignees={"nodes": [{"login": "alguien-de-fuera"}]})
     assert "Responsable" not in sn.propiedades(issue, None, None, "Sprint 2")
 
 
@@ -130,3 +130,36 @@ def test_reabrir_vuelve_a_abierto_y_borra_fecha_fin():
     props = sn.propiedades(_issue(), actual, None, "Sprint 2")
     assert props["Status"]["select"]["name"] == sn.ABIERTO
     assert props["Fecha Fin"] == {"date": None}
+
+
+@pytest.mark.parametrize(
+    ("titulo", "esperado"),
+    [
+        ("EP - Soporte de Go", True),
+        ("EP: Soporte de Go", True),
+        ("EP-14 - Verificar correcciones", False),
+        ("EP 14 - Verificar correcciones", False),
+        ("Feat: Ajustes de interfaz", False),
+        ("EN - Algo", False),
+    ],
+)
+def test_epica_sin_numero(titulo, esperado):
+    assert sn.epica_sin_numero(titulo) is esperado
+
+
+def test_numerar_epica_usa_el_siguiente_numero():
+    existentes = ["EP-10 - A", "EP-15 - B", "Feat: no es épica", "EP - Nueva"]
+    assert sn.numerar_epica("EP - Soporte de Go", existentes) == "EP-16 - Soporte de Go"
+
+
+def test_numerar_primera_epica():
+    assert sn.numerar_epica("EP: Primera", []) == "EP-1 - Primera"
+
+
+def test_fila_existente_sin_status_lo_toma_del_issue():
+    props = sn.propiedades(_issue(), {"Status": {"select": None}}, None, "Sprint 2")
+    assert props["Status"]["select"]["name"] == sn.ABIERTO
+
+
+def test_alejandro_esta_en_el_equipo():
+    assert "AlejoCY" in sn.EQUIPO
