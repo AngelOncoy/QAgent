@@ -19,7 +19,7 @@ from qagent.config import (
     verificar_entorno,
 )
 from qagent.config import carga as carga_mod
-from qagent.config.carga import RUTA_CONFIG
+from qagent.config.carga import RUTA_CONFIG, Explicador
 from qagent.sandbox.modelos import LIMITES_POR_DEFECTO, LimitesSandbox
 
 # Valores de prueba armados en tiempo de ejecución: no son claves reales.
@@ -686,3 +686,42 @@ def test_el_ejemplo_de_capa_gratuita_es_valido(env_completo):
         "reviewer": "openrouter",
     }
     assert all(p.costo(1000, 1000) == 0 for p in carga.config.agentes.values())
+
+
+# ---------- [agentes.explicador] (HU-32) ----------
+
+
+def test_config_del_equipo_activa_el_explicador_con_plantillas():
+    config = cargar_configuracion(RUTA_CONFIG, "no-existe.env", simulado=True).config
+    assert config.explicador == Explicador(activo=True, modo="plantilla")
+    # No es un agente con modelo ni precio: no pide clave ni entra al tracker.
+    assert "explicador" not in config.agentes
+
+
+def test_sin_seccion_explicador_queda_activo(tmp_path):
+    ruta = _config_con(
+        tmp_path, {'[agentes.explicador]\nactivo = true\nmodo = "plantilla"': ""}
+    )
+    config = cargar_configuracion(ruta, "no-existe.env", simulado=True).config
+    assert config.explicador == Explicador()
+
+
+def test_config_local_puede_desactivar_el_explicador(tmp_path, env_completo):
+    local = tmp_path / "config.local.toml"
+    local.write_text("[agentes.explicador]\nactivo = false\n", encoding="utf-8")
+    carga = cargar_configuracion(
+        RUTA_CONFIG, env_completo, simulado=False, ruta_local=local
+    )
+    assert carga.config.explicador == Explicador(activo=False, modo="plantilla")
+    assert carga.avisos_config == []
+
+
+@pytest.mark.parametrize(
+    "seccion", ['activo = 1\nmodo = "plantilla"', 'activo = true\nmodo = "magia"']
+)
+def test_explicador_invalido_se_avisa(tmp_path, seccion):
+    viejo = '[agentes.explicador]\nactivo = true\nmodo = "plantilla"'
+    ruta = _config_con(tmp_path, {viejo: f"[agentes.explicador]\n{seccion}"})
+    carga = cargar_configuracion(ruta, "no-existe.env", simulado=True)
+    assert carga.config is None
+    assert any("[agentes.explicador]" in a for a in carga.avisos_config)
