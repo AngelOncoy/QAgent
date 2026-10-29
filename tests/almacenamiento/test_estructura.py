@@ -27,6 +27,8 @@ def test_inicializar_crea_runs_specs_tests_y_gitignore(tmp_path: Path):
     assert almacen.existe()
     assert sorted(p.name for p in carpeta.iterdir()) == [
         ".gitignore",
+        "comparaciones",
+        "evidencias_bugs",
         "runs",
         "specs",
         "tests",

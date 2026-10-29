@@ -1,7 +1,7 @@
 """Almacenamiento del proyecto (EN-07): `.qagent/` dentro del proyecto del usuario.
 
-`AlmacenProyecto` guarda y lee corridas, specs y pruebas aprobadas. Todo se escribe de
-forma atómica y en UTF-8 (ver `disco`).
+`AlmacenProyecto` guarda y lee corridas, specs, pruebas aprobadas y evidencias de bugs.
+Todo se escribe de forma atómica y en UTF-8 (ver `disco`).
 """
 
 from qagent.almacenamiento.bloqueo import BloqueoCorrida, corrida_activa

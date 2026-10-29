@@ -1,0 +1,38 @@
+{
+  "version": "1",
+  "run_origen_id": "20261029-120000-abcd",
+  "run_verificacion_id": "20261029-130000-ef01",
+  "creado": "2026-10-29T13:01:00+00:00",
+  "comparaciones": [
+    {
+      "objetivo": {
+        "modulo": "tienda/precios.py",
+        "nombre": "calcular_descuento",
+        "tipo": "funcion"
+      },
+      "prueba": {
+        "id": "tienda_precios_py__calcular_descuento",
+        "archivo": "test_tienda_precios_py__calcular_descuento.py",
+        "run_origen_id": "20261029-120000-abcd",
+        "huella_origen": "4d68a0e89b4d72df420e4d018d70b4779ec34dcec624566ca19e6de10e1278dc",
+        "huella_verificacion": "4d68a0e89b4d72df420e4d018d70b4779ec34dcec624566ca19e6de10e1278dc"
+      },
+      "firma_origen": "(precio: float, porcentaje: float) -> float",
+      "firma_verificacion": "(precio: float, porcentaje: float) -> float",
+      "estado_anterior": {
+        "decision": "bug_detectado",
+        "confiable": true,
+        "referencia_resultado": "runs/20261029-120000-abcd/results.json",
+        "observado": "assert 20.0 == 80.0"
+      },
+      "estado_posterior": {
+        "decision": "accept",
+        "confiable": true,
+        "referencia_resultado": "runs/20261029-130000-ef01/results.json",
+        "observado": "1 passed"
+      },
+      "resultado": "corregido",
+      "motivo": null
+    }
+  ]
+}

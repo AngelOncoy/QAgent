@@ -1015,6 +1015,10 @@ def _registrar(
                     spec_id = id_de_spec(resultado.modulo, objetivo.objetivo)
                     archivo = nombre_prueba(spec_id)
                     almacen.guardar_prueba_aprobada(archivo, objetivo.codigo)
+                elif objetivo.decision == "bug_detectado" and objetivo.codigo:
+                    almacen.guardar_evidencia_bug(
+                        objetivo.contrato, objetivo.codigo, resumen.run_id
+                    )
                 huella = huellas_objetivos.get((resultado.modulo, objetivo.objetivo))
                 contrato, perfil_spec = guardadas.get(
                     (resultado.modulo, objetivo.objetivo), (objetivo.contrato, None)
