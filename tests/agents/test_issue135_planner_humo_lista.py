@@ -14,6 +14,7 @@ import pytest
 from qagent import contracts
 from qagent.agents.planner import ErrorRespuestaPlanner, PlannerAgent
 from qagent.analysis import analizar_proyecto
+from qagent.lenguajes import python_planificacion
 from qagent.llm import RespuestaLLM, TokenTracker
 
 RAIZ = Path(__file__).resolve().parents[2]
@@ -138,7 +139,7 @@ def test_el_mensaje_de_error_no_copia_la_respuesta() -> None:
 
 
 def test_el_prompt_de_humo_pide_una_lista_y_acepta_la_vacia() -> None:
-    prompt = PlannerAgent._crear_prompt_humo(MODULO)
+    prompt = python_planificacion.prompt_funciones_humo(MODULO)
 
     assert "Devuelve SOLO una lista JSON con un objeto por función:" in prompt
     assert '[{"objetivo": nombre, "casos": [caso]}]' in prompt
@@ -182,7 +183,7 @@ def test_el_prompt_de_endpoints_de_humo_pide_una_lista_y_acepta_la_vacia() -> No
     modulo = _modulo_api()
     endpoints = {e["objetivo"]: e for e in modulo["endpoints"]}
 
-    prompt = PlannerAgent._crear_prompt_endpoints_humo(modulo, endpoints)
+    prompt = python_planificacion.prompt_endpoints_humo(modulo, endpoints)
 
     assert "Devuelve SOLO una lista JSON con un objeto por endpoint:" in prompt
     assert '[{"objetivo": "MÉTODO /ruta", "casos": [caso]}]' in prompt

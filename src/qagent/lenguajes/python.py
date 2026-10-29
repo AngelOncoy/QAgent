@@ -17,13 +17,17 @@ from typing import Any
 
 from qagent.analysis import analizar_proyecto, comparar_aserciones
 from qagent.analysis.contexto import PAQUETES_BASE
-from qagent.lenguajes import python_regresion
+from qagent.lenguajes import python_generacion, python_regresion
 from qagent.lenguajes.base import (
     ComandoSandbox,
     ComparacionAserciones,
     EntornoSandbox,
     Estructura,
     LanguageAdapter,
+)
+from qagent.lenguajes.python_planificacion import (
+    REGLAS_PLANIFICACION_PYTHON,
+    ReglasPlanificacionPython,
 )
 from qagent.lenguajes.python_revision import (
     REGLAS_REVISION_PYTHON,
@@ -39,7 +43,11 @@ from qagent.sandbox.ejecucion import (
 )
 from qagent.sandbox.informe_pytest import parsear_junit
 from qagent.sandbox.modelos import IMAGEN_BASE
-from qagent.sandbox.mutacion import comando_mutacion
+from qagent.sandbox.mutacion import (
+    ResultadoMutacion,
+    comando_mutacion,
+    ejecutar_mutacion,
+)
 
 
 class PythonAdapter(LanguageAdapter):
@@ -121,6 +129,26 @@ class PythonAdapter(LanguageAdapter):
     def funciones_de_modulo(self, raiz: Path, modulo: str) -> list[dict[str, Any]]:
         """Línea del `def` de cada función de primer nivel (mutación de reg_deep)."""
         return python_regresion.funciones_de_modulo(raiz, modulo)
+
+    def ejecutar_mutacion(self, *args: Any, **opciones: Any) -> ResultadoMutacion:
+        """mutmut en el sandbox, solo sobre las funciones críticas (EN-09, #74)."""
+        return ejecutar_mutacion(*args, **opciones)
+
+    def reglas_planificacion(self) -> ReglasPlanificacionPython:
+        """Prompts y filtros de casos de pytest y FastAPI para el Planner (#168)."""
+        return REGLAS_PLANIFICACION_PYTHON
+
+    def prompt_generator(
+        self,
+        contrato: dict[str, Any],
+        intento: int,
+        feedback: str | None,
+        ruta_proyecto: Path | None,
+    ) -> str:
+        """Prompt del test pytest (o TestClient) de ``contrato`` (#168)."""
+        return python_generacion.prompt_generator(
+            contrato, intento, feedback, ruta_proyecto
+        )
 
     def reglas_revision(self) -> ReglasRevisionPython:
         """Sintaxis, oráculo y salida de pytest para el Reviewer (#168)."""

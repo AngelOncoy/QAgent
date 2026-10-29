@@ -413,6 +413,13 @@ class LanguageAdapter(ABC):
         """Sintaxis, oráculo y clasificación de la salida para el Reviewer."""
         raise NoImplementado(self.lenguaje, "reglas_revision")
 
+    def ejecutar_mutacion(self, *args: Any, **opciones: Any) -> Any:
+        """Muta las funciones críticas en el sandbox (firma de ``sandbox.ejecutar_mutacion``).
+
+        Solo sobre funciones ``critical: true``. Devuelve un ``ResultadoMutacion``.
+        """
+        raise NoImplementado(self.lenguaje, "ejecutar_mutacion")
+
     def huellas_de_archivo(self, fuente: str, relativa: str) -> dict[str, str] | None:
         """Huella de cada función y endpoint de un archivo fuente (HU-24, HU-25).
 

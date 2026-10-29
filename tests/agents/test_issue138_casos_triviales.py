@@ -12,11 +12,11 @@ import json
 import pytest
 
 from qagent import contracts
-from qagent.agents.planner import (
+from qagent.agents.planner import PlannerAgent, contrato_sin_triviales
+from qagent.lenguajes import python_planificacion
+from qagent.lenguajes.python_planificacion import (
     MOTIVO_CASO_TRIVIAL,
     MOTIVO_OMITIDA_TRIVIAL,
-    PlannerAgent,
-    contrato_sin_triviales,
     es_caso_trivial,
 )
 from qagent.llm import RespuestaLLM, TokenTracker
@@ -166,8 +166,8 @@ def test_funciones_identicas_sin_docstring_reciben_el_mismo_trato() -> None:
 
 
 def test_los_prompts_ya_no_piden_el_typeerror_de_firma() -> None:
-    estandar = PlannerAgent._crear_prompt(MODULO)
-    humo = PlannerAgent._crear_prompt_humo(MODULO)
+    estandar = python_planificacion.prompt_funciones_completo(MODULO)
+    humo = python_planificacion.prompt_funciones_humo(MODULO)
 
     for prompt in (estandar, humo):
         assert (

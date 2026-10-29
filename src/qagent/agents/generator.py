@@ -1,29 +1,21 @@
-"""Agente Generator: convierte un contrato del Planner en código pytest.
+"""Agente Generator: convierte un contrato del Planner en el código de su test.
 
-Si conoce la carpeta del proyecto, agrega al prompt el contexto estático del módulo de
-la función (imports, nombres globales que usa, su código y los paquetes del sandbox;
-ver `qagent.analysis.contexto`). Sirve para importar y simular bien, no para decidir el
-valor esperado: ese sale del contrato y el Reviewer rechaza cualquier aserción que se
-aparte de él.
+Es compartido por todos los lenguajes (#168): el prompt lo arma el adaptador del
+lenguaje del contrato (en Python, un archivo pytest con el contexto estático del
+módulo) y su sintaxis la revisan las reglas del mismo adaptador. El valor esperado
+sale siempre del contrato; el Reviewer rechaza cualquier aserción que se aparte de él.
 """
 
 from __future__ import annotations
 
-import ast
-import json
-from pathlib import Path, PurePosixPath
+from pathlib import Path
 from typing import Any
 
 from qagent import contracts
-from qagent.analysis.contexto import (
-    PAQUETES_BASE,
-    ContextoFuncion,
-    contexto_de_funcion,
-)
+from qagent.lenguajes import adaptador_de_contrato
 from qagent.llm import ClienteLLM, TokenTracker
-from qagent.llm.fake import MARCA_CONTRATO
 
-#: Caracteres de feedback (salida de pytest) que se reenvían al modelo.
+#: Caracteres de feedback (salida del runner) que se reenvían al modelo.
 LARGO_MAXIMO_FEEDBACK = 2000
 
 
@@ -49,8 +41,8 @@ class GeneratorAgent:
         """Inicializa el Generator con su cliente y registro de tokens.
 
         Args:
-            ruta_proyecto: carpeta del proyecto; si se da, el prompt de cada función
-                lleva el contexto estático de su módulo. Si es None, solo el contrato.
+            ruta_proyecto: carpeta del proyecto; si se da, el adaptador puede sumar
+                al prompt el contexto estático del módulo. Si es None, solo el contrato.
         """
         self.cliente = cliente
         self.tracker = tracker
@@ -63,9 +55,13 @@ class GeneratorAgent:
         intento: int,
         feedback: str | None,
     ) -> dict[str, Any]:
-        """Genera o corrige un test pytest."""
-        prompt = self._crear_prompt(
-            contrato, intento, feedback, self._contexto(contrato)
+        """Genera o corrige el test de `contrato` (`generated_test.v2`)."""
+        adaptador = adaptador_de_contrato(contrato)
+        prompt = adaptador.prompt_generator(
+            contrato,
+            intento,
+            _recortar(feedback) if feedback else None,
+            self.ruta_proyecto,
         )
         respuesta = self.cliente.generar(prompt, rol="generator")
 
@@ -79,165 +75,30 @@ class GeneratorAgent:
             es_estimado=getattr(respuesta, "es_estimado", False),
         )
 
-        codigo = _quitar_cerca_python(respuesta.contenido)
+        codigo = _quitar_cerca(respuesta.contenido)
         if not codigo.strip():
             raise ErrorRespuestaGenerator("El Generator devolvió código vacío.")
-        try:
-            ast.parse(codigo)
-        except (SyntaxError, ValueError) as error:
+        error = adaptador.reglas_revision().error_de_sintaxis(codigo)
+        if error is not None:
             raise ErrorRespuestaGenerator(
-                f"El Generator devolvió código Python inválido: {type(error).__name__}: {error}",
+                f"El Generator devolvió código {adaptador.nombre_visible} "
+                f"inválido: {error}",
                 codigo=codigo,
-            ) from error
+            )
 
         # generated_test.v2 (#168): con el lenguaje y el framework del contrato.
         return contracts.generated_test_para(contrato, intento, codigo)
 
-    def _contexto(self, contrato: dict[str, Any]) -> ContextoFuncion | None:
-        """Contexto del módulo de una función (los endpoints ya traen su declaración)."""
-        if self.ruta_proyecto is None or contrato.get("tipo") == "endpoint":
-            return None
-        return contexto_de_funcion(
-            self.ruta_proyecto, contrato["modulo"], contrato["objetivo"]
-        )
-
-    @staticmethod
-    def _crear_prompt(
-        contrato: dict[str, Any],
-        intento: int,
-        feedback: str | None,
-        contexto: ContextoFuncion | None = None,
-    ) -> str:
-        # Una sola línea: más corto (menos tokens) y la IA simulada lo puede leer.
-        contrato_json = json.dumps(contrato, ensure_ascii=False)
-        correccion = (
-            _recortar(feedback)
-            if feedback
-            else "No existe feedback porque este es el primer intento."
-        )
-        if contrato.get("tipo") == "endpoint":
-            reglas_objetivo = _reglas_endpoint(contrato)
-        else:
-            importacion = (
-                f"from {modulo_importable(contrato['modulo'])} import "
-                f"{contrato['objetivo']}"
-            )
-            reglas_objetivo = f"""
-- Importa el objetivo exactamente así: {importacion}
-- Llama directamente a la función con la entrada de cada caso.
-- Para un caso con "excepcion" usa: with pytest.raises(<Excepcion>).
-""".strip()
-            if contexto is not None:
-                reglas_objetivo += "\n" + _reglas_contexto(contrato)
-        return f"""
-Escribe un archivo pytest completo para el contrato indicado.
-
-REGLAS OBLIGATORIAS:
-{reglas_objetivo}
-- Escribe una función test_<id> por cada caso del contrato.
-- Usa exactamente los valores esperados del contrato (pytest.approx para float).
-- Si un caso trae "tipo_valor_esperado": "tuple", compara exactamente con un
-  literal tupla (incluida la coma de una tupla unitaria); no conviertas el resultado
-  con list() ni reemplaces la igualdad por longitud o elementos parciales.
-- Un array sin esa metadata conserva su significado de lista.
-- No ejecutes el código para descubrir resultados.
-- No elimines, cambies ni debilites las aserciones; sin try/except, skip ni xfail.
-- Simula con mocks las funciones incluidas en llama_a.
-- Devuelve únicamente código Python, sin explicaciones.
-- Este es el intento {intento}.
-
-FEEDBACK DEL INTENTO ANTERIOR:
-{correccion}
-{_texto_contexto(contexto)}
-{MARCA_CONTRATO} {contrato_json}
-""".strip()
-
-
-def _reglas_contexto(contrato: dict[str, Any]) -> str:
-    """Reglas para usar el contexto del módulo sin tocar el oráculo del contrato."""
-    modulo = modulo_importable(contrato["modulo"])
-    return f"""
-- Usa el CONTEXTO DEL MÓDULO solo para saber qué importar y qué simular. El valor
-  esperado de cada caso sale SIEMPRE del contrato, nunca del código de la función.
-- Si la función usa nombres globales del módulo (configuración, clientes, objetos
-  de un framework como request o g, bibliotecas opcionales), simúlalos con
-  unittest.mock.patch("{modulo}.<nombre>").
-- No importes paquetes que no estén instalados en el sandbox: simúlalos.
-""".strip()
-
-
-def _texto_contexto(contexto: ContextoFuncion | None) -> str:
-    """Bloque CONTEXTO DEL MÓDULO del prompt (vacío si no hay contexto)."""
-    if contexto is None:
-        return ""
-    instalados = ", ".join([*PAQUETES_BASE, *contexto.paquetes])
-    return f"""
-CONTEXTO DEL MÓDULO (para importar y simular; no para decidir valores esperados):
-Imports del módulo:
-{chr(10).join(contexto.imports) or "(ninguno)"}
-Nombres globales del módulo que usa la función: {", ".join(contexto.globales_usados) or "(ninguno)"}
-Paquetes instalados en el sandbox: {instalados}
-Código de la función:
-{contexto.codigo}
-"""
-
-
-def _reglas_endpoint(contrato: dict[str, Any]) -> str:
-    """Reglas de generación para un endpoint FastAPI descrito por el contrato."""
-    modulo = modulo_importable(contrato["modulo"])
-    aplicacion = contrato["aplicacion"]
-    dependencias = contrato.get("dependencias", [])
-    simbolos = [aplicacion]
-    for dependencia in dependencias:
-        simbolos.extend([dependencia["funcion"], dependencia["reemplazo"]])
-    importacion = f"from {modulo} import {', '.join(dict.fromkeys(simbolos))}"
-    detalle_overrides = (
-        json.dumps(dependencias, ensure_ascii=False)
-        if dependencias
-        else "[] (este endpoint no declara Depends)"
-    )
-    return f"""
-- Usa fastapi.testclient.TestClient para realizar una petición HTTP real en memoria.
-- Importa la aplicación y los símbolos de override exactamente así: {importacion}
-- Construye TestClient({aplicacion}, raise_server_exceptions=False).
-- Usa client.request con método, ruta, query, json y headers del contrato.
-- Comprueba siempre response.status_code.
-- Si valor_esperado trae "json", compara response.json() completo.
-- Si trae "json_contiene", comprueba cada clave y valor indicados.
-- Dependencias a reemplazar: {detalle_overrides}
-- Para cada dependencia asigna {aplicacion}.dependency_overrides[funcion] = reemplazo.
-- Si una entrada trae "preparacion", instancia el reemplazo una vez en la fixture,
-  ejecuta allí cada método/modelo/argumentos declarado y usa un lambda que devuelva
-  esa misma instancia durante el test.
-- Usa una fixture con try/finally: guarda una copia de los overrides anteriores y,
-  al terminar cada test, limpia el diccionario y restaura exactamente esa copia.
-- Nunca reemplaces el manejador de la ruta ni modelos Pydantic.
-""".strip()
-
-
-def modulo_importable(modulo: str) -> str:
-    """Ruta del módulo relativa al proyecto -> nombre importable.
-
-    En el sandbox `PYTHONPATH` es la raíz del proyecto, así que
-    `bench/banco_mvp.py` se importa como `bench.banco_mvp`.
-    """
-    return (
-        PurePosixPath(modulo.replace("\\", "/"))
-        .with_suffix("")
-        .as_posix()
-        .replace("/", ".")
-    )
-
 
 def _recortar(texto: str, maximo: int = LARGO_MAXIMO_FEEDBACK) -> str:
-    """Deja solo el final del feedback (donde pytest pone el error) para ahorrar tokens."""
+    """Deja solo el final del feedback (donde el runner pone el error) para ahorrar tokens."""
     if len(texto) <= maximo:
         return texto
     return "[…recortado…]\n" + texto[-maximo:]
 
 
-def _quitar_cerca_python(contenido: str) -> str:
-    """Elimina una cerca Markdown ```python si el modelo la agregó."""
+def _quitar_cerca(contenido: str) -> str:
+    """Elimina una cerca Markdown (```python, ```ts...) si el modelo la agregó."""
     texto = contenido.strip()
     if texto.startswith("```"):
         lineas = texto.splitlines()

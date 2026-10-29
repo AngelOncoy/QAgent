@@ -8,6 +8,7 @@ from qagent import contracts
 from qagent.agents import PlannerAgent
 from qagent.agents.planner import contrato_humo
 from qagent.analysis import analizar_proyecto
+from qagent.lenguajes import python_planificacion
 from qagent.llm import FakeLLMClient, TokenTracker
 
 RAIZ = Path(__file__).resolve().parents[2]
@@ -116,8 +117,8 @@ def test_fuera_de_humo_se_conservan_todos_los_casos() -> None:
 
 
 def test_el_prompt_de_humo_es_mas_corto() -> None:
-    corto = PlannerAgent._crear_prompt_humo(MODULO)
-    largo = PlannerAgent._crear_prompt(MODULO)
+    corto = python_planificacion.prompt_funciones_humo(MODULO)
+    largo = python_planificacion.prompt_funciones_completo(MODULO)
 
     assert len(corto) < len(largo)
     assert "UN caso normal" in corto
@@ -155,8 +156,8 @@ def test_el_prompt_de_endpoints_de_humo_es_mas_corto() -> None:
     endpoints = {e["objetivo"]: e for e in modulo["endpoints"]}
     fuente = (RAIZ / "bench_api" / "api_mvp.py").read_text(encoding="utf-8")
 
-    corto = PlannerAgent._crear_prompt_endpoints_humo(modulo, endpoints)
-    largo = PlannerAgent._crear_prompt_endpoints(modulo, endpoints, fuente)
+    corto = python_planificacion.prompt_endpoints_humo(modulo, endpoints)
+    largo = python_planificacion.prompt_endpoints_completo(modulo, endpoints, fuente)
 
     assert len(corto) < len(largo)
     assert "UNA petición válida por endpoint" in corto

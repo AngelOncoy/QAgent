@@ -820,7 +820,7 @@ class Orquestador:
                                 or not causa.codigo
                             ):
                                 raise
-                            # El Generator rechazó el candidato con ast.parse. Se
+                            # El Generator rechazó su sintaxis (reglas del adaptador). Se
                             # entrega al Reviewer solo para producir feedback
                             # contractual; su validación de sintaxis impide que
                             # alcance el ejecutor del sandbox.

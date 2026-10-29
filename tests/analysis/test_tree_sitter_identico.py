@@ -35,7 +35,8 @@ LEEN_CODIGO_DEL_USUARIO = (
     "analysis/texto_ts.py",
     "sandbox/manejadores.py",
     "orchestrator/regresion.py",
-    "agents/planner.py",
+    "lenguajes/python_planificacion.py",
+    "lenguajes/python_regresion.py",
 )
 
 

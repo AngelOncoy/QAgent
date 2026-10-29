@@ -31,7 +31,6 @@ from qagent.orchestrator.tiempos import (
 from qagent.proyectos.proyecto_local import detectar_rama
 from qagent.sandbox import LIMITES_POR_DEFECTO, clasificar_resultado, ejecutar_pruebas
 from qagent.sandbox.ejecucion import ejecutar_comando_pruebas
-from qagent.sandbox.informe_pytest import JUnitInvalido
 from qagent.storage import escribir_corrida
 from qagent.storage.registro import PERFIL_REGRESION_PROFUNDA
 
@@ -480,7 +479,7 @@ def ejecutar_regresion(
                     duracion_pytest = adaptador.interpretar_resultados(
                         salida.junit_xml
                     )["duracion_s"]
-                except (JUnitInvalido, ValueError):
+                except ValueError:  # informe dañado (JUnitInvalido en Python)
                     duracion_pytest = 0.0
             estado = clasificar_resultado(salida)
             decision = (
