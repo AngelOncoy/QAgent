@@ -57,7 +57,7 @@ precio_cache_lectura_usd_m = 0.0036
 
 [agentes.reviewer]
 proveedor = "openai"
-modelo = "gpt-6-luna"            # confirmar el ID exacto en la documentación de OpenAI
+modelo = "gpt-6-luna"            # ID confirmado en developers.openai.com/api/docs/models
 esfuerzo = "max"
 precio_entrada_usd_m = 0.10
 precio_salida_usd_m = 0.50
