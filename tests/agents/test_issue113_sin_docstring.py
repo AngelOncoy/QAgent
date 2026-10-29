@@ -108,7 +108,7 @@ def test_funcion_documentada_conserva_su_contrato() -> None:
     plan, _ = planificar(meta, [{"objetivo": "objetivo", "casos": [prueba]}])
 
     assert plan[0]["casos"] == [prueba]
-    assert contracts.es_valido(contracts.PLANNER, plan[0])
+    assert contracts.es_valido(contracts.PLANNER_V3, plan[0])
 
 
 def test_sin_docstring_permite_none_declarado_por_tipo() -> None:
@@ -276,7 +276,7 @@ def test_contrato_sin_docstring_es_compatible_con_generator_y_reviewer() -> None
         ClienteGrabado(codigo), TokenTracker(), es_simulado=True
     ).generar(contrato, 1, None)
 
-    assert contracts.es_valido(contracts.GENERATED_TEST, generado)
+    assert contracts.es_valido(contracts.GENERATED_TEST_V2, generado)
     assert ReviewerAgent._validar_oraculo(contrato, generado["codigo"]) is None
 
 
@@ -298,4 +298,4 @@ def test_contrato_historico_documentado_sigue_siendo_valido() -> None:
     prueba = caso(entrada={"x": 1}, origen="docstring", valor=1)
     [contrato], _ = planificar(meta, [{"objetivo": "objetivo", "casos": [prueba]}])
 
-    assert contracts.validar(contracts.PLANNER, contrato) is contrato
+    assert contracts.validar(contracts.PLANNER_V3, contrato) is contrato

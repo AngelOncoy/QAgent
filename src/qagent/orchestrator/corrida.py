@@ -1023,9 +1023,7 @@ def _registrar(
                 contrato, perfil_spec = guardadas.get(
                     (resultado.modulo, objetivo.objetivo), (objetivo.contrato, None)
                 )
-                if contrato is not None and contracts.es_valido(
-                    contracts.PLANNER, contrato
-                ):
+                if contrato is not None and contracts.es_planner_valido(contrato):
                     almacen.guardar_spec(
                         contrato,
                         resumen.run_id,
@@ -1086,7 +1084,7 @@ def _spec_de_modulo(
         perfiles.update({c["objetivo"]: perfil for c in contratos})
     if contratos and preparado.plan_guardado is not None:
         contratos = _combinar_plan(preparado.plan_guardado["contratos"], contratos)
-    validos = [c for c in contratos if contracts.es_valido(contracts.PLANNER, c)]
+    validos = [c for c in contratos if contracts.es_planner_valido(c)]
     if not validos:
         return None
     return {

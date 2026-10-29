@@ -151,7 +151,7 @@ def _specs_aprobadas(almacen: AlmacenProyecto) -> list[dict[str, Any]]:
         try:
             spec = json.loads(ruta.read_text(encoding="utf-8"))
             contrato = spec["contrato"]
-            contracts.validar(contracts.PLANNER, contrato)
+            contracts.validar_versionado(contracts.FAMILIA_PLANNER, contrato)
         except (
             OSError,
             UnicodeDecodeError,

@@ -468,6 +468,8 @@ def _objetivo(
     if mutacion is not None:
         datos["mutacion"] = mutacion  # EN-09: detalle de mutmut y sobrevivientes
     if objetivo.contrato is not None:
+        # #168: lenguaje del objetivo (columna lenguaje de las 5 métricas, ADR-010).
+        datos["lenguaje"] = contracts.lenguaje_de_contrato(objetivo.contrato)
         # #76: casos del contrato por categoría (las de specs anteriores se infieren).
         datos["casos_por_categoria"] = contracts.contar_categorias(
             objetivo.contrato.get("casos")

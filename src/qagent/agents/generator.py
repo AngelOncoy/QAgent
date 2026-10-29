@@ -90,15 +90,8 @@ class GeneratorAgent:
                 codigo=codigo,
             ) from error
 
-        generado = {
-            "version": "1",
-            "objetivo": contrato["objetivo"],
-            "intento": intento,
-            "codigo": codigo,
-            "casos_cubiertos": [caso["id"] for caso in contrato["casos"]],
-        }
-        contracts.validar(contracts.GENERATED_TEST, generado)
-        return generado
+        # generated_test.v2 (#168): con el lenguaje y el framework del contrato.
+        return contracts.generated_test_para(contrato, intento, codigo)
 
     def _contexto(self, contrato: dict[str, Any]) -> ContextoFuncion | None:
         """Contexto del módulo de una función (los endpoints ya traen su declaración)."""

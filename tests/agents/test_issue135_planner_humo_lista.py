@@ -88,7 +88,7 @@ def test_objeto_suelto_y_lista_de_uno_dan_el_mismo_contrato() -> None:
 
     assert suelto == en_lista
     [contrato] = suelto
-    contracts.validar(contracts.PLANNER, contrato)
+    contracts.validar(contracts.PLANNER_V3, contrato)
     assert contrato["objetivo"] == "duplicar"
     assert [c["id"] for c in contrato["casos"]] == ["duplica_positivo"]
 
@@ -170,7 +170,7 @@ def test_endpoint_como_objeto_suelto_se_planifica_igual() -> None:
 
     assert suelto == en_lista
     assert [c["objetivo"] for c in suelto] == ["GET /salud"]
-    contracts.validar(contracts.PLANNER, suelto[0])
+    contracts.validar(contracts.PLANNER_V3, suelto[0])
 
 
 def test_endpoints_con_otra_forma_siguen_fallando() -> None:

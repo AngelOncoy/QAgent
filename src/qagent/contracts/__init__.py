@@ -76,6 +76,9 @@ FRAMEWORKS_APP: dict[str, tuple[str, ...]] = {
     "java": ("spring",),
 }
 LENGUAJES = tuple(FRAMEWORKS_PRUEBAS)
+#: Lenguaje de los contratos sin el campo `lenguaje` (planner v2, generated_test v1):
+#: antes de EN-17 QAgent solo probaba Python.
+LENGUAJE_CONTRATOS_ANTERIORES = "python"
 
 
 #: Categorías de un caso de prueba (#76), del contrato del Planner.
@@ -237,6 +240,50 @@ def normalizar_planner(dato: dict[str, Any]) -> dict[str, Any]:
         if nuevo["tipo"] == "endpoint":
             nuevo["framework_app"] = "fastapi"
     return validar(PLANNER_V3, nuevo)
+
+
+def es_planner_valido(dato: Any) -> bool:
+    """Si `dato` es un `planner_contract` válido en cualquiera de sus versiones (2 o 3)."""
+    try:
+        validar_versionado(FAMILIA_PLANNER, dato)
+    except ContratoInvalido:
+        return False
+    return True
+
+
+def lenguaje_de_contrato(dato: dict[str, Any]) -> str:
+    """Lenguaje de un `planner_contract` o `generated_test` de cualquier versión.
+
+    Las versiones anteriores a EN-17 (planner v2, generated_test v1) no traen el campo:
+    siempre son Python, que era el único lenguaje.
+    """
+    return dato.get("lenguaje") or LENGUAJE_CONTRATOS_ANTERIORES
+
+
+def generated_test_para(
+    contrato: dict[str, Any], intento: int, codigo: str, archivo: str | None = None
+) -> dict[str, Any]:
+    """`generated_test.v2` de `codigo` para `contrato` (v2 o v3), con su lenguaje.
+
+    Cubre todos los casos del contrato. El framework es el del contrato (un v2 es
+    pytest). Se valida antes de devolverlo.
+
+    Raises:
+        ContratoInvalido: si `contrato` no es válido o el test no cumple su schema.
+    """
+    v3 = normalizar_planner(contrato)
+    generado = {
+        "version": "2",
+        "lenguaje": v3["lenguaje"],
+        "framework_pruebas": v3["framework_pruebas"],
+        "objetivo": v3["objetivo"],
+        "intento": intento,
+        "codigo": codigo,
+        "casos_cubiertos": [caso["id"] for caso in v3["casos"]],
+    }
+    if archivo is not None:
+        generado["archivo"] = archivo
+    return validar(GENERATED_TEST_V2, generado)
 
 
 def normalizar_generated_test(dato: dict[str, Any]) -> dict[str, Any]:

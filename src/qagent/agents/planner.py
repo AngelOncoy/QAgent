@@ -35,6 +35,7 @@ from tree_sitter import Node
 from qagent import contracts
 from qagent.analysis import arbol_ts, texto_ts
 from qagent.contracts import ContratoInvalido, categoria_de, es_caso_de_error
+from qagent.lenguajes import LanguageAdapter, adaptador_para
 from qagent.llm import ClienteLLM, TokenTracker
 from qagent.llm.fake import MARCA_MODULO, MARCA_OBJETIVOS
 
@@ -95,8 +96,9 @@ MOTIVO_OMITIDA_TRIVIAL = (
     "ese TypeError lo lanza Python, no la función, así que no verifica su comportamiento"
 )
 
+# Campos fijos para validar un caso suelto contra el schema (el encabezado del
+# lenguaje lo agrega `PlannerAgent._encabezado`).
 _CONTRATO_DE_PRUEBA = {
-    "version": "2",
     "modulo": "x.py",
     "huella": "0" * 64,
     "tipo": "funcion",
@@ -120,13 +122,20 @@ class PlannerAgent:
         *,
         es_simulado: bool = False,
         perfil: str | None = None,
+        adaptador: LanguageAdapter | None = None,
     ) -> None:
         """Inicializa el Planner con su cliente y registro de tokens.
 
         Args:
             perfil: perfil de la corrida; con `humo` planifica un caso normal por
                 objetivo (#75).
+            adaptador: adaptador del lenguaje del proyecto (#168): pone `lenguaje` y
+                los frameworks del contrato. Sin él, el de los contratos anteriores
+                a EN-17.
         """
+        self.adaptador = adaptador or adaptador_para(
+            contracts.LENGUAJE_CONTRATOS_ANTERIORES
+        )
         self.cliente = cliente
         self.tracker = tracker
         self.es_simulado = es_simulado
@@ -144,13 +153,24 @@ class PlannerAgent:
         # #138: casos triviales descartados por objetivo en la última llamada.
         self._triviales: dict[str, int] = {}
 
+    def _encabezado(self, tipo: str) -> dict[str, Any]:
+        """Campos de `planner_contract.v3` que salen del adaptador, no del modelo."""
+        encabezado = {
+            "version": "3",
+            "lenguaje": self.adaptador.lenguaje,
+            "framework_pruebas": self.adaptador.framework_predeterminado,
+        }
+        if tipo == "endpoint":
+            encabezado["framework_app"] = self.adaptador.frameworks_app[0]
+        return encabezado
+
     @property
     def es_humo(self) -> bool:
         """Si la corrida es Humo: un caso normal por objetivo (#75)."""
         return self.perfil == PERFIL_HUMO
 
     def planificar(self, modulo: dict[str, Any]) -> list[dict[str, Any]]:
-        """Devuelve un `planner_contract.v2` por cada función del módulo con casos.
+        """Devuelve un `planner_contract.v3` por cada función del módulo con casos.
 
         Los objetivos que no existen en el módulo y los casos inválidos se descartan
         (quedan en `self.descartados`); las funciones sin valor esperado deducible
@@ -256,7 +276,7 @@ class PlannerAgent:
             return None
 
         contrato = {
-            "version": "2",
+            **self._encabezado("funcion"),
             "modulo": modulo["ruta"],
             "huella": modulo["huella"],
             "tipo": "funcion",
@@ -269,7 +289,7 @@ class PlannerAgent:
             "casos": casos,
         }
         try:
-            contracts.validar(contracts.PLANNER, contrato)
+            contracts.validar(contracts.PLANNER_V3, contrato)
         except ContratoInvalido as error:
             self.descartados.append(f"{nombre}: {error}")
             return None
@@ -298,7 +318,12 @@ class PlannerAgent:
             caso = _preservar_tipo_valor_esperado(funcion or {}, caso)
             try:
                 contracts.validar(
-                    contracts.PLANNER, {**_CONTRATO_DE_PRUEBA, "casos": [caso]}
+                    contracts.PLANNER_V3,
+                    {
+                        **self._encabezado("funcion"),
+                        **_CONTRATO_DE_PRUEBA,
+                        "casos": [caso],
+                    },
                 )
             except ContratoInvalido as error:
                 self._casos_invalidos += 1
@@ -458,7 +483,7 @@ Ejemplo: {ejemplo}
     def planificar_endpoints(
         self, modulo: dict[str, Any], fuente: str | None = None
     ) -> list[dict[str, Any]]:
-        """Devuelve un `planner_contract.v2` de tipo "endpoint" por endpoint del módulo.
+        """Devuelve un `planner_contract.v3` de tipo "endpoint" por endpoint del módulo.
 
         Usa la salida del analizador (EN-14): método, ruta, estado declarado, modelos,
         parámetros, dependencias y `HTTPException`. El modelo de IA propone los casos
@@ -552,7 +577,7 @@ Ejemplo: {ejemplo}
     ) -> dict[str, Any] | None:
         objetivo = endpoint["objetivo"]
         base = {
-            "version": "2",
+            **self._encabezado("endpoint"),
             "modulo": modulo["ruta"],
             "huella": modulo["huella"],
             "tipo": "endpoint",
@@ -573,7 +598,7 @@ Ejemplo: {ejemplo}
                 self.descartados.append(f"{objetivo}: caso repetido {caso.get('id')!r}")
                 continue
             try:
-                contracts.validar(contracts.PLANNER, {**base, "casos": [caso]})
+                contracts.validar(contracts.PLANNER_V3, {**base, "casos": [caso]})
             except ContratoInvalido as error:
                 self.descartados.append(f"{objetivo}: caso {caso.get('id')!r}: {error}")
                 continue
@@ -606,7 +631,7 @@ Ejemplo: {ejemplo}
             return None
         contrato = {**base, "casos": validos}
         try:
-            contracts.validar(contracts.PLANNER, contrato)
+            contracts.validar(contracts.PLANNER_V3, contrato)
         except ContratoInvalido as error:
             self.descartados.append(f"{objetivo}: {error}")
             return None

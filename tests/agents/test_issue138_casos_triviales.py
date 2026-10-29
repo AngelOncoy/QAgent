@@ -134,7 +134,7 @@ def test_el_caso_trivial_se_descarta_y_se_conservan_los_de_comportamiento() -> N
 
     [contrato] = agente.planificar(MODULO)
 
-    contracts.validar(contracts.PLANNER, contrato)
+    contracts.validar(contracts.PLANNER_V3, contrato)
     assert [c["id"] for c in contrato["casos"]] == ["duplica", "texto"]
     assert "duplicar" not in agente.omitidas
     assert any(

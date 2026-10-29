@@ -79,7 +79,7 @@ def test_en_humo_cada_funcion_tiene_un_solo_caso_normal() -> None:
     plan = agente.planificar(MODULO)
 
     [contrato] = plan
-    contracts.validar(contracts.PLANNER, contrato)
+    contracts.validar(contracts.PLANNER_V3, contrato)
     assert contrato["objetivo"] == "dividir"
     assert [c["id"] for c in contrato["casos"]] == ["division_normal"]
     assert "excepcion" not in contrato["casos"][0]
@@ -140,7 +140,7 @@ def test_en_humo_cada_endpoint_tiene_un_caso_con_la_respuesta_exitosa() -> None:
 
     assert {c["objetivo"] for c in plan} == set(declarados)
     for contrato in plan:
-        contracts.validar(contracts.PLANNER, contrato)
+        contracts.validar(contracts.PLANNER_V3, contrato)
         [caso] = contrato["casos"]
         assert caso["valor_esperado"]["status_code"] == declarados[contrato["objetivo"]]
     # Humo no pide los casos de error que faltan (422, 404...).
