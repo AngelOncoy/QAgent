@@ -12,6 +12,7 @@ import pytest
 
 from qagent.storage.exportar_informe import (
     _salud_proyecto,
+    construir_html_informe,
     construir_markdown_informe,
     construir_pdf_informe,
     datos_informe,
@@ -19,7 +20,7 @@ from qagent.storage.exportar_informe import (
 )
 from qagent.storage.informe_pdf import _explicacion
 from qagent.storage.registro import ARCHIVO_EXPLICACIONES
-from qagent.storage.vista_reporte import leer_explicaciones
+from qagent.storage.vista_reporte import ETIQUETA_IA, etiqueta_ia, leer_explicaciones
 from tests.orchestrator.test_hu32_explicador_corrida import (  # noqa: F401 — fixtures
     config,
     correr,
@@ -63,7 +64,9 @@ def test_lee_las_explicaciones_validas_por_modulo_y_objetivo(corrida):
         "calcular_descuento",
         "clasificar_edad",
     ]
-    assert set(next(iter(explicaciones.values()))) == set(SIMPLE)
+    explicacion = next(iter(explicaciones.values()))
+    assert set(explicacion) == {*SIMPLE, "origen", "modelo"}  # origen: #166
+    assert (explicacion["origen"], explicacion["modelo"]) == ("plantilla", None)
 
 
 def test_sin_archivo_no_hay_explicaciones(corrida):
@@ -156,3 +159,46 @@ def test_salud_del_proyecto_sin_explicacion_sigue_como_antes():
     texto = json.dumps(_salud_proyecto({"funciones": [_bug()]}), ensure_ascii=False)
 
     assert "no cumple el contrato esperado" in texto
+
+
+# --- «Explicación generada por IA» (#166) --------------------------------------------
+
+
+def _a_ia(carpeta, modelo="modelo-explicador"):
+    datos = json.loads((carpeta / ARCHIVO_EXPLICACIONES).read_text(encoding="utf-8"))
+    for explicacion in datos["explicaciones"]:
+        explicacion.update(origen="ia", modelo=modelo)
+    _escribir(carpeta, datos)
+
+
+def test_etiqueta_ia_solo_con_origen_ia():
+    assert etiqueta_ia({**SIMPLE, "origen": "ia", "modelo": "m-1"}) == (
+        f"{ETIQUETA_IA} (m-1)"
+    )
+    assert etiqueta_ia({**SIMPLE, "origen": "plantilla", "modelo": None}) is None
+    assert etiqueta_ia(SIMPLE) is None
+    assert etiqueta_ia(None) is None
+
+
+def test_los_informes_muestran_explicacion_generada_por_ia(corrida):
+    raiz, run_id, carpeta = corrida
+    _a_ia(carpeta)
+
+    datos = datos_informe(raiz, run_id)
+    bugs = [f for f in datos["funciones"] if f["estado"] == "bug_detectado"]
+
+    assert all(f["explicacion"]["origen"] == "ia" for f in bugs)
+    assert f"{ETIQUETA_IA} (modelo-explicador)" in _explicacion(bugs[0])
+    assert ETIQUETA_IA in construir_markdown_informe(datos)
+    assert ETIQUETA_IA in construir_html_informe(datos)
+    assert ETIQUETA_IA in extraer_texto_pdf(construir_pdf_informe(datos))
+
+
+def test_con_plantilla_los_informes_no_dicen_ia(corrida):
+    raiz, run_id, _ = corrida
+
+    datos = datos_informe(raiz, run_id)
+
+    assert ETIQUETA_IA not in construir_markdown_informe(datos)
+    assert ETIQUETA_IA not in construir_html_informe(datos)
+    assert ETIQUETA_IA not in extraer_texto_pdf(construir_pdf_informe(datos))
