@@ -203,3 +203,14 @@ def _verificar(adaptador: LanguageAdapter) -> None:
         raise ValueError(
             f"{lenguaje}: frameworks web {adaptador.frameworks_app} fuera del contrato."
         )
+    tipos = (*adaptador.tipos_prueba, *adaptador.tipos_prueba_previstos)
+    if not set(tipos) <= set(contracts.TIPOS_PRUEBA_RECOMENDABLES):
+        raise ValueError(
+            f"{lenguaje}: tipos de prueba {tipos} fuera del contrato "
+            f"({', '.join(contracts.TIPOS_PRUEBA_RECOMENDABLES)})."
+        )
+    if adaptador.tipos_prueba and not adaptador.completo:
+        raise ValueError(
+            f"{lenguaje}: un adaptador en desarrollo no puede declarar tipos de "
+            "prueba operativos (ADR-011)."
+        )

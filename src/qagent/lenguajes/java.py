@@ -235,6 +235,8 @@ class JavaAdapter(AdaptadorEnDesarrollo):
     marcadores = ("pom.xml", "build.gradle", "build.gradle.kts")
     frameworks_pruebas = ("junit5",)
     frameworks_app = ("spring",)
+    # JUnit 5 (EP-12a) y mutación con PIT (EP-12b), ADR-010.
+    tipos_prueba_previstos = ("funcion", "mutacion")
 
     def reglas_planificacion(self) -> ReglasPlanificacion:
         """Reglas Java/JUnit 5 para los prompts y filtros del Planner compartido (#181)."""

@@ -43,6 +43,8 @@ class JavaScriptAdapter(AdaptadorEnDesarrollo):
     marcadores = ("package.json",)
     frameworks_pruebas = ("jest", "vitest")
     frameworks_app = ("express",)
+    # Vitest (EP-11a) y mutación con Stryker (EP-11c), ADR-010.
+    tipos_prueba_previstos = ("funcion", "mutacion")
 
     def entorno_sandbox(self) -> EntornoSandbox:
         return entorno_node()
@@ -65,6 +67,8 @@ class TypeScriptAdapter(AdaptadorEnDesarrollo):
     marcadores = ("tsconfig.json",)
     frameworks_pruebas = ("vitest", "jest")
     frameworks_app = ("express",)
+    # Vitest (EP-11a) y mutación con Stryker (EP-11c), ADR-010.
+    tipos_prueba_previstos = ("funcion", "mutacion")
 
     def es_fuente(self, archivo: str) -> bool:
         """Los ``.d.ts`` solo declaran tipos: no tienen código que probar."""

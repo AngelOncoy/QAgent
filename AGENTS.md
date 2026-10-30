@@ -44,7 +44,7 @@ La interfaz, los contratos y `config.toml` viajan dentro del paquete (`src/qagen
 
 | Ruta | Contenido |
 |---|---|
-| `src/qagent/agents/` | Planner, Generator, Reviewer |
+| `src/qagent/agents/` | Planner, Generator, Reviewer, Explicador y Recomendador (reglas sin IA que sugieren en Vista previa qué tipos de prueba hacer, #197, ADR-011) |
 | `src/qagent/orchestrator/` | Máquina de estados de la corrida |
 | `src/qagent/analysis/` | Analizador estático con tree-sitter (TA-16): funciones, rutas FastAPI y mapa de llamadas `llama_a`. Interfaz única `analizar(ruta) -> Estructura`. `arbol_ts.py` es la base (parser, nodos, errores de sintaxis) y `texto_ts.py` escribe tipos y firmas como `ast.unparse` |
 | `src/qagent/sandbox/` | Ejecución en Docker |

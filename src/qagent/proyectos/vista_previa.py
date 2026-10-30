@@ -21,6 +21,11 @@ Criterios de aceptación (HU-04):
    funciones; los valores coinciden con el JSON de EN-02.
 7. Los módulos se listan priorizados: primero los que tienen más funciones con
    ramas.
+
+#197: además recomienda qué tipos de prueba conviene hacer y en qué orden
+(``recomendacion``, contrato ``recommendation.v1``) y lista como ``proximamente`` los
+lenguajes detectados que QAgent todavía no prueba. Son reglas sin IA; la interfaz
+solo las muestra y el usuario decide si las aplica.
 """
 
 from __future__ import annotations
@@ -29,6 +34,7 @@ import os
 from pathlib import Path
 from typing import Any
 
+from qagent.agents.recomendador import recomendar_para_vista
 from qagent.analysis.analyzer import analizar_proyecto
 
 AVISO_ORACULO_DEBIL = "el valor esperado no tendrá fuente (oráculo débil)"
@@ -96,6 +102,12 @@ def generar_vista_previa(raiz: str | os.PathLike[str]) -> dict[str, Any]:
                 "falta_docstring": ETIQUETA_FALTA_DOCSTRING,
                 "no_analizable": ETIQUETA_NO_ANALIZABLE,
             },
+            "recomendacion": {
+                "version": "1",
+                "origen": "reglas",
+                "recomendaciones": [],
+            },
+            "proximamente": [],
         }
 
     resultado_ast = analizar_proyecto(carpeta)
@@ -145,7 +157,7 @@ def generar_vista_previa(raiz: str | os.PathLike[str]) -> dict[str, Any]:
         for err in resultado_ast["errores"]
     ]
 
-    return {
+    vista = {
         "ok": True,
         "ruta": str(carpeta.resolve()),
         "nombre": carpeta.name or str(carpeta),
@@ -158,3 +170,5 @@ def generar_vista_previa(raiz: str | os.PathLike[str]) -> dict[str, Any]:
             "no_analizable": ETIQUETA_NO_ANALIZABLE,
         },
     }
+    # #197: recomendación por reglas (sin IA). Solo informa; no cambia la selección.
+    return {**vista, **recomendar_para_vista(vista, carpeta)}
