@@ -32,6 +32,7 @@ Va fuera de `bench/` porque las pruebas del sistema analizan esa carpeta complet
    Opciones:
 
    - `--modelos planner reviewer`: qué modelos probar, por el agente de `config.toml` que lo usa (por omisión, todos los distintos; con `modo = "ia"` también el de `[agentes.explicador]`).
+   - `--modelo deepseek/deepseek-flash deepseek/deepseek-v4-pro`: en lugar de los de `config.toml`, modelos del catálogo (`src/qagent/llm/proveedores.toml`) como `proveedor/modelo`, con los precios del catálogo. Sirve para comparar modelos que no usa ningún agente, por ejemplo dos del mismo proveedor con una sola clave. No se combina con `--modelos`. El modelo que se elija se registra después en `[agentes.explicador]` de `config.toml`.
    - `--repeticiones 3`: cuántas veces se explica cada hallazgo con cada modelo.
    - `--tiempo-maximo 60`: segundos por explicación. Al vencer, se usa la plantilla y cuenta como descarte `tiempo_agotado`.
    - `--salida <carpeta>`: dónde dejar los resultados (por omisión, `resultados/<fecha>/`).

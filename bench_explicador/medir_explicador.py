@@ -6,6 +6,7 @@ desde la raíz del repositorio:
 
     python bench_explicador/medir_explicador.py                      # todos los modelos
     python bench_explicador/medir_explicador.py --modelos planner reviewer
+    python bench_explicador/medir_explicador.py --modelo deepseek/deepseek-flash deepseek/deepseek-v4-pro
     python bench_explicador/medir_explicador.py --log-corrida <log.json de una corrida>
 
 Lee los casos fijos de `casos/` (los 4 tipos de hallazgo) y, por cada modelo y
@@ -20,8 +21,9 @@ repetición, pide al Explicador con IA (`RedactorIA`) una explicación de cada h
 - con `--log-corrida`, cuánto suma el Explicador al costo de una corrida real del banco.
 
 Cada modelo candidato es el de un agente de `config.toml` (`config.local.toml`
-encima, como en la aplicación) usado como Explicador: la clave se busca como para el
-Explicador (`<PROVEEDOR>_API_KEY_EXPLICADOR` o la del proveedor). Con
+encima, como en la aplicación) o, con `--modelo`, uno del catálogo
+`llm/proveedores.toml` con sus precios. Se usa como Explicador: la clave se busca como
+para el Explicador (`<PROVEEDOR>_API_KEY_EXPLICADOR` o la del proveedor). Con
 `QAGENT_FAKE_LLM=1` todo corre con la IA simulada (0 tokens) y las cifras salen
 marcadas [SIMULADO].
 
@@ -58,6 +60,7 @@ from qagent.config import carga as config_carga
 from qagent.config import cargar_configuracion
 from qagent.llm.fabrica import ConfiguracionLLMIncompleta, crear_cliente
 from qagent.llm.precios import PrecioAgente
+from qagent.llm.proveedores import catalogo
 from qagent.llm.tracker import TokenTracker
 from qagent.storage.exportar_informe import sanitizar_secretos
 
@@ -163,6 +166,48 @@ def candidatos(
             continue
         vistos.add(clave)
         elegidos.append((agente, dataclasses.replace(precio, agente=AGENTE)))
+    return elegidos
+
+
+def del_catalogo(modelos: list[str]) -> list[tuple[str, PrecioAgente]]:
+    """Modelos `proveedor/modelo` del catálogo, con sus precios, usados como Explicador.
+
+    Sirve para medir modelos que no están en `config.toml`, por ejemplo dos del mismo
+    proveedor. En OpenRouter el id del modelo lleva `/`: se separa solo en la primera.
+    """
+    proveedores = catalogo()
+    elegidos: list[tuple[str, PrecioAgente]] = []
+    for texto in dict.fromkeys(modelos):
+        proveedor_id, _, modelo_id = texto.partition("/")
+        proveedor = proveedores.get(proveedor_id)
+        if proveedor is None or not proveedor.genera_texto:
+            raise SystemExit(
+                f"'{texto}': el proveedor '{proveedor_id}' no está en el catálogo. "
+                f"Proveedores: {', '.join(sorted(proveedores))}."
+            )
+        modelo = proveedor.modelo(modelo_id)
+        if modelo is None:
+            ids = ", ".join(m.id for m in proveedor.modelos)
+            raise SystemExit(
+                f"'{texto}': {proveedor.nombre} no tiene el modelo '{modelo_id}' en el "
+                f"catálogo. Modelos: {ids}."
+            )
+        if not modelo.precio_confirmado:
+            raise SystemExit(
+                f"'{texto}' no tiene precio en el catálogo: el costo saldría en 0."
+            )
+        elegidos.append(
+            (
+                "catálogo",
+                PrecioAgente(
+                    agente=AGENTE,
+                    proveedor=proveedor.id,
+                    modelo=modelo.id,
+                    entrada_usd_m=modelo.entrada_usd_m,
+                    salida_usd_m=modelo.salida_usd_m,
+                ),
+            )
+        )
     return elegidos
 
 
@@ -555,12 +600,20 @@ def escribir(carpeta: Path, nombre: str, texto: str, claves: Any) -> None:
 
 def argumentos(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
-    parser.add_argument(
+    elegir = parser.add_mutually_exclusive_group()
+    elegir.add_argument(
         "--modelos",
         nargs="+",
         choices=AGENTES_CANDIDATOS,
         help="agentes de config.toml cuyo modelo se prueba como Explicador "
         "(por omisión, todos los modelos distintos)",
+    )
+    elegir.add_argument(
+        "--modelo",
+        nargs="+",
+        metavar="PROVEEDOR/MODELO",
+        help="modelos del catálogo (llm/proveedores.toml) que se prueban como "
+        "Explicador, con sus precios; p. ej. deepseek/deepseek-flash",
     )
     parser.add_argument("--repeticiones", type=int, default=REPETICIONES)
     parser.add_argument("--tiempo-maximo", type=float, default=TIEMPO_MAXIMO_S)
@@ -598,8 +651,12 @@ def main(argv: list[str] | None = None) -> dict[str, Any]:
     corridas: list[dict[str, Any]] = []
     prueba_topes: dict[str, Any] = {}
     omitidos: dict[str, str] = {}
-    for agente, precio in candidatos(config, args.modelos):
-        print(f"Midiendo {precio.modelo} ({precio.proveedor}, de [agentes.{agente}])…")
+    elegidos = (
+        del_catalogo(args.modelo) if args.modelo else candidatos(config, args.modelos)
+    )
+    for agente, precio in elegidos:
+        de = "del catálogo" if agente == "catálogo" else f"de [agentes.{agente}]"
+        print(f"Midiendo {precio.modelo} ({precio.proveedor}, {de})…")
         prueba_topes[precio.modelo] = probar_topes(precio, casos, docstrings)
         try:
             propias, de_corridas = medir_modelo(

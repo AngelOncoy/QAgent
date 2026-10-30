@@ -261,3 +261,72 @@ def test_el_costo_de_la_corrida_real_no_cuenta_al_explicador(medir, tmp_path) ->
     assert real["tokens"] == 3900
     assert real["costo_usd"] == pytest.approx(0.03)
     assert set(real["por_agente"]) == {"planner", "generator"}
+
+
+def test_mide_modelos_del_catalogo_con_sus_precios(medir) -> None:
+    elegidos = medir.del_catalogo(
+        [
+            "deepseek/deepseek-flash",
+            "deepseek/deepseek-v4-pro",
+            "deepseek/deepseek-flash",
+        ]
+    )
+
+    precios = [precio for _, precio in elegidos]
+    assert [(p.proveedor, p.modelo) for p in precios] == [
+        ("deepseek", "deepseek-flash"),
+        ("deepseek", "deepseek-v4-pro"),
+    ]
+    flash = medir.catalogo()["deepseek"].modelo("deepseek-flash")
+    assert (precios[0].entrada_usd_m, precios[0].salida_usd_m) == (
+        flash.entrada_usd_m,
+        flash.salida_usd_m,
+    )
+    assert all(p.agente == "explicador" for p in precios)
+
+
+@pytest.mark.parametrize(
+    ("modelo", "mensaje"),
+    [
+        ("nadie/modelo", "no está en el catálogo"),
+        ("deepseek/no-existe", "no tiene el modelo 'no-existe'"),
+        ("deepseek", "no tiene el modelo ''"),
+    ],
+)
+def test_un_modelo_fuera_del_catalogo_dice_cuales_hay(medir, modelo, mensaje) -> None:
+    with pytest.raises(SystemExit, match=mensaje):
+        medir.del_catalogo([modelo])
+
+
+def test_con_modelo_del_catalogo_no_mide_los_de_config(
+    medir, tmp_path, monkeypatch
+) -> None:
+    monkeypatch.setenv("QAGENT_FAKE_LLM", "1")
+
+    datos = medir.main(
+        [
+            "--salida",
+            str(tmp_path / "resultados"),
+            "--config-local",
+            str(tmp_path / "no-existe.toml"),
+            "--repeticiones",
+            "1",
+            "--modelo",
+            "deepseek/deepseek-flash",
+            "deepseek/deepseek-v4-pro",
+        ]
+    )
+
+    assert [f["modelo"] for f in datos["por_modelo"]] == [
+        "plantilla",
+        "deepseek-flash",
+        "deepseek-v4-pro",
+    ]
+    assert set(datos["prueba_topes"]) == {"deepseek-flash", "deepseek-v4-pro"}
+
+
+def test_modelos_y_modelo_no_van_juntos(medir) -> None:
+    with pytest.raises(SystemExit):
+        medir.argumentos(
+            ["--modelos", "planner", "--modelo", "deepseek/deepseek-flash"]
+        )
