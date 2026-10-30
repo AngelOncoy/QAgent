@@ -223,6 +223,8 @@ def test_mide_tokens_costo_y_descartes_por_explicacion(medir, monkeypatch) -> No
         "calcular_envio",
         "json_invalido",
     )
+    assert descartada.respuesta_descartada == "texto sin JSON"
+    assert all(m.respuesta_descartada is None for m in mediciones if not m.descarte)
     assert corridas[0]["tokens"] == 6 * 1200 and corridas[0]["respeta_topes"]
     [fila] = medir.resumir(mediciones, corridas, None)
     assert fila["descartadas_pct"] == round(100 / 6, 1)
@@ -330,3 +332,71 @@ def test_modelos_y_modelo_no_van_juntos(medir) -> None:
         medir.argumentos(
             ["--modelos", "planner", "--modelo", "deepseek/deepseek-flash"]
         )
+
+
+def test_guarda_y_muestra_la_respuesta_que_relaja_una_asercion(
+    medir, tmp_path, monkeypatch
+) -> None:
+    """Para documentar cada descarte: qué dijo el modelo y por qué se cortó."""
+    relaja = _respuesta(
+        "bug_detectado", "Conviene cambiar el valor esperado por el que devuelve."
+    )
+
+    class ClienteQueRelaja:
+        def generar(self, prompt: str, rol: str = "") -> RespuestaLLM:
+            return RespuestaLLM(relaja, 1000, 200, 0.0, "modelo-prueba")
+
+    monkeypatch.setenv("QAGENT_FAKE_LLM", "1")
+    monkeypatch.setattr(medir, "crear_cliente", lambda *a, **k: ClienteQueRelaja())
+    salida = tmp_path / "resultados"
+
+    datos = medir.main(
+        [
+            "--salida",
+            str(salida),
+            "--config-local",
+            str(tmp_path / "no-existe.toml"),
+            "--repeticiones",
+            "1",
+            "--modelo",
+            "deepseek/deepseek-flash",
+        ]
+    )
+
+    relajadas = [d for d in datos["descartadas"] if d["descarte"] == "relaja_asercion"]
+    assert relajadas and all(d["respuesta"] == relaja for d in relajadas)
+    respuestas = json.loads((salida / "respuestas.json").read_text(encoding="utf-8"))
+    assert any(r["respuesta_descartada"] == relaja for r in respuestas)
+    resumen = (salida / "resumen.md").read_text(encoding="utf-8")
+    assert "## Respuestas descartadas" in resumen
+    assert "cambiar el valor esperado por el que devuelve" in resumen
+
+
+def test_un_error_del_llm_no_guarda_respuesta(medir, monkeypatch) -> None:
+    results, detalle = medir.leer_casos()
+    casos = medir.hallazgos(results, detalle)[:1]
+
+    class ClienteQueFalla:
+        def generar(self, prompt: str, rol: str = "") -> RespuestaLLM:
+            raise RuntimeError("sin red")
+
+    class Presupuesto:
+        max_tokens_por_corrida = None
+        tope_por_corrida_usd = None
+
+    monkeypatch.setattr(medir, "crear_cliente", lambda *a, **k: ClienteQueFalla())
+
+    [medicion], _ = medir.medir_modelo(
+        PRECIO,
+        casos,
+        {},
+        claves=None,
+        simulado=False,
+        repeticiones=1,
+        tiempo_maximo_s=5,
+        presupuesto=Presupuesto(),
+        run_id=None,
+    )
+
+    assert medicion.descarte == "error_llm"
+    assert medicion.respuesta_descartada is None

@@ -38,6 +38,8 @@ Va fuera de `bench/` porque las pruebas del sistema analizan esa carpeta complet
    - `--salida <carpeta>`: dónde dejar los resultados (por omisión, `resultados/<fecha>/`).
    - `--config-local <archivo>`: otro `config.local.toml` (por omisión, `~/.qagent/config.local.toml`, como la aplicación).
 
+   Si el modelo responde algo que se descarta por su contenido (JSON inválido, otra decisión, relajar una aserción u otro incumplimiento del contrato), su texto queda en `respuestas.json` (`respuesta_descartada`) y en la sección «Respuestas descartadas» de `resumen.md`, para documentar cada descarte. Los descartes por tiempo, presupuesto o error del proveedor no tienen texto.
+
 5. Revisa `resumen.md` y versiona la carpeta de `resultados/` en el PR.
 
 Costo esperado: 6 hallazgos × 3 repeticiones por modelo, con unos 1 000 a 3 000 tokens de entrada cada uno. Con los precios de `config.toml` son centavos de dólar. Además, el Explicador corta solo antes de pasar `max_tokens_por_corrida` o `tope_por_corrida_usd`.

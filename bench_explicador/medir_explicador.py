@@ -28,7 +28,8 @@ para el Explicador (`<PROVEEDOR>_API_KEY_EXPLICADOR` o la del proveedor). Con
 marcadas [SIMULADO].
 
 Deja en `resultados/<fecha>/` (o en `--salida`) `metricas.json`, `respuestas.json` (las
-explicaciones, para la revisión a ciegas) y `resumen.md`. Ninguno lleva claves: todo
+explicaciones, para la revisión a ciegas, y el texto de las descartadas por su
+contenido) y `resumen.md`. Ninguno lleva claves: todo
 pasa por `sanitizar_secretos` antes de escribirse.
 """
 
@@ -84,6 +85,10 @@ DESCARTES = (
     ("presupuesto", ("presupuesto de tokens", "tope de gasto")),
     ("error_llm", ("el LLM falló",)),
 )
+#: Descartes por lo que respondió el modelo: de estos se guarda la respuesta.
+DESCARTES_DE_CONTENIDO = frozenset(
+    {"json_invalido", "relaja_asercion", "decision_distinta", "contrato_invalido"}
+)
 
 
 # --- Datos ---------------------------------------------------------------------------
@@ -107,6 +112,8 @@ class Medicion:
     descarte: str | None = None
     motivo: str | None = None
     explicacion: dict[str, Any] | None = None
+    #: Texto que respondió el modelo cuando se descartó por su contenido.
+    respuesta_descartada: str | None = None
 
 
 def leer_casos(carpeta: Path = CASOS) -> tuple[dict[str, Any], dict[str, Any]]:
@@ -244,6 +251,19 @@ def clasificar_descarte(motivo: str) -> str:
     return "contrato_invalido"
 
 
+class ClienteQueGuarda:
+    """Envuelve el cliente real y guarda la última respuesta, para ver los descartes."""
+
+    def __init__(self, cliente: Any) -> None:
+        self.cliente = cliente
+        self.ultima: str | None = None
+
+    def generar(self, prompt: str, rol: str = "") -> Any:
+        respuesta = self.cliente.generar(prompt, rol)
+        self.ultima = respuesta.contenido
+        return respuesta
+
+
 class ClienteQueNoDebeLlamarse:
     """Cliente que falla si lo llaman: prueba que los topes cortan antes de llamar."""
 
@@ -349,8 +369,8 @@ def medir_modelo(
     corridas: list[dict[str, Any]] = []
     for repeticion in range(1, repeticiones + 1):
         tracker = TokenTracker()
-        cliente = crear_cliente(
-            precio, claves, simulado=simulado, timeout_s=tiempo_maximo_s
+        cliente = ClienteQueGuarda(
+            crear_cliente(precio, claves, simulado=simulado, timeout_s=tiempo_maximo_s)
         )
         redactor = RedactorIA(
             cliente,
@@ -372,6 +392,7 @@ def medir_modelo(
                     f"No se envía {objetivo['funcion']}: " + "; ".join(problemas)
                 )
             antes = len(tracker.llamadas)
+            cliente.ultima = None
             inicio = time.perf_counter()
             medicion = Medicion(
                 origen="ia",
@@ -389,6 +410,8 @@ def medir_modelo(
             except SinExplicacionIA as motivo:
                 medicion.motivo = str(motivo)
                 medicion.descarte = clasificar_descarte(str(motivo))
+                if medicion.descarte in DESCARTES_DE_CONTENIDO:
+                    medicion.respuesta_descartada = cliente.ultima
             medicion.latencia_s = time.perf_counter() - inicio
             for llamada in tracker.llamadas[antes:]:
                 medicion.tokens_entrada += llamada.tokens_entrada
@@ -584,6 +607,31 @@ def resumen_md(datos: dict[str, Any]) -> str:
                 f"{r['cortes_por_tope']} de {r['hallazgos']} con plantilla "
                 f"({'respeta el tope' if r['respeta_tope'] else 'NO respeta el tope'})."
             )
+    descartadas = datos.get("descartadas") or []
+    if descartadas:
+        lineas += [
+            "",
+            "## Respuestas descartadas",
+            "",
+            (
+                "Lo que respondió el modelo cuando se descartó por su contenido. En la "
+                "corrida real se habría mostrado la plantilla."
+            ),
+        ]
+    for d in descartadas:
+        lineas += [
+            "",
+            (
+                f"### {d['modelo']}, repetición {d['repeticion']}, `{d['objetivo']}`: "
+                f"{d['descarte']}"
+            ),
+            "",
+            f"Motivo: {d['motivo']}",
+            "",
+            "```json",
+            (d["respuesta"] or "(sin texto)").strip(),
+            "```",
+        ]
     return "\n".join(lineas) + "\n"
 
 
@@ -704,6 +752,18 @@ def main(argv: list[str] | None = None) -> dict[str, Any]:
         "corridas": corridas,
         "corrida_real": corrida_real,
         "prueba_topes": prueba_topes,
+        "descartadas": [
+            {
+                "modelo": m.modelo,
+                "repeticion": m.repeticion,
+                "objetivo": m.objetivo,
+                "descarte": m.descarte,
+                "motivo": m.motivo,
+                "respuesta": m.respuesta_descartada,
+            }
+            for m in mediciones
+            if m.respuesta_descartada is not None
+        ],
     }
     sufijo = "-simulado" if simulado else ""
     salida = args.salida or CARPETA / "resultados" / (
