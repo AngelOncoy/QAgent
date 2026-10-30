@@ -9,7 +9,26 @@
           "nombre": "BancoCorrecto",
           "tipo": "class_declaration",
           "linea": 11,
-          "docstring": "/**\n * Casos correctos del banco Java de QAgent.\n *\n * <p>Las reglas se definen en casos.md. Las entradas deben cumplir\n * las precondiciones documentadas en cada método.\n */"
+          "docstring": "/**\n * Casos correctos del banco Java de QAgent.\n *\n * <p>Las reglas se definen en casos.md. Las entradas deben cumplir\n * las precondiciones documentadas en cada método.\n */",
+          "javadoc": {
+            "descripcion": "Casos correctos del banco Java de QAgent.\n\n<p>Las reglas se definen en casos.md. Las entradas deben cumplir\nlas precondiciones documentadas en cada método.",
+            "parametros": {},
+            "retorno": null,
+            "excepciones": [],
+            "otras_etiquetas": {}
+          },
+          "constructores": [
+            {
+              "nombre": "BancoCorrecto",
+              "linea": 13,
+              "firma": "private BancoCorrecto()",
+              "parametros": [],
+              "visibilidad": "private",
+              "docstring": null,
+              "javadoc": null,
+              "ramas": 0
+            }
+          ]
         }
       ],
       "funciones": [
@@ -27,8 +46,21 @@
           ],
           "retorno": "double",
           "docstring": "/**\n     * Suma los precios recibidos. Una lista vacía devuelve cero.\n     *\n     * @param precios lista no nula con precios finitos y no negativos\n     * @return suma de los precios; por ejemplo, [10, 20] devuelve 30\n     */",
+          "javadoc": {
+            "descripcion": "Suma los precios recibidos. Una lista vacía devuelve cero.",
+            "parametros": {
+              "precios": "lista no nula con precios finitos y no negativos"
+            },
+            "retorno": "suma de los precios; por ejemplo, [10, 20] devuelve 30",
+            "excepciones": [],
+            "otras_etiquetas": {}
+          },
+          "ramas": 1,
+          "critical": true,
+          "es_static": true,
           "tipada": true,
-          "es_async": false
+          "es_async": false,
+          "llama_a": []
         },
         {
           "nombre": "BancoCorrecto.aplicarDescuento",
@@ -49,8 +81,22 @@
           ],
           "retorno": "double",
           "docstring": "/**\n     * Aplica un descuento: precio final = precio × (1 - porcentaje / 100).\n     *\n     * @param precio importe finito y no negativo\n     * @param porcentaje descuento entre 0 y 100, inclusive\n     * @return precio con descuento; por ejemplo, 100 con 20 % devuelve 80\n     */",
+          "javadoc": {
+            "descripcion": "Aplica un descuento: precio final = precio × (1 - porcentaje / 100).",
+            "parametros": {
+              "precio": "importe finito y no negativo",
+              "porcentaje": "descuento entre 0 y 100, inclusive"
+            },
+            "retorno": "precio con descuento; por ejemplo, 100 con 20 % devuelve 80",
+            "excepciones": [],
+            "otras_etiquetas": {}
+          },
+          "ramas": 0,
+          "critical": false,
+          "es_static": true,
           "tipada": true,
-          "es_async": false
+          "es_async": false,
+          "llama_a": []
         },
         {
           "nombre": "BancoCorrecto.esMayorDeEdad",
@@ -66,8 +112,21 @@
           ],
           "retorno": "boolean",
           "docstring": "/**\n     * Determina si la edad es mayor o igual a 18 años.\n     *\n     * @param edad edad entera no negativa\n     * @return true desde los 18 años, inclusive; false para edades menores\n     */",
+          "javadoc": {
+            "descripcion": "Determina si la edad es mayor o igual a 18 años.",
+            "parametros": {
+              "edad": "edad entera no negativa"
+            },
+            "retorno": "true desde los 18 años, inclusive; false para edades menores",
+            "excepciones": [],
+            "otras_etiquetas": {}
+          },
+          "ramas": 0,
+          "critical": false,
+          "es_static": true,
           "tipada": true,
-          "es_async": false
+          "es_async": false,
+          "llama_a": []
         }
       ],
       "endpoints": []
@@ -80,7 +139,26 @@
           "nombre": "BancoDefectuoso",
           "tipo": "class_declaration",
           "linea": 11,
-          "docstring": "/**\n * Banco con tres defectos intencionales para TA-01.\n *\n * <p>Los contratos describen el comportamiento correcto de casos.md.\n * Las implementaciones incumplen esos contratos deliberadamente.\n */"
+          "docstring": "/**\n * Banco con tres defectos intencionales para TA-01.\n *\n * <p>Los contratos describen el comportamiento correcto de casos.md.\n * Las implementaciones incumplen esos contratos deliberadamente.\n */",
+          "javadoc": {
+            "descripcion": "Banco con tres defectos intencionales para TA-01.\n\n<p>Los contratos describen el comportamiento correcto de casos.md.\nLas implementaciones incumplen esos contratos deliberadamente.",
+            "parametros": {},
+            "retorno": null,
+            "excepciones": [],
+            "otras_etiquetas": {}
+          },
+          "constructores": [
+            {
+              "nombre": "BancoDefectuoso",
+              "linea": 13,
+              "firma": "private BancoDefectuoso()",
+              "parametros": [],
+              "visibilidad": "private",
+              "docstring": null,
+              "javadoc": null,
+              "ramas": 0
+            }
+          ]
         }
       ],
       "funciones": [
@@ -98,8 +176,25 @@
           ],
           "retorno": "double",
           "docstring": "/**\n     * Calcula el promedio conservando la parte decimal.\n     *\n     * @param numeros lista no nula y no vacía de enteros;\n     *                su suma debe caber en un int\n     * @return promedio aritmético; por ejemplo, [2, 3] devuelve 2.5\n     * @implNote D01: contiene una división entera intencional.\n     */",
+          "javadoc": {
+            "descripcion": "Calcula el promedio conservando la parte decimal.",
+            "parametros": {
+              "numeros": "lista no nula y no vacía de enteros;\nsu suma debe caber en un int"
+            },
+            "retorno": "promedio aritmético; por ejemplo, [2, 3] devuelve 2.5",
+            "excepciones": [],
+            "otras_etiquetas": {
+              "implNote": [
+                "D01: contiene una división entera intencional."
+              ]
+            }
+          },
+          "ramas": 1,
+          "critical": true,
+          "es_static": true,
           "tipada": true,
-          "es_async": false
+          "es_async": false,
+          "llama_a": []
         },
         {
           "nombre": "BancoDefectuoso.calcularEnvio",
@@ -115,8 +210,25 @@
           ],
           "retorno": "double",
           "docstring": "/**\n     * Calcula el envío: cuesta 10 para compras menores a 100\n     * y es gratuito desde 100, inclusive.\n     *\n     * @param importe importe de compra finito y no negativo\n     * @return costo del envío; para una compra de 100 devuelve 0\n     * @implNote D02: excluye intencionalmente el límite de 100.\n     */",
+          "javadoc": {
+            "descripcion": "Calcula el envío: cuesta 10 para compras menores a 100\ny es gratuito desde 100, inclusive.",
+            "parametros": {
+              "importe": "importe de compra finito y no negativo"
+            },
+            "retorno": "costo del envío; para una compra de 100 devuelve 0",
+            "excepciones": [],
+            "otras_etiquetas": {
+              "implNote": [
+                "D02: excluye intencionalmente el límite de 100."
+              ]
+            }
+          },
+          "ramas": 1,
+          "critical": true,
+          "es_static": true,
           "tipada": true,
-          "es_async": false
+          "es_async": false,
+          "llama_a": []
         },
         {
           "nombre": "BancoDefectuoso.calcularTotalConImpuesto",
@@ -137,8 +249,26 @@
           ],
           "retorno": "double",
           "docstring": "/**\n     * Añade el impuesto: total = subtotal × (1 + porcentaje / 100).\n     *\n     * @param subtotal importe finito y no negativo\n     * @param porcentaje porcentaje de impuesto finito y no negativo\n     * @return total con impuesto; 100 con 18 % devuelve 118\n     * @implNote D03: resta intencionalmente el impuesto.\n     */",
+          "javadoc": {
+            "descripcion": "Añade el impuesto: total = subtotal × (1 + porcentaje / 100).",
+            "parametros": {
+              "subtotal": "importe finito y no negativo",
+              "porcentaje": "porcentaje de impuesto finito y no negativo"
+            },
+            "retorno": "total con impuesto; 100 con 18 % devuelve 118",
+            "excepciones": [],
+            "otras_etiquetas": {
+              "implNote": [
+                "D03: resta intencionalmente el impuesto."
+              ]
+            }
+          },
+          "ramas": 0,
+          "critical": false,
+          "es_static": true,
           "tipada": true,
-          "es_async": false
+          "es_async": false,
+          "llama_a": []
         }
       ],
       "endpoints": []
@@ -153,7 +283,7 @@
     "total_errores": 0
   },
   "medicion": {
-    "duracion_analisis_s": 0.034037,
+    "duracion_analisis_s": 0.024514,
     "alcance": "Una ejecución: lectura y análisis; excluye arranque de Python y escritura del JSON.",
     "python": "3.10.10",
     "sistema": "Windows",
