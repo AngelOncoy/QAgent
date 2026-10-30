@@ -127,3 +127,5 @@ QAgent/
 ```
 
 Dentro de cada proyecto que QAgent analiza se crea `.qagent/` con sus corridas, specs y pruebas aprobadas (EN-07). Las pruebas que detectan bugs se conservan aparte en `evidencias_bugs/<run_id>/`, con código, huella, firma y procedencia; nunca habilitan por sí solas la regresión de HU-25. Las comparaciones inmutables entre una corrida de origen y otra de verificación viven en `comparaciones/<run_verificacion>/` (#193). Todos estos JSON se escriben atómicamente en UTF-8 y las carpetas nuevas son aditivas, por lo que los proyectos históricos siguen siendo legibles.
+
+Desde Historial, «Verificar corrección» (#194) crea una corrida `verify_fix` sin IA a partir de una sola corrida de origen. Reutiliza exactamente sus pruebas aprobadas y evidencias de bugs; antes del sandbox compara de forma estática la identidad y la firma. Las pruebas no comparables no se ejecutan y su motivo se conserva en `run_comparison.v1`. Esta ruta no sustituye la regresión HU-25: HU-25 exige que la implementación siga intacta, mientras #194 permite cambiar el cuerpo para validar una corrección.
