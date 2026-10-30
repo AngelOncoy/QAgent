@@ -148,6 +148,12 @@ La [propuesta del sandbox Java](../../../docs/java/sandbox-propuesto.md) registr
 versiones, tiempos locales, recursos propuestos y validaciones todavía no
 realizadas para ejecutar JUnit en Docker sin red (EN-19).
 
+La [mutación PIT de métodos críticos](../../../docs/java/mutacion-pit.md) (#180)
+añade ejecución acotada en Docker, lectura de XML, huellas y conexión con la caché
+y los informes comunes. `huellas_disponibles` permite obtener huellas aunque
+`completo` siga siendo falso; esto no habilita la generación/revisión JUnit que
+falta. `motor_mutacion` identifica el ejecutor en los mensajes compartidos.
+
 Antes de cerrar EN-17 conviene revisar juntos:
 
 - [ ] ¿Alcanzan `lenguaje`, `framework_pruebas` y `framework_app` del contrato v3? ¿Falta algún framework (Mocha, TestNG…)?

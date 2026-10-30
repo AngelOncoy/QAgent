@@ -3,8 +3,8 @@
 Solo lee fuentes UTF-8: no importa, compila ni ejecuta el proyecto analizado.
 Extrae clases, métodos públicos y Javadoc literal al formato de EN-17. Excluye
 src/test, carpetas generadas y enlaces simbólicos. No resuelve tipos, llamadas,
-endpoints Spring ni sobrecargas. Lee informes JUnit XML; la ejecución automática
-y las demás extensiones siguen pendientes.
+endpoints Spring ni sobrecargas. Lee informes JUnit XML y ofrece mutación PIT
+acotada en Docker (#180); la generación/revisión JUnit completa sigue pendiente.
 """
 
 from __future__ import annotations
@@ -12,17 +12,25 @@ from __future__ import annotations
 import os
 import xml.etree.ElementTree as ET
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from tree_sitter import Node
 
 from qagent.analysis.analyzer import calcular_huella
-from qagent.lenguajes.base import AdaptadorEnDesarrollo, EntornoSandbox, Estructura
+from qagent.lenguajes.base import (
+    AdaptadorEnDesarrollo,
+    ComandoSandbox,
+    EntornoSandbox,
+    Estructura,
+)
 from qagent.lenguajes.registro import listar_archivos
 from qagent.lenguajes.treesitter import extraer_errores_sintaxis, obtener_parser
 from qagent.sandbox.ejecucion import ARCHIVO_JUNIT, DIR_SALIDA, DIR_TESTS
 from qagent.sandbox.informe_pytest import JUnitInvalido, parsear_junit
 from qagent.sandbox.modelos import IMAGEN_JAVA
+
+if TYPE_CHECKING:
+    from qagent.sandbox.mutacion import ResultadoMutacion
 
 #: Herramientas que trae ``qagent-sandbox:java`` (``sandbox/Dockerfile.java``).
 PAQUETES_JAVA = ("maven", "gradle", "junit-jupiter", "jacoco", "pitest")
@@ -174,6 +182,71 @@ class JavaAdapter(AdaptadorEnDesarrollo):
     marcadores = ("pom.xml", "build.gradle", "build.gradle.kts")
     frameworks_pruebas = ("junit5",)
     frameworks_app = ("spring",)
+    huellas_disponibles = True
+    motor_mutacion = "PIT"
+
+    def huellas_de_archivo(self, fuente: str, relativa: str) -> dict[str, str] | None:
+        """Devuelve SHA-256 por método público, sin ejecutar Java (#180).
+
+        La huella incluye nombre, ruta y fuente completa: cambios de campos,
+        imports o métodos auxiliares también invalidan la caché para evitar
+        reutilizar un score con un contexto distinto. Es conservadora: incluso
+        un comentario puede forzar otra ejecución. Sintaxis inválida o nombres
+        ambiguos devuelven None; nunca se reutiliza un resultado por conjetura.
+        """
+        arbol = obtener_parser("java").parse(fuente.encode("utf-8"))
+        if arbol.root_node.has_error:
+            return None
+        try:
+            _, funciones = _declaraciones(arbol.root_node)
+        except ValueError:
+            return None
+        return {
+            f["nombre"]: calcular_huella(
+                "java-pit-v1\n" + relativa + "\n" + f["nombre"] + "\n" + fuente
+            )
+            for f in funciones
+        }
+
+    def funciones_de_modulo(self, raiz: Path, modulo: str) -> list[dict[str, Any]]:
+        """Devuelve métodos públicos y líneas para la mutación/regresión común.
+
+        Lee solo una fuente dentro de la raíz; un archivo ilegible, un enlace,
+        una ruta externa o una declaración ambigua produce una lista vacía.
+        """
+        archivo = raiz / modulo
+        if archivo.is_symlink() or not archivo.resolve().is_relative_to(raiz.resolve()):
+            return []
+        try:
+            fuente = archivo.read_text(encoding="utf-8-sig")
+            arbol = obtener_parser("java").parse(fuente.encode("utf-8"))
+            if arbol.root_node.has_error:
+                return []
+            _, funciones = _declaraciones(arbol.root_node)
+        except (OSError, UnicodeError, ValueError):
+            return []
+        return [{"nombre": f["nombre"], "linea": f["linea"]} for f in funciones]
+
+    def comando_mutacion(self, modulo: str, funciones: list[str]) -> ComandoSandbox:
+        """Devuelve el comando PIT offline acotado a métodos críticos aprobados.
+
+        Solo construye argumentos; no ejecuta Java. Requiere la preparación del
+        POM temporal en la copia del sandbox. Lanza ValueError si la selección
+        está vacía o no corresponde a una clase de una ruta Java estándar.
+        """
+        from qagent.sandbox.pit_comando import comando_pit
+
+        return comando_pit(modulo, funciones)
+
+    def ejecutar_mutacion(self, *args: Any, **opciones: Any) -> ResultadoMutacion:
+        """Ejecuta PIT en Docker sobre la copia y devuelve ResultadoMutacion (#180).
+
+        Usa las pruebas críticas aprobadas y los límites Java del orquestador.
+        Las configuraciones propias se conservan y los fallos quedan sin score.
+        """
+        from qagent.sandbox.pit_ejecucion import ejecutar_pit
+
+        return ejecutar_pit(*args, **opciones)
 
     def entorno_sandbox(self) -> EntornoSandbox:
         """Imagen ``qagent-sandbox:java`` (#169) y las carpetas comunes del sandbox."""
