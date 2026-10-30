@@ -1,0 +1,200 @@
+{
+  "version": "1",
+  "spk": 167,
+  "fecha": "2026-10-30T16:17:19-05:00",
+  "es_simulado": false,
+  "casos": "bench_explicador\\casos",
+  "hallazgos": 6,
+  "tipos": [
+    "assertion_laundering",
+    "bug_detectado",
+    "estancada",
+    "sin_veredicto"
+  ],
+  "repeticiones": 3,
+  "tiempo_maximo_s": 60.0,
+  "presupuesto": {
+    "max_tokens_por_corrida": null,
+    "tope_por_corrida_usd": 1.0
+  },
+  "modelos_omitidos": {},
+  "por_modelo": [
+    {
+      "modelo": "plantilla",
+      "origen": "plantilla",
+      "proveedor": "-",
+      "explicaciones": 6,
+      "tokens_entrada_prom": 0,
+      "tokens_salida_prom": 0,
+      "costo_usd_prom": 0.0,
+      "latencia_s_p50": 0.001,
+      "latencia_s_p95": 0.001,
+      "tokens_estimados": false,
+      "descartadas_pct": 0.0,
+      "descartes": {}
+    },
+    {
+      "modelo": "deepseek-flash",
+      "origen": "ia",
+      "proveedor": "deepseek",
+      "explicaciones": 18,
+      "tokens_entrada_prom": 1046,
+      "tokens_salida_prom": 863,
+      "costo_usd_prom": 0.00134925,
+      "latencia_s_p50": 5.717,
+      "latencia_s_p95": 8.037,
+      "tokens_estimados": false,
+      "descartadas_pct": 5.6,
+      "descartes": {
+        "relaja_asercion": 1
+      },
+      "por_corrida": {
+        "tokens_prom": 11454,
+        "costo_usd_prom": 0.0080955,
+        "latencia_s_prom": 36.094,
+        "respeta_topes": true
+      }
+    },
+    {
+      "modelo": "deepseek-v4-pro",
+      "origen": "ia",
+      "proveedor": "deepseek",
+      "explicaciones": 18,
+      "tokens_entrada_prom": 1099,
+      "tokens_salida_prom": 1144,
+      "costo_usd_prom": 0.005980259999999999,
+      "latencia_s_p50": 9.005,
+      "latencia_s_p95": 14.199,
+      "tokens_estimados": false,
+      "descartadas_pct": 11.1,
+      "descartes": {
+        "relaja_asercion": 2
+      },
+      "por_corrida": {
+        "tokens_prom": 13458,
+        "costo_usd_prom": 0.03588156,
+        "latencia_s_prom": 59.288,
+        "respeta_topes": true
+      }
+    }
+  ],
+  "corridas": [
+    {
+      "modelo": "deepseek-flash",
+      "repeticion": 1,
+      "latencia_s": 41.301,
+      "tokens": 11787,
+      "costo_usd": 0.0084951,
+      "max_tokens_por_corrida": null,
+      "tope_por_corrida_usd": 1.0,
+      "respeta_topes": true
+    },
+    {
+      "modelo": "deepseek-flash",
+      "repeticion": 2,
+      "latencia_s": 34.512,
+      "tokens": 11610,
+      "costo_usd": 0.0082827,
+      "max_tokens_por_corrida": null,
+      "tope_por_corrida_usd": 1.0,
+      "respeta_topes": true
+    },
+    {
+      "modelo": "deepseek-flash",
+      "repeticion": 3,
+      "latencia_s": 32.47,
+      "tokens": 10965,
+      "costo_usd": 0.0075087,
+      "max_tokens_por_corrida": null,
+      "tope_por_corrida_usd": 1.0,
+      "respeta_topes": true
+    },
+    {
+      "modelo": "deepseek-v4-pro",
+      "repeticion": 1,
+      "latencia_s": 61.435,
+      "tokens": 13669,
+      "costo_usd": 0.03671844,
+      "max_tokens_por_corrida": null,
+      "tope_por_corrida_usd": 1.0,
+      "respeta_topes": true
+    },
+    {
+      "modelo": "deepseek-v4-pro",
+      "repeticion": 2,
+      "latencia_s": 59.477,
+      "tokens": 13673,
+      "costo_usd": 0.03673428,
+      "max_tokens_por_corrida": null,
+      "tope_por_corrida_usd": 1.0,
+      "respeta_topes": true
+    },
+    {
+      "modelo": "deepseek-v4-pro",
+      "repeticion": 3,
+      "latencia_s": 56.951,
+      "tokens": 13031,
+      "costo_usd": 0.03419196,
+      "max_tokens_por_corrida": null,
+      "tope_por_corrida_usd": 1.0,
+      "respeta_topes": true
+    }
+  ],
+  "corrida_real": null,
+  "prueba_topes": {
+    "deepseek-flash": {
+      "max_tokens_por_corrida": {
+        "llamadas_al_llm": 0,
+        "cortes_por_tope": 6,
+        "hallazgos": 6,
+        "respeta_tope": true
+      },
+      "tope_por_corrida_usd": {
+        "llamadas_al_llm": 0,
+        "cortes_por_tope": 6,
+        "hallazgos": 6,
+        "respeta_tope": true
+      }
+    },
+    "deepseek-v4-pro": {
+      "max_tokens_por_corrida": {
+        "llamadas_al_llm": 0,
+        "cortes_por_tope": 6,
+        "hallazgos": 6,
+        "respeta_tope": true
+      },
+      "tope_por_corrida_usd": {
+        "llamadas_al_llm": 0,
+        "cortes_por_tope": 6,
+        "hallazgos": 6,
+        "respeta_tope": true
+      }
+    }
+  },
+  "descartadas": [
+    {
+      "modelo": "deepseek-flash",
+      "repeticion": 1,
+      "objetivo": "total_con_impuesto",
+      "descarte": "relaja_asercion",
+      "motivo": "la respuesta no cumple el contrato: que_hacer: no se permite proponer relajar una aserción ni cambiar el valor esperado",
+      "respuesta": "{\"decision\":\"stalled\",\"resumen\":\"La prueba se quedó estancada tras 3 intentos. No hay veredicto final y eso no prueba que la función tenga un error.\",\"que_se_esperaba\":\"Que la función total_con_impuesto sumara el precio de los productos del carrito más el impuesto general. Para dos productos de 10.0 con impuesto general de 18 %, el total esperado era 23.6.\",\"que_paso\":\"En el primer intento faltaba un dato obligatorio del carrito: las tasas. En el segundo y tercer intento se pasaron las tasas vacías, y el carrito respondió que necesita las tasas de su región. La prueba se detuvo al preparar el carrito y no llegó a comprobar el total. El mismo error se repitió.\",\"que_hacer\":\"Revisar cómo debe prepararse el carrito para que acepte la información de tasas que exige. Volver a ejecutar la misma prueba con el total esperado de 23.6. No cambiar el valor esperado ni quitar la comprobación. Al estar estancada, no dar por hecho que el código está mal.\"}"
+    },
+    {
+      "modelo": "deepseek-v4-pro",
+      "repeticion": 1,
+      "objetivo": "clasificar_edad",
+      "descarte": "relaja_asercion",
+      "motivo": "la respuesta no cumple el contrato: que_hacer: no se permite proponer relajar una aserción ni cambiar el valor esperado",
+      "respuesta": "{\n  \"decision\": \"bug_detectado\",\n  \"resumen\": \"La función clasificar_edad devolvió 'menor' para una edad de 18 años, cuando la documentación indica que 18 ya debe ser 'adulto'. Por eso la prueba automática terminó mal.\",\n  \"que_se_esperaba\": \"Que al recibir 18 años la función devolviera 'adulto', igual que para 64. 'menor' solo debe usarse de 0 a 17 y 'adulto mayor' desde 65.\",\n  \"que_paso\": \"La prueba con 17 pasó, con 64 pasó, con 65 pasó y con -1 pasó. Solo falló la de 18: la función respondió 'menor' en lugar de 'adulto'.\",\n  \"que_hacer\": \"Revisar la lógica de clasificar_edad, especialmente el límite de 18 años, para que devuelva 'adulto' cuando la edad sea 18. No cambiar el valor esperado: 18 es adulto según la documentación.\"\n}"
+    },
+    {
+      "modelo": "deepseek-v4-pro",
+      "repeticion": 1,
+      "objetivo": "total_con_impuesto",
+      "descarte": "relaja_asercion",
+      "motivo": "la respuesta no cumple el contrato: que_hacer: no se permite proponer relajar una aserción ni cambiar el valor esperado",
+      "respuesta": "{\n  \"decision\": \"stalled\",\n  \"resumen\": \"La comprobación no llegó a ejecutar la función total_con_impuesto porque falló al preparar el carrito. El error se repitió, así que no se pudo verificar el total. Esto no significa que la función tenga un error.\",\n  \"que_se_esperaba\": \"Crear un carrito con dos productos de 10.0 y una tasa general de 0.18, y que la función devuelva 23.6.\",\n  \"que_paso\": \"En el primer intento faltó un dato obligatorio para crear el carrito. En los intentos siguientes se usó una tasa vacía, pero el carrito pidió las tasas de su región. El mismo error se repitió y la comprobación no avanzó.\",\n  \"que_hacer\": \"Revisar cómo se crea un carrito válido, incluir las tasas de la región y la tasa general de 0.18, y volver a intentar comprobar el total sin cambiar el valor esperado.\"\n}"
+    }
+  ]
+}
