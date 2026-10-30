@@ -1,0 +1,68 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://qagent.local/schemas/recommendation.v1.schema.json",
+  "title": "Recomendación de tipos de prueba v1",
+  "description": "Salida ordenada del futuro Agente Recomendador. Una recomendación informa y nunca autoriza una corrida.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "origen", "recomendaciones"],
+  "properties": {
+    "version": {
+      "const": "1"
+    },
+    "origen": {
+      "type": "string",
+      "enum": ["reglas", "ia"]
+    },
+    "recomendaciones": {
+      "type": "array",
+      "description": "Lista ordenada de mayor a menor prioridad; puede estar vacía si no hay capacidades elegibles.",
+      "uniqueItems": true,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["tipo_prueba", "motivo"],
+        "properties": {
+          "tipo_prueba": {
+            "type": "string",
+            "enum": ["funcion", "endpoint", "mutacion"]
+          },
+          "motivo": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "\\S"
+          }
+        }
+      },
+      "allOf": [
+        {
+          "contains": {
+            "type": "object",
+            "required": ["tipo_prueba"],
+            "properties": {"tipo_prueba": {"const": "funcion"}}
+          },
+          "minContains": 0,
+          "maxContains": 1
+        },
+        {
+          "contains": {
+            "type": "object",
+            "required": ["tipo_prueba"],
+            "properties": {"tipo_prueba": {"const": "endpoint"}}
+          },
+          "minContains": 0,
+          "maxContains": 1
+        },
+        {
+          "contains": {
+            "type": "object",
+            "required": ["tipo_prueba"],
+            "properties": {"tipo_prueba": {"const": "mutacion"}}
+          },
+          "minContains": 0,
+          "maxContains": 1
+        }
+      ]
+    }
+  }
+}
