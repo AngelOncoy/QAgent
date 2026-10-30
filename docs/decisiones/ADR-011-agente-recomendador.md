@@ -65,7 +65,7 @@ La opción A es suficiente para el primer paso (#197). La B se descarta: un resu
 
 El código actual usa `funcion` y `endpoint` para los objetivos y `mutacion` para la capa de profundidad sobre objetivos críticos. Por eso `recommendation.v1` admite exactamente esos tres identificadores. Los tipos aprobados para el futuro —componentes, arquitectura o E2E de humo— no se agregan a v1 hasta que exista un identificador y una capacidad operativa declarada por un adaptador.
 
-Un framework disponible en una imagen o una función parcial del adaptador no equivale a soporte de extremo a extremo. Hasta que #168 y las épicas de cada lenguaje completen el flujo, JavaScript, TypeScript y Java no deben anunciar capacidades operativas al Recomendador.
+Un framework disponible en una imagen o una función parcial del adaptador no equivale a soporte de extremo a extremo. #168 ya conectó el registro y los contratos versionados a la corrida, pero JavaScript, TypeScript y Java continúan con `completo = False`; no deben anunciar capacidades operativas al Recomendador hasta que las épicas de cada lenguaje completen su flujo.
 
 ## 5. Decisión
 

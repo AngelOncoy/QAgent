@@ -179,7 +179,7 @@ flowchart TB
     RE --> SBX
     REG --> PYA & OTR
     PYA --> AN & SBX
-    ORQ -. "elige el adaptador" .-> REG
+    ORQ -->|"elige el adaptador (#168)"| REG
     ORQ -. "después de results.json" .-> EXP
     EXP -.-> LLM
     PRY -. "resumen estático mínimo" .-> REC
@@ -190,7 +190,7 @@ flowchart TB
 
 El Sprint 2 agrega tres piezas, todas fuera de la máquina de estados:
 
-- **`lenguajes/`** (EN-17) reúne todo lo que depende del lenguaje (análisis, comando de pruebas, imagen del sandbox, lectura de resultados y guardrail de aserciones) detrás de la interfaz `LanguageAdapter`. Planner, Generator, Reviewer y el orquestador son compartidos y no conocen lenguajes. `PythonAdapter` solo delega en el código actual, así que el flujo de Python no cambia. Todavía no está conectado a la corrida: la flecha punteada desde el orquestador es lo que falta.
+- **`lenguajes/`** (EN-17) reúne todo lo que depende del lenguaje (análisis, comando de pruebas, imagen del sandbox, lectura de resultados y guardrail de aserciones) detrás de la interfaz `LanguageAdapter`. Desde #168 la corrida obtiene el adaptador mediante el registro y los agentes usan sus reglas; Python conserva el flujo completo. JavaScript, TypeScript y Java siguen con `completo = False`, por lo que la aplicación avisa que aún no admite una corrida en esos lenguajes.
 - **El Explicador** lo invoca el código de la corrida (`corrida.py`) cuando los veredictos ya están guardados. Es de solo lectura y, si falla o está desactivado, los informes siguen como hoy.
 - **El Recomendador** (ADR-011, definido pero no implementado) se invocará desde Vista previa después del análisis estático y antes de `start_run`. Recibirá una proyección mínima sin código, secretos ni rutas absolutas y devolverá `recommendation.v1`. Las capacidades permitidas vendrán de los adaptadores; el usuario conservará la confirmación y el cambio de la selección.
 
