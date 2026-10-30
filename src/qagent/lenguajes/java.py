@@ -1,8 +1,9 @@
 """Prototipo de análisis Java con tree-sitter (EN-19, ADR-009).
 
 Solo lee fuentes UTF-8: no importa, compila ni ejecuta el proyecto analizado.
-Extrae clases, métodos públicos y Javadoc literal al formato de EN-17. Excluye
-src/test, carpetas generadas y enlaces simbólicos. No resuelve tipos, llamadas,
+Extrae clases, constructores, métodos públicos, Javadoc y decisiones (#181). Excluye
+src/test, carpetas generadas y enlaces simbólicos. Resuelve llamadas explícitas
+del proyecto sin inferir tipos ni despacho dinámico. No extrae
 endpoints Spring ni sobrecargas. Lee informes JUnit XML; la ejecución automática
 y las demás extensiones siguen pendientes.
 """
@@ -17,7 +18,14 @@ from typing import Any
 from tree_sitter import Node
 
 from qagent.analysis.analyzer import calcular_huella
-from qagent.lenguajes.base import AdaptadorEnDesarrollo, EntornoSandbox, Estructura
+from qagent.lenguajes.base import (
+    AdaptadorEnDesarrollo,
+    EntornoSandbox,
+    Estructura,
+    ReglasPlanificacion,
+)
+from qagent.lenguajes.java_estructura import contar_decisiones, desglosar_javadoc
+from qagent.lenguajes.java_llamadas import agregar_llamadas
 from qagent.lenguajes.registro import listar_archivos
 from qagent.lenguajes.treesitter import extraer_errores_sintaxis, obtener_parser
 from qagent.sandbox.ejecucion import ARCHIVO_JUNIT, DIR_SALIDA, DIR_TESTS
@@ -82,8 +90,9 @@ def _parametros(nodo: Node) -> list[dict[str, Any]]:
 def _declaraciones(raiz: Node) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     """Extrae clases y métodos públicos, sin entrar en cuerpos de métodos.
 
-    Los constructores no son objetivos. Rechaza nombres de métodos duplicados
-    por sobrecarga para evitar objetivos ambiguos en el contrato Clase.metodo.
+    Los constructores se describen dentro de su clase, sin ser objetivos.
+    Rechaza nombres de métodos duplicados por sobrecarga para evitar objetivos
+    ambiguos en el contrato Clase.metodo.
     """
     clases: list[dict[str, Any]] = []
     funciones: list[dict[str, Any]] = []
@@ -105,6 +114,8 @@ def _declaraciones(raiz: Node) -> tuple[list[dict[str, Any]], list[dict[str, Any
                     "tipo": nodo.type,
                     "linea": nodo.start_point.row + 1,
                     "docstring": _javadoc(nodo),
+                    "javadoc": desglosar_javadoc(_javadoc(nodo)),
+                    "constructores": _constructores(nodo, nombre),
                 }
             )
             cuerpo = nodo.child_by_field_name("body")
@@ -147,6 +158,7 @@ def _declaraciones(raiz: Node) -> tuple[list[dict[str, Any]], list[dict[str, Any
                     .strip()
                     .rstrip(";")
                 )
+                ramas = contar_decisiones(metodo)
                 funciones.append(
                     {
                         "nombre": objetivo,
@@ -156,6 +168,10 @@ def _declaraciones(raiz: Node) -> tuple[list[dict[str, Any]], list[dict[str, Any
                         "parametros": parametros,
                         "retorno": retorno,
                         "docstring": _javadoc(metodo),
+                        "javadoc": desglosar_javadoc(_javadoc(metodo)),
+                        "ramas": ramas,
+                        "critical": ramas > 0,
+                        "es_static": "static" in tokens,
                         "tipada": retorno is not None
                         and all(p["tipo"] for p in parametros),
                         "es_async": False,
@@ -166,6 +182,51 @@ def _declaraciones(raiz: Node) -> tuple[list[dict[str, Any]], list[dict[str, Any
     return clases, funciones
 
 
+def _constructores(clase: Node, nombre: str) -> list[dict[str, Any]]:
+    """Describe constructores explícitos de la clase, con visibilidad y Javadoc.
+
+    No inventa el constructor implícito ni convierte constructores privados en
+    objetivos. Los constructores sobrecargados se distinguen por su firma.
+    """
+    cuerpo = clase.child_by_field_name("body")
+    if cuerpo is None:
+        return []
+    constructores = []
+    for nodo in cuerpo.named_children:
+        if nodo.type not in {
+            "constructor_declaration",
+            "compact_constructor_declaration",
+        }:
+            continue
+        bloque = nodo.child_by_field_name("body")
+        modificadores = next(
+            (h for h in nodo.named_children if h.type == "modifiers"), None
+        )
+        tokens = (
+            {h.type for h in modificadores.children}
+            if modificadores is not None
+            else set()
+        )
+        visibilidad = next(
+            (v for v in ("public", "protected", "private") if v in tokens), "package"
+        )
+        parametros = nodo if nodo.type == "constructor_declaration" else clase
+        fin = bloque.start_byte if bloque is not None else nodo.end_byte
+        constructores.append(
+            {
+                "nombre": nombre,
+                "linea": nodo.start_point.row + 1,
+                "firma": nodo.text[: fin - nodo.start_byte].decode("utf-8").strip(),
+                "parametros": _parametros(parametros),
+                "visibilidad": visibilidad,
+                "docstring": _javadoc(nodo),
+                "javadoc": desglosar_javadoc(_javadoc(nodo)),
+                "ramas": contar_decisiones(nodo),
+            }
+        )
+    return constructores
+
+
 class JavaAdapter(AdaptadorEnDesarrollo):
     """Análisis estático Java; ejecución y endpoints Spring todavía pendientes."""
 
@@ -174,6 +235,29 @@ class JavaAdapter(AdaptadorEnDesarrollo):
     marcadores = ("pom.xml", "build.gradle", "build.gradle.kts")
     frameworks_pruebas = ("junit5",)
     frameworks_app = ("spring",)
+
+    def reglas_planificacion(self) -> ReglasPlanificacion:
+        """Reglas Java/JUnit 5 para los prompts y filtros del Planner compartido (#181)."""
+        from qagent.lenguajes.java_planificacion import REGLAS_PLANIFICACION_JAVA
+
+        return REGLAS_PLANIFICACION_JAVA
+
+    def objetivos(self, estructura: Estructura) -> list[dict[str, Any]]:
+        """Lista métodos públicos del análisis y su criticidad por decisiones.
+
+        Conserva las claves modulo, tipo y objetivo de la interfaz común y añade
+        critical. Un constructor se registra como información de su clase.
+        """
+        return [
+            {
+                "modulo": m["ruta"],
+                "tipo": "funcion",
+                "objetivo": f["nombre"],
+                "critical": f["ramas"] > 0,
+            }
+            for m in estructura.get("modulos", [])
+            for f in m.get("funciones", [])
+        ]
 
     def entorno_sandbox(self) -> EntornoSandbox:
         """Imagen ``qagent-sandbox:java`` (#169) y las carpetas comunes del sandbox."""
@@ -223,7 +307,9 @@ class JavaAdapter(AdaptadorEnDesarrollo):
         """Lee fuentes Java y devuelve lenguaje, módulos, errores y resumen.
 
         Cada módulo conserva ruta POSIX, huella SHA-256, clases, funciones y
-        endpoints vacíos. docstring contiene Javadoc literal o None. Los archivos
+        endpoints vacíos. llama_a usa referencias ruta.java::Clase.metodo a
+        destinos del proyecto resueltos sin inferencia de tipos. docstring
+        contiene Javadoc literal o None. Los archivos
         inválidos se reportan en errores y no detienen el análisis de los demás.
 
         Raises:
@@ -233,6 +319,7 @@ class JavaAdapter(AdaptadorEnDesarrollo):
         modulos = []
         errores = []
         parser = obtener_parser("java")
+        arboles: dict[str, Node] = {}
         for relativa in listar_archivos(carpeta):
             partes = Path(relativa).parts
             if not self.es_fuente(relativa) or "test" in partes:
@@ -269,6 +356,8 @@ class JavaAdapter(AdaptadorEnDesarrollo):
                     "endpoints": [],
                 }
             )
+            arboles[relativa] = arbol.root_node
+        agregar_llamadas(modulos, arboles)
         funciones = [f for m in modulos for f in m["funciones"]]
         return {
             "lenguaje": self.lenguaje,
