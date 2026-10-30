@@ -109,6 +109,15 @@ const MOTIVO_SIN_VEREDICTO = {
   tiempo_agotado: 'Un agente o el proveedor de IA no respondió a tiempo; la corrida siguió con lo demás.',
   error_contrato_planner: 'La propuesta del Planner no cumplía el contrato, así que no se generó una prueba.',
   error_planner: 'El Planner no pudo planificar este objetivo (por ejemplo, respondió con un formato inválido); la corrida siguió con lo demás.',
+  error_compilacion_proyecto: 'El proyecto no pudo compilarse. Revisa su diagnóstico; regenerar la prueba no lo corrige.',
+  timeout_sandbox: 'La ejecución excedió el tiempo máximo del sandbox.',
+  memoria_sandbox: 'La ejecución excedió la memoria del sandbox.',
+  error_cobertura: 'No se pudo producir el informe de cobertura.',
+  informe_pruebas_invalido: 'No se recibió un informe de pruebas válido.',
+  pruebas_no_ejecutadas: 'Todas las pruebas fueron omitidas; el método no quedó verificado.',
+  error_ejecucion_pruebas: 'El runner informó errores técnicos; no demuestran un bug del método.',
+  salida_runner_incoherente: 'El código de salida y el informe de pruebas no coinciden.',
+  fallo_junit_no_clasificado: 'El fallo informado no se pudo clasificar como una aserción del contrato.',
 };
 
 /* ---------------- Modelo común de cada elemento ---------------- */
@@ -138,6 +147,7 @@ function elementosProbados(v){
     const det = detalleReal && detalleReal.run_id === v.run_id ? detalleReal.porClave[m.modulo + '::' + p.funcion] : null;
     return {
       id: m.modulo + '::' + p.funcion, modulo: m.modulo, tipo: p.tipo,
+      lenguaje: p.lenguaje || 'python',
       nombre: p.identificador, endpoint: p.tipo === 'endpoint',
       bandeja, critica: !!p.critical, intento: p.intento_final, duracion: p.duracion_s,
       sinDocstring: docstringDeObjetivo(m.modulo, p.funcion) === false,
@@ -301,7 +311,7 @@ function renderExec(){
     return `<div class="bnj-item ${e.id === seleccionBandeja ? 'on' : ''}" role="option" aria-selected="${e.id === seleccionBandeja}" tabindex="0"
         onclick="seleccionarBandeja(${ELEMENTOS_BANDEJA.indexOf(e)})" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click()}">
       <div class="bnj-item-cab"><span class="bnj-nombre">${escHtml(e.nombre)}</span>${e.sinDocstring ? etiquetaSinDocstring(e.tipo, {enfocable: false}) : ''}${e.critica ? '<span class="bnj-critica">Crítica</span>' : ''}</div>
-      <span class="bnj-ruta">${escHtml(e.modulo)}</span>
+      <span class="bnj-ruta">${escHtml(e.modulo)} · Lenguaje: ${escHtml(e.lenguaje || 'python')}</span>
       <span class="np-chip np-chip-${b.cls}">${b.ico()}${b.chip}</span>${accion}
     </div>`;
   }).join('') || `<div class="bnj-vacio">${execSearchQuery ? 'Nada coincide con la búsqueda.' : 'No hay resultados en esta bandeja.'}
@@ -415,7 +425,7 @@ function renderDetalleBandeja(e){
   const cargando = e.cargando ? '<p class="np-meta">Cargando la evidencia…</p>' : '';
   $('bnjDetalle').innerHTML = `
     <div class="bnj-det-cab">
-      <div><h2 class="bnj-det-nombre">${escHtml(e.nombre)}${e.sinDocstring ? etiquetaSinDocstring(e.tipo) : ''}</h2><span class="bnj-ruta">${escHtml(e.modulo)}${e.firma ? ' · ' + escHtml(e.firma) : ''}</span></div>
+      <div><h2 class="bnj-det-nombre">${escHtml(e.nombre)}${e.sinDocstring ? etiquetaSinDocstring(e.tipo) : ''}</h2><span class="bnj-ruta">${escHtml(e.modulo)}${e.firma ? ' · ' + escHtml(e.firma) : ''}</span><p class="np-meta">Lenguaje: ${escHtml(e.lenguaje || 'python')}</p></div>
       ${e.critica ? '<span class="np-chip np-chip-progreso">Crítica</span>' : ''}
     </div>
     <span class="np-chip np-chip-${b.cls}">${b.ico()}${e.bandeja === 'bug' ? 'Posible bug en tu código' : b.chip}</span>

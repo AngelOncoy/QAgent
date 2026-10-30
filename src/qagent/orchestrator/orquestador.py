@@ -873,6 +873,15 @@ class Orquestador:
                     resultado.revisiones.append(revision)
                     resultado.cobertura = revision["cobertura"]
                     resultado.laundering_detectado |= revision["laundering_detectado"]
+                    if revision.get("motivo_sin_veredicto"):
+                        resultado.decision = None
+                        resultado.motivo_sin_veredicto = revision[
+                            "motivo_sin_veredicto"
+                        ]
+                        self._emitir(
+                            "reviewer", objetivo, revision["feedback"], tipo="aviso"
+                        )
+                        return
                     decision, motivo = decidir_corte(
                         revision["decision"],
                         intento,
@@ -1010,7 +1019,9 @@ class Orquestador:
             revision = {**revision, "decision": "stalled"}
         self._validar(contracts.REVIEW_RESULT, revision, "reviewer")
         self._coherente(revision, objetivo, test["intento"], "reviewer")
-        if revision["estado_sandbox"] in SANDBOX_FALLIDO:
+        if revision["estado_sandbox"] in SANDBOX_FALLIDO and not revision.get(
+            "motivo_sin_veredicto"
+        ):
             raise FalloControlado(
                 f"Sandbox con estado '{revision['estado_sandbox']}' en {objetivo}"
             )

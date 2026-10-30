@@ -63,6 +63,8 @@ contracts.normalizar_planner(contrato_v2)  # copia en v3 (python + pytest)
 | `validar_sintaxis(codigo)` | `list[str]` (vacía = válido) | Parsear, no ejecutar. |
 | `comparar_aserciones(original, reparado)` | objeto con `es_laundering` y `resumen` | Ver las 7 reglas de `qagent.analysis.laundering`. |
 | `leer_cobertura(dir_salida)` | `dict` en el formato JSON de coverage.py (`files`, `totals`) o `None` | Es el formato que lee el Reviewer. Cada lenguaje convierte el suyo (v8, JaCoCo) a este. |
+| `cobertura_de_objetivo(cobertura, modulo, objetivo)` | porcentajes o `None`; `NotImplemented` usa rangos | Java selecciona contadores exactos JaCoCo, sin atribuir métricas de otro método. |
+| `clasificar_ejecucion(resultado)` | `Clasificacion` o `None` | Permite inspeccionar etapas y reportes antes de aceptar; motivo_sin_veredicto evita reintentar errores del proyecto. |
 | `archivo_de_prueba(objetivo)` | nombre del archivo, sin carpetas | Valor de `archivo` en `generated_test.v2` (`test_generado.py`, `precios.test.ts`, `PreciosTest.java`). |
 | `comando_mutacion(modulo, funciones)` | `ComandoSandbox` (comando y variables de entorno) | Solo sobre funciones `critical: true`: mutmut, Stryker o PIT. |
 
@@ -82,6 +84,8 @@ el lenguaje pone `completo = True`.
 | `modulo_cobertura(modulo)` · `variables_pruebas()` | lo que recibe `comando_pruebas` · variables del contenedor | Por defecto, la misma ruta y ninguna variable. |
 | `huellas_de_archivo(fuente, ruta)` · `funciones_de_modulo(raiz, modulo)` | `objetivo -> huella` · `[{"nombre", "linea"}]` | Reutilización de specs (HU-24), regresión (HU-25) y mutación de `reg_deep`. |
 | `ejecutar_mutacion(...)` | `ResultadoMutacion` | Misma firma que `qagent.sandbox.ejecutar_mutacion`. |
+| `preparador_sandbox()` | callback `(copia, tests)` o None | Preparación estática en la copia antes de crear el contenedor (#182). No ejecuta código del usuario. |
+| `lector_informe_sandbox()` | callback `(salida) -> XML` o None | Recoge/agrega informes antes de limpiar /out; None conserva el lector habitual (#182). |
 
 ## Cómo implementar un lenguaje
 

@@ -52,6 +52,10 @@
     },
     "decision": { "enum": ["accept", "retry", "bug_detectado", "stalled"] },
     "feedback": { "type": "string" },
+    "motivo_sin_veredicto": {
+      "type": "string", "minLength": 1,
+      "description": "Fallo técnico que impide juzgar el objetivo y no se corrige regenerando la prueba."
+    },
     "ejecucion": {
       "description": "EN-17. Lo que pasó en el sandbox en este intento: casos, salida y entorno. Ausente si el test no llegó a ejecutarse (sintaxis, laundering o valor esperado ausente).",
       "$ref": "#/$defs/ejecucion"
@@ -152,6 +156,10 @@
     }
   },
   "allOf": [
+    {
+      "if": { "required": ["motivo_sin_veredicto"] },
+      "then": { "properties": { "decision": { "const": "stalled" }, "tipo_fallo": { "type": "null" } } }
+    },
     {
       "description": "Solo se acepta un test que pasó en el sandbox y sin laundering.",
       "if": { "properties": { "decision": { "const": "accept" } } },

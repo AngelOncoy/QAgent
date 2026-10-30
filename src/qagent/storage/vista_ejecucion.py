@@ -504,6 +504,9 @@ def _por_modulo(objetivos, estados) -> list[dict[str, Any]]:
         modulos.setdefault(objetivo["modulo"], []).append(
             {
                 "funcion": objetivo["funcion"],
+                **(
+                    {"lenguaje": objetivo["lenguaje"]} if "lenguaje" in objetivo else {}
+                ),
                 **identidad_de(objetivo),
                 "estado": estado,
                 "intento_final": metricas["iteraciones"],

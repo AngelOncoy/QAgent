@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Fixture sintética de #182; no es evidencia de una ejecución real en Docker. -->
+<testsuite name="org.qagent.bench.BancoTest" tests="4" failures="1" errors="1" skipped="1" time="0.4">
+  <testcase classname="org.qagent.bench.BancoTest" name="correcto" time="0.1"/>
+  <testcase classname="org.qagent.bench.BancoTest" name="promedio" time="0.1">
+    <failure type="org.opentest4j.AssertionFailedError" message="Promedio decimal ==&gt; expected: &lt;2.5&gt; but was: &lt;2.0&gt;">org.opentest4j.AssertionFailedError: Promedio decimal ==&gt; expected: &lt;2.5&gt; but was: &lt;2.0&gt;
+    at org.junit.jupiter.api.AssertionFailureBuilder.build(AssertionFailureBuilder.java:151)
+    at org.junit.jupiter.api.Assertions.assertEquals(Assertions.java:1011)
+    at org.qagent.bench.BancoTest.promedio(BancoTest.java:24)
+    at java.base/java.lang.reflect.Method.invoke(Method.java:580)</failure>
+  </testcase>
+  <testcase classname="org.qagent.bench.BancoTest" name="dependencia" time="0.2">
+    <error type="java.lang.IllegalStateException" message="Dependencia no disponible">java.lang.IllegalStateException: Dependencia no disponible
+    at org.qagent.bench.Servicio.obtener(Servicio.java:15)
+    at org.qagent.bench.BancoTest.dependencia(BancoTest.java:35)
+    at java.base/java.lang.reflect.Method.invoke(Method.java:580)</error>
+  </testcase>
+  <testcase classname="org.qagent.bench.BancoTest" name="omitido" time="0">
+    <skipped message="No habilitado"/>
+  </testcase>
+</testsuite>
