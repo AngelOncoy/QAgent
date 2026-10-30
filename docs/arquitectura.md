@@ -4,7 +4,7 @@
 
 QAgent genera y valida pruebas para el código del usuario. Hoy cubre Python 3.10+ con pytest: **pruebas unitarias de funciones** y **pruebas de endpoints FastAPI**. Tres agentes basados en LLM (Planner, Generator y Reviewer) trabajan bajo un orquestador determinista, y todas las pruebas se ejecutan en un sandbox Docker aislado.
 
-En el **Sprint 2** la arquitectura se amplía sin rehacerse (ADR-010): una capa de **adaptadores por lenguaje** para JavaScript/TypeScript y Java (ADR-007, ADR-009), un **Agente Explicador** que traduce los hallazgos a lenguaje simple (ADR-008) y nuevos tipos de prueba por prioridad (sección 10.6). El orquestador sigue siendo determinista.
+En el **Sprint 2** la arquitectura se amplía sin rehacerse (ADR-010): una capa de **adaptadores por lenguaje** para JavaScript/TypeScript y Java (ADR-007, ADR-009), un **Agente Explicador** que traduce los hallazgos a lenguaje simple (ADR-008), un **Agente Recomendador** definido para orientar la selección antes de una corrida (ADR-011, todavía no implementado) y nuevos tipos de prueba por prioridad (sección 10.6). El orquestador sigue siendo determinista.
 
 **Convención de los diagramas:** lo que todavía no está en `develop` lleva la etiqueta **«propuesto»** y se dibuja con línea punteada. Lo demás está implementado.
 
@@ -13,6 +13,7 @@ En el **Sprint 2** la arquitectura se amplía sin rehacerse (ADR-010): una capa 
 | Capa de adaptadores por lenguaje y contratos versionados | Secciones 4, 9 | ADR-007 (EN-17) |
 | tree-sitter para todos los lenguajes; Python migrado en TA-16 | Secciones 4, 11 | ADR-009 (SPK-04, TA-16) |
 | Agente Explicador como etapa posterior al veredicto | Secciones 4, 6.5, 8 | ADR-008 (SPK-03) |
+| Agente Recomendador antes de la corrida, sin autoridad de ejecución | Secciones 4, 6.1, 8, 9 | ADR-011 (#199) |
 | Imágenes del sandbox por lenguaje | Sección 7 | ADR-010 |
 | Nuevos tipos de prueba (componentes, E2E de humo, arquitectura) | Sección 10.6 | ADR-010 |
 | Lo que no cambia y las decisiones abiertas | Sección 13 | ADR-010 |
@@ -167,6 +168,7 @@ flowchart TB
         OTR["JS/TS · Java<br/>hoy solo detectan; tree-sitter (ADR-009)"]
     end
     EXP["Explicador · propuesto<br/>etapa posterior al veredicto (ADR-008)"]
+    REC["Recomendador · definido<br/>Vista previa, antes de la corrida (ADR-011)"]
 
     BRIDGE --> ORQ
     BRIDGE --> PRY & STO
@@ -180,12 +182,17 @@ flowchart TB
     ORQ -. "elige el adaptador" .-> REG
     ORQ -. "después de results.json" .-> EXP
     EXP -.-> LLM
+    PRY -. "resumen estático mínimo" .-> REC
+    REG -. "capacidades soportadas" .-> REC
+    REC -. "recommendation.v1" .-> BRIDGE
+    REC -. "opcional y futuro" .-> LLM
 ```
 
-El Sprint 2 agrega dos piezas, ambas fuera de la máquina de estados:
+El Sprint 2 agrega tres piezas, todas fuera de la máquina de estados:
 
 - **`lenguajes/`** (EN-17) reúne todo lo que depende del lenguaje (análisis, comando de pruebas, imagen del sandbox, lectura de resultados y guardrail de aserciones) detrás de la interfaz `LanguageAdapter`. Planner, Generator, Reviewer y el orquestador son compartidos y no conocen lenguajes. `PythonAdapter` solo delega en el código actual, así que el flujo de Python no cambia. Todavía no está conectado a la corrida: la flecha punteada desde el orquestador es lo que falta.
 - **El Explicador** lo invoca el código de la corrida (`corrida.py`) cuando los veredictos ya están guardados. Es de solo lectura y, si falla o está desactivado, los informes siguen como hoy.
+- **El Recomendador** (ADR-011, definido pero no implementado) se invocará desde Vista previa después del análisis estático y antes de `start_run`. Recibirá una proyección mínima sin código, secretos ni rutas absolutas y devolverá `recommendation.v1`. Las capacidades permitidas vendrán de los adaptadores; el usuario conservará la confirmación y el cambio de la selección.
 
 | Componente | Carpeta | Responsabilidad | Ítems |
 |---|---|---|---|
@@ -204,6 +211,7 @@ El Sprint 2 agrega dos piezas, ambas fuera de la máquina de estados:
 | Contratos | `src/qagent/contracts/` | JSON Schema de cada mensaje; se validan en cada paso. En el Sprint 2, versiones con lenguaje y framework (sección 9). | EN-01, EN-17 |
 | Adaptadores por lenguaje | `src/qagent/lenguajes/` | Interfaz `LanguageAdapter` y registro: detección del lenguaje, análisis estático, comando de pruebas, entorno del sandbox, lectura de resultados y guardrail de aserciones. Python completo (delega en el código actual); JS/TS y Java solo detectan por ahora. | EN-17, EP-11a, EP-12a · ADR-007, ADR-009 |
 | Explicador (propuesto) | por definir en EP-10 | Explica en lenguaje simple los objetivos que no terminaron en `accept`, con plantillas deterministas y un LLM opcional. | EP-10 · ADR-008 |
+| Recomendador (definido) | por implementar en EP-15 | Prioriza tipos de prueba soportados a partir del resumen de Vista previa; reglas deterministas con LLM opcional y respaldo, sin iniciar corridas. | #199, #197, #200 · ADR-011 |
 
 ### Reglas de dependencia
 
@@ -216,6 +224,7 @@ El Sprint 2 agrega dos piezas, ambas fuera de la máquina de estados:
 7. **Lo específico de un lenguaje vive solo en su adaptador** (`lenguajes/`), nunca en los agentes ni en el orquestador (ADR-007).
 8. **El Explicador no decide el flujo:** no cambia decisiones, intentos, cobertura ni `laundering_detectado`, no propone relajar aserciones, no ejecuta código y no llama a otros agentes (ADR-008).
 9. **Un único punto híbrido:** el único lugar donde un LLM interviene en una decisión es `ReviewerAgent._clasificar_con_llm`, que responde un enum cerrado (`error_test` o `bug_codigo`) solo cuando las reglas no alcanzan, con `stalled` como respaldo (ADR-008).
+10. **El Recomendador no decide el flujo:** solo propone tipos declarados como soportados por los adaptadores. No llama a `start_run`, no cambia la selección confirmada y no toca Planner, Generator, Reviewer ni resultados (ADR-011).
 
 ---
 
@@ -411,6 +420,19 @@ Ya resueltos desde la primera versión de este documento: la corrida está conec
 ## 6. Vistas dinámicas
 
 ### 6.1 Pipeline de una corrida
+
+Antes de que exista una corrida, Vista previa analiza el proyecto y el usuario configura qué probar. ADR-011 inserta el Recomendador en ese momento, no dentro del pipeline operativo:
+
+```mermaid
+flowchart LR
+    A["Abrir proyecto"] --> V["Vista previa<br/>análisis estático"]
+    V -. "resumen mínimo + capacidades" .-> REC["Recomendador<br/>definido, no implementado"]
+    REC -. "recommendation.v1" .-> U{"Usuario confirma<br/>o cambia la selección"}
+    V --> U
+    U --> S["start_run<br/>corrida determinista"]
+```
+
+El resumen para el Recomendador excluye código completo, archivos, secretos y rutas absolutas; las rutas HTTP se tratan como datos. La validación estructural usa `recommendation.v1` y la futura integración de #197 deberá contrastar además cada tipo con las capacidades operativas declaradas por los adaptadores. Una respuesta inválida nunca inicia una corrida.
 
 Cada función o endpoint seleccionado pasa por estas etapas, en **orden de dependencias** (sección 6.4). Entre paréntesis, dónde se gastan tokens.
 
@@ -727,6 +749,16 @@ Hay **cuatro roles** implementados: tres con LLM (Planner, Generator y Reviewer)
 | **Liveness** | `EXPLICADOR = (SolicitarExplicación . LeerHallazgo . AplicarPlantilla . [RedactarConLLM] . ValidarContrato . EntregarExplicación)*` |
 | **Safety** | • Nunca cambia ni reinterpreta una decisión, un intento, la cobertura ni `laundering_detectado`. • Si sugiere relajar una aserción o cambiar el valor esperado, la explicación se descarta. • Su `decision` debe coincidir con `results.json`. • Si falla, queda la plantilla. • No corre si la corrida se canceló o se alcanzó el presupuesto. |
 
+#### Rol: Recomendador (definido, no implementado; ADR-011)
+
+| Campo | Contenido |
+|---|---|
+| **Descripción** | Propone en Vista previa qué tipos de prueba soportados conviene ejecutar y en qué orden, antes de iniciar una corrida. |
+| **Protocolos y actividades** | SolicitarRecomendación, *LeerResumenMínimo*, *AplicarReglas*, *[RedactarConLLM]*, *ValidarContrato*, *ValidarCapacidades*, EntregarRecomendación |
+| **Permisos** | Lee: cantidades y tipos de objetivos, rutas HTTP, señal `critical`, lenguajes y capacidades de adaptadores. Genera: `recommendation.v1`. No lee código completo, secretos ni rutas absolutas. |
+| **Liveness** | `RECOMENDADOR = (SolicitarRecomendación . LeerResumenMínimo . AplicarReglas . [RedactarConLLM] . ValidarContrato . ValidarCapacidades . EntregarRecomendación)*` |
+| **Safety** | • Solo recomienda capacidades operativas del adaptador. • No llama a `start_run`. • El usuario confirma o cambia la selección. • No crea oráculos, pruebas ni veredictos. • La IA inválida se descarta completa y se usan las reglas. |
+
 ### 8.2 Modelo de interacción
 
 | Protocolo | Iniciador | Respondedor | Entrada | Salida | Propósito |
@@ -736,8 +768,9 @@ Hay **cuatro roles** implementados: tres con LLM (Planner, Generator y Reviewer)
 | SolicitarRevisión | Coordinador | Reviewer | contrato + test (+ test anterior) | `review_result` | Ejecutar y validar el test; decidir el siguiente paso |
 | NotificarEvento | Coordinador | Interfaz | — | evento (agente, archivo, función, mensaje, hora) | Mostrar el avance en el Monitor en vivo (HU-09) |
 | SolicitarExplicación (propuesto) | Coordinador (`corrida.py`) | Explicador | hallazgos de solo lectura | `explicaciones.json` | Explicar los objetivos que no se aceptaron (ADR-008) |
+| SolicitarRecomendación (definido) | Vista previa | Recomendador | resumen estático mínimo + capacidades de adaptadores | `recommendation.v1` | Orientar la selección que confirma el usuario antes de `start_run` (ADR-011) |
 
-Los tres primeros protocolos son de **petición-respuesta**: el Coordinador espera la salida antes de continuar. NotificarEvento es asíncrono y no espera respuesta. SolicitarExplicación también es de petición-respuesta, pero tiene su propio tiempo máximo y su fallo no afecta la corrida.
+Los tres primeros protocolos son de **petición-respuesta**: el Coordinador espera la salida antes de continuar. NotificarEvento es asíncrono y no espera respuesta. SolicitarExplicación también es de petición-respuesta, pero tiene su propio tiempo máximo y su fallo no afecta la corrida. SolicitarRecomendación ocurre antes de la corrida: su fallo deja disponible la selección manual y no llama al Coordinador.
 
 ### 8.3 Modelo de agentes
 
@@ -748,6 +781,7 @@ Los tres primeros protocolos son de **petición-respuesta**: el Coordinador espe
 | ReviewerAgent | Reviewer / Executor | 1 | GPT-6 Luna + guardrail determinista |
 | Orquestador | Coordinador | 1 | Sin LLM |
 | ExplicadorAgent (propuesto) | Explicador | 0 o 1 | Plantillas sin LLM; LLM opcional, modelo económico definido en `[agentes.explicador]` (ADR-001) |
+| RecomendadorAgent (definido) | Recomendador | 0 o 1 por Vista previa | Reglas sin LLM; LLM opcional futuro, desactivado por defecto hasta #201 (ADR-011) |
 
 Cada rol lo cumple un solo tipo de agente. Las funciones y endpoints se procesan uno tras otro, así que una instancia de cada agente es suficiente en la Fase 1.
 
@@ -760,6 +794,7 @@ Cada rol lo cumple un solo tipo de agente. Las funciones y endpoints se procesan
 | Revisar test | ReviewerAgent | contrato, test, test anterior opcional | `review_result` | el sandbox está disponible | decisión en {accept, retry, bug_detectado, stalled}; métricas del intento registradas |
 | Coordinar corrida | Orquestador | ruta del proyecto, perfil | `log.json`, `results.json` | configuración válida y entorno listo (EN-06) | ambos archivos validan contra `run_log.schema.json` |
 | Explicar hallazgos (propuesto) | ExplicadorAgent | hallazgos de solo lectura | `explicaciones.json` | `results.json` escrito; corrida no cancelada; presupuesto disponible | cada explicación valida contra su schema y su `decision` coincide con `results.json` |
+| Recomendar tipos (definido) | RecomendadorAgent | resumen mínimo y capacidades | `recommendation.v1` | análisis estático disponible; todavía no se llamó a `start_run` | schema válido; cada tipo pertenece al conjunto elegible; el usuario conserva la confirmación |
 
 ### 8.5 Modelo de conocidos
 
@@ -772,13 +807,16 @@ flowchart LR
     GE["GeneratorAgent"]
     RE["ReviewerAgent"]
     EX["ExplicadorAgent<br/>propuesto"]
+    RC["RecomendadorAgent<br/>definido"]
+    VP["Vista previa"]
     ORQ <--> PL
     ORQ <--> GE
     ORQ <--> RE
     ORQ -.-> EX
+    VP -.-> RC
 ```
 
-No existe ninguna comunicación directa entre PlannerAgent, GeneratorAgent, ReviewerAgent y ExplicadorAgent.
+No existe ninguna comunicación directa entre PlannerAgent, GeneratorAgent, ReviewerAgent, ExplicadorAgent y RecomendadorAgent. El Recomendador se comunica con Vista previa antes de que exista una corrida y no conoce al Orquestador.
 
 ---
 
@@ -801,6 +839,7 @@ Los schemas completos van en `src/qagent/contracts/` y los valida `tests/test_co
 | `explicaciones.json` (ADR-008) | Explicador → `.qagent/runs/<run_id>/explicaciones.json` | Contenedor de las explicaciones de la corrida (`explanation.v1`), persistido por separado de `results.json` | `explicaciones.schema.json` |
 | `bug_evidence.v1` (#193) | Orquestador → `.qagent/evidencias_bugs/<run_id>/<spec_id>.json` | Evidencia inmutable de una decisión `bug_detectado`: código exacto y su SHA-256, contrato Planner con `firma`, objetivo y corrida de origen. Se guarda separada de `tests/`, que sigue conteniendo solo pruebas aprobadas | `bug_evidence.v1.schema.json` |
 | `run_comparison.v1` (#193) | Comparador determinista → `.qagent/comparaciones/<run_verificacion>/<run_origen>.json` | Comparación por objetivo y prueba entre dos corridas: `corregido`, `sigue_fallando`, `regresion` o `no_comparable`. Un resultado concluyente exige la misma huella de prueba, la misma firma y veredictos confiables; `no_comparable` siempre conserva el motivo | `run_comparison.v1.schema.json` |
+| `recommendation.v1` (#199, Agente Recomendador definido) | Vista previa → validación estructural y de capacidades → usuario | `version`, `origen` (`reglas` \| `ia`) y lista priorizada de `tipo_prueba` + `motivo`. Admite `funcion`, `endpoint` y `mutacion`, sin campos de ejecución; la lista puede ser vacía. El schema no sustituye la validación dinámica contra capacidades del adaptador | `recommendation.v1.schema.json` · ADR-011 |
 
 **Origen del valor esperado (oráculo):** firma, tipos o docstring de una función (en JS/TS, JSDoc y tipos de TypeScript; en Java, Javadoc y tipos); o la declaración de la ruta (`response_model`, `status_code`, modelos Pydantic) de un endpoint. Nunca el resultado de ejecutar el código.
 
@@ -942,6 +981,7 @@ Las categorías actuales se aplican a cada lenguaje. **Caja negra:** el valor es
 | Adaptadores por lenguaje y contratos versionados, sin tocar los existentes | Incorporar JS/TS y Java sin duplicar agentes ni romper las specs guardadas | ADR-007 |
 | Explicador como etapa posterior al veredicto, de solo lectura y con plantillas de respaldo | Aporta explicaciones para usuarios no técnicos sin comprometer resultados ni reglas | ADR-008 |
 | Arquitectura y ampliación de alcance del Sprint 2 | Un solo modelo de referencia para cinco integrantes que trabajan en paralelo | ADR-010 |
+| Recomendador antes de la corrida, con reglas como autoridad y LLM opcional acotado | Orienta la selección sin dar autoridad de ejecución a un LLM ni ofrecer tipos no soportados | ADR-011 |
 
 ---
 
@@ -978,6 +1018,8 @@ Responsables sugeridos en el plan del Sprint 2, a confirmar en el Sprint Plannin
 | Imágenes `node` y `java` del sandbox y límites de memoria y tiempo por lenguaje (**Resuelto**, #169); falta `navegador` con EP-13b | Sanchez Vargas, Adrián | Sección 7 |
 | Migrar el analizador de Python a tree-sitter, solo si da la misma estructura que `analizar_proyecto()` | Hecho (TA-16, #154) | ADR-009 |
 | Versionar en `bench/` los bancos y scripts de medición de SPK-03 y SPK-04 | Sanchez Vargas, Adrián y Castillo Pezo, Mateo | ADR-008 · ADR-009 |
+| Implementar las reglas del Recomendador y la declaración de capacidades por adaptador; integrar la confirmación en Vista previa | bel001 | ADR-011 · #197 |
+| Implementar y medir el modo IA opcional antes de considerar un cambio del modo predeterminado | bel001, con revisión del equipo | ADR-011 · #200 · #201 |
 
 ## 14. Aprobación
 
