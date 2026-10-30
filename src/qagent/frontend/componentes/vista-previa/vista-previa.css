@@ -23,7 +23,7 @@
 .exp-cifra b{font-size:var(--texto-titulo);font-weight:var(--peso-fuerte);line-height:1.2}
 .exp-cifra-sub{color:var(--texto-2);font-size:var(--texto-meta)}
 
-/* Pruebas recomendadas (#197): lista numerada en orden de prioridad y lenguajes «próximamente» */
+/* Pruebas recomendadas (issue 197): lista numerada en orden de prioridad y lenguajes «próximamente» */
 .exp-reco{gap:var(--esp-4)}
 .exp-reco-cab{display:flex;align-items:flex-start;justify-content:space-between;gap:var(--esp-4);width:100%;flex-wrap:wrap}
 .exp-reco-cab .exp-nota{margin-top:var(--esp-1)}

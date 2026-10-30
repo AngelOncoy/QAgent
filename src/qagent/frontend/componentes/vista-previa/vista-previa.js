@@ -28,7 +28,7 @@ registrarComponente('vista-previa/vista-previa', `<!-- ===== 2. EXPLORAR ===== -
       <div class="exp-cifra"><span class="exp-cifra-etq">Endpoints API</span><b id="resumenEndpoints">0</b><span class="exp-cifra-sub" id="resumenEndpointsSub"></span></div>
     </div>
 
-    <!-- Pruebas recomendadas (#197): reglas sin IA. Solo se aplican si la persona lo pide. -->
+    <!-- Pruebas recomendadas (issue 197): reglas sin IA. Solo se aplican si la persona lo pide. -->
     <section class="np-tarjeta exp-reco hide" id="expReco" aria-labelledby="expRecoTitulo">
       <div class="exp-reco-cab">
         <div>
@@ -102,7 +102,7 @@ registrarComponente('vista-previa/vista-previa', `<!-- ===== 2. EXPLORAR ===== -
 
 let PROYECTO_RESUMEN = null;
 let PROYECTO_ERRORES = [];
-// #197: recomendación que llega con la vista previa ({recomendacion, proximamente}); null = no hay.
+// issue 197: recomendación que llega con la vista previa ({recomendacion, proximamente}); null = no hay.
 let RECOMENDACION = null;
 // Nombre de cada tipo de recomendation.v1, igual que en Preparar.
 const TIPOS_RECOMENDADOS = {
@@ -353,7 +353,7 @@ function vaciarVistaPrevia() {
   actualizarResumenUI({ total_modulos: 0, total_funciones_publicas: 0, total_errores: 0 });
 }
 
-/* ---------------- Pruebas recomendadas (#197) ----------------
+/* ---------------- Pruebas recomendadas (issue 197) ----------------
    La lista viene ordenada y validada del backend (recommendation.v1, reglas sin IA). Mostrarla no
    cambia nada; «Aplicar recomendación» solo precarga los tipos y el modo de Preparar, que la
    persona puede cambiar. Nunca inicia una corrida. */
