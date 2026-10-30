@@ -14,7 +14,9 @@ Va fuera de `bench/` porque las pruebas del sistema analizan esa carpeta complet
 | `casos/results.json`, `casos/detalle.json` | La corrida fija que se explica: los 3 bugs de `banco_mvp.py` (salida real de pytest grabada) y una traza de 2 o 3 intentos de cada tipo nuevo. Sin rutas de la máquina |
 | `preparar_casos.py` | Vuelve a armar `casos/` sin red, sin Docker y sin gastar tokens. Solo hace falta correrlo si cambian el banco, las grabaciones o el formato de `results.json` o `detalle.json` |
 | `medir_explicador.py` | La medición |
-| `resultados/<fecha>/` | Lo que deja cada medición: `metricas.json`, `respuestas.json` y `resumen.md` |
+| `rubrica.md` | Criterios de calidad para la revisión a ciegas |
+| `revision_ciega.py` | Arma las planillas a ciegas (`exportar`) y las junta y revela (`puntuar`) |
+| `resultados/<fecha>/` | Lo que deja cada medición: `metricas.json`, `respuestas.json` y `resumen.md`, y después de la revisión, `revision/` |
 
 ## Cómo repetir la medición
 
@@ -63,6 +65,33 @@ Comprobaciones que hace siempre:
 - **Entrada limpia:** antes de enviar cada hallazgo revisa que la entrada (`entrada_ia`) no tenga rutas absolutas ni nada que `sanitizar_secretos` reconozca como clave. Si lo encuentra, se detiene sin enviarlo.
 - **Topes:** cada corrida usa los topes de `[presupuesto]` y el resumen indica si se respetaron. Además repite la corrida con `max_tokens_por_corrida = 1` y con un tope de US$ 0,000000001, con un cliente que falla si lo llaman, para comprobar que el Explicador corta **antes** de llamar al LLM.
 - **Resultados sin claves:** todo lo que escribe pasa por `sanitizar_secretos`.
+
+## Revisión a ciegas de la calidad
+
+La calidad la revisan al menos dos integrantes con `rubrica.md`, comparando plantilla e IA sin saber cuál es cuál.
+
+1. Quien coordina arma una planilla por persona a partir de la medición:
+
+   ```bash
+   python bench_explicador/revision_ciega.py exportar bench_explicador/resultados/<fecha> --revisores ana rodrigo
+   ```
+
+   Esto deja en `resultados/<fecha>/revision/` un archivo `planilla-<nombre>.csv` por persona (separado por `;`, en UTF-8; se abre en Excel o en Google Sheets) y `clave.json`.
+
+   - Cada fila es un hallazgo con su columna **Hechos** (decisión, documentación, casos y cada intento con su error) y dos explicaciones, **A** y **B**: la de la plantilla y la de un modelo, en orden al azar.
+   - Se usa la repetición 1 de cada modelo (`--repeticion` elige otra). Las explicaciones de IA descartadas no entran, porque en la corrida real se habría mostrado la plantilla; quedan anotadas en `clave.json`.
+   - **`clave.json` no se comparte** con quienes revisan: es lo que revela cuál era cada explicación.
+
+2. Cada persona llena su planilla por su cuenta: un 1, un 2 o un 3 en cada criterio de A y de B, y `A`, `B` o `igual` en **preferida**. La guarda con el mismo nombre, en CSV y con `;` como separador.
+3. Con todas las planillas en `revision/`:
+
+   ```bash
+   python bench_explicador/revision_ciega.py puntuar bench_explicador/resultados/<fecha>
+   ```
+
+   Si a una planilla le falta algo, el script dice qué celda. Si está todo, deja `resultado.json` y `resultado.md` con el promedio de cada criterio por modelo y para la plantilla, la cantidad de 1 en «no inventa» y «no contradice», las preferencias y el acuerdo entre quienes revisaron.
+
+4. Versiona la carpeta `revision/` completa, con las planillas y `clave.json`.
 
 ## Cómo se marcan las cifras
 

@@ -6,6 +6,7 @@ Solo lee `bench_explicador/casos/`; no llama a ningún LLM ni ejecuta código.
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 from typing import Any
 
@@ -137,3 +138,15 @@ def test_las_funciones_de_los_casos_existen_en_el_banco() -> None:
 
     for nombre in NUEVOS:
         assert funciones[nombre]["docstring"], nombre
+
+
+@pytest.mark.parametrize("banco", [BANCO, BANCO.parent / "bench"])
+def test_los_docstrings_no_le_dicen_al_llm_que_se_sembro(banco) -> None:
+    """El Explicador recibe el docstring: si dijera dónde está el bug, la medición
+    no valdría."""
+    pistas = re.compile(r"bug|sembrad|hallazgo|laundering|estancad", re.IGNORECASE)
+    modulos = analizar_proyecto(banco)["modulos"]
+    for modulo in (m for m in modulos if m["ruta"].startswith("banco_")):
+        for funcion in modulo["funciones"]:
+            docstring = funcion.get("docstring") or ""
+            assert not pistas.search(docstring), (modulo["ruta"], funcion["nombre"])
