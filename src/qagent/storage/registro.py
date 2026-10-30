@@ -42,6 +42,7 @@ PERFIL_HUMO = "humo"  # un caso normal por objetivo (#75)
 PERFIL_PROFUNDO = "deep"
 PERFIL_REGRESION = "reg"
 PERFIL_REGRESION_PROFUNDA = "reg_deep"
+PERFIL_VERIFICAR_CORRECCION = "verify_fix"
 PERFILES_REGRESION = frozenset({PERFIL_REGRESION, PERFIL_REGRESION_PROFUNDA})
 PERFILES_CON_MUTACION = frozenset({PERFIL_PROFUNDO, PERFIL_REGRESION_PROFUNDA})
 #: Nombre de cada perfil en el informe, la ejecución y el historial (los de #69).
@@ -51,6 +52,7 @@ NOMBRES_PERFIL = {
     PERFIL_PROFUNDO: "Estándar + profundizar",
     PERFIL_REGRESION: "Repetir pruebas guardadas",
     PERFIL_REGRESION_PROFUNDA: "Repetir pruebas guardadas + profundizar",
+    PERFIL_VERIFICAR_CORRECCION: "Verificar corrección",
 }
 
 
