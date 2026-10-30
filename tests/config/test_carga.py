@@ -725,3 +725,75 @@ def test_explicador_invalido_se_avisa(tmp_path, seccion):
     carga = cargar_configuracion(ruta, "no-existe.env", simulado=True)
     assert carga.config is None
     assert any("[agentes.explicador]" in a for a in carga.avisos_config)
+
+
+# ---------- [agentes.explicador] con modo = "ia" (#166) ----------
+
+_EXPLICADOR_IA = """[agentes.explicador]
+activo = true
+modo = "ia"
+proveedor = "openai"
+modelo = "modelo-explicador"
+precio_entrada_usd_m = 0.10
+precio_salida_usd_m = 0.50
+"""
+
+
+def test_modo_ia_lee_proveedor_modelo_y_precios(tmp_path, env_completo):
+    local = tmp_path / "config.local.toml"
+    local.write_text(_EXPLICADOR_IA + "tiempo_maximo_s = 15\n", encoding="utf-8")
+    carga = cargar_configuracion(
+        RUTA_CONFIG, env_completo, simulado=False, ruta_local=local
+    )
+    explicador = carga.config.explicador
+    assert explicador.modo == "ia"
+    assert explicador.tiempo_maximo_s == 15
+    assert explicador.precio.agente == "explicador"
+    assert explicador.precio.proveedor == "openai"
+    assert explicador.precio.modelo == "modelo-explicador"
+    assert explicador.precio.costo(1_000_000, 1_000_000) == pytest.approx(0.60)
+    # Sigue fuera de los agentes de la corrida: su clave no se exige al cargar.
+    assert "explicador" not in carga.config.agentes
+    assert carga.avisos_config == []
+
+
+def test_modo_ia_sin_tiempo_usa_el_de_por_defecto(tmp_path):
+    local = tmp_path / "config.local.toml"
+    local.write_text(_EXPLICADOR_IA, encoding="utf-8")
+    carga = cargar_configuracion(
+        RUTA_CONFIG, "no-existe.env", simulado=True, ruta_local=local
+    )
+    assert (
+        carga.config.explicador.tiempo_maximo_s
+        == carga_mod.TIEMPO_EXPLICADOR_POR_DEFECTO_S
+    )
+
+
+def test_modo_plantilla_no_lee_modelo(tmp_path):
+    local = tmp_path / "config.local.toml"
+    local.write_text(
+        _EXPLICADOR_IA.replace('modo = "ia"', 'modo = "plantilla"'), encoding="utf-8"
+    )
+    carga = cargar_configuracion(
+        RUTA_CONFIG, "no-existe.env", simulado=True, ruta_local=local
+    )
+    assert carga.config.explicador == Explicador(activo=True, modo="plantilla")
+
+
+@pytest.mark.parametrize(
+    ("viejo", "nuevo"),
+    [
+        ('modelo = "modelo-explicador"\n', ""),
+        ('proveedor = "openai"', 'proveedor = "inventado"'),
+        ("precio_salida_usd_m = 0.50\n", ""),
+        ("activo = true\n", "activo = true\ntiempo_maximo_s = 0\n"),
+    ],
+)
+def test_modo_ia_incompleto_se_avisa(tmp_path, viejo, nuevo):
+    local = tmp_path / "config.local.toml"
+    local.write_text(_EXPLICADOR_IA.replace(viejo, nuevo, 1), encoding="utf-8")
+    carga = cargar_configuracion(
+        RUTA_CONFIG, "no-existe.env", simulado=True, ruta_local=local
+    )
+    assert carga.config is None
+    assert any("agentes.explicador" in a for a in carga.avisos_config)

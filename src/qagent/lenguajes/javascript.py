@@ -38,6 +38,7 @@ class JavaScriptAdapter(AdaptadorEnDesarrollo):
     """JavaScript (Node) con Jest o Vitest; endpoints Express."""
 
     lenguaje = "javascript"
+    nombre = "JavaScript"
     extensiones = (".js", ".mjs", ".cjs", ".jsx")
     marcadores = ("package.json",)
     frameworks_pruebas = ("jest", "vitest")
@@ -59,6 +60,7 @@ class TypeScriptAdapter(AdaptadorEnDesarrollo):
     """TypeScript con Jest o Vitest; endpoints Express."""
 
     lenguaje = "typescript"
+    nombre = "TypeScript"
     extensiones = (".ts", ".tsx", ".mts", ".cts")
     marcadores = ("tsconfig.json",)
     frameworks_pruebas = ("vitest", "jest")

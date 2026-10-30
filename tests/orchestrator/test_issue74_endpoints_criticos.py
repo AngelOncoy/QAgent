@@ -116,7 +116,7 @@ def test_los_endpoints_marcados_llegan_criticos_al_contrato_y_se_mutan(
 
     contratos = contratos_guardados(almacen)
     for contrato in contratos.values():
-        contracts.validar(contracts.PLANNER, contrato)
+        contracts.validar(contracts.PLANNER_V3, contrato)
     assert {o for o, c in contratos.items() if c["critical"]} == {
         "DELETE /items/{item_id}",
         "GET /salud",

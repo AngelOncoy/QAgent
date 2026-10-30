@@ -250,6 +250,51 @@ def ejecutar_pruebas(
     )
 
 
+def ejecutar_comando_pruebas(
+    imagen: str,
+    comando: list[str],
+    ruta_proyecto: str | Path,
+    ruta_tests: str | Path,
+    *,
+    leer_cobertura: Callable[[Path], dict[str, Any] | None],
+    archivo_informe: str,
+    variables: dict[str, str] | None = None,
+    limites: LimitesSandbox = LIMITES_POR_DEFECTO,
+    cliente: docker.DockerClient | None = None,
+) -> ResultadoSandbox:
+    """Corre las pruebas con el comando y los lectores de un adaptador (#168).
+
+    Igual que `ejecutar_pruebas`, pero el comando, las variables, el informe del
+    runner y la cobertura los pone el adaptador del lenguaje. La cobertura queda
+    en `coverage` (formato JSON de coverage.py) y el informe en `junit_xml`.
+
+    Args:
+        comando: `LanguageAdapter.comando_pruebas`.
+        leer_cobertura: `LanguageAdapter.leer_cobertura`; recibe la carpeta `/out`.
+        archivo_informe: nombre del informe dentro de `/out` (`entorno_sandbox().informe`).
+        variables: variables de entorno extra del adaptador.
+    """
+    lectura: dict[str, Any] = {}
+
+    def leer(_copia: Path, salida: Path) -> None:
+        lectura["cobertura"] = leer_cobertura(salida)
+        lectura["informe"] = _leer_texto(salida / archivo_informe, LIMITE_JUNIT_BYTES)
+
+    resultado = ejecutar_en_sandbox(
+        imagen,
+        comando,
+        ruta_proyecto,
+        ruta_tests,
+        limites,
+        entorno=variables,
+        al_terminar=leer,
+        cliente=cliente,
+    )
+    resultado.coverage = lectura.get("cobertura")
+    resultado.junit_xml = lectura.get("informe")
+    return resultado
+
+
 def clasificar_resultado(resultado: ResultadoSandbox) -> str:
     """Traduce un resultado del sandbox al `estado_sandbox` del contrato review_result.
 

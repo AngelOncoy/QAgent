@@ -55,5 +55,22 @@
       {"id": "descuento_normal", "descripcion": "precio=100 y porcentaje=20 devuelve 80 (docstring)", "entrada": {"metodo": "GET", "ruta": "/descuento", "query": {"precio": 100, "porcentaje": 20}}, "valor_esperado": {"status_code": 200, "json": {"precio_final": 80.0}}, "origen": "docstring", "categoria": "normal"},
       {"id": "precio_negativo", "descripcion": "Query(gt=0) rechaza un precio negativo", "entrada": {"metodo": "GET", "ruta": "/descuento", "query": {"precio": -1, "porcentaje": 20}}, "valor_esperado": {"status_code": 422}, "origen": "firma", "categoria": "error"}
     ]
+  },
+  "explicaciones_descripcion": "Respuestas del Explicador con modo = \"ia\" (#166). Clave: '<archivo>.py::<objetivo>'. Un objeto se completa con la decisión recibida; un texto se devuelve tal cual (para simular respuestas inválidas). Sin clave, la IA simulada arma una explicación válida genérica. Las de explicador_ia.py las usan las pruebas.",
+  "explicaciones": {
+    "explicador_ia.py::valida": {
+      "resumen": "La función devolvió un precio distinto al que promete su documentación.",
+      "que_se_esperaba": "Que con 100 y 20 % de descuento devolviera 80.",
+      "que_paso": "En los 2 intentos la prueba se ejecutó bien y la función devolvió 75 las dos veces.",
+      "que_hacer": "Revisa cómo la función calcula el porcentaje y vuelve a ejecutar las pruebas."
+    },
+    "explicador_ia.py::json_invalido": "Claro, aquí va la explicación: la función falló.",
+    "explicador_ia.py::decision_distinta": {
+      "decision": "accept",
+      "resumen": "En realidad la función está bien."
+    },
+    "explicador_ia.py::relaja_asercion": {
+      "que_hacer": "Conviene relajar la aserción para que la prueba pase."
+    }
   }
 }

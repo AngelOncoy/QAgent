@@ -110,8 +110,12 @@ UMBRALES = ("pass_rate_min", "cobertura_lineas_min", "iteraciones_promedio_max")
 #: Tiempo máximo de mutmut por función crítica si `[mutacion]` no lo define (EN-09).
 TIEMPO_MUTACION_POR_DEFECTO_S = 120
 
-#: Modos del Explicador (HU-32). El paso 2, con IA opcional, agregará el suyo.
-MODOS_EXPLICADOR = ("plantilla",)
+#: Modos del Explicador: plantillas sin IA (HU-32) o un LLM con la plantilla como
+#: respaldo (#166).
+MODOS_EXPLICADOR = ("plantilla", "ia")
+
+#: Segundos que espera el Explicador cada respuesta del LLM si no se fija otro (#166).
+TIEMPO_EXPLICADOR_POR_DEFECTO_S = 60.0
 
 #: Memoria en formato Docker: un entero y una unidad (b, k, m o g), p. ej. "512m" o "3g".
 #: Secciones que solo define el equipo en `config.toml`: `config.local.toml` no las
@@ -155,6 +159,10 @@ class Explicador:
 
     activo: bool = True
     modo: str = MODOS_EXPLICADOR[0]
+    #: Proveedor, modelo y precios con `modo = "ia"` (#166); None con plantillas.
+    precio: PrecioAgente | None = None
+    #: Segundos máximos por explicación pedida al LLM; al vencer se usa la plantilla.
+    tiempo_maximo_s: float = TIEMPO_EXPLICADOR_POR_DEFECTO_S
 
 
 @dataclass(frozen=True)
@@ -670,7 +678,12 @@ def _leer_mutacion(tabla: Mapping[str, Any], avisos: list[str]) -> Mutacion | No
 
 
 def _leer_explicador(tabla: Mapping[str, Any], avisos: list[str]) -> Explicador | None:
-    """`[agentes.explicador]` es opcional: sin él, el Explicador queda activo (HU-32)."""
+    """`[agentes.explicador]` es opcional: sin él, el Explicador queda activo (HU-32).
+
+    Con `modo = "ia"` (#166) la sección lleva además `proveedor`, `modelo` y precios,
+    como los demás agentes (ADR-001), y `tiempo_maximo_s` opcional. No entra en
+    `Configuracion.agentes`: si falta su clave, la corrida usa la plantilla.
+    """
     if not isinstance(tabla, Mapping):
         avisos.append("[agentes.explicador] de config.toml debe ser una sección.")
         return None
@@ -684,7 +697,15 @@ def _leer_explicador(tabla: Mapping[str, Any], avisos: list[str]) -> Explicador 
         avisos.append(f"modo en [agentes.explicador] debe ser {validos}.")
     if len(avisos) > antes:
         return None
-    return Explicador(activo, modo)
+    if modo != "ia":
+        return Explicador(activo, modo)
+    precio = _leer_agente("explicador", tabla, avisos)
+    tiempo = TIEMPO_EXPLICADOR_POR_DEFECTO_S
+    if "tiempo_maximo_s" in tabla:
+        tiempo = _numero(tabla, "tiempo_maximo_s", "agentes.explicador", avisos)
+    if precio is None or tiempo is None:
+        return None
+    return Explicador(activo, modo, precio, tiempo)
 
 
 def _leer_sandbox(tabla: Mapping[str, Any], avisos: list[str]) -> LimitesSandbox | None:

@@ -707,7 +707,7 @@ class Orquestador:
             raise FalloControlado("La spec reutilizada no contiene contratos")
         copia = copy.deepcopy(plan)
         for contrato in copia:
-            self._validar(contracts.PLANNER, contrato, "spec reutilizada")
+            self._validar_planner(contrato, "spec reutilizada")
             if contrato["modulo"] != modulo.get("ruta") or contrato[
                 "huella"
             ] != modulo.get("huella"):
@@ -772,7 +772,7 @@ class Orquestador:
 
         try:
             try:
-                self._validar(contracts.PLANNER, contrato, "planner")
+                self._validar_planner(contrato, "planner")
             except FalloControlado as error:
                 resultado.motivo_sin_veredicto = ERROR_CONTRATO_PLANNER
                 resumen_err = _resumen_error_contrato(error)
@@ -820,19 +820,13 @@ class Orquestador:
                                 or not causa.codigo
                             ):
                                 raise
-                            # El Generator rechazó el candidato con ast.parse. Se
+                            # El Generator rechazó su sintaxis (reglas del adaptador). Se
                             # entrega al Reviewer solo para producir feedback
                             # contractual; su validación de sintaxis impide que
                             # alcance el ejecutor del sandbox.
-                            test = {
-                                "version": "1",
-                                "objetivo": objetivo,
-                                "intento": intento,
-                                "codigo": causa.codigo,
-                                "casos_cubiertos": [
-                                    caso["id"] for caso in contrato["casos"]
-                                ],
-                            }
+                            test = contracts.generated_test_para(
+                                contrato, intento, causa.codigo
+                            )
                     finally:
                         generacion_s = segundos(inicio_generacion, self._reloj())
                         resultado.duracion_generacion_s = round(
@@ -988,7 +982,7 @@ class Orquestador:
         test = self._llamar(
             "generator", self.generator.generar, contrato, intento, feedback
         )
-        self._validar(contracts.GENERATED_TEST, test, "generator")
+        self._validar_versionado(contracts.FAMILIA_GENERATED_TEST, test, "generator")
         self._coherente(test, objetivo, intento, "generator")
         return test
 
@@ -1066,6 +1060,17 @@ class Orquestador:
             contracts.validar(nombre, dato)
         except ContratoInvalido as error:
             raise FalloControlado(f"El {agente} rompió el contrato: {error}") from error
+
+    def _validar_versionado(self, familia: str, dato: Any, agente: str) -> None:
+        """Valida con el schema de la versión de `dato` (#168: v2 y v3 conviven)."""
+        try:
+            contracts.validar_versionado(familia, dato)
+        except ContratoInvalido as error:
+            raise FalloControlado(f"El {agente} rompió el contrato: {error}") from error
+
+    def _validar_planner(self, contrato: Any, agente: str) -> None:
+        """Un `planner_contract` v3 (los nuevos) o v2 (specs guardadas antes de #168)."""
+        self._validar_versionado(contracts.FAMILIA_PLANNER, contrato, agente)
 
     @staticmethod
     def _coherente(dato: Contrato, objetivo: str, intento: int, agente: str) -> None:

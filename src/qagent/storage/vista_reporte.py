@@ -80,8 +80,13 @@ def leer_detalle(raiz_proyecto: str | Path, run_id: str) -> dict[str, Any] | Non
     return datos if isinstance(datos, dict) else None
 
 
-#: Campos de una explicación (HU-32) que muestran la pantalla y el informe.
+#: Campos de una explicación (HU-32) que muestran la pantalla y el informe; con
+#: `origen` y `modelo` muestran «Explicación generada por IA» (#166).
 CAMPOS_EXPLICACION = ("resumen", "que_se_esperaba", "que_paso", "que_hacer")
+CAMPOS_ORIGEN = ("origen", "modelo")
+
+#: Aviso que acompaña a una explicación redactada por un LLM (ADR-008, 5.2).
+ETIQUETA_IA = "Explicación generada por IA"
 
 
 def leer_explicaciones(
@@ -116,8 +121,18 @@ def leer_explicaciones(
             validar_explicacion(explicacion, resultado_confiable=objetivo)
         except ContratoInvalido:
             continue
-        validas[clave] = {c: explicacion[c] for c in CAMPOS_EXPLICACION}  # type: ignore[index]
+        validas[clave] = {  # type: ignore[index]
+            c: explicacion.get(c) for c in CAMPOS_EXPLICACION + CAMPOS_ORIGEN
+        }
     return validas
+
+
+def etiqueta_ia(explicacion: Any) -> str | None:
+    """«Explicación generada por IA (modelo)» si la redactó un LLM; si no, None."""
+    if not isinstance(explicacion, dict) or explicacion.get("origen") != "ia":
+        return None
+    modelo = explicacion.get("modelo")
+    return f"{ETIQUETA_IA} ({modelo})" if modelo else ETIQUETA_IA
 
 
 def vista_reporte(

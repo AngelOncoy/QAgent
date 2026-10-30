@@ -8,13 +8,9 @@ from pathlib import Path
 import pytest
 
 from qagent import contracts
-from qagent.agents.planner import (
-    ErrorRespuestaPlanner,
-    PlannerAgent,
-    estados_permitidos,
-    ruta_coincide,
-)
+from qagent.agents.planner import ErrorRespuestaPlanner, PlannerAgent
 from qagent.analysis import analizar_proyecto
+from qagent.lenguajes.python_planificacion import estados_permitidos, ruta_coincide
 from qagent.llm import FakeLLMClient, RespuestaLLM, TokenTracker
 
 RAIZ_REPO = Path(__file__).resolve().parents[2]
@@ -77,7 +73,7 @@ def test_ia_simulada_planifica_los_6_endpoints_del_banco(modulo_api, fuente_api)
         "GET /descuento",
     ]
     for contrato in plan:
-        contracts.validar(contracts.PLANNER, contrato)
+        contracts.validar(contracts.PLANNER_V3, contrato)
         assert contrato["tipo"] == "endpoint"
         assert contrato["aplicacion"] == "app"
     assert agente.descartados == []

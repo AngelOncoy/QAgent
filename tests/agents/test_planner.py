@@ -25,7 +25,9 @@ MODULO = {
 
 PLAN = [
     {
-        "version": "2",
+        "version": "3",
+        "lenguaje": "python",
+        "framework_pruebas": "pytest",
         "modulo": "calculadora.py",
         "huella": "a" * 64,
         "tipo": "funcion",
@@ -70,7 +72,7 @@ def test_planner_devuelve_contratos_validos() -> None:
     resultado = planner.planificar(MODULO)
 
     assert resultado == PLAN
-    assert contracts.es_valido(contracts.PLANNER, resultado[0])
+    assert contracts.es_valido(contracts.PLANNER_V3, resultado[0])
 
 
 def test_planner_envia_estructura_y_registra_tokens() -> None:
@@ -155,7 +157,7 @@ def test_la_marca_critica_sale_de_la_seleccion_y_no_del_modelo() -> None:
     [contrato] = planner.planificar(marcada)
 
     assert contrato["critical"] is True
-    assert contracts.es_valido(contracts.PLANNER, contrato)
+    assert contracts.es_valido(contracts.PLANNER_V3, contrato)
 
 
 def test_planner_acepta_la_respuesta_compacta() -> None:

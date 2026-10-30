@@ -1,68 +1,34 @@
-"""Agente Reviewer/Executor: ejecuta y clasifica los tests generados."""
+"""Agente Reviewer/Executor: ejecuta y clasifica los tests generados.
+
+Es compartido por todos los lenguajes (#168): ejecuta en el sandbox con el comando,
+el archivo, el informe y la cobertura del adaptador del contrato, y le pide sus
+reglas para la sintaxis, el oráculo y la clasificación de la salida. Lo que decide
+(aceptar, reintentar, bug o estancado) es igual en todos los lenguajes.
+"""
 
 from __future__ import annotations
 
-import ast
 import json
-import re
 import tempfile
 from collections.abc import Callable
-from functools import partial
 from pathlib import Path
 from typing import Any
 
 from qagent import contracts
-from qagent.analysis import comparar_aserciones
+from qagent.lenguajes import LanguageAdapter, adaptador_de_contrato
 from qagent.llm import ClienteLLM, TokenTracker
 from qagent.sandbox import (
     LIMITES_POR_DEFECTO,
     LimitesSandbox,
     ResultadoSandbox,
     clasificar_resultado,
-    comando_pytest,
     ejecutar_pruebas,
     resumir_ejecucion,
 )
-from qagent.sandbox.ejecucion import ARCHIVO_TEST_GENERADO
+from qagent.sandbox.ejecucion import ejecutar_comando_pruebas
 from qagent.sandbox.normalizacion import hash_error
 
 Ejecutor = Callable[[str, Path, Path, str], ResultadoSandbox]
-
-_NO_LITERAL = object()
-
-_PATRONES_ERROR_TEST = (
-    "syntaxerror",
-    "indentationerror",
-    "importerror",
-    "modulenotfounderror",
-    "failed to import test module",
-    "error at setup",
-    "fixturelookuperror",
-    "invalidspecerror",
-    "name 'pytest' is not defined",
-    "name 'mock' is not defined",
-    "does not have the attribute",
-    # pytest sale con código 5: el archivo no tiene funciones test_ que recolectar.
-    "no tests ran",
-    "collected 0 items",
-)
-
-
-# Fallos del entorno, no del test ni del código: reintentar no los arregla (EN-16).
-_PATRONES_ENTORNO = (
-    "connectionrefusederror",
-    "connection refused",
-    "operationalerror",
-    "could not connect to server",
-)
-# FastAPI valida la respuesta contra el response_model: si no la cumple, TestClient
-# lanza esta excepción en vez de devolver un 500. Es un bug de la API (EN-16).
-_PATRON_RESPUESTA_INVALIDA = "responsevalidationerror"
-_MODULO_FALTANTE = re.compile(r"No module named '([A-Za-z0-9_.]+)'")
-#: El cargador dinámico no encontró una librería del sistema (issue 142).
-_LIBRERIA_SISTEMA_FALTANTE = re.compile(
-    r"(lib[A-Za-z0-9_.+\-]*?\.so(?:\.[0-9]+)*): cannot open shared object file"
-)
 
 
 class ReviewerAgent:
@@ -76,14 +42,16 @@ class ReviewerAgent:
         *,
         cliente: ClienteLLM | None = None,
         modulo_cov: str | None = None,
-        ejecutor: Ejecutor = ejecutar_pruebas,
+        ejecutor: Ejecutor | None = None,
         es_simulado: bool = False,
         limites: LimitesSandbox = LIMITES_POR_DEFECTO,
     ) -> None:
         """Inicializa el Reviewer con el sandbox y cliente opcional.
 
-        `limites` son los de `[sandbox]` en config.toml; se aplican al ejecutor real
-        (`ejecutar_pruebas`). Un ejecutor de pruebas conserva su firma de 4 argumentos.
+        `limites` son los de `[sandbox]` en config.toml; se aplican al sandbox real.
+        Sin `ejecutor` (o con `ejecutar_pruebas`), las pruebas corren con el
+        comando y los lectores del adaptador del contrato (#168). Un ejecutor de
+        pruebas conserva su firma de 4 argumentos.
         """
         self.tracker = tracker
         self.ruta_proyecto = Path(ruta_proyecto)
@@ -91,9 +59,7 @@ class ReviewerAgent:
         self.cliente = cliente
         self.modulo_cov = modulo_cov
         self.limites = limites
-        if ejecutor is ejecutar_pruebas:
-            ejecutor = partial(ejecutar_pruebas, limites=limites)
-        self.ejecutor = ejecutor
+        self.ejecutor = None if ejecutor is ejecutar_pruebas else ejecutor
         self.es_simulado = es_simulado
         # Último test NO debilitado de cada objetivo: la referencia contra la que se
         # busca laundering. Si se comparara solo con el intento anterior, un intento
@@ -128,12 +94,13 @@ class ReviewerAgent:
     ) -> dict[str, Any]:
         codigo = test["codigo"]
         intento = test["intento"]
+        # #168: el lenguaje sale del contrato (un v2 es Python).
+        adaptador = adaptador_de_contrato(contrato)
+        reglas = adaptador.reglas_revision()
 
-        try:
-            ast.parse(codigo)
-        except (SyntaxError, ValueError) as error:
-            detalle = f"{type(error).__name__}: {error}"
-            return self._error_test(contrato, intento, detalle)
+        error_sintaxis = reglas.error_de_sintaxis(codigo)
+        if error_sintaxis is not None:
+            return self._error_test(contrato, intento, error_sintaxis)
 
         clave = (contrato["modulo"], contrato["objetivo"])
         if intento == 1:
@@ -142,12 +109,12 @@ class ReviewerAgent:
         if referencia is None and test_anterior is not None:
             codigo_anterior = test_anterior["codigo"]
             try:
-                if self._validar_oraculo(contrato, codigo_anterior) is None:
+                if reglas.validar_oraculo(contrato, codigo_anterior) is None:
                     referencia = codigo_anterior
             except (SyntaxError, ValueError):
                 referencia = None
 
-        laundering = self._comparar_con_referencia(referencia, codigo)
+        laundering = self._comparar_con_referencia(adaptador, referencia, codigo)
         if laundering is not None:
             return self._resultado(
                 objetivo=contrato["objetivo"],
@@ -161,38 +128,60 @@ class ReviewerAgent:
                 feedback=laundering,
             )
 
-        problema_oraculo = self._validar_oraculo(contrato, codigo)
+        problema_oraculo = reglas.validar_oraculo(contrato, codigo)
         if problema_oraculo is not None:
             return self._error_test(contrato, intento, problema_oraculo)
         self._referencias[clave] = codigo
 
+        modulo_cov = self.modulo_cov or adaptador.modulo_cobertura(contrato["modulo"])
+        framework = contracts.normalizar_planner(contrato)["framework_pruebas"]
+        comando = adaptador.comando_pruebas(modulo_cov, framework)
+        archivo = test.get("archivo") or adaptador.archivo_de_prueba(
+            contrato["objetivo"]
+        )
         with tempfile.TemporaryDirectory(prefix="qagent-reviewer-") as temporal:
             ruta_tests = Path(temporal)
-            (ruta_tests / ARCHIVO_TEST_GENERADO).write_text(codigo, encoding="utf-8")
-
-            resultado = self.ejecutor(
-                self.imagen,
-                self.ruta_proyecto,
-                ruta_tests,
-                self.modulo_cov or self._modulo_cobertura(contrato["modulo"]),
-            )
+            (ruta_tests / archivo).write_text(codigo, encoding="utf-8")
+            if self.ejecutor is not None:
+                resultado = self.ejecutor(
+                    self.imagen, self.ruta_proyecto, ruta_tests, modulo_cov
+                )
+            else:
+                resultado = ejecutar_comando_pruebas(
+                    self.imagen,
+                    comando,
+                    self.ruta_proyecto,
+                    ruta_tests,
+                    leer_cobertura=adaptador.leer_cobertura,
+                    archivo_informe=adaptador.entorno_sandbox().informe,
+                    variables=adaptador.variables_pruebas(),
+                    limites=self.limites,
+                )
 
         estado = clasificar_resultado(resultado)
-        modulo_cov = self.modulo_cov or self._modulo_cobertura(contrato["modulo"])
+        modulo = contrato["modulo"].replace("\\", "/")
+        rango = reglas.rango_de_objetivo(
+            self.ruta_proyecto,
+            modulo,
+            contrato.get("manejador") or contrato["objetivo"],
+        )
         self._ejecucion = resumir_ejecucion(
             resultado,
             imagen=self.imagen,
-            comando=comando_pytest(modulo_cov),
+            comando=comando,
             limites=resultado.limites or self.limites,
-            lineas_sin_cubrir=self._lineas_sin_cubrir(resultado.coverage, contrato),
+            lineas_sin_cubrir=self._lineas_sin_cubrir(
+                resultado.coverage, modulo, rango
+            ),
             codigo_test=codigo,
+            interpretar=adaptador.interpretar_resultados,
         )
         salida = "\n".join(
             parte for parte in (resultado.stdout, resultado.stderr) if parte
         ).strip()
         # Cobertura de la función bajo prueba; si no se puede ubicar, la del módulo.
         cobertura = self._cobertura_de_funcion(
-            resultado.coverage, contrato
+            resultado.coverage, modulo, rango
         ) or self._extraer_cobertura(resultado.coverage)
 
         if estado == "ok":
@@ -208,8 +197,9 @@ class ReviewerAgent:
                 feedback="Test aprobado en el sandbox.",
             )
 
-        entorno = self._error_de_entorno(salida)
-        if entorno is not None:
+        clasificacion = reglas.clasificar_salida(salida, contrato, self.ruta_proyecto)
+        tipo = clasificacion.tipo if clasificacion is not None else None
+        if clasificacion is not None and tipo == "entorno":
             return self._resultado(
                 objetivo=contrato["objetivo"],
                 intento=intento,
@@ -219,13 +209,13 @@ class ReviewerAgent:
                 tipo_fallo=None,
                 hash_actual=hash_error(salida),
                 decision="stalled",
-                feedback=f"Error de entorno: {entorno}. Reintentar no lo corrige.",
+                feedback=(
+                    f"Error de entorno: {clasificacion.detalle}. "
+                    "Reintentar no lo corrige."
+                ),
             )
 
-        if (
-            contrato.get("tipo") == "endpoint"
-            and _PATRON_RESPUESTA_INVALIDA in salida.lower()
-        ):
+        if clasificacion is not None and tipo == "bug_respuesta":
             return self._resultado(
                 objetivo=contrato["objetivo"],
                 intento=intento,
@@ -235,13 +225,10 @@ class ReviewerAgent:
                 tipo_fallo="bug_codigo",
                 hash_actual=hash_error(salida),
                 decision="bug_detectado",
-                feedback=(
-                    "La respuesta del endpoint no cumple su response_model "
-                    f"(ResponseValidationError).\n{salida}"
-                ),
+                feedback=clasificacion.detalle,
             )
 
-        if self._es_error_del_test(salida):
+        if tipo == "error_test":
             return self._error_test(
                 contrato,
                 intento,
@@ -249,7 +236,7 @@ class ReviewerAgent:
                 cobertura,
             )
 
-        if estado == "fallo" and self._es_fallo_asercion(salida):
+        if estado == "fallo" and tipo == "fallo_asercion":
             return self._resultado(
                 objetivo=contrato["objetivo"],
                 intento=intento,
@@ -262,7 +249,7 @@ class ReviewerAgent:
                 feedback=salida or "La aserción del contrato no se cumplió.",
             )
 
-        tipo_ambiguo = self._clasificar_con_llm(salida, contrato)
+        tipo_ambiguo = self._clasificar_con_llm(salida, contrato, framework)
         if tipo_ambiguo == "error_test":
             return self._error_test(contrato, intento, salida, cobertura)
         if tipo_ambiguo == "bug_codigo":
@@ -329,304 +316,15 @@ class ReviewerAgent:
     def _decision_reintento(intento: int) -> str:
         return "retry" if intento < 3 else "stalled"
 
-    @classmethod
-    def _validar_oraculo(
-        cls,
-        contrato: dict[str, Any],
-        codigo: str,
-    ) -> str | None:
-        """Comprueba que el test use los valores esperados del Planner."""
-        arbol = ast.parse(codigo)
-
-        evasion = cls._detectar_evasion(arbol)
-        if evasion is not None:
-            return f"Oráculo inválido: {evasion}"
-
-        valores_disponibles = cls._valores_de_aserciones(
-            arbol,
-            None if contrato.get("tipo") == "endpoint" else contrato["objetivo"],
-        )
-        excepciones_disponibles = cls._excepciones_esperadas(arbol)
-        cantidad_aserciones = sum(
-            isinstance(nodo, (ast.Assert, ast.With)) for nodo in ast.walk(arbol)
-        )
-        if cantidad_aserciones == 0:
-            return "Oráculo inválido: el test no contiene aserciones."
-
-        if contrato.get("tipo") == "endpoint":
-            return cls._validar_oraculo_endpoint(contrato, valores_disponibles)
-
-        for caso in contrato["casos"]:
-            if "valor_esperado" in caso:
-                esperado = contracts.valor_esperado_python(caso)
-                posicion = cls._buscar_valor(valores_disponibles, esperado)
-                if posicion is None:
-                    return (
-                        f"Oráculo inválido: el caso '{caso['id']}' no comprueba "
-                        f"el valor esperado {esperado!r}."
-                    )
-                valores_disponibles.pop(posicion)
-                continue
-
-            excepcion = caso.get("excepcion")
-            posicion = cls._buscar_excepcion(excepciones_disponibles, excepcion)
-            if posicion is None:
-                return (
-                    f"Oráculo inválido: el caso '{caso['id']}' no comprueba "
-                    f"la excepción {excepcion}."
-                )
-            excepciones_disponibles.pop(posicion)
-
-        return None
-
-    @classmethod
-    def _validar_oraculo_endpoint(
-        cls, contrato: dict[str, Any], valores: list[Any]
-    ) -> str | None:
-        """Cada caso de endpoint debe comprobar su status_code y su cuerpo esperado.
-
-        El cuerpo completo (`json`) debe aparecer como literal; de `json_contiene`
-        basta un dict literal que incluya esos campos o cada valor por separado.
-        """
-        for caso in contrato["casos"]:
-            esperado = caso["valor_esperado"]
-            estado = esperado["status_code"]
-            posicion = cls._buscar_valor(valores, estado)
-            if posicion is None:
-                return (
-                    f"Oráculo inválido: el caso '{caso['id']}' no comprueba "
-                    f"el status_code {estado}."
-                )
-            valores.pop(posicion)
-            if "json" in esperado:
-                posicion = cls._buscar_valor(valores, esperado["json"])
-                if posicion is None:
-                    return (
-                        f"Oráculo inválido: el caso '{caso['id']}' no comprueba "
-                        f"el cuerpo esperado {esperado['json']!r}."
-                    )
-                valores.pop(posicion)
-            parcial = esperado.get("json_contiene")
-            if parcial:
-                problema = cls._consumir_json_contiene(valores, parcial)
-                if problema is not None:
-                    return f"Oráculo inválido: el caso '{caso['id']}' {problema}."
-        return None
-
-    @classmethod
-    def _consumir_json_contiene(
-        cls, valores: list[Any], parcial: dict[str, Any]
-    ) -> str | None:
-        for posicion, valor in enumerate(valores):
-            if isinstance(valor, dict) and all(
-                k in valor and valor[k] == v for k, v in parcial.items()
-            ):
-                valores.pop(posicion)
-                return None
-        for clave, esperado in parcial.items():
-            posicion = cls._buscar_valor(valores, esperado)
-            if posicion is None:
-                return f"no comprueba el campo {clave!r} == {esperado!r}"
-            valores.pop(posicion)
-        return None
-
-    def _error_de_entorno(self, salida: str) -> str | None:
-        """Describe un fallo del entorno (servicio caído, dependencia sin instalar).
-
-        Un módulo faltante solo cuenta como entorno si el proyecto lo declara como
-        dependencia; si no, es un import inventado por el test y se reintenta.
-        """
-        texto = salida.lower()
-        for patron in _PATRONES_ENTORNO:
-            if patron in texto:
-                return f"el servicio externo no respondió ({patron})"
-        # Issue 142: una librería del sistema que no se pudo cargar es del entorno, no
-        # del test. Reintentar no la instala y empuja al Generator a simular la dependencia.
-        if libreria := _LIBRERIA_SISTEMA_FALTANTE.search(salida):
-            return (
-                f"falta la librería del sistema '{libreria.group(1)}' en el entorno "
-                "aislado (la necesita una dependencia del proyecto)"
-            )
-        for nombre in _MODULO_FALTANTE.findall(salida):
-            raiz = nombre.split(".")[0]
-            if raiz in self._dependencias_declaradas():
-                return f"la dependencia '{raiz}' no está instalada en el sandbox"
-        return None
-
-    def _dependencias_declaradas(self) -> set[str]:
-        """Nombres de paquete de requirements*.txt y pyproject.toml (en minúsculas)."""
-        nombres: set[str] = set()
-        archivos = [
-            *self.ruta_proyecto.glob("requirements*.txt"),
-            self.ruta_proyecto / "pyproject.toml",
-        ]
-        for archivo in archivos:
-            try:
-                texto = archivo.read_text(encoding="utf-8")
-            except (OSError, UnicodeDecodeError):
-                continue
-            for linea in texto.splitlines():
-                coincidencia = re.match(r"\s*[\"']?([A-Za-z0-9_.-]+)", linea)
-                if coincidencia and not linea.lstrip().startswith(("#", "[", "-")):
-                    nombre = coincidencia.group(1).lower().replace("-", "_")
-                    nombres.add(nombre)
-        return nombres
-
     @staticmethod
-    def _valores_de_aserciones(
-        arbol: ast.AST, objetivo: str | None = None
-    ) -> list[Any]:
-        """Extrae valores comparados exactamente con el resultado del objetivo.
-
-        Para endpoints conserva el recorrido histórico de todos los comparadores. En
-        funciones exige una igualdad cuyo sujeto sea la llamada al objetivo o una
-        variable asignada desde ella; no confunde longitud, índices ni literales de
-        aserciones ajenas con el oráculo del caso.
-        """
-        valores: list[Any] = []
-        variables_resultado: set[str] = set()
-        if objetivo is not None:
-            for nodo in ast.walk(arbol):
-                if isinstance(nodo, (ast.Assign, ast.AnnAssign)):
-                    valor = nodo.value
-                    if not ReviewerAgent._es_resultado_objetivo(
-                        valor, objetivo, variables_resultado
-                    ):
-                        continue
-                    destinos = (
-                        nodo.targets if isinstance(nodo, ast.Assign) else [nodo.target]
-                    )
-                    variables_resultado.update(
-                        destino.id
-                        for destino in destinos
-                        if isinstance(destino, ast.Name)
-                    )
-        for nodo in ast.walk(arbol):
-            if not isinstance(nodo, ast.Assert):
-                continue
-            prueba = nodo.test
-            if not isinstance(prueba, ast.Compare):
-                continue
-            if objetivo is not None:
-                if (
-                    len(prueba.ops) != 1
-                    or not isinstance(prueba.ops[0], (ast.Eq, ast.Is))
-                    or len(prueba.comparators) != 1
-                ):
-                    continue
-                derecha = prueba.comparators[0]
-                if ReviewerAgent._es_resultado_objetivo(
-                    prueba.left, objetivo, variables_resultado
-                ):
-                    candidatos = [derecha]
-                elif ReviewerAgent._es_resultado_objetivo(
-                    derecha, objetivo, variables_resultado
-                ):
-                    candidatos = [prueba.left]
-                else:
-                    continue
-            else:
-                candidatos = prueba.comparators
-            for comparador in candidatos:
-                valor = ReviewerAgent._valor_literal(comparador)
-                if valor is not _NO_LITERAL:
-                    valores.append(valor)
-        return valores
-
-    @staticmethod
-    def _es_resultado_objetivo(
-        nodo: ast.AST | None, objetivo: str, variables: set[str]
-    ) -> bool:
-        """Si el nodo representa el resultado completo de la función objetivo."""
-        if isinstance(nodo, ast.Name):
-            return nodo.id in variables
-        if not isinstance(nodo, ast.Call):
-            return False
-        funcion = nodo.func
-        if isinstance(funcion, ast.Name):
-            return funcion.id == objetivo
-        return isinstance(funcion, ast.Attribute) and funcion.attr == objetivo
-
-    @staticmethod
-    def _valor_literal(nodo: ast.AST) -> Any:
-        """Obtiene un literal o el valor pasado a pytest.approx."""
-        candidato = nodo
-        if (
-            isinstance(nodo, ast.Call)
-            and isinstance(nodo.func, ast.Attribute)
-            and nodo.func.attr == "approx"
-            and nodo.args
-        ):
-            candidato = nodo.args[0]
-        try:
-            return ast.literal_eval(candidato)
-        except (ValueError, TypeError):
-            return _NO_LITERAL
-
-    @staticmethod
-    def _excepciones_esperadas(arbol: ast.AST) -> list[str]:
-        """Extrae las excepciones utilizadas en pytest.raises."""
-        excepciones: list[str] = []
-        for nodo in ast.walk(arbol):
-            if not isinstance(nodo, ast.With):
-                continue
-            for elemento in nodo.items:
-                contexto = elemento.context_expr
-                if (
-                    isinstance(contexto, ast.Call)
-                    and isinstance(contexto.func, ast.Attribute)
-                    and contexto.func.attr == "raises"
-                    and contexto.args
-                ):
-                    excepciones.append(ast.unparse(contexto.args[0]).strip())
-        return excepciones
-
-    @staticmethod
-    def _buscar_valor(valores: list[Any], esperado: Any) -> int | None:
-        for posicion, valor in enumerate(valores):
-            if valor == esperado:
-                return posicion
-        return None
-
-    @staticmethod
-    def _buscar_excepcion(
-        excepciones: list[str],
-        esperada: str | None,
-    ) -> int | None:
-        if esperada is None:
-            return None
-        for posicion, encontrada in enumerate(excepciones):
-            if encontrada == esperada or encontrada.endswith(f".{esperada}"):
-                return posicion
-        return None
-
-    @staticmethod
-    def _detectar_evasion(arbol: ast.AST) -> str | None:
-        """Detecta construcciones que permiten evitar o silenciar el test."""
-        for nodo in ast.walk(arbol):
-            if isinstance(nodo, ast.Try) and nodo.handlers:
-                return "el test contiene try/except que puede ocultar un fallo"
-
-            if isinstance(nodo, ast.Call):
-                funcion = nodo.func
-                nombre = ""
-                if isinstance(funcion, ast.Attribute):
-                    nombre = funcion.attr
-                elif isinstance(funcion, ast.Name):
-                    nombre = funcion.id
-                if nombre in {"skip", "xfail"}:
-                    return f"el test utiliza {nombre}"
-
-            if isinstance(nodo, (ast.FunctionDef, ast.AsyncFunctionDef)):
-                for decorador in nodo.decorator_list:
-                    texto = ast.unparse(decorador)
-                    if "skip" in texto or "xfail" in texto:
-                        return f"el test utiliza el decorador {texto}"
-
-        return None
+    def _validar_oraculo(contrato: dict[str, Any], codigo: str) -> str | None:
+        """Oráculo del test según las reglas del lenguaje del contrato."""
+        reglas = adaptador_de_contrato(contrato).reglas_revision()
+        return reglas.validar_oraculo(contrato, codigo)
 
     @staticmethod
     def _comparar_con_referencia(
+        adaptador: LanguageAdapter,
         codigo_referencia: str | None,
         codigo_actual: str,
     ) -> str | None:
@@ -634,38 +332,26 @@ class ReviewerAgent:
         if codigo_referencia is None:
             return None
         try:
-            comparacion = comparar_aserciones(codigo_referencia, codigo_actual)
+            comparacion = adaptador.comparar_aserciones(
+                codigo_referencia, codigo_actual
+            )
         except (SyntaxError, ValueError):
             return None
         if comparacion.es_laundering:
             return comparacion.resumen
         return None
 
-    @staticmethod
-    def _es_error_del_test(salida: str) -> bool:
-        texto = salida.lower()
-        if any(patron in texto for patron in _PATRONES_ERROR_TEST):
-            return True
-        return "fixture" in texto and "not found" in texto
-
-    @staticmethod
-    def _es_fallo_asercion(salida: str) -> bool:
-        """Reconoce un fallo claro de una aserción pytest."""
-        texto = salida.lower()
-        return (
-            "assertionerror" in texto or "\nassert " in texto or " - assert " in texto
-        )
-
     def _clasificar_con_llm(
         self,
         salida: str,
         contrato: dict[str, Any],
+        framework: str,
     ) -> str | None:
         if self.cliente is None or not salida:
             return None
 
         prompt = f"""
-Clasifica el siguiente fallo de pytest.
+Clasifica el siguiente fallo de {framework}.
 
 Responde únicamente con una de estas opciones:
 - error_test: el test tiene un error de sintaxis, import, fixture o mock.
@@ -674,7 +360,7 @@ Responde únicamente con una de estas opciones:
 CONTRATO DEL PLANNER:
 {json.dumps(contrato, ensure_ascii=False, indent=2)}
 
-SALIDA DE PYTEST:
+SALIDA DE {framework.upper()}:
 {salida}
 """.strip()
 
@@ -694,23 +380,12 @@ SALIDA DE PYTEST:
         return None
 
     @staticmethod
-    def _modulo_cobertura(modulo: str) -> str:
-        return Path(modulo).with_suffix("").as_posix().replace("/", ".")
-
-    def _cobertura_de_funcion(
-        self,
-        coverage: dict[str, Any] | None,
-        contrato: dict[str, Any],
-    ) -> dict[str, float | None] | None:
-        """Cobertura de líneas y ramas solo dentro del cuerpo de la función probada.
-
-        coverage.py mide el módulo completo; aquí se cuentan solo las líneas y ramas
-        que caen dentro de la función (su rango sale del `ast` del archivo, sin
-        ejecutarlo). Devuelve None si no se puede ubicar el archivo o la función.
-        """
+    def _datos_del_modulo(
+        coverage: dict[str, Any] | None, modulo: str
+    ) -> dict[str, Any] | None:
+        """Datos de `modulo` en la cobertura (formato JSON de coverage.py)."""
         if not coverage or not isinstance(coverage.get("files"), dict):
             return None
-        modulo = contrato["modulo"].replace("\\", "/")
         datos = next(
             (
                 v
@@ -719,10 +394,22 @@ SALIDA DE PYTEST:
             ),
             None,
         )
-        # En un endpoint se mide la función que atiende la ruta (su manejador).
-        nombre = contrato.get("manejador") or contrato["objetivo"]
-        rango = self._rango_de_funcion(modulo, nombre)
-        if not isinstance(datos, dict) or rango is None:
+        return datos if isinstance(datos, dict) else None
+
+    def _cobertura_de_funcion(
+        self,
+        coverage: dict[str, Any] | None,
+        modulo: str,
+        rango: tuple[int, int] | None,
+    ) -> dict[str, float | None] | None:
+        """Cobertura de líneas y ramas solo dentro del cuerpo de la función probada.
+
+        La cobertura mide el módulo completo; aquí se cuentan solo las líneas y ramas
+        que caen dentro de la función (su rango lo da el adaptador, sin ejecutar el
+        código). Devuelve None si no se puede ubicar el archivo o la función.
+        """
+        datos = self._datos_del_modulo(coverage, modulo)
+        if datos is None or rango is None:
             return None
         inicio, fin = rango
 
@@ -745,24 +432,14 @@ SALIDA DE PYTEST:
         }
 
     def _lineas_sin_cubrir(
-        self, coverage: dict[str, Any] | None, contrato: dict[str, Any]
+        self,
+        coverage: dict[str, Any] | None,
+        modulo: str,
+        rango: tuple[int, int] | None,
     ) -> list[int] | None:
         """Líneas de la función probada que ningún caso ejecutó (EN-17)."""
-        if not coverage or not isinstance(coverage.get("files"), dict):
-            return None
-        modulo = contrato["modulo"].replace("\\", "/")
-        datos = next(
-            (
-                v
-                for k, v in coverage["files"].items()
-                if k.replace("\\", "/").endswith(modulo)
-            ),
-            None,
-        )
-        rango = self._rango_de_funcion(
-            modulo, contrato.get("manejador") or contrato["objetivo"]
-        )
-        if not isinstance(datos, dict) or rango is None:
+        datos = self._datos_del_modulo(coverage, modulo)
+        if datos is None or rango is None:
             return None
         inicio, fin = rango
         faltantes = {
@@ -771,22 +448,6 @@ SALIDA DE PYTEST:
             if inicio <= _linea(n) <= fin
         }
         return sorted(faltantes)
-
-    def _rango_de_funcion(self, modulo: str, nombre: str) -> tuple[int, int] | None:
-        """Primera y última línea del cuerpo de una función de nivel superior."""
-        try:
-            fuente = (self.ruta_proyecto / modulo).read_text(encoding="utf-8")
-            arbol = ast.parse(fuente)
-        except (OSError, SyntaxError, ValueError):
-            return None
-        for nodo in arbol.body:
-            if (
-                isinstance(nodo, (ast.FunctionDef, ast.AsyncFunctionDef))
-                and nodo.name == nombre
-                and nodo.body
-            ):
-                return nodo.body[0].lineno, nodo.end_lineno or nodo.body[-1].lineno
-        return None
 
     @staticmethod
     def _extraer_cobertura(

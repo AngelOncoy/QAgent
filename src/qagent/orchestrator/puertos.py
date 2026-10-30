@@ -15,7 +15,7 @@ class Planner(Protocol):
     """Rol Planner: diseña los casos de prueba de un módulo."""
 
     def planificar(self, modulo: dict[str, Any]) -> list[Contrato]:
-        """Recibe un módulo de `analizar_proyecto()` y devuelve sus planner_contract.v2."""
+        """Recibe un módulo de `analizar_proyecto()` y devuelve sus planner_contract.v3."""
         ...
 
 

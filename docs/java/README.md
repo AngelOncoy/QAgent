@@ -1,5 +1,9 @@
 # EN-19 (#132) — Prototipo Java con Tree-sitter y JUnit 5
 
+> Esta página conserva la evidencia del prototipo #132. La ampliación de análisis
+> y la planificación de #181 están en [analisis-planificacion.md](analisis-planificacion.md):
+> constructores, etiquetas Javadoc, decisiones, llama_a y contratos Java/JUnit 5.
+
 ## Objetivo y estado
 
 Prototipo independiente que analiza el banco Java TA-01 con Tree-sitter y lee

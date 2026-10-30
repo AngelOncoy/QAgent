@@ -456,7 +456,8 @@ class AlmacenProyecto:
         la reemplaza, de modo que hay una sola spec por función o endpoint.
 
         Args:
-            contrato: contrato `planner_contract.v2` tal como lo produjo el Planner.
+            contrato: contrato `planner_contract` (v3; las specs anteriores son v2) tal como
+                lo produjo el Planner.
             run_origen: `run_id` de la corrida que la generó.
             archivo_prueba: nombre de su prueba aprobada en `tests/`, si ya la hay.
             estado: "vigente" u "obsoleta".
@@ -471,7 +472,7 @@ class AlmacenProyecto:
             ErrorAlmacen: si algún otro campo no es válido.
             OSError: si no se puede escribir.
         """
-        contracts.validar(contracts.PLANNER, contrato)
+        contracts.validar_versionado(contracts.FAMILIA_PLANNER, contrato)
         spec = {
             "id": id_de_spec(contrato["modulo"], contrato["objetivo"]),
             "creado": _iso(ahora),
@@ -501,7 +502,7 @@ class AlmacenProyecto:
         spec = leer_json_objeto(ruta)
         try:
             _validar_spec(spec)
-            contracts.validar(contracts.PLANNER, spec["contrato"])
+            contracts.validar_versionado(contracts.FAMILIA_PLANNER, spec["contrato"])
         except (ErrorAlmacen, contracts.ContratoInvalido) as exc:
             raise DatoCorrupto(f"{ruta}: {exc}") from exc
         return spec
@@ -1179,7 +1180,7 @@ def _validar_plan_modulo(plan: dict[str, Any]) -> None:
     ):
         raise ErrorAlmacen("perfiles debe asociar cada objetivo con su perfil.")
     for contrato in contratos:
-        contracts.validar(contracts.PLANNER, contrato)
+        contracts.validar_versionado(contracts.FAMILIA_PLANNER, contrato)
         if contrato["modulo"] != plan["modulo"] or contrato["huella"] != plan["huella"]:
             raise ErrorAlmacen(
                 "Un contrato no coincide con el módulo o la huella de la spec."

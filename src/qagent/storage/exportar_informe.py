@@ -34,6 +34,7 @@ from qagent.storage.vista_ejecucion import (
 )
 from qagent.storage.vista_reporte import (
     MUTATION_SCORE_MIN,
+    etiqueta_ia,
     leer_detalle,
     leer_explicaciones,
     vista_reporte,
@@ -1289,6 +1290,10 @@ def construir_markdown_informe(
             if exp:
                 lineas.append(exp.split("\n")[0])
                 lineas.append("")
+            etiqueta = etiqueta_ia(f.get("explicacion"))  # #166
+            if etiqueta:
+                lineas.append(f"_{etiqueta}._")
+                lineas.append("")
 
     lineas.extend(["## Datos de la corrida", ""])
     modelos = datos.get("modelos") or {}
@@ -2118,6 +2123,12 @@ def construir_html_informe(
                 if exp
                 else ""
             )
+            etiqueta = etiqueta_ia(f.get("explicacion"))  # #166
+            if etiqueta:
+                exp_txt += (
+                    "<p style='margin:2px 0 0 0;font-size:11px;font-style:italic;"
+                    f"color:#8b949e'>{esc(etiqueta)}</p>"
+                )
             prioridades_items.append(
                 f"<div class='prioridad-card'>"
                 f"<div style='font-size:11px;font-weight:700;color:#388bfd;text-transform:uppercase'>Prioridad {n}</div>"

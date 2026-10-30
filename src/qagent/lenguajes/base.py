@@ -23,7 +23,7 @@ import os
 from abc import ABC, abstractmethod
 from collections.abc import Sequence
 from dataclasses import dataclass, field
-from pathlib import PurePosixPath
+from pathlib import Path, PurePosixPath
 from typing import Any, ClassVar, Protocol
 
 Estructura = dict[str, Any]
@@ -90,6 +90,102 @@ class ComparacionAserciones(Protocol):
     resumen: str
 
 
+@dataclass(frozen=True)
+class Clasificacion:
+    """Qué dice la salida del runner, según las reglas del lenguaje (#168).
+
+    Atributos:
+        tipo: ``entorno`` (falla del entorno, reintentar no sirve), ``bug_respuesta``
+            (la respuesta del endpoint no cumple lo declarado), ``error_test`` (el
+            test está mal) o ``fallo_asercion`` (una aserción legítima falló).
+        detalle: texto para el feedback.
+    """
+
+    tipo: str
+    detalle: str
+
+
+class ReglasRevision(Protocol):
+    """Lo que el Reviewer necesita saber del lenguaje de un test (#168)."""
+
+    def error_de_sintaxis(self, codigo: str) -> str | None:
+        """Texto del error si el test no se puede parsear; None si es válido."""
+
+    def validar_oraculo(self, contrato: dict[str, Any], codigo: str) -> str | None:
+        """Por qué el test no comprueba los valores del contrato; None si los comprueba."""
+
+    def clasificar_salida(
+        self, salida: str, contrato: dict[str, Any], raiz: Path
+    ) -> Clasificacion | None:
+        """Clasifica la salida del runner; None si no se reconoce."""
+
+    def rango_de_objetivo(
+        self, raiz: Path, modulo: str, nombre: str
+    ) -> tuple[int, int] | None:
+        """Primera y última línea del cuerpo de ``nombre`` en ``modulo``."""
+
+
+class ReglasPlanificacion(Protocol):
+    """Lo que el Planner necesita saber del lenguaje para pedir y filtrar casos (#168).
+
+    Los prompts dicen al modelo cómo se escriben los casos en este lenguaje y los
+    filtros descartan, sin IA, los casos cuyo oráculo la especificación no respalda.
+    """
+
+    motivo_caso_trivial: str
+    motivo_omitida_trivial: str
+
+    def prompt_funciones(self, modulo: dict[str, Any], humo: bool) -> str: ...
+
+    def prompt_endpoints(
+        self,
+        modulo: dict[str, Any],
+        endpoints: dict[str, dict[str, Any]],
+        fuente: str | None,
+        humo: bool,
+    ) -> str: ...
+
+    def preparar_caso(
+        self, funcion: dict[str, Any], caso: dict[str, Any]
+    ) -> dict[str, Any]: ...
+
+    def es_caso_trivial(
+        self, funcion: dict[str, Any], caso: dict[str, Any]
+    ) -> bool: ...
+
+    def motivo_limite_funcion(
+        self, funcion: dict[str, Any], caso: dict[str, Any]
+    ) -> str | None: ...
+
+    def motivo_oraculo_funcion(
+        self, funcion: dict[str, Any], caso: dict[str, Any]
+    ) -> str | None: ...
+
+    def aplicacion_principal(self, endpoints: Any) -> str: ...
+
+    def dependencias_con_reemplazo(
+        self, modulo: dict[str, Any], endpoint: dict[str, Any]
+    ) -> list[dict[str, str]]: ...
+
+    def motivo_rechazo_endpoint(
+        self,
+        endpoint: dict[str, Any],
+        caso: dict[str, Any],
+        modelos: dict[str, dict[str, Any]],
+    ) -> str | None: ...
+
+    def motivo_limite_endpoint(
+        self,
+        endpoint: dict[str, Any],
+        caso: dict[str, Any],
+        modelos: dict[str, dict[str, Any]],
+    ) -> str | None: ...
+
+    def faltantes_endpoint(
+        self, endpoint: dict[str, Any], casos: list[dict[str, Any]]
+    ) -> list[str]: ...
+
+
 class NoImplementado(NotImplementedError):
     """Operación que el adaptador de un lenguaje todavía no implementa."""
 
@@ -123,10 +219,20 @@ class LanguageAdapter(ABC):
     """
 
     lenguaje: ClassVar[str]
+    #: Nombre para personas («TypeScript»); vacío = el lenguaje con mayúscula inicial.
+    nombre: ClassVar[str] = ""
+    #: Si el adaptador implementa todo lo que necesita una corrida (#168). Los
+    #: lenguajes en desarrollo solo detectan y la app avisa que aún no se soportan.
+    completo: ClassVar[bool] = True
     extensiones: ClassVar[tuple[str, ...]]
     marcadores: ClassVar[tuple[str, ...]] = ()
     frameworks_pruebas: ClassVar[tuple[str, ...]]
     frameworks_app: ClassVar[tuple[str, ...]] = ()
+
+    @property
+    def nombre_visible(self) -> str:
+        """Nombre del lenguaje para los mensajes de la interfaz."""
+        return self.nombre or self.lenguaje.capitalize()
 
     # --- Detección --------------------------------------------------------------
 
@@ -221,6 +327,17 @@ class LanguageAdapter(ABC):
             framework: framework de pruebas del contrato; ``None`` = predeterminado.
         """
 
+    def modulo_cobertura(self, modulo: str) -> str:
+        """Lo que ``comando_pruebas`` recibe para medir ``modulo`` (ruta del contrato).
+
+        Por defecto la misma ruta; Python la convierte a nombre importable.
+        """
+        return modulo
+
+    def variables_pruebas(self) -> dict[str, str]:
+        """Variables de entorno extra del contenedor al correr las pruebas."""
+        return {}
+
     @abstractmethod
     def entorno_sandbox(self) -> EntornoSandbox:
         """Imagen, herramientas y carpetas del sandbox para este lenguaje."""
@@ -274,14 +391,58 @@ class LanguageAdapter(ABC):
         La mutación corre únicamente sobre funciones ``critical: true``.
         """
 
+    # --- Agentes y regresión (#168) ---------------------------------------------
+    # No son abstractos para que un lenguaje en desarrollo pueda registrarse sin
+    # ellos; mientras falten, el adaptador no es ``completo`` y no se usa.
+
+    def reglas_planificacion(self) -> ReglasPlanificacion:
+        """Prompts y filtros de casos del Planner para este lenguaje."""
+        raise NoImplementado(self.lenguaje, "reglas_planificacion")
+
+    def prompt_generator(
+        self,
+        contrato: dict[str, Any],
+        intento: int,
+        feedback: str | None,
+        ruta_proyecto: Path | None,
+    ) -> str:
+        """Prompt con el que el Generator pide el test de ``contrato``."""
+        raise NoImplementado(self.lenguaje, "prompt_generator")
+
+    def reglas_revision(self) -> ReglasRevision:
+        """Sintaxis, oráculo y clasificación de la salida para el Reviewer."""
+        raise NoImplementado(self.lenguaje, "reglas_revision")
+
+    def ejecutar_mutacion(self, *args: Any, **opciones: Any) -> Any:
+        """Muta las funciones críticas en el sandbox (firma de ``sandbox.ejecutar_mutacion``).
+
+        Solo sobre funciones ``critical: true``. Devuelve un ``ResultadoMutacion``.
+        """
+        raise NoImplementado(self.lenguaje, "ejecutar_mutacion")
+
+    def huellas_de_archivo(self, fuente: str, relativa: str) -> dict[str, str] | None:
+        """Huella de cada función y endpoint de un archivo fuente (HU-24, HU-25).
+
+        Returns:
+            ``objetivo -> huella``, o None si el archivo no se puede analizar.
+        """
+        raise NoImplementado(self.lenguaje, "huellas_de_archivo")
+
+    def funciones_de_modulo(self, raiz: Path, modulo: str) -> list[dict[str, Any]]:
+        """``nombre`` y ``linea`` de cada función de primer nivel de ``modulo``."""
+        raise NoImplementado(self.lenguaje, "funciones_de_modulo")
+
 
 class AdaptadorEnDesarrollo(LanguageAdapter):
     """Base de un lenguaje que ya se detecta pero aún no se analiza ni ejecuta.
 
     Cada operación pendiente lanza :class:`NoImplementado`. El responsable del
     lenguaje reemplaza estos métodos uno por uno sin tocar los componentes
-    compartidos.
+    compartidos. Mientras sea ``completo = False``, la corrida no lo usa y la app
+    avisa que el lenguaje aún no se soporta (#168).
     """
+
+    completo: ClassVar[bool] = False
 
     def analizar(self, raiz: str | os.PathLike[str]) -> Estructura:
         raise NoImplementado(self.lenguaje, "analizar")

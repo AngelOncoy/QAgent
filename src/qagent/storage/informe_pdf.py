@@ -17,6 +17,7 @@ from typing import Any
 
 from qagent import __version__
 from qagent.storage.vista_ejecucion import corrida_incompleta, respuesta_principal
+from qagent.storage.vista_reporte import etiqueta_ia
 
 # Página A4 en puntos
 ANCHO, ALTO = 595.0, 842.0
@@ -407,14 +408,16 @@ def _explicacion(f: dict[str, Any]) -> str | None:
     """
     simple = f.get("explicacion")
     if isinstance(simple, dict) and simple.get("resumen"):
-        return "\n".join(
-            [
-                str(simple["resumen"]),
-                f"Qué se esperaba: {simple.get('que_se_esperaba', '')}",
-                f"Qué pasó: {simple.get('que_paso', '')}",
-                f"Qué hacer: {simple.get('que_hacer', '')}",
-            ]
-        )
+        lineas = [
+            str(simple["resumen"]),
+            f"Qué se esperaba: {simple.get('que_se_esperaba', '')}",
+            f"Qué pasó: {simple.get('que_paso', '')}",
+            f"Qué hacer: {simple.get('que_hacer', '')}",
+        ]
+        etiqueta = etiqueta_ia(simple)  # #166
+        if etiqueta:
+            lineas.append(f"{etiqueta}.")
+        return "\n".join(lineas)
     intentos = f.get("intentos") or []
     if intentos and intentos[-1].get("feedback"):
         return str(intentos[-1]["feedback"])

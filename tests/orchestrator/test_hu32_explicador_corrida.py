@@ -166,8 +166,8 @@ def test_una_falla_del_explicador_no_cambia_la_corrida(
 def test_una_salida_invalida_no_se_guarda(proyecto, config, monkeypatch, caplog):
     original = corrida.explicar_corrida
 
-    def con_basura(results, detalle):
-        resultado = original(results, detalle)
+    def con_basura(*args):
+        resultado = original(*args)
         resultado.datos["explicaciones"].append({"objetivo": "sin campos"})
         return resultado
 

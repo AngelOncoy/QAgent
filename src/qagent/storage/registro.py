@@ -189,6 +189,43 @@ def escribir_corrida(
     return rutas
 
 
+def actualizar_consumo(rutas: RutasCorrida, tracker: TokenTracker) -> None:
+    """Reescribe los tokens y el costo de log.json y results.json con el tracker (#166).
+
+    El Explicador llama a la IA después de que se escribió la corrida: sus llamadas se
+    suman aquí para que log.json y el resumen de results.json las cuenten. No toca
+    decisiones, intentos, cobertura ni `laundering_detectado`.
+
+    Raises:
+        ContratoInvalido: si algún archivo deja de cumplir el schema (no se escribe).
+    """
+    log = json.loads(rutas.log.read_text(encoding="utf-8"))
+    results = json.loads(rutas.results.read_text(encoding="utf-8"))
+    totales = {
+        "total_tokens": tracker.total_tokens,
+        "tokens_reales": tracker.total_tokens_reales,
+        "tokens_estimados": tracker.total_tokens_estimados,
+    }
+    simulado = all(ll.es_simulado for ll in tracker.llamadas)
+    log.update(
+        totales,
+        llamadas=[ll.a_log() for ll in tracker.llamadas],
+        totales_por_agente=tracker.totales_por_agente(),
+        total_costo_usd=round(tracker.total_costo_usd, 8),
+        es_simulado=simulado,
+    )
+    results["es_simulado"] = simulado
+    results["resumen"].update(
+        totales,
+        costo_total_usd=round(tracker.total_costo_usd, 8),
+        por_agente=tracker.totales_por_agente(),
+    )
+    contracts.validar(contracts.RUN_LOG, log)
+    contracts.validar(contracts.RUN_LOG, results)
+    _escribir_json(rutas.log, log)
+    _escribir_json(rutas.results, results)
+
+
 def escribir_explicaciones(carpeta: str | Path, datos: dict[str, Any]) -> Path:
     """Valida y escribe `explicaciones.json` en la carpeta de la corrida (HU-32).
 
@@ -468,6 +505,8 @@ def _objetivo(
     if mutacion is not None:
         datos["mutacion"] = mutacion  # EN-09: detalle de mutmut y sobrevivientes
     if objetivo.contrato is not None:
+        # #168: lenguaje del objetivo (columna lenguaje de las 5 métricas, ADR-010).
+        datos["lenguaje"] = contracts.lenguaje_de_contrato(objetivo.contrato)
         # #76: casos del contrato por categoría (las de specs anteriores se infieren).
         datos["casos_por_categoria"] = contracts.contar_categorias(
             objetivo.contrato.get("casos")

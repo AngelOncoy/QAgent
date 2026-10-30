@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import re
 import xml.etree.ElementTree as ET
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -295,35 +296,42 @@ def resumir_ejecucion(
     limites: LimitesSandbox,
     lineas_sin_cubrir: list[int] | None = None,
     codigo_test: str | None = None,
+    interpretar: Callable[[str], dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     """Resume una ejecución del sandbox para el campo `ejecucion` de `review_result`.
 
     Si el `junit.xml` falta o no es válido, `casos` queda vacío y la salida de pytest
     sigue disponible: el informe nunca depende de que el XML exista.
+
+    Args:
+        interpretar: convierte el informe del runner en totales y casos
+            (`LanguageAdapter.interpretar_resultados`, #168); por defecto, el
+            `junit.xml` de pytest.
     """
+    leer = interpretar or (lambda xml: parsear_junit(xml).a_dict())
     try:
-        informe = parsear_junit(resultado.junit_xml) if resultado.junit_xml else None
-    except JUnitInvalido:
-        informe = None
-    informe = informe or InformePytest()
+        datos = leer(resultado.junit_xml) if resultado.junit_xml else None
+    except (JUnitInvalido, ValueError):
+        datos = None
+    informe = datos or InformePytest().a_dict()
     salida = "\n".join(p for p in (resultado.stdout, resultado.stderr) if p).strip()
     cabecera = _PLATAFORMA.search(salida)
     return {
         "exit_code": resultado.exit_code,
         "duracion_s": resultado.duracion_s,
-        "duracion_pytest_s": informe.duracion_s if resultado.junit_xml else None,
+        "duracion_pytest_s": informe["duracion_s"] if resultado.junit_xml else None,
         "timeout": resultado.timed_out,
         "oom": resultado.oom_killed,
         "salida": recortar_salida(salida),
         "codigo_test": codigo_test,
         "totales": {
-            "total": informe.total,
-            "pasaron": informe.pasaron,
-            "fallaron": informe.fallaron,
-            "errores": informe.errores,
-            "omitidos": informe.omitidos,
+            "total": informe["total"],
+            "pasaron": informe["pasaron"],
+            "fallaron": informe["fallaron"],
+            "errores": informe["errores"],
+            "omitidos": informe["omitidos"],
         },
-        "casos": [caso.a_dict() for caso in informe.casos],
+        "casos": list(informe["casos"]),
         "lineas_sin_cubrir": lineas_sin_cubrir,
         "entorno": {
             "imagen": imagen,
