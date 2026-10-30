@@ -1,0 +1,18 @@
+{
+  "version": "1",
+  "origen": "reglas",
+  "recomendaciones": [
+    {
+      "tipo_prueba": "endpoint",
+      "motivo": "El análisis estático identificó rutas FastAPI resolubles."
+    },
+    {
+      "tipo_prueba": "funcion",
+      "motivo": "El proyecto contiene funciones públicas con firma analizable."
+    },
+    {
+      "tipo_prueba": "mutacion",
+      "motivo": "El análisis identificó al menos una función crítica."
+    }
+  ]
+}
