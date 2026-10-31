@@ -554,7 +554,9 @@ class Orquestador:
             sin_ruta = not endpoint.get("objetivo") or not endpoint.get(
                 "resuelta", True
             )
-            motivo = MOTIVO_RUTA_SIN_RESOLVER if sin_ruta else MOTIVO_SIN_CONTRATO
+            motivo = self._motivos_omision.get(
+                objetivo, MOTIVO_RUTA_SIN_RESOLVER if sin_ruta else MOTIVO_SIN_CONTRATO
+            )
             omitidos.append(
                 {"objetivo": objetivo, "tipo": "endpoint", "motivo": motivo}
             )
@@ -686,13 +688,14 @@ class Orquestador:
         return plan
 
     def _planificar_endpoints(self, modulo: dict[str, Any]) -> list[Contrato]:
-        """Pide al Planner los casos de los endpoints FastAPI del módulo (EN-16)."""
+        """Pide los endpoints al Planner usando las reglas del adaptador del módulo."""
         planificar = getattr(self.planner, "planificar_endpoints", None)
         if not modulo.get("endpoints") or planificar is None:
             return []
         plan = self._llamar("planner", planificar, modulo, modulo.get("fuente"))
         if not isinstance(plan, list):
             raise FalloControlado("El Planner no devolvió una lista de contratos")
+        self._motivos_omision.update(getattr(self.planner, "omitidas", None) or {})
         for aviso in getattr(self.planner, "avisos", None) or []:
             self._emitir("planner", None, f"Aviso: {aviso}")
         for descarte in getattr(self.planner, "descartados", None) or []:

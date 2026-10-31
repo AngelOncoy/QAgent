@@ -7,7 +7,7 @@ import math
 import re
 from typing import Any
 
-from qagent.lenguajes.base import NoImplementado
+from qagent.lenguajes import java_spring_planificacion as spring
 from qagent.llm.fake import MARCA_MODULO, MARCA_OBJETIVOS
 
 _ENTEROS = {
@@ -263,17 +263,22 @@ class ReglasPlanificacionJava:
             return "el Javadoc no describe un retorno null para este caso"
         return None
 
-    @staticmethod
-    def _sin_endpoints(*args: Any, **kwargs: Any) -> Any:
-        """Los endpoints Spring requieren su propia tarea; no se inventan reglas."""
-        raise NoImplementado("java", "planificacion_endpoints_spring")
+    prompt_endpoints = staticmethod(spring.prompt_endpoints)
+    motivo_rechazo_endpoint = staticmethod(spring.motivo_rechazo)
+    motivo_limite_endpoint = staticmethod(spring.motivo_limite)
+    faltantes_endpoint = staticmethod(spring.faltantes)
 
-    prompt_endpoints = _sin_endpoints
-    aplicacion_principal = _sin_endpoints
-    dependencias_con_reemplazo = _sin_endpoints
-    motivo_rechazo_endpoint = _sin_endpoints
-    motivo_limite_endpoint = _sin_endpoints
-    faltantes_endpoint = _sin_endpoints
+    @staticmethod
+    def aplicacion_principal(endpoints: Any) -> str:
+        """El contrato identifica el controlador; @WebMvcTest selecciona su clase."""
+        return next(iter(endpoints))["clase"]
+
+    @staticmethod
+    def dependencias_con_reemplazo(
+        modulo: dict[str, Any], endpoint: dict[str, Any]
+    ) -> list[dict[str, str]]:
+        """Devuelve los servicios inyectados declarados, para generar @MockBean."""
+        return list(endpoint.get("dependencias", []))
 
 
 REGLAS_PLANIFICACION_JAVA = ReglasPlanificacionJava()

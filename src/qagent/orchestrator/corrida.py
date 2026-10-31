@@ -347,6 +347,8 @@ def ejecutar_corrida(
             def preparar(ruta_imagen: Path) -> str:
                 return _preparar_imagen(
                     ruta_imagen,
+                    imagen_base=adaptador.entorno_sandbox().imagen,
+                    comprobar_librerias=adaptador.comprobar_librerias_sistema,
                     avanzar=avance_limitado(
                         lambda texto: avisar_entorno(texto, ENTORNO_AVANCE),
                         cancelado=cancelado,
@@ -831,6 +833,9 @@ def _preparar_imagen(
     ruta: Path,
     avanzar: Callable[[str], None] | None = None,
     avisar_faltante: Callable[[str], None] | None = None,
+    *,
+    imagen_base: str | None = None,
+    comprobar_librerias: bool = True,
 ) -> str:
     """Imagen del sandbox del proyecto; construye la imagen base si todavía no existe.
 
@@ -841,6 +846,8 @@ def _preparar_imagen(
         ruta: carpeta del proyecto.
         avanzar: recibe el avance de la construcción en textos para personas.
         avisar_faltante: recibe un aviso por cada librería del sistema sin resolver.
+        imagen_base: imagen indicada por el adaptador; None conserva el valor del sandbox.
+        comprobar_librerias: habilita la comprobación específica del entorno Python.
     """
     from qagent.sandbox import (
         ImagenNoEncontrada,
@@ -851,14 +858,17 @@ def _preparar_imagen(
     from qagent.sandbox.librerias import asegurar_librerias_sistema
     from qagent.sandbox.limpieza import registrar_uso
 
+    opciones = {"imagen": imagen_base} if imagen_base is not None else {}
     try:
-        imagen = preparar_imagen(ruta, avanzar=avanzar)
+        imagen = preparar_imagen(ruta, avanzar=avanzar, **opciones)
     except ImagenNoEncontrada:
-        construir_imagen_base(avanzar=avanzar)  # una sola vez por PC; necesita internet
-        imagen = preparar_imagen(ruta, avanzar=avanzar)
+        construir_imagen_base(avanzar=avanzar, **opciones)
+        imagen = preparar_imagen(ruta, avanzar=avanzar, **opciones)
     # Las imágenes req- sin uso se borran al abrir la app. Se anota también la de
     # dependencias: la final se construye encima y reinstalar pip puede tardar minutos.
     registrar_uso(imagen)
+    if not comprobar_librerias:
+        return imagen
     try:
         entorno = asegurar_librerias_sistema(imagen, obtener_cliente(), avanzar)
     except ConstruccionCancelada:

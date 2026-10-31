@@ -34,6 +34,11 @@ def clasificar_java(resultado: ResultadoSandbox) -> Clasificacion | None:
     if resultado.oom_killed:
         return sin("memoria_sandbox", "Java excedió la memoria del sandbox.")
     salida = resultado.stdout + "\n" + resultado.stderr
+    if "Surefire is going to kill self fork JVM" in salida:
+        return sin(
+            "terminacion_jvm",
+            "Surefire forzó el cierre de la JVM de pruebas. Sus datos de cobertura pueden estar incompletos; repite la corrida con recursos disponibles.",
+        )
     etapas = re.findall(
         re.escape(MARCA) + r"(proyecto|prueba|ejecucion|cobertura)\b", salida
     )
@@ -120,7 +125,10 @@ class ReglasRevisionJava(ReglasGeneracionJava):
                 f
                 for m in estructura["modulos"]
                 if m["ruta"] == modulo
-                for f in m["funciones"]
+                for f in [
+                    *m["funciones"],
+                    *[{**e, "nombre": e["manejador"]} for e in m.get("endpoints", [])],
+                ]
                 if f["nombre"] == nombre
             ),
             None,
