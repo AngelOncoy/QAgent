@@ -8,10 +8,14 @@ from pathlib import Path
 
 import pytest
 
+from qagent.agents.generator import GeneratorAgent
+from qagent.analysis.analyzer import calcular_huella
 from qagent.lenguajes import JavaAdapter
+from qagent.llm import TokenTracker
 from qagent.sandbox.imagen import _imagen_existe
 from qagent.sandbox.modelos import IMAGEN_JAVA
 from qagent.sandbox.mutacion import OK
+from tests.agents.test_generator_java import ClienteJUnitGrabado
 
 pytestmark = pytest.mark.docker
 
@@ -60,16 +64,63 @@ public class Criticos {
     pom_original = (proyecto / "pom.xml").read_bytes()
     pruebas = tmp_path / "aprobadas"
     pruebas.mkdir()
-    (pruebas / "test_hash.py").write_text(
-        """package qagent;
+    codigo_prueba = """package qagent;
 import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 public class CriticosTest {
     @Test void soloCasoNormal() { assertEquals(40, Criticos.critico(20)); }
 }
-""",
-        encoding="utf-8",
+"""
+    adaptador = JavaAdapter()
+    funcion = adaptador.analizar(proyecto)["modulos"][0]["funciones"][0]
+    contrato = {
+        "version": "3",
+        "lenguaje": "java",
+        "framework_pruebas": "junit5",
+        "modulo": modulo,
+        "huella": calcular_huella(codigo),
+        "tipo": "funcion",
+        "objetivo": "Criticos.critico",
+        "firma": funcion["firma"],
+        "critical": True,
+        "casos": [
+            {
+                "id": "normal",
+                "entrada": {"valor": 20},
+                "valor_esperado": 40,
+                "origen": "docstring",
+            }
+        ],
+    }
+    generado = GeneratorAgent(
+        ClienteJUnitGrabado(codigo_prueba), TokenTracker(), ruta_proyecto=proyecto
+    ).generar(contrato, 1, None)
+    assert generado["version"] == "2"
+    assert generado["archivo"] == "src/test/java/qagent/CriticosTest.java"
+    assert adaptador.validar_oraculo(contrato, generado["codigo"], proyecto) is None
+    (pruebas / "test_hash.py").write_text(generado["codigo"], encoding="utf-8")
+    # Otra prueba ya aprobada usa el mismo nombre de clase: ambos artefactos deben
+    # compilar en la copia de PIT, sin cambiar sus valores esperados.
+    segunda = codigo_prueba.replace("soloCasoNormal", "otroCasoNormal").replace(
+        "assertEquals(40, Criticos.critico(20))",
+        "assertEquals(60, Criticos.critico(30))",
     )
+    otro_contrato = {
+        **contrato,
+        "casos": [
+            {
+                "id": "otro",
+                "entrada": {"valor": 30},
+                "valor_esperado": 60,
+                "origen": "docstring",
+            }
+        ],
+    }
+    segundo = GeneratorAgent(
+        ClienteJUnitGrabado(segunda), TokenTracker(), ruta_proyecto=proyecto
+    ).generar(otro_contrato, 1, None)
+    assert adaptador.validar_oraculo(otro_contrato, segundo["codigo"], proyecto) is None
+    (pruebas / "test_segundo.py").write_text(segundo["codigo"], encoding="utf-8")
     informes = []
     resultado = JavaAdapter().ejecutar_mutacion(
         IMAGEN_JAVA,

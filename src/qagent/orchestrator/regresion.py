@@ -29,7 +29,7 @@ from qagent.orchestrator.tiempos import (
     sumar_etapa,
 )
 from qagent.proyectos.proyecto_local import detectar_rama
-from qagent.sandbox import LIMITES_POR_DEFECTO, clasificar_resultado, ejecutar_pruebas
+from qagent.sandbox import clasificar_resultado, ejecutar_pruebas
 from qagent.sandbox.ejecucion import ejecutar_comando_pruebas
 from qagent.storage import escribir_corrida
 from qagent.storage.registro import PERFIL_REGRESION_PROFUNDA
@@ -658,12 +658,15 @@ def _mutar_criticas(
     pruebas usadas no cambiaron, y guarda los nuevos.
     """
     from qagent.config.carga import Mutacion
+    from qagent.orchestrator.corrida import limites_del_lenguaje
 
     tiempo = getattr(configuracion, "mutacion", Mutacion()).tiempo_maximo_por_funcion_s
     por_modulo: dict[str, list[ResultadoObjetivo]] = {}
     for resultado in resultados:
         por_modulo.setdefault(resultado.modulo, []).extend(resultado.objetivos)
     for modulo, objetivos in por_modulo.items():
+        contrato = next((o.contrato for o in objetivos if o.contrato), None)
+        adaptador = adaptador_de_contrato(contrato)
         mutar_modulo(
             raiz,
             imagen,
@@ -676,7 +679,7 @@ def _mutar_criticas(
             run_id=run_id,
             huellas=huellas,
             con_endpoints=False,
-            limites=getattr(configuracion, "sandbox", LIMITES_POR_DEFECTO),
+            limites=limites_del_lenguaje(configuracion, adaptador.lenguaje),
         )
 
 

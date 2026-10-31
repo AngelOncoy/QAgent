@@ -97,7 +97,14 @@ def preparar_pit(
             else Path(clase + ".java")
         )
         if relativa in fuentes_tests:
-            raise ValueError("Dos pruebas aprobadas declaran la misma clase Java.")
+            # #184 genera un ClaseTest por objetivo. Se aíslan los artefactos
+            # aprobados solo en la copia, conservando cada cuerpo y aserción.
+            indice = 2
+            while relativa in fuentes_tests:
+                nombre = f"{clase}QAgent{indice}Test"
+                relativa = relativa.with_name(nombre + ".java")
+                indice += 1
+            texto = _renombrar_clase_prueba(texto, clases[0], nombre)
         fuentes_tests[relativa] = texto
     if not fuentes_tests:
         raise ValueError("No hay pruebas aprobadas para evaluar los mutantes.")
@@ -146,6 +153,36 @@ def preparar_pit(
     with destino.open("xb") as archivo:
         ET.ElementTree(preparado).write(archivo, encoding="utf-8", xml_declaration=True)
     return objetivos
+
+
+def _renombrar_clase_prueba(fuente: str, clase: Node, nombre: str) -> str:
+    """Aísla una clase JUnit sin cambiar aserciones ni referencias ambiguas.
+
+    Las pruebas directas generadas por #184 no dependen del nombre de su clase.
+    Si otra parte del archivo referencia ese nombre, se rechaza la preparación
+    para no alterar el significado de tipos, constructores o llamadas propias.
+    El cambio usa posiciones de bytes del AST; no reemplaza comentarios o cadenas.
+    """
+    declaracion = clase.child_by_field_name("name")
+    pendientes = [clase.parent]
+    while pendientes:
+        nodo = pendientes.pop()
+        if (
+            nodo.type in {"identifier", "type_identifier"}
+            and nodo.text == declaracion.text
+            and nodo.start_byte != declaracion.start_byte
+        ):
+            raise ValueError(
+                "Una clase de prueba duplicada referencia su propio nombre; "
+                "no se puede aislar sin cambiar su significado."
+            )
+        pendientes.extend(nodo.named_children)
+    contenido = fuente.encode("utf-8")
+    return (
+        contenido[: declaracion.start_byte]
+        + nombre.encode("utf-8")
+        + contenido[declaracion.end_byte :]
+    ).decode("utf-8")
 
 
 def _leer_dentro(raiz: Path, archivo: Path) -> str:

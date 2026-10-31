@@ -92,7 +92,7 @@ La construcción de la imagen requiere descargas; la prueba PIT usa el contenedo
 sin red. El test real está marcado `pytest.mark.docker`; si falta Docker o la
 imagen, se omite y esa omisión no constituye una validación real.
 
-La ejecución real del 30/10/2026 produjo cinco mutantes exclusivamente en
+La validación inicial del 30/10/2026 produjo cinco mutantes exclusivamente en
 `Criticos.critico`: tres detectados y dos sobrevivientes, 60 %. Duró 18.031 s
 en la primera ejecución satisfactoria; la repetición del integrante duró 19.703 s.
 El segundo método de la clase quedó fuera de la mutación. El POM y la fuente
@@ -107,7 +107,57 @@ comprensión de diccionario tiene paréntesis distintos en `ast.unparse`, y
 `Generic[*Ts]` no es aceptado por `ast.parse` en Python 3.10. Se reprodujeron
 ambos en una copia temporal del commit base `6d761ce` (**48 aprobadas y dos
 fallos** en ese archivo), sin los cambios de #180. No se modificaron ni se
-omitieron esas aserciones. El equipo debe tratar esta compatibilidad por separado.
+omitieron esas aserciones. Esta evidencia es histórica: #214 ya corrigió ambos
+casos y está integrado en la actualización descrita a continuación.
+
+## Actualización tras integrar #184 (31/10/2026)
+
+Se incorporó `origin/develop` en la misma rama `feat/180-mutacion-pit-java`,
+incluyendo #181, #184 y #214. Se resolvió el conflicto de `java.py` conservando
+análisis, planificación, generación, validación del oráculo y guardrail junto con
+las operaciones de mutación. No se sustituyó un lado completo por el otro.
+
+La revisión reprodujo y corrigió dos problemas de integración:
+
+- #184 genera artefactos por objetivo que pueden compartir `ClaseTest`.
+  La preparación PIT rechazaba esa entrada por clase duplicada. Ahora conserva
+  todos los artefactos y asigna nombres únicos solo a las declaraciones duplicadas
+  dentro de la copia temporal. No cambia cuerpos, aserciones, comentarios, cadenas
+  ni archivos originales. Una referencia al nombre propio de una clase duplicada
+  se rechaza para no transformar tipos o llamadas por conjetura.
+- La regresión profunda entregaba los límites generales del sandbox a la mutación.
+  Ahora consulta el lenguaje del contrato y usa `limites_del_lenguaje`, como la
+  corrida común: Java recibe los 4 GB configurados y el motor PIT mantiene el tope
+  temporal de `[mutacion]`. No se introduce lógica Java en el orquestador.
+
+Se añadieron cuatro regresiones sin Docker: clases duplicadas, conservación de
+comentarios y cadenas con Unicode, rechazo de referencias ambiguas y límites por
+lenguaje al profundizar pruebas guardadas. La comprobación focalizada produjo
+**337 aprobadas en 12.50 s**, incluidos los tests de generación y guardrail de #184.
+
+El test real Docker usa ahora el Generator productivo con un cliente grabado y
+valida ambos artefactos con el oráculo real de #184 antes de entregarlos a PIT.
+Los dos artefactos tienen el mismo nombre de clase original. Maven/PIT compilan y
+evalúan exclusivamente dentro del sandbox, sin red. Resultado: **1 aprobada en
+24.96 s**, cinco mutantes de `Criticos.critico`, tres detectados, dos sobrevivientes,
+**60 %** y 22.422 s dentro del sandbox. `noCritico`, el POM y la fuente original
+conservaron sus verificaciones; no se relajaron las aserciones existentes.
+
+| Criterio de #180 | Evidencia actual |
+|---|---|
+| Comando limitado a clase y métodos críticos aprobados | test_pit_comando; selección común; test Docker comprueba clase y método de cada mutante. |
+| XML a ResultadoMutacion y fórmula común | test_pit_interpretacion y XML real versionado; puntuacion compartida. |
+| Tiempo de mutación y memoria Java | test_pit_ejecucion y nueva regresión de límites al profundizar. |
+| Configuración PIT propia intacta | test_pit_preparacion comprueba POM directo, perfiles y scripts Gradle; no añade ejecución Gradle. |
+| Reutilización por huella de método y pruebas | test_java_huellas y test_pit_cache_resultados; invalidación al cambiar código o prueba. |
+| Score y sobrevivientes en results.json e informe | test_pit_cache_resultados comprueba persistencia, vista y exportación PDF. |
+| Pruebas sin Docker, XML grabado y ejecución real marcada docker | 337 aprobadas sin Docker y test_pit_docker aprobado con generación/oráculo de #184. |
+
+Registro local de la regresión general: `.qagent/validacion-180-actualizada.txt`,
+ignorado por Git. Resultado definitivo: **2738 aprobadas, 32 deseleccionadas,
+ningún fallo**, en 195.69 s; lint y formato aprobados. Se ejecutó con Python 3.10.10,
+IA simulada, `GIT_CEILING_DIRECTORIES` apuntando a TEMP y selección
+`not docker and not red`. Los dos fallos históricos ya no aparecen tras integrar #214.
 
 ## Límites de esta entrega y dependencias
 
@@ -116,9 +166,9 @@ La ejecución admite proyectos Maven de un módulo sin POM padre, con fuente en
 Gradle, herencia Maven, proyectos multimódulo, clases anidadas ni sobrecargas;
 los rechaza con motivo explícito. No muta endpoints Spring.
 
-`JavaAdapter.completo` sigue siendo `False`: no se declara operativa la generación
-y revisión JUnit de extremo a extremo. La conexión final desde una corrida Java
-de la aplicación requiere completar los prerrequisitos de EP-12a, especialmente
-#184. No se debe cerrar #180 como soporte integral en la aplicación mientras esa
-dependencia y la revisión del equipo no estén resueltas. El cambio deja probados
-PIT real y la conexión de su resultado con los componentes comunes.
+`JavaAdapter.completo` sigue siendo `False`: #184 ya está integrada y su generación
+y oráculo se usan en la prueba PIT real. La ejecución JUnit/JaCoCo y la revisión
+del flujo Java completo desde la aplicación corresponden a #182, que se revisará
+por separado. Esta actualización no incorpora su rama ni declara completada
+EP-12a. El PR #213 conserva el alcance de mutación y queda sujeto a la revisión
+del equipo y al orden de dependencias de la épica.

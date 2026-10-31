@@ -38,6 +38,35 @@ public class CriticosTest {
 """
 
 
+def test_regresion_profunda_usa_limites_del_lenguaje(tmp_path, monkeypatch) -> None:
+    """El perfil de pruebas guardadas no entrega memoria Python al adaptador Java."""
+    from qagent.config.carga import cargar_configuracion
+    from qagent.orchestrator import regresion
+
+    fuente = tmp_path / MODULO
+    fuente.parent.mkdir(parents=True)
+    fuente.write_text(FUENTE, encoding="utf-8")
+    configuracion = cargar_configuracion(simulado=True).config
+    assert configuracion is not None
+    vistos = []
+    monkeypatch.setattr(
+        regresion, "mutar_modulo", lambda *a, **kw: vistos.append(kw["limites"])
+    )
+    regresion._mutar_criticas(
+        tmp_path,
+        None,
+        [_corrida(tmp_path)],
+        configuracion,
+        None,
+        AlmacenProyecto(tmp_path),
+        None,
+        {},
+        lambda *a: None,
+    )
+    assert vistos == [configuracion.limites_sandbox("java")]
+    assert vistos[0].memoria == "4g"
+
+
 @pytest.fixture
 def preparado(tmp_path: Path, monkeypatch):
     """Sustituye solo la ejecución Docker; conserva despacho, lector y caché reales."""

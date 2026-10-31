@@ -1,10 +1,13 @@
-"""Prototipo de análisis Java con tree-sitter (EN-19, ADR-009).
+"""Análisis Java con tree-sitter y generación JUnit 5 con guardrail (#132, #181, #184).
 
 Solo lee fuentes UTF-8: no importa, compila ni ejecuta el proyecto analizado.
-Extrae clases, métodos públicos y Javadoc literal al formato de EN-17. Excluye
-src/test, carpetas generadas y enlaces simbólicos. No resuelve tipos, llamadas,
-endpoints Spring ni sobrecargas. Lee informes JUnit XML y ofrece mutación PIT
-acotada en Docker (#180); la generación/revisión JUnit completa sigue pendiente.
+Extrae clases, constructores, métodos públicos, Javadoc y decisiones (#181). Excluye
+src/test, carpetas generadas y enlaces simbólicos. Resuelve llamadas explícitas
+del proyecto sin inferir tipos ni despacho dinámico. No extrae
+endpoints Spring ni sobrecargas. La generación usa el contrato del Planner y el
+guardrail valida aserciones sin ejecutar Java ni consultar IA. Lee informes JUnit
+XML y ofrece mutación PIT acotada en Docker (#180). La ejecución automática con
+el sandbox y cobertura pertenece a #182.
 """
 
 from __future__ import annotations
@@ -20,9 +23,14 @@ from qagent.analysis.analyzer import calcular_huella
 from qagent.lenguajes.base import (
     AdaptadorEnDesarrollo,
     ComandoSandbox,
+    ComparacionAserciones,
     EntornoSandbox,
     Estructura,
+    ReglasPlanificacion,
+    ReglasRevision,
 )
+from qagent.lenguajes.java_estructura import contar_decisiones, desglosar_javadoc
+from qagent.lenguajes.java_llamadas import agregar_llamadas
 from qagent.lenguajes.registro import listar_archivos
 from qagent.lenguajes.treesitter import extraer_errores_sintaxis, obtener_parser
 from qagent.sandbox.ejecucion import ARCHIVO_JUNIT, DIR_SALIDA, DIR_TESTS
@@ -90,8 +98,9 @@ def _parametros(nodo: Node) -> list[dict[str, Any]]:
 def _declaraciones(raiz: Node) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     """Extrae clases y métodos públicos, sin entrar en cuerpos de métodos.
 
-    Los constructores no son objetivos. Rechaza nombres de métodos duplicados
-    por sobrecarga para evitar objetivos ambiguos en el contrato Clase.metodo.
+    Los constructores se describen dentro de su clase, sin ser objetivos.
+    Rechaza nombres de métodos duplicados por sobrecarga para evitar objetivos
+    ambiguos en el contrato Clase.metodo.
     """
     clases: list[dict[str, Any]] = []
     funciones: list[dict[str, Any]] = []
@@ -113,6 +122,8 @@ def _declaraciones(raiz: Node) -> tuple[list[dict[str, Any]], list[dict[str, Any
                     "tipo": nodo.type,
                     "linea": nodo.start_point.row + 1,
                     "docstring": _javadoc(nodo),
+                    "javadoc": desglosar_javadoc(_javadoc(nodo)),
+                    "constructores": _constructores(nodo, nombre),
                 }
             )
             cuerpo = nodo.child_by_field_name("body")
@@ -155,6 +166,7 @@ def _declaraciones(raiz: Node) -> tuple[list[dict[str, Any]], list[dict[str, Any
                     .strip()
                     .rstrip(";")
                 )
+                ramas = contar_decisiones(metodo)
                 funciones.append(
                     {
                         "nombre": objetivo,
@@ -164,6 +176,10 @@ def _declaraciones(raiz: Node) -> tuple[list[dict[str, Any]], list[dict[str, Any
                         "parametros": parametros,
                         "retorno": retorno,
                         "docstring": _javadoc(metodo),
+                        "javadoc": desglosar_javadoc(_javadoc(metodo)),
+                        "ramas": ramas,
+                        "critical": ramas > 0,
+                        "es_static": "static" in tokens,
                         "tipada": retorno is not None
                         and all(p["tipo"] for p in parametros),
                         "es_async": False,
@@ -172,6 +188,51 @@ def _declaraciones(raiz: Node) -> tuple[list[dict[str, Any]], list[dict[str, Any
 
     visitar(raiz)
     return clases, funciones
+
+
+def _constructores(clase: Node, nombre: str) -> list[dict[str, Any]]:
+    """Describe constructores explícitos de la clase, con visibilidad y Javadoc.
+
+    No inventa el constructor implícito ni convierte constructores privados en
+    objetivos. Los constructores sobrecargados se distinguen por su firma.
+    """
+    cuerpo = clase.child_by_field_name("body")
+    if cuerpo is None:
+        return []
+    constructores = []
+    for nodo in cuerpo.named_children:
+        if nodo.type not in {
+            "constructor_declaration",
+            "compact_constructor_declaration",
+        }:
+            continue
+        bloque = nodo.child_by_field_name("body")
+        modificadores = next(
+            (h for h in nodo.named_children if h.type == "modifiers"), None
+        )
+        tokens = (
+            {h.type for h in modificadores.children}
+            if modificadores is not None
+            else set()
+        )
+        visibilidad = next(
+            (v for v in ("public", "protected", "private") if v in tokens), "package"
+        )
+        parametros = nodo if nodo.type == "constructor_declaration" else clase
+        fin = bloque.start_byte if bloque is not None else nodo.end_byte
+        constructores.append(
+            {
+                "nombre": nombre,
+                "linea": nodo.start_point.row + 1,
+                "firma": nodo.text[: fin - nodo.start_byte].decode("utf-8").strip(),
+                "parametros": _parametros(parametros),
+                "visibilidad": visibilidad,
+                "docstring": _javadoc(nodo),
+                "javadoc": desglosar_javadoc(_javadoc(nodo)),
+                "ramas": contar_decisiones(nodo),
+            }
+        )
+    return constructores
 
 
 class JavaAdapter(AdaptadorEnDesarrollo):
@@ -248,6 +309,84 @@ class JavaAdapter(AdaptadorEnDesarrollo):
 
         return ejecutar_pit(*args, **opciones)
 
+    def prompt_generator(
+        self,
+        contrato: dict[str, Any],
+        intento: int,
+        feedback: str | None,
+        ruta_proyecto: Path | None,
+    ) -> str:
+        """Prompt JUnit 5 desde contrato y contexto estático, sin ejecutar Java (#184)."""
+        from qagent.lenguajes.java_generacion import prompt_java
+
+        return prompt_java(contrato, intento, feedback, ruta_proyecto)
+
+    def archivo_de_prueba(self, objetivo: str, *, paquete: str = "") -> str:
+        """Ruta src/test/java/paquete/ClaseTest.java; el paquete es explícito (#184)."""
+        from qagent.lenguajes.java_generacion import archivo_java
+
+        return archivo_java(objetivo, paquete)
+
+    def archivo_para_contrato(
+        self, contrato: dict[str, Any], ruta_proyecto: Path | None
+    ) -> str:
+        """Obtiene el paquete de la fuente real, sin suponer que coincide con su ruta."""
+        from qagent.lenguajes.java_generacion import contexto_java
+
+        return contexto_java(contrato, ruta_proyecto)["archivo"]
+
+    def reglas_revision(self) -> ReglasRevision:
+        """Sintaxis y oráculo estáticos Java; el runner sigue perteneciendo a #182."""
+        from qagent.lenguajes.java_generacion import ReglasGeneracionJava
+
+        return ReglasGeneracionJava()
+
+    def comparar_aserciones(
+        self, original: str, reparado: str
+    ) -> ComparacionAserciones:
+        """Detecta cambios de aserciones por AST antes de ejecutar un intento (#184)."""
+        from qagent.lenguajes.java_laundering import comparar_java
+
+        return comparar_java(original, reparado)
+
+    def validar_oraculo(
+        self, contrato: dict[str, Any], codigo: str, ruta_proyecto: Path
+    ) -> str | None:
+        """Contrasta casos, paquete y mocks con el contrato y contexto real de la fuente."""
+        from qagent.lenguajes.java_generacion import contexto_java
+        from qagent.lenguajes.java_oraculo import validar_java
+
+        try:
+            contexto = contexto_java(contrato, ruta_proyecto)
+        except (OSError, UnicodeError, ValueError) as error:
+            return "Oráculo inválido: no se pudo verificar el contexto Java: " + str(
+                error
+            )
+        return validar_java(contrato, codigo, contexto)
+
+    def reglas_planificacion(self) -> ReglasPlanificacion:
+        """Reglas Java/JUnit 5 para los prompts y filtros del Planner compartido (#181)."""
+        from qagent.lenguajes.java_planificacion import REGLAS_PLANIFICACION_JAVA
+
+        return REGLAS_PLANIFICACION_JAVA
+
+    def objetivos(self, estructura: Estructura) -> list[dict[str, Any]]:
+        """Lista métodos públicos del análisis y su criticidad por decisiones.
+
+        Conserva las claves modulo, tipo y objetivo de la interfaz común y añade
+        critical. Un constructor se registra como información de su clase.
+        """
+        return [
+            {
+                "modulo": m["ruta"],
+                "tipo": "funcion",
+                "objetivo": f["nombre"],
+                "critical": f["ramas"] > 0,
+            }
+            for m in estructura.get("modulos", [])
+            for f in m.get("funciones", [])
+        ]
+
     def entorno_sandbox(self) -> EntornoSandbox:
         """Imagen ``qagent-sandbox:java`` (#169) y las carpetas comunes del sandbox."""
         return EntornoSandbox(
@@ -296,7 +435,9 @@ class JavaAdapter(AdaptadorEnDesarrollo):
         """Lee fuentes Java y devuelve lenguaje, módulos, errores y resumen.
 
         Cada módulo conserva ruta POSIX, huella SHA-256, clases, funciones y
-        endpoints vacíos. docstring contiene Javadoc literal o None. Los archivos
+        endpoints vacíos. llama_a usa referencias ruta.java::Clase.metodo a
+        destinos del proyecto resueltos sin inferencia de tipos. docstring
+        contiene Javadoc literal o None. Los archivos
         inválidos se reportan en errores y no detienen el análisis de los demás.
 
         Raises:
@@ -306,6 +447,7 @@ class JavaAdapter(AdaptadorEnDesarrollo):
         modulos = []
         errores = []
         parser = obtener_parser("java")
+        arboles: dict[str, Node] = {}
         for relativa in listar_archivos(carpeta):
             partes = Path(relativa).parts
             if not self.es_fuente(relativa) or "test" in partes:
@@ -342,6 +484,8 @@ class JavaAdapter(AdaptadorEnDesarrollo):
                     "endpoints": [],
                 }
             )
+            arboles[relativa] = arbol.root_node
+        agregar_llamadas(modulos, arboles)
         funciones = [f for m in modulos for f in m["funciones"]]
         return {
             "lenguaje": self.lenguaje,

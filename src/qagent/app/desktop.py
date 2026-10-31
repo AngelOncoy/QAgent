@@ -550,6 +550,126 @@ class DesktopAPI:
             bitacora.registro.warning("No se leyeron las pruebas guardadas: %s", error)
             return []
 
+    def verificar_correccion(self, ruta: str, run_origen_id: str) -> dict:
+        """Inicia desde Historial una verificación determinista de la corrida elegida."""
+        from qagent.almacenamiento import ErrorAlmacen
+        from qagent.config import carga as config_carga
+        from qagent.config import verificar_entorno
+        from qagent.orchestrator.verificacion_correccion import (
+            inspeccionar_verificacion,
+        )
+        from qagent.sandbox import DockerNoDisponible, verificar_docker
+
+        if self._corrida is not None and self._corrida.is_alive():
+            return {
+                "status": "en_curso",
+                "mensaje": "Ya hay una corrida en curso: espera a que termine.",
+            }
+        try:
+            inspeccion = inspeccionar_verificacion(ruta, run_origen_id)
+        except (OSError, ErrorAlmacen, ValueError) as error:
+            return {"status": "no_verificable", "mensaje": str(error)}
+
+        if inspeccion["ejecutables"]:
+            try:
+                verificar_docker()
+            except DockerNoDisponible as error:
+                return {"status": "docker_no_disponible", "mensaje": str(error)}
+
+        entorno = verificar_entorno(
+            config_carga.RUTA_CONFIG,
+            config_carga.RUTA_ENV,
+            simulado=True,
+            ruta_local=config_carga.RUTA_CONFIG_LOCAL,
+        )
+        if not entorno["listo"]:
+            return {
+                "status": "blocked",
+                "motivo": entorno["mensaje"],
+                "problemas": entorno["problemas"],
+            }
+
+        self._cancelar_corrida.clear()
+        run_id = _registrar_run(ruta, usa_docker=bool(inspeccion["ejecutables"]))
+        if run_id is None:
+            return {
+                "status": "blocked",
+                "motivo": "No se pudo registrar la corrida de verificación.",
+            }
+        bloqueo = _tomar_bloqueo(ruta, run_id)
+        self._corrida = threading.Thread(
+            target=self._correr_verificacion_y_liberar,
+            args=(ruta, run_origen_id, run_id, bloqueo),
+            name="qagent-verificar-correccion",
+            daemon=True,
+        )
+        self._corrida.start()
+        self.emit_event(
+            "log",
+            {
+                "message": (
+                    f"Verificación de corrección iniciada desde {run_origen_id}; "
+                    "se reutilizan las pruebas originales y no se usa IA"
+                )
+            },
+        )
+        return {
+            "status": "started",
+            "folder": ruta,
+            "run_origen_id": run_origen_id,
+            "run_id": run_id,
+            "modo": "real",
+            **inspeccion,
+        }
+
+    def _correr_verificacion_y_liberar(
+        self,
+        ruta: str,
+        run_origen_id: str,
+        run_id: str,
+        bloqueo: BloqueoCorrida | None,
+    ) -> None:
+        """Ejecuta la verificación en segundo plano y libera su bloqueo."""
+        try:
+            from qagent.config import carga as config_carga
+            from qagent.config import cargar_configuracion
+            from qagent.orchestrator.corrida import ResumenCorrida
+            from qagent.orchestrator.verificacion_correccion import (
+                ejecutar_verificacion_correccion,
+            )
+
+            carga = cargar_configuracion(
+                simulado=True, ruta_local=config_carga.RUTA_CONFIG_LOCAL
+            )
+            if carga.config is None:
+                resumen = ResumenCorrida(
+                    run_id,
+                    "fallo_controlado",
+                    "config.toml no es válido: " + "; ".join(carga.avisos),
+                    0,
+                )
+            else:
+                resumen = ejecutar_verificacion_correccion(
+                    ruta,
+                    run_origen_id,
+                    carga.config,
+                    al_evento=self._reenviar_evento,
+                    run_id=run_id,
+                    cancelado=self._cancelar_corrida.is_set,
+                )
+            try:
+                recientes.registrar_corrida(ruta)
+            except OSError as error:
+                bitacora.registro.warning(
+                    "No se pudo registrar la última corrida en recientes: %s", error
+                )
+            datos = resumen.a_dict()
+            datos["run_origen_id"] = run_origen_id
+            self.emit_event("corrida_fin", datos)
+        finally:
+            if bloqueo is not None:
+                bloqueo.liberar()
+
     def descargar_specs_zip(self, ruta: str, modulo: str | None = None) -> dict:
         """Crea un ZIP y abre el diálogo nativo para elegir dónde guardarlo."""
         from qagent.almacenamiento import ErrorAlmacen

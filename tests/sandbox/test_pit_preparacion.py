@@ -172,3 +172,61 @@ def test_no_admite_entidades_xml(proyecto: tuple[Path, Path]) -> None:
     )
     with pytest.raises(ValueError, match="entidades"):
         preparar_pit(copia, pruebas, MODULO, ["Banco.sumar"])
+
+
+def test_conserva_pruebas_aprobadas_con_misma_clase(
+    proyecto: tuple[Path, Path],
+) -> None:
+    """Dos artefactos por método de #184 no colisionan al preparar PIT."""
+    from qagent.lenguajes import JavaAdapter
+
+    copia, pruebas = proyecto
+    original = (pruebas / "test_hash.py").read_text(encoding="utf-8")
+    segunda = original.replace("void suma()", "void otraSuma()").replace(
+        "assertEquals(3, Banco.sumar(1,2))", "assertEquals(5, Banco.sumar(2,3))"
+    )
+    (pruebas / "test_segunda.py").write_text(segunda, encoding="utf-8")
+    preparar_pit(copia, pruebas, MODULO, ["Banco.sumar"])
+    preparados = sorted((copia / ".qagent-pit-tests/ejemplo").glob("*.java"))
+    assert len(preparados) == 2
+    assert preparados[0].stem != preparados[1].stem
+    for anterior, archivo in zip((original, segunda), preparados):
+        contenido = archivo.read_text(encoding="utf-8")
+        assert f"class {archivo.stem} " in contenido
+        assert not JavaAdapter().comparar_aserciones(anterior, contenido).es_laundering
+    assert (pruebas / "test_hash.py").read_text(encoding="utf-8") == original
+    assert (pruebas / "test_segunda.py").read_text(encoding="utf-8") == segunda
+
+
+def test_aislamiento_no_reemplaza_comentarios_ni_cadenas(
+    proyecto: tuple[Path, Path],
+) -> None:
+    """El renombrado por AST cambia solo la declaración, incluso con texto Unicode."""
+    copia, pruebas = proyecto
+    original = (pruebas / "test_hash.py").read_text(encoding="utf-8")
+    segunda = original.replace(
+        "public class", "/* á BancoTest */ public class"
+    ).replace(
+        "assertEquals(3, Banco.sumar(1,2))",
+        'assertEquals(3, Banco.sumar(1,2), "BancoTest")',
+    )
+    (pruebas / "test_segunda.py").write_text(segunda, encoding="utf-8")
+    preparar_pit(copia, pruebas, MODULO, ["Banco.sumar"])
+    cambiado = copia / ".qagent-pit-tests/ejemplo/BancoTestQAgent2Test.java"
+    assert cambiado.read_text(encoding="utf-8") == segunda.replace(
+        "class BancoTest ", "class BancoTestQAgent2Test "
+    )
+
+
+def test_rechaza_renombrado_con_referencias_a_la_clase(
+    proyecto: tuple[Path, Path],
+) -> None:
+    """Un tipo que depende de su propio nombre no se transforma por conjetura."""
+    copia, pruebas = proyecto
+    original = (pruebas / "test_hash.py").read_text(encoding="utf-8")
+    segunda = original.replace("@Test void", "BancoTest referencia; @Test void")
+    (pruebas / "test_segunda.py").write_text(segunda, encoding="utf-8")
+    with pytest.raises(ValueError, match="referencia su propio nombre"):
+        preparar_pit(copia, pruebas, MODULO, ["Banco.sumar"])
+    assert not (copia / ".qagent-pit.xml").exists()
+    assert not (copia / ".qagent-pit-tests").exists()

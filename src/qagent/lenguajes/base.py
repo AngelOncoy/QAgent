@@ -383,10 +383,20 @@ class LanguageAdapter(ABC):
 
     @abstractmethod
     def archivo_de_prueba(self, objetivo: str) -> str:
-        """Nombre del archivo, sin carpetas, donde se escribe el test de ``objetivo``.
+        """Nombre o ruta relativa del test de ``objetivo`` dentro de su carpeta aislada.
 
         Es el valor de ``archivo`` en ``generated_test.v2``.
         """
+
+    def archivo_para_contrato(
+        self, contrato: dict[str, Any], ruta_proyecto: Path | None
+    ) -> str | None:
+        """Ruta calculada con contexto estático; None conserva el nombre predeterminado.
+
+        Permite respetar paquetes sin añadir reglas de un lenguaje al Generator.
+        Los adaptadores existentes conservan su comportamiento y sus contratos.
+        """
+        return None
 
     @abstractmethod
     def comando_mutacion(self, modulo: str, funciones: list[str]) -> ComandoSandbox:
@@ -416,6 +426,16 @@ class LanguageAdapter(ABC):
     def reglas_revision(self) -> ReglasRevision:
         """Sintaxis, oráculo y clasificación de la salida para el Reviewer."""
         raise NoImplementado(self.lenguaje, "reglas_revision")
+
+    def validar_oraculo(
+        self, contrato: dict[str, Any], codigo: str, ruta_proyecto: Path
+    ) -> str | None:
+        """Valida el oráculo con contexto opcional del proyecto, sin ejecutar código.
+
+        Por defecto conserva las reglas existentes. Un lenguaje puede contrastar
+        también su paquete, clase y dependencias con el análisis de la fuente.
+        """
+        return self.reglas_revision().validar_oraculo(contrato, codigo)
 
     def ejecutar_mutacion(self, *args: Any, **opciones: Any) -> Any:
         """Muta las funciones críticas en el sandbox (firma de ``sandbox.ejecutar_mutacion``).

@@ -22,7 +22,10 @@ registrarComponente('historial/historial', `<!-- ===== HISTORIAL (por proyecto) 
         <h1 class="ini-titulo" id="histTitulo">Historial</h1>
         <p class="np-subtitulo" id="histSub"></p>
       </div>
-      <button type="button" class="ini-btn ini-btn-principal hide" id="histAbrir" onclick="abrirCorridaSeleccionada()">${ICO_DOCUMENTO}Abrir resultados seleccionados</button>
+      <div class="hst-acciones-corrida">
+        <button type="button" class="ini-btn hide" id="histVerificar" onclick="verificarCorreccionSeleccionada()">${ICO_COMPARAR}Verificar corrección</button>
+        <button type="button" class="ini-btn ini-btn-principal hide" id="histAbrir" onclick="abrirCorridaSeleccionada()">${ICO_DOCUMENTO}Abrir resultados seleccionados</button>
+      </div>
     </div>
 
     <div class="hst-filtros" id="histFiltros">
@@ -30,6 +33,7 @@ registrarComponente('historial/historial', `<!-- ===== HISTORIAL (por proyecto) 
         <option value="0">Todas las fechas</option><option value="7">Últimos 7 días</option><option value="30">Últimos 30 días</option></select>${ICO_DESPLEGAR}</div>
       <div class="np-campo hst-select">${ICO_FILTRO}<select class="np-input" id="histTipo" aria-label="Tipo de corrida" onchange="renderHistoryReal(historialDatos)"></select>${ICO_DESPLEGAR}</div>
     </div>
+    <p class="np-meta hide" id="histVerificacionEstado" role="status" aria-live="polite"></p>
 
     <!-- Estado vacío -->
     <div class="hst-vacio-bloque hide" id="histVacio">
@@ -68,6 +72,7 @@ registrarComponente('historial/historial', `<!-- ===== HISTORIAL (por proyecto) 
 /* ---------------- Estado de la pantalla ---------------- */
 let historialDatos = null;   // última respuesta de obtener_historial() (o la demostración)
 let histSel = null;          // run_id de la corrida elegida en la tabla
+let histVerificando = false; // evita dobles inicios mientras responde el backend
 
 // Demostración (sin pywebview): mismo formato que construir_historial().
 const HISTORIAL_DEMO = {
@@ -129,6 +134,7 @@ function renderHistoryReal(datos){
   $('histVacio').classList.toggle('hide', !vacio);
   $('histDatos').classList.toggle('hide', vacio);
   $('histAbrir').classList.toggle('hide', vacio);
+  $('histVerificar').classList.toggle('hide', vacio || Boolean(datos.demo));
   $('histMiga').textContent = 'Historial de ' + proyecto;
   $('histTitulo').textContent = vacio ? 'Historial de ' + proyecto : 'El trabajo anterior, a mano';
   $('histSub').textContent = vacio ? 'Aquí se conservarán tus resultados y pruebas después de cada corrida.'
@@ -151,7 +157,7 @@ function renderHistoryReal(datos){
   $('histSinFiltro').classList.toggle('hide', visibles.length > 0);
   $('histTable').innerHTML = visibles.map(h => {
     const nomPerfil = h.perfil_nombre || h.perfil || '—';   // el nombre sale del backend (#70)
-    const sinIA = h.perfil === 'reg' || h.perfil === 'reg_deep';
+    const sinIA = h.perfil === 'reg' || h.perfil === 'reg_deep' || h.perfil === 'verify_fix';
     const abrir = datos.demo ? "go('exec')" : `cargarEjecucionReal('${escHtml(h.run_id)}')`;
     const tokens = sinIA ? '— (sin IA)' : numero(h.total_tokens);
     const haySeleccion = h.contadores_disponibles !== false && h.total_seleccionados !== null && h.total_seleccionados !== undefined;
@@ -220,6 +226,53 @@ function chipResultadoHistorial(h){
 function seleccionarCorridaHistorial(runId){
   histSel = runId;
   renderHistoryReal(historialDatos);
+}
+async function verificarCorreccionSeleccionada(){
+  if(!histSel || histVerificando) return;
+  const api = window.pywebview && window.pywebview.api;
+  if(!(api && api.verificar_correccion)){
+    toast('Verificar corrección está disponible en la aplicación de escritorio.');
+    return;
+  }
+  const fila = ((historialDatos && historialDatos.corridas) || []).find(h => h.run_id === histSel);
+  if(!fila || !tieneResultados(fila)){
+    toastError('La corrida elegida no tiene resultados verificables.');
+    return;
+  }
+  if(!window.confirm('Se volverán a ejecutar exactamente las pruebas guardadas de esta corrida sobre el código actual. No se regenerarán pruebas ni se utilizará IA. ¿Continuar?')) return;
+  const boton = $('histVerificar'), estado = $('histVerificacionEstado');
+  histVerificando = true;
+  boton.disabled = true;
+  estado.classList.remove('hide');
+  estado.textContent = `Preparando la verificación de ${histSel} sin IA…`;
+  // Activa el consumidor antes de iniciar el hilo: una verificación corta puede
+  // emitir corrida_fin antes de que la promesa de pywebview devuelva (issue 194).
+  iniciarMonitorReal();
+  try {
+    const respuesta = await api.verificar_correccion(projectPath, histSel);
+    if(!respuesta || respuesta.status !== 'started'){
+      const mensaje = (respuesta && (respuesta.mensaje || respuesta.motivo)) || 'No se pudo iniciar la verificación.';
+      estado.textContent = mensaje;
+      toastError(escHtml(mensaje));
+      modoReal = false;
+      monitorStarted = false;
+      go('history');
+      histVerificando = false;
+      boton.disabled = false;
+      return;
+    }
+    estado.textContent = `Verificación ${respuesta.run_id} iniciada desde ${respuesta.run_origen_id}: ${respuesta.ejecutables} pruebas comparables, ${respuesta.no_comparables} no comparables. Cero IA.`;
+    toast(`Verificación iniciada sin IA: <span class="mono">${escHtml(respuesta.run_id)}</span>`);
+  } catch(error) {
+    const mensaje = 'No se pudo iniciar la verificación: ' + String(error);
+    estado.textContent = mensaje;
+    toastError(escHtml(mensaje));
+    modoReal = false;
+    monitorStarted = false;
+    go('history');
+    histVerificando = false;
+    boton.disabled = false;
+  }
 }
 function abrirCorridaSeleccionada(){
   if(!histSel) return;
