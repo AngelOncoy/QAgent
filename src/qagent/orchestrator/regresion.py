@@ -29,7 +29,7 @@ from qagent.orchestrator.tiempos import (
     sumar_etapa,
 )
 from qagent.proyectos.proyecto_local import detectar_rama
-from qagent.sandbox import LIMITES_POR_DEFECTO, clasificar_resultado, ejecutar_pruebas
+from qagent.sandbox import clasificar_resultado, ejecutar_pruebas
 from qagent.sandbox.archivos_prueba import ruta_de_prueba
 from qagent.sandbox.ejecucion import ejecutar_comando_pruebas
 from qagent.storage import escribir_corrida
@@ -39,7 +39,7 @@ from qagent.storage.registro import PERFIL_REGRESION_PROFUNDA
 def huellas_de_objetivos(raiz: str | Path) -> dict[tuple[str, str], str]:
     """Calcula la huella de cada función y endpoint sin importar código del usuario.
 
-    Recorre los archivos fuente de los lenguajes con adaptador completo
+    Recorre los archivos fuente de los lenguajes con huellas disponibles
     (``es_fuente``, #168) y pide a su adaptador la huella de cada objetivo
     (``huellas_de_archivo``). Las specs guardadas con la huella anterior
     (``ast.dump``) se migran aquí mismo si su módulo no cambió (ver
@@ -48,7 +48,11 @@ def huellas_de_objetivos(raiz: str | Path) -> dict[tuple[str, str], str]:
     raiz = Path(raiz)
     resultado: dict[tuple[str, str], str] = {}
     ignorados = {"tests", "venv", "node_modules", "__pycache__"}
-    adaptadores = _adaptadores_completos()
+    adaptadores = [
+        a
+        for nombre in REGISTRO.lenguajes
+        if (a := REGISTRO.adaptador_para(nombre)).completo or a.huellas_disponibles
+    ]
     for ruta in sorted(raiz.rglob("*")):
         adaptador = _adaptador_de_archivo(adaptadores, ruta.name)
         if adaptador is None or not ruta.is_file():
@@ -690,12 +694,15 @@ def _mutar_criticas(
     pruebas usadas no cambiaron, y guarda los nuevos.
     """
     from qagent.config.carga import Mutacion
+    from qagent.orchestrator.corrida import limites_del_lenguaje
 
     tiempo = getattr(configuracion, "mutacion", Mutacion()).tiempo_maximo_por_funcion_s
     por_modulo: dict[str, list[ResultadoObjetivo]] = {}
     for resultado in resultados:
         por_modulo.setdefault(resultado.modulo, []).extend(resultado.objetivos)
     for modulo, objetivos in por_modulo.items():
+        contrato = next((o.contrato for o in objetivos if o.contrato), None)
+        adaptador = adaptador_de_contrato(contrato)
         mutar_modulo(
             raiz,
             imagen,
@@ -708,7 +715,7 @@ def _mutar_criticas(
             run_id=run_id,
             huellas=huellas,
             con_endpoints=False,
-            limites=getattr(configuracion, "sandbox", LIMITES_POR_DEFECTO),
+            limites=limites_del_lenguaje(configuracion, adaptador.lenguaje),
         )
 
 

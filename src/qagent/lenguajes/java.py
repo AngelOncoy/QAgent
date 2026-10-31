@@ -6,7 +6,8 @@ src/test, carpetas generadas y enlaces simbólicos. Resuelve llamadas explícita
 del proyecto sin inferir tipos ni despacho dinámico. No extrae
 endpoints Spring ni sobrecargas. La generación usa el contrato del Planner y el
 guardrail valida aserciones sin ejecutar Java ni consultar IA. Lee informes JUnit
-XML y ejecuta Maven/JUnit/JaCoCo exclusivamente dentro del sandbox (#182).
+XML y ejecuta Maven/JUnit/JaCoCo y mutación PIT acotada exclusivamente dentro del
+sandbox (#182, #180).
 """
 
 from __future__ import annotations
@@ -14,7 +15,7 @@ from __future__ import annotations
 import os
 from collections.abc import Callable
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from tree_sitter import Node
 
@@ -22,6 +23,7 @@ from qagent.analysis.analyzer import calcular_huella
 from qagent.lenguajes.base import (
     AdaptadorEnDesarrollo,
     Clasificacion,
+    ComandoSandbox,
     ComparacionAserciones,
     EntornoSandbox,
     Estructura,
@@ -36,6 +38,9 @@ from qagent.lenguajes.registro import listar_archivos
 from qagent.lenguajes.treesitter import extraer_errores_sintaxis, obtener_parser
 from qagent.sandbox.ejecucion import ARCHIVO_JUNIT, DIR_SALIDA, DIR_TESTS
 from qagent.sandbox.modelos import IMAGEN_JAVA, ResultadoSandbox
+
+if TYPE_CHECKING:
+    from qagent.sandbox.mutacion import ResultadoMutacion
 
 #: Herramientas que trae ``qagent-sandbox:java`` (``sandbox/Dockerfile.java``).
 PAQUETES_JAVA = ("maven", "gradle", "junit-jupiter", "jacoco", "pitest")
@@ -242,6 +247,7 @@ class JavaAdapter(AdaptadorEnDesarrollo):
     frameworks_pruebas = ("junit5",)
     frameworks_app = ("spring",)
     huellas_disponibles = True
+    motor_mutacion = "PIT"
 
     def huellas_de_archivo(self, fuente: str, relativa: str) -> dict[str, str] | None:
         """Devuelve SHA-256 por método público, sin ejecutar Java (#180).
@@ -284,6 +290,27 @@ class JavaAdapter(AdaptadorEnDesarrollo):
         except (OSError, UnicodeError, ValueError):
             return []
         return [{"nombre": f["nombre"], "linea": f["linea"]} for f in funciones]
+
+    def comando_mutacion(self, modulo: str, funciones: list[str]) -> ComandoSandbox:
+        """Devuelve el comando PIT offline acotado a métodos críticos aprobados.
+
+        Solo construye argumentos; no ejecuta Java. Requiere la preparación del
+        POM temporal en la copia del sandbox. Lanza ValueError si la selección
+        está vacía o no corresponde a una clase de una ruta Java estándar.
+        """
+        from qagent.sandbox.pit_comando import comando_pit
+
+        return comando_pit(modulo, funciones)
+
+    def ejecutar_mutacion(self, *args: Any, **opciones: Any) -> ResultadoMutacion:
+        """Ejecuta PIT en Docker sobre la copia y devuelve ResultadoMutacion (#180).
+
+        Usa las pruebas críticas aprobadas y los límites Java del orquestador.
+        Las configuraciones propias se conservan y los fallos quedan sin score.
+        """
+        from qagent.sandbox.pit_ejecucion import ejecutar_pit
+
+        return ejecutar_pit(*args, **opciones)
 
     def comando_pruebas(self, modulo: str, framework: str | None = None) -> list[str]:
         """Etapas Maven/JUnit 5/JaCoCo offline, tras preparar la copia (#182)."""

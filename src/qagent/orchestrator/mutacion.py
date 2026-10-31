@@ -165,10 +165,12 @@ def mutar_modulo(
                 **opciones,
             ).funciones
         except Exception as error:  # noqa: BLE001 — mutmut nunca detiene la corrida
-            _registro.warning("mutmut falló en %s: %s", resultado.modulo, error)
+            _registro.warning("La mutación falló en %s: %s", resultado.modulo, error)
             por_funcion = {
                 nombre: MutacionFuncion(
-                    nombre, ERROR, mensaje=f"mutmut no pudo ejecutarse: {error}"
+                    nombre,
+                    ERROR,
+                    mensaje=f"El motor de mutación no pudo ejecutarse: {error}",
                 )
                 for nombre in [*nombres, *manejadores]
             }
@@ -184,7 +186,7 @@ def mutar_modulo(
             else MutacionFuncion(
                 objetivo.objetivo,
                 ERROR,
-                mensaje="mutmut no devolvió resultado para este objetivo.",
+                mensaje="El motor de mutación no devolvió resultado para este objetivo.",
             )
         )
         objetivo.mutacion = a_dict(mutacion)
@@ -237,6 +239,9 @@ def _manejadores_de(modulo: dict[str, Any]) -> list[dict[str, Any]]:
 
 
 def _texto_inicio(pendientes: list[ResultadoObjetivo], funciones: int) -> str:
+    """Describe objetivos y motor del adaptador sin suponer un lenguaje concreto."""
+    contrato = next((o.contrato for o in pendientes if o.contrato), None)
+    motor = adaptador_de_contrato(contrato).motor_mutacion if contrato else "mutmut"
     endpoints = len(pendientes) - funciones
     partes = []
     if funciones:
@@ -244,7 +249,7 @@ def _texto_inicio(pendientes: list[ResultadoObjetivo], funciones: int) -> str:
     if endpoints:
         partes.append(f"{endpoints} endpoint(s) prioritario(s)")
     return (
-        f"Mutation testing (mutmut) sobre {' y '.join(partes)}: "
+        f"Mutation testing ({motor}) sobre {' y '.join(partes)}: "
         f"{', '.join(o.objetivo for o in pendientes)} · 0 tokens"
     )
 

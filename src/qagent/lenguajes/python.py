@@ -58,6 +58,7 @@ class PythonAdapter(LanguageAdapter):
     marcadores = ("pyproject.toml", "setup.py", "setup.cfg", "requirements.txt")
     frameworks_pruebas = ("pytest",)
     frameworks_app = ("fastapi",)
+    motor_mutacion = "mutmut"
 
     def analizar(self, raiz: str | os.PathLike[str]) -> Estructura:
         """``analizar_proyecto(raiz)`` (tree-sitter) con ``lenguaje: "python"``."""

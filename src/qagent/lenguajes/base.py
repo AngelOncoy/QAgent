@@ -228,6 +228,10 @@ class LanguageAdapter(ABC):
     #: Si el adaptador implementa todo lo que necesita una corrida (#168). Los
     #: lenguajes en desarrollo solo detectan y la app avisa que aún no se soportan.
     completo: ClassVar[bool] = True
+    #: Permite calcular huellas estáticas aun cuando la generación no está completa.
+    huellas_disponibles: ClassVar[bool] = False
+    #: Nombre del motor que usa el adaptador, para los mensajes compartidos.
+    motor_mutacion: ClassVar[str] = "mutación"
     extensiones: ClassVar[tuple[str, ...]]
     marcadores: ClassVar[tuple[str, ...]] = ()
     frameworks_pruebas: ClassVar[tuple[str, ...]]
