@@ -63,7 +63,9 @@ contracts.normalizar_planner(contrato_v2)  # copia en v3 (python + pytest)
 | `validar_sintaxis(codigo)` | `list[str]` (vacía = válido) | Parsear, no ejecutar. |
 | `comparar_aserciones(original, reparado)` | objeto con `es_laundering` y `resumen` | Ver las 7 reglas de `qagent.analysis.laundering`. |
 | `leer_cobertura(dir_salida)` | `dict` en el formato JSON de coverage.py (`files`, `totals`) o `None` | Es el formato que lee el Reviewer. Cada lenguaje convierte el suyo (v8, JaCoCo) a este. |
-| `archivo_de_prueba(objetivo)` | nombre del archivo, sin carpetas | Valor de `archivo` en `generated_test.v2` (`test_generado.py`, `precios.test.ts`, `PreciosTest.java`). |
+| `archivo_de_prueba(objetivo)` | nombre o ruta relativa del archivo | Valor de `archivo` en `generated_test.v2`; Java admite `src/test/java/paquete/ClaseTest.java` (#184). Python y JS/TS conservan nombres sin carpetas. |
+| `archivo_para_contrato(contrato, ruta_proyecto)` | ruta o `None` | Java obtiene el paquete del AST de la fuente. `None` conserva el nombre predeterminado de los adaptadores existentes. |
+| `validar_oraculo(contrato, codigo, ruta_proyecto)` | motivo de rechazo o `None` | Por defecto delega a las reglas existentes. Java contrasta también paquete, clase e imports y limita Mockito a dependencias del constructor (#184). |
 | `comando_mutacion(modulo, funciones)` | `ComandoSandbox` (comando y variables de entorno) | Solo sobre funciones `critical: true`: mutmut, Stryker o PIT. |
 
 ### Lo que usan los agentes (#168)

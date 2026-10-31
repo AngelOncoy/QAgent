@@ -1,11 +1,12 @@
-"""Prototipo de análisis Java con tree-sitter (EN-19, ADR-009).
+"""Análisis Java con tree-sitter y generación JUnit 5 con guardrail (#132, #181, #184).
 
 Solo lee fuentes UTF-8: no importa, compila ni ejecuta el proyecto analizado.
 Extrae clases, constructores, métodos públicos, Javadoc y decisiones (#181). Excluye
 src/test, carpetas generadas y enlaces simbólicos. Resuelve llamadas explícitas
 del proyecto sin inferir tipos ni despacho dinámico. No extrae
-endpoints Spring ni sobrecargas. Lee informes JUnit XML; la ejecución automática
-y las demás extensiones siguen pendientes.
+endpoints Spring ni sobrecargas. La generación usa el contrato del Planner y el
+guardrail valida aserciones sin ejecutar Java ni consultar IA. Lee informes JUnit
+XML; la ejecución automática con el sandbox y cobertura pertenece a #182.
 """
 
 from __future__ import annotations
@@ -20,9 +21,11 @@ from tree_sitter import Node
 from qagent.analysis.analyzer import calcular_huella
 from qagent.lenguajes.base import (
     AdaptadorEnDesarrollo,
+    ComparacionAserciones,
     EntornoSandbox,
     Estructura,
     ReglasPlanificacion,
+    ReglasRevision,
 )
 from qagent.lenguajes.java_estructura import contar_decisiones, desglosar_javadoc
 from qagent.lenguajes.java_llamadas import agregar_llamadas
@@ -235,6 +238,61 @@ class JavaAdapter(AdaptadorEnDesarrollo):
     marcadores = ("pom.xml", "build.gradle", "build.gradle.kts")
     frameworks_pruebas = ("junit5",)
     frameworks_app = ("spring",)
+
+    def prompt_generator(
+        self,
+        contrato: dict[str, Any],
+        intento: int,
+        feedback: str | None,
+        ruta_proyecto: Path | None,
+    ) -> str:
+        """Prompt JUnit 5 desde contrato y contexto estático, sin ejecutar Java (#184)."""
+        from qagent.lenguajes.java_generacion import prompt_java
+
+        return prompt_java(contrato, intento, feedback, ruta_proyecto)
+
+    def archivo_de_prueba(self, objetivo: str, *, paquete: str = "") -> str:
+        """Ruta src/test/java/paquete/ClaseTest.java; el paquete es explícito (#184)."""
+        from qagent.lenguajes.java_generacion import archivo_java
+
+        return archivo_java(objetivo, paquete)
+
+    def archivo_para_contrato(
+        self, contrato: dict[str, Any], ruta_proyecto: Path | None
+    ) -> str:
+        """Obtiene el paquete de la fuente real, sin suponer que coincide con su ruta."""
+        from qagent.lenguajes.java_generacion import contexto_java
+
+        return contexto_java(contrato, ruta_proyecto)["archivo"]
+
+    def reglas_revision(self) -> ReglasRevision:
+        """Sintaxis y oráculo estáticos Java; el runner sigue perteneciendo a #182."""
+        from qagent.lenguajes.java_generacion import ReglasGeneracionJava
+
+        return ReglasGeneracionJava()
+
+    def comparar_aserciones(
+        self, original: str, reparado: str
+    ) -> ComparacionAserciones:
+        """Detecta cambios de aserciones por AST antes de ejecutar un intento (#184)."""
+        from qagent.lenguajes.java_laundering import comparar_java
+
+        return comparar_java(original, reparado)
+
+    def validar_oraculo(
+        self, contrato: dict[str, Any], codigo: str, ruta_proyecto: Path
+    ) -> str | None:
+        """Contrasta casos, paquete y mocks con el contrato y contexto real de la fuente."""
+        from qagent.lenguajes.java_generacion import contexto_java
+        from qagent.lenguajes.java_oraculo import validar_java
+
+        try:
+            contexto = contexto_java(contrato, ruta_proyecto)
+        except (OSError, UnicodeError, ValueError) as error:
+            return "Oráculo inválido: no se pudo verificar el contexto Java: " + str(
+                error
+            )
+        return validar_java(contrato, codigo, contexto)
 
     def reglas_planificacion(self) -> ReglasPlanificacion:
         """Reglas Java/JUnit 5 para los prompts y filtros del Planner compartido (#181)."""

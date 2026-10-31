@@ -87,7 +87,11 @@ class GeneratorAgent:
             )
 
         # generated_test.v2 (#168): con el lenguaje y el framework del contrato.
-        return contracts.generated_test_para(contrato, intento, codigo)
+        try:
+            archivo = adaptador.archivo_para_contrato(contrato, self.ruta_proyecto)
+        except ValueError as error:
+            raise ErrorRespuestaGenerator(str(error)) from error
+        return contracts.generated_test_para(contrato, intento, codigo, archivo)
 
 
 def _recortar(texto: str, maximo: int = LARGO_MAXIMO_FEEDBACK) -> str:

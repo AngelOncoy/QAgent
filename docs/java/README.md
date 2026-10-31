@@ -3,6 +3,9 @@
 > Esta página conserva la evidencia del prototipo #132. La ampliación de análisis
 > y la planificación de #181 están en [analisis-planificacion.md](analisis-planificacion.md):
 > constructores, etiquetas Javadoc, decisiones, llama_a y contratos Java/JUnit 5.
+> La generación JUnit y el guardrail de #184 se documentan en
+> [generacion-guardrail.md](generacion-guardrail.md). El resto de esta página
+> describe el estado histórico del prototipo, no la disponibilidad actual de cada extensión.
 
 ## Objetivo y estado
 
