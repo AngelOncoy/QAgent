@@ -370,8 +370,15 @@ class PlannerAgent:
         self.descartados = []
         self.avisos = []
         endpoints: dict[str, dict[str, Any]] = {}
+        self.omitidas = {}
         for endpoint in modulo.get("endpoints", []):
             objetivo = endpoint.get("objetivo")
+            motivo = self.adaptador.motivo_endpoint_no_planificable(endpoint)
+            if motivo:
+                if objetivo:
+                    self.omitidas[objetivo] = motivo
+                self.avisos.append(f"{objetivo or endpoint.get('manejador')}: {motivo}")
+                continue
             if not objetivo or not endpoint.get("resuelta", True):
                 self.avisos.append(
                     f"{objetivo or endpoint.get('manejador')}: ruta sin resolver, "
@@ -449,7 +456,7 @@ class PlannerAgent:
             "tipo": "endpoint",
             "objetivo": objetivo,
             "manejador": endpoint["manejador"],
-            "aplicacion": aplicacion,
+            "aplicacion": self.adaptador.aplicacion_de_endpoint(endpoint, aplicacion),
             "dependencias": self.reglas.dependencias_con_reemplazo(modulo, endpoint),
             "firma": endpoint.get("firma") or "()",
             "critical": bool(endpoint.get("critical", False)),

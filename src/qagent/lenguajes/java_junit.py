@@ -28,6 +28,9 @@ _COMPARACION_JAVA = re.compile(
     re.DOTALL,
 )
 _NO_LANZO = re.compile(r"Expected ([\w.$]+) to be thrown, but nothing was thrown\.")
+_ESTADO_MOCKMVC = re.compile(
+    r"(?:Response status|Status) expected:<(?P<esperado>[1-5]\d{2})> but was:<(?P<obtenido>[1-5]\d{2})>"
+)
 
 
 def interpretar_junit_java(xml: str) -> dict[str, Any]:
@@ -90,6 +93,11 @@ def interpretar_junit_java(xml: str) -> dict[str, Any]:
             if comparacion and mensaje.count("> but was: <") == 1:
                 caso.esperado = comparacion["esperado"]
                 caso.obtenido = comparacion["obtenido"]
+                caso.operador = "=="
+            estado_http = _ESTADO_MOCKMVC.fullmatch(mensaje)
+            if estado_http:
+                caso.esperado = estado_http["esperado"]
+                caso.obtenido = estado_http["obtenido"]
                 caso.operador = "=="
             no_lanzo = _NO_LANZO.fullmatch(mensaje)
             if no_lanzo:

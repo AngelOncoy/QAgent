@@ -232,6 +232,8 @@ class LanguageAdapter(ABC):
     huellas_disponibles: ClassVar[bool] = False
     #: Nombre del motor que usa el adaptador, para los mensajes compartidos.
     motor_mutacion: ClassVar[str] = "mutación"
+    #: Comprobación opcional de librerías del sistema propia del entorno Python.
+    comprobar_librerias_sistema: ClassVar[bool] = False
     extensiones: ClassVar[tuple[str, ...]]
     marcadores: ClassVar[tuple[str, ...]] = ()
     frameworks_pruebas: ClassVar[tuple[str, ...]]
@@ -303,6 +305,22 @@ class LanguageAdapter(ABC):
                         }
                     )
         return encontrados
+
+    def motivo_endpoint_no_planificable(self, endpoint: dict[str, Any]) -> str | None:
+        """Filtro estático opcional anterior al LLM; None conserva la planificación.
+
+        El adaptador puede explicar que falta una declaración verificable. El
+        Planner registra la omisión sin pedir a la IA que invente un resultado.
+        """
+        return None
+
+    def aplicacion_de_endpoint(self, endpoint: dict[str, Any], principal: str) -> str:
+        """Símbolo de aplicación por endpoint; por defecto usa el del módulo."""
+        return principal
+
+    def objetivo_de_cobertura(self, contrato: dict[str, Any]) -> str:
+        """Identidad del cuerpo probado: manejador de endpoint o función del contrato."""
+        return contrato.get("manejador") or contrato["objetivo"]
 
     # --- Puntos de extensión ----------------------------------------------------
 

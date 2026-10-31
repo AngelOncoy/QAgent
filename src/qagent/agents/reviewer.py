@@ -217,7 +217,7 @@ class ReviewerAgent:
         ).strip()
         # Cobertura de la función bajo prueba; si no se puede ubicar, la del módulo.
         cobertura = adaptador.cobertura_de_objetivo(
-            resultado.coverage, modulo, contrato["objetivo"]
+            resultado.coverage, modulo, adaptador.objetivo_de_cobertura(contrato)
         )
         if cobertura is NotImplemented:
             cobertura = self._cobertura_de_funcion(

@@ -456,12 +456,16 @@ def ejecutar_regresion(
                     },
                 )
                 continue
+            adaptador = adaptador_de_contrato(contrato)
             if imagen is None:
                 emitir("Preparando sandbox Docker sin red; no se llamara a ninguna IA")
-                imagen = (preparar_imagen or _preparar_imagen)(raiz)
+                imagen = (
+                    preparar_imagen(raiz)
+                    if preparar_imagen is not None
+                    else _preparar_imagen(raiz, adaptador)
+                )
             emitir(f"Reejecutando prueba aprobada: {objetivo} (sin IA)", modulo)
             t0 = reloj()
-            adaptador = adaptador_de_contrato(contrato)
             with tempfile.TemporaryDirectory(prefix="qagent-regresion-") as temporal:
                 archivo = (
                     adaptador.archivo_para_contrato(contrato, raiz) or ruta_test.name
@@ -522,7 +526,7 @@ def ejecutar_regresion(
                     )
                 texto = clasificacion.detalle or texto
             cobertura = adaptador.cobertura_de_objetivo(
-                salida.coverage, modulo, objetivo
+                salida.coverage, modulo, adaptador.objetivo_de_cobertura(contrato)
             )
             if cobertura is NotImplemented:
                 cobertura = _cobertura(salida.coverage)
@@ -727,7 +731,14 @@ def _lineas_de(raiz: Path, modulo: str) -> list[dict[str, Any]]:
     return adaptador.funciones_de_modulo(raiz, modulo)
 
 
-def _preparar_imagen(ruta: Path) -> str:
+def _preparar_imagen(ruta: Path, adaptador: LanguageAdapter | None = None) -> str:
+    """Prepara el mismo entorno del adaptador al repetir una prueba guardada."""
     from qagent.orchestrator.corrida import _preparar_imagen as preparar
 
-    return preparar(ruta)
+    if adaptador is None:
+        return preparar(ruta)
+    return preparar(
+        ruta,
+        imagen_base=adaptador.entorno_sandbox().imagen,
+        comprobar_librerias=adaptador.comprobar_librerias_sistema,
+    )

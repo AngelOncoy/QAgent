@@ -3,8 +3,8 @@
 Solo lee fuentes UTF-8: no importa, compila ni ejecuta el proyecto analizado.
 Extrae clases, constructores, métodos públicos, Javadoc y decisiones (#181). Excluye
 src/test, carpetas generadas y enlaces simbólicos. Resuelve llamadas explícitas
-del proyecto sin inferir tipos ni despacho dinámico. No extrae
-endpoints Spring ni sobrecargas. La generación usa el contrato del Planner y el
+del proyecto sin inferir tipos ni despacho dinámico. Extrae declaraciones de
+endpoints Spring (#183); no admite sobrecargas. La generación usa el contrato del Planner y el
 guardrail valida aserciones sin ejecutar Java ni consultar IA. Lee informes JUnit
 XML y ejecuta Maven/JUnit/JaCoCo y mutación PIT acotada exclusivamente dentro del
 sandbox (#182, #180).
@@ -34,6 +34,7 @@ from qagent.lenguajes.java_cobertura import leer_jacoco
 from qagent.lenguajes.java_estructura import contar_decisiones, desglosar_javadoc
 from qagent.lenguajes.java_junit import interpretar_junit_java
 from qagent.lenguajes.java_llamadas import agregar_llamadas
+from qagent.lenguajes.java_spring import extraer_endpoints
 from qagent.lenguajes.registro import listar_archivos
 from qagent.lenguajes.treesitter import extraer_errores_sintaxis, obtener_parser
 from qagent.sandbox.ejecucion import ARCHIVO_JUNIT, DIR_SALIDA, DIR_TESTS
@@ -238,7 +239,7 @@ def _constructores(clase: Node, nombre: str) -> list[dict[str, Any]]:
 
 
 class JavaAdapter(AdaptadorEnDesarrollo):
-    """Análisis, generación y ejecución de unitarias Java; Spring es independiente."""
+    """Análisis, generación y ejecución de unitarias Java y endpoints Spring MVC."""
 
     lenguaje = "java"
     completo = True
@@ -265,12 +266,21 @@ class JavaAdapter(AdaptadorEnDesarrollo):
             _, funciones = _declaraciones(arbol.root_node)
         except ValueError:
             return None
-        return {
+        huellas = {
             f["nombre"]: calcular_huella(
                 "java-pit-v1\n" + relativa + "\n" + f["nombre"] + "\n" + fuente
             )
             for f in funciones
         }
+        huellas.update(
+            {
+                e["objetivo"]: calcular_huella(
+                    "java-spring-v1\n" + relativa + "\n" + e["objetivo"] + "\n" + fuente
+                )
+                for e in extraer_endpoints(arbol.root_node, funciones)
+            }
+        )
+        return huellas
 
     def funciones_de_modulo(self, raiz: Path, modulo: str) -> list[dict[str, Any]]:
         """Devuelve métodos públicos y líneas para la mutación/regresión común.
@@ -362,7 +372,13 @@ class JavaAdapter(AdaptadorEnDesarrollo):
     ) -> ComparacionAserciones:
         """Detecta cambios de aserciones por AST antes de ejecutar un intento (#184)."""
         from qagent.lenguajes.java_laundering import comparar_java
+        from qagent.lenguajes.java_spring_generacion import (
+            comparar_spring,
+            es_prueba_spring,
+        )
 
+        if es_prueba_spring(original) or es_prueba_spring(reparado):
+            return comparar_spring(original, reparado)
         return comparar_java(original, reparado)
 
     def validar_oraculo(
@@ -378,6 +394,10 @@ class JavaAdapter(AdaptadorEnDesarrollo):
             return "Oráculo inválido: no se pudo verificar el contexto Java: " + str(
                 error
             )
+        if contrato.get("tipo") == "endpoint":
+            from qagent.lenguajes.java_spring_generacion import validar_spring
+
+            return validar_spring(contrato, codigo, contexto)
         return validar_java(contrato, codigo, contexto)
 
     def reglas_planificacion(self) -> ReglasPlanificacion:
@@ -412,7 +432,7 @@ class JavaAdapter(AdaptadorEnDesarrollo):
         Conserva las claves modulo, tipo y objetivo de la interfaz común y añade
         critical. Un constructor se registra como información de su clase.
         """
-        return [
+        encontrados = [
             {
                 "modulo": m["ruta"],
                 "tipo": "funcion",
@@ -422,6 +442,27 @@ class JavaAdapter(AdaptadorEnDesarrollo):
             for m in estructura.get("modulos", [])
             for f in m.get("funciones", [])
         ]
+        encontrados.extend(
+            {
+                "modulo": m["ruta"],
+                "tipo": "endpoint",
+                "objetivo": e["objetivo"],
+                "critical": e["critical"],
+            }
+            for m in estructura.get("modulos", [])
+            for e in m.get("endpoints", [])
+        )
+        return encontrados
+
+    def motivo_endpoint_no_planificable(self, endpoint: dict[str, Any]) -> str | None:
+        """Omite endpoints Spring sin estado o validación declarativa verificable."""
+        from qagent.lenguajes.java_spring_planificacion import motivo_no_planificable
+
+        return motivo_no_planificable(endpoint)
+
+    def aplicacion_de_endpoint(self, endpoint: dict[str, Any], principal: str) -> str:
+        """Selecciona la clase concreta incluso con varios controladores en un archivo."""
+        return endpoint["clase"]
 
     def entorno_sandbox(self) -> EntornoSandbox:
         """Imagen ``qagent-sandbox:java`` (#169) y las carpetas comunes del sandbox."""
@@ -473,7 +514,7 @@ class JavaAdapter(AdaptadorEnDesarrollo):
         """Lee fuentes Java y devuelve lenguaje, módulos, errores y resumen.
 
         Cada módulo conserva ruta POSIX, huella SHA-256, clases, funciones y
-        endpoints vacíos. llama_a usa referencias ruta.java::Clase.metodo a
+        endpoints Spring declarados. llama_a usa referencias ruta.java::Clase.metodo a
         destinos del proyecto resueltos sin inferencia de tipos. docstring
         contiene Javadoc literal o None. Los archivos
         inválidos se reportan en errores y no detienen el análisis de los demás.
@@ -519,11 +560,23 @@ class JavaAdapter(AdaptadorEnDesarrollo):
                     "huella": calcular_huella(fuente),
                     "clases": clases,
                     "funciones": funciones,
-                    "endpoints": [],
+                    "endpoints": extraer_endpoints(arbol.root_node, funciones),
                 }
             )
             arboles[relativa] = arbol.root_node
         agregar_llamadas(modulos, arboles)
+        for modulo in modulos:
+            manejadores = {e["manejador"] for e in modulo["endpoints"]}
+            por_nombre = {f["nombre"]: f for f in modulo["funciones"]}
+            for endpoint in modulo["endpoints"]:
+                endpoint["llama_a"] = por_nombre[endpoint["manejador"]].get(
+                    "llama_a", []
+                )
+            # Un controlador se ofrece como endpoint, no como invocación directa
+            # que eluda el binding, las validaciones y el contexto MVC.
+            modulo["funciones"] = [
+                f for f in modulo["funciones"] if f["nombre"] not in manejadores
+            ]
         funciones = [f for m in modulos for f in m["funciones"]]
         return {
             "lenguaje": self.lenguaje,
@@ -533,7 +586,7 @@ class JavaAdapter(AdaptadorEnDesarrollo):
                 "total_modulos": len(modulos),
                 "total_clases": sum(len(m["clases"]) for m in modulos),
                 "total_funciones_publicas": len(funciones),
-                "total_endpoints": 0,
+                "total_endpoints": sum(len(m["endpoints"]) for m in modulos),
                 "total_errores": len(errores),
             },
         }

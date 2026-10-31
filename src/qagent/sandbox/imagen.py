@@ -162,7 +162,7 @@ def _dockerfile_maven(base: str, archivos: list[str]) -> str:
         f"FROM {base}\n"
         "USER root\n"
         f"{_copiar(archivos)}"
-        f"RUN cd {_CARPETA_DEPENDENCIAS} && MAVEN_OPTS= mvn dependency:go-offline \\\n"
+        f"RUN cd {_CARPETA_DEPENDENCIAS} && MAVEN_OPTS= mvn dependency:go-offline dependency:resolve \\\n"
         f"    && cd / && rm -rf {_CARPETA_DEPENDENCIAS}\n"
         "USER sandbox\n"
     )
@@ -325,6 +325,10 @@ def etiqueta_para_dependencias(prefijo: str, archivos: Mapping[str, bytes]) -> s
     if prefijo == "req-" and list(archivos) == ["requirements.txt"]:
         return etiqueta_para_requirements(archivos["requirements.txt"])
     huella = hashlib.sha256()
+    if prefijo == "java-" and "pom.xml" in archivos:
+        # #183: go-offline por sí solo dejó versiones gestionadas por BOM sin
+        # descargar. No reutilizar una imagen anterior a dependency:resolve.
+        huella.update(b"maven-resolve-v2\0")
     for nombre in sorted(archivos):
         huella.update(nombre.encode("utf-8") + b"\0" + archivos[nombre] + b"\0")
     return f"{REPOSITORIO}:{prefijo}{huella.hexdigest()[:12]}"

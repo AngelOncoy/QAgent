@@ -15,9 +15,13 @@ concreto. Decisión completa en `docs/decisiones/ADR-007-adaptadores-por-lenguaj
 | `python_revision.py` | Sintaxis, oráculo y clasificación de la salida de pytest para el Reviewer (#168) | Completo |
 | `python_regresion.py` | Huellas de los objetivos y línea de cada función (#168) | Completo |
 | `javascript.py` | `JavaScriptAdapter`, `TypeScriptAdapter` | Solo detecta |
-| `java.py` | `JavaAdapter` | Unitarias Maven/JUnit 5: análisis, generación con guardrail y ejecución JaCoCo en sandbox (#181, #184, #182); Spring y Gradle quedan fuera. |
+| `java.py` | `JavaAdapter` | Unitarias Maven/JUnit 5 y endpoints Spring MVC con MockMvc, guardrail y JaCoCo en sandbox (#181, #184, #182, #183); Gradle queda fuera. |
 
 ## Uso
+
+Spring (#183) añade detección estática, planificación, generación y ejecución de
+endpoints sobre la base Java. El alcance y sus límites están en
+[Controladores Spring y MockMvc](../../../docs/java/spring-mockmvc.md).
 
 ```python
 from qagent.lenguajes import adaptador_de_contrato, adaptador_para, detectar_lenguaje
@@ -131,8 +135,9 @@ sin errores. Se excluyen `src/test`, las carpetas ignoradas por el registro
 (`testsuite`) o varias suites planas (`testsuites`) reutilizando el lector común
 de EN-17. Recibe contenido, no una ruta. Devuelve `total`, `pasaron`, `fallaron`,
 `errores`, `omitidos`, `duracion_s`, `inicio` y `casos`. Conserva mensajes y
-trazas Java, pero no extrae todavía sus marcos de pila ni el tipo de excepción
-del atributo XML `type`; tampoco deduce valores esperados desde mensajes.
+trazas Java, marcos de pila y el tipo de error del atributo XML `type`. El lector
+actual extrae esperado/obtenido de diagnósticos JUnit y MockMvc explícitos, solo
+para informar del resultado; nunca los utiliza como oráculo para planificar.
 Un fallo de aserción sigue siendo fallo y un error técnico sigue siendo error.
 Las detecciones controladas del banco aparecen como éxitos porque así las
 registró JUnit, no porque el lector haya reclasificado un fallo.
@@ -143,13 +148,13 @@ de tamaño excesivo, con entidades, con raíz ajena a JUnit o suites anidadas.
 La fixture `tests/fixtures/java/junit5-banco.xml` preserva suites y casos de la
 ejecución local del banco; no requiere Maven para verificar su interpretación.
 
-Limitaciones de esta etapa: no ofrece objetivos de métodos no públicos,
-clases locales o anónimas, cobertura ni endpoints Spring.
+Limitaciones que se conservan: no ofrece objetivos de métodos no públicos ni
+clases locales o anónimas. #182 añadió cobertura JaCoCo y #183 endpoints Spring.
 Las sobrecargas públicas de una misma clase se rechazan porque `Clase.metodo`
 todavía no distingue sus firmas. `validar_sintaxis` no reemplaza `javac`:
 un árbol válido no demuestra que los tipos o dependencias sean correctos.
-Los puntos de ejecución y seguridad no implementados siguen lanzando
-`NoImplementado`; el prototipo no habilita el pipeline Java de la aplicación.
+La ejecución Maven/JUnit/JaCoCo usa el pipeline compartido de la aplicación;
+los límites de Spring se documentan por separado y no habilitan Gradle.
 
 `reglas_planificacion()` conecta el Planner común con los prompts y filtros Java.
 Los casos se basan en Javadoc funcional; los tipos filtran incompatibilidades y
@@ -164,8 +169,8 @@ realizadas para ejecutar JUnit en Docker sin red (EN-19).
 La [mutación PIT de métodos críticos](../../../docs/java/mutacion-pit.md) (#180)
 añade ejecución acotada en Docker, lectura de XML, huellas y conexión con la caché
 y los informes comunes. `huellas_disponibles` permite obtener huellas aunque
-`completo` siga siendo falso; esto no habilita la generación/revisión JUnit que
-falta. `motor_mutacion` identifica el ejecutor en los mensajes compartidos.
+`completo` siga siendo falso en un adaptador en desarrollo. Java ya declara
+`completo = True` desde #182. `motor_mutacion` identifica el ejecutor en los mensajes compartidos.
 
 Antes de cerrar EN-17 conviene revisar juntos:
 
