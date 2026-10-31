@@ -75,6 +75,8 @@ DIRECTORIOS_IGNORADOS = frozenset(
         "site-packages",
         "mutants",
         "multilenguaje",
+        "dependencias",
+        "graphify-out",
     }
 )
 
