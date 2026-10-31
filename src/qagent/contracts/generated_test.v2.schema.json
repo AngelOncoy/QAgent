@@ -24,8 +24,9 @@
     },
     "archivo": {
       "type": "string",
-      "pattern": "^[A-Za-z0-9_][A-Za-z0-9_.-]*$",
-      "description": "Nombre del archivo del test, sin carpetas (test_precios.py, precios.test.ts, PreciosTest.java). Si falta, lo decide el adaptador."
+      "maxLength": 512,
+      "pattern": "^[A-Za-z0-9_$][A-Za-z0-9_.$-]*(?:/[A-Za-z0-9_$][A-Za-z0-9_.$-]*)*$",
+      "description": "Nombre del test; Java admite src/test/java/paquete/ClaseTest.java (#184). Los nombres Java anteriores sin carpetas siguen válidos. Python y JS/TS conservan nombres sin carpetas. El escritor valida además contención y nombres reservados."
     },
     "casos_cubiertos": {
       "type": "array",
@@ -46,7 +47,14 @@
     },
     {
       "if": { "properties": { "lenguaje": { "const": "java" } } },
-      "then": { "properties": { "framework_pruebas": { "const": "junit5" } } }
+      "then": { "properties": {
+        "framework_pruebas": { "const": "junit5" },
+        "archivo": { "anyOf": [
+          { "pattern": "^src/test/java/(?:[A-Za-z_$][A-Za-z0-9_$]*/)*[A-Za-z_$][A-Za-z0-9_$]*Test\\.java$" },
+          { "pattern": "^[A-Za-z0-9_][A-Za-z0-9_.-]*$" }
+        ] }
+      } },
+      "else": { "properties": { "archivo": { "pattern": "^[A-Za-z0-9_][A-Za-z0-9_.-]*$" } } }
     }
   ]
 }
