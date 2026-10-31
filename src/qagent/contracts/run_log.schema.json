@@ -671,6 +671,15 @@
             "tiempo_agotado",
             "error_contrato_planner",
             "error_planner",
+            "error_compilacion_proyecto",
+            "timeout_sandbox",
+            "memoria_sandbox",
+            "error_cobertura",
+            "informe_pruebas_invalido",
+            "pruebas_no_ejecutadas",
+            "error_ejecucion_pruebas",
+            "salida_runner_incoherente",
+            "fallo_junit_no_clasificado",
             null
           ],
           "description": "Por qué un objetivo quedó sin veredicto (decision null) sin detener el módulo: tiempo_agotado (un agente o el proveedor de IA no respondió a tiempo), error_contrato_planner (su contrato del Planner no es válido) o error_planner (el Planner falló al planificarlo de forma recuperable, FIX-02). Opcional: las corridas anteriores no lo tienen."

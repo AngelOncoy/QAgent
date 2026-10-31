@@ -42,7 +42,12 @@ def test_interpreta_estados_junit() -> None:
     fallo = resultado["casos"][1]
     assert fallo["mensaje"] == "expected: <2.5> but was: <2.0>"
     assert fallo["traza"] == "at BancoTest.defecto(BancoTest.java:20)"
-    assert fallo["esperado"] is None  # No se inventa un oráculo desde el mensaje.
+    # #182: se muestran los valores literales del diagnóstico, no se usan como oráculo.
+    assert fallo["esperado"] == "2.5"
+    assert fallo["obtenido"] == "2.0"
+    assert fallo["tipo_error"] == "org.opentest4j.AssertionFailedError"
+    assert fallo["archivo"] == "BancoTest.java"
+    assert fallo["linea"] == 20
 
 
 def test_agrega_suites_planas() -> None:

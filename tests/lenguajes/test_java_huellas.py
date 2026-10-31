@@ -18,14 +18,15 @@ public class Banco {
 """
 
 
-def test_huellas_disponibles_sin_habilitar_la_corrida_java(tmp_path: Path) -> None:
-    """El recolector común obtiene Java sin declarar completo su adaptador."""
+def test_huellas_disponibles_con_corrida_java_integrada(tmp_path: Path) -> None:
+    """Las huellas y PIT conservan el adaptador completo integrado por #182."""
     archivo = tmp_path / MODULO
     archivo.parent.mkdir(parents=True)
     archivo.write_text(FUENTE, encoding="utf-8")
     adaptador = JavaAdapter()
     huellas = adaptador.huellas_de_archivo(FUENTE, MODULO)
-    assert not adaptador.completo
+    assert adaptador.completo is True
+    assert adaptador.motor_mutacion == "PIT"
     assert set(huellas) == {"Banco.calcular"}
     assert len(huellas["Banco.calcular"]) == 64
     assert huellas_de_objetivos(tmp_path) == {

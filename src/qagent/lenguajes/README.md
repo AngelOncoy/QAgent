@@ -15,7 +15,7 @@ concreto. Decisión completa en `docs/decisiones/ADR-007-adaptadores-por-lenguaj
 | `python_revision.py` | Sintaxis, oráculo y clasificación de la salida de pytest para el Reviewer (#168) | Completo |
 | `python_regresion.py` | Huellas de los objetivos y línea de cada función (#168) | Completo |
 | `javascript.py` | `JavaScriptAdapter`, `TypeScriptAdapter` | Solo detecta |
-| `java.py` | `JavaAdapter` | Detecta, analiza, valida sintaxis y lee JUnit XML (prototipo EN-19) |
+| `java.py` | `JavaAdapter` | Unitarias Maven/JUnit 5: análisis, generación con guardrail y ejecución JaCoCo en sandbox (#181, #184, #182); Spring y Gradle quedan fuera. |
 
 ## Uso
 
@@ -63,6 +63,8 @@ contracts.normalizar_planner(contrato_v2)  # copia en v3 (python + pytest)
 | `validar_sintaxis(codigo)` | `list[str]` (vacía = válido) | Parsear, no ejecutar. |
 | `comparar_aserciones(original, reparado)` | objeto con `es_laundering` y `resumen` | Ver las 7 reglas de `qagent.analysis.laundering`. |
 | `leer_cobertura(dir_salida)` | `dict` en el formato JSON de coverage.py (`files`, `totals`) o `None` | Es el formato que lee el Reviewer. Cada lenguaje convierte el suyo (v8, JaCoCo) a este. |
+| `cobertura_de_objetivo(cobertura, modulo, objetivo)` | porcentajes o `None`; `NotImplemented` usa rangos | Java selecciona contadores exactos JaCoCo, sin atribuir métricas de otro método. |
+| `clasificar_ejecucion(resultado)` | `Clasificacion` o `None` | Permite inspeccionar etapas y reportes antes de aceptar; motivo_sin_veredicto evita reintentar errores del proyecto. |
 | `archivo_de_prueba(objetivo)` | nombre o ruta relativa del archivo | Valor de `archivo` en `generated_test.v2`; Java admite `src/test/java/paquete/ClaseTest.java` (#184). Python y JS/TS conservan nombres sin carpetas. |
 | `archivo_para_contrato(contrato, ruta_proyecto)` | ruta o `None` | Java obtiene el paquete del AST de la fuente. `None` conserva el nombre predeterminado de los adaptadores existentes. |
 | `validar_oraculo(contrato, codigo, ruta_proyecto)` | motivo de rechazo o `None` | Por defecto delega a las reglas existentes. Java contrasta también paquete, clase e imports y limita Mockito a dependencias del constructor (#184). |
@@ -84,6 +86,8 @@ el lenguaje pone `completo = True`.
 | `modulo_cobertura(modulo)` · `variables_pruebas()` | lo que recibe `comando_pruebas` · variables del contenedor | Por defecto, la misma ruta y ninguna variable. |
 | `huellas_de_archivo(fuente, ruta)` · `funciones_de_modulo(raiz, modulo)` | `objetivo -> huella` · `[{"nombre", "linea"}]` | Reutilización de specs (HU-24), regresión (HU-25) y mutación de `reg_deep`. |
 | `ejecutar_mutacion(...)` | `ResultadoMutacion` | Misma firma que `qagent.sandbox.ejecutar_mutacion`. |
+| `preparador_sandbox()` | callback `(copia, tests)` o None | Preparación estática en la copia antes de crear el contenedor (#182). No ejecuta código del usuario. |
+| `lector_informe_sandbox()` | callback `(salida) -> XML` o None | Recoge/agrega informes antes de limpiar /out; None conserva el lector habitual (#182). |
 
 ## Cómo implementar un lenguaje
 

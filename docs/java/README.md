@@ -6,6 +6,8 @@
 > La generación JUnit y el guardrail de #184 se documentan en
 > [generacion-guardrail.md](generacion-guardrail.md). El resto de esta página
 > describe el estado histórico del prototipo, no la disponibilidad actual de cada extensión.
+> La integración de unitarias Maven/JUnit 5 en el flujo de la aplicación (#182),
+> su evidencia Docker y sus límites están en [ejecucion-revision.md](ejecucion-revision.md).
 
 ## Objetivo y estado
 

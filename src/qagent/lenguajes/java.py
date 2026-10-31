@@ -6,14 +6,14 @@ src/test, carpetas generadas y enlaces simbólicos. Resuelve llamadas explícita
 del proyecto sin inferir tipos ni despacho dinámico. No extrae
 endpoints Spring ni sobrecargas. La generación usa el contrato del Planner y el
 guardrail valida aserciones sin ejecutar Java ni consultar IA. Lee informes JUnit
-XML y ofrece mutación PIT acotada en Docker (#180). La ejecución automática con
-el sandbox y cobertura pertenece a #182.
+XML y ejecuta Maven/JUnit/JaCoCo y mutación PIT acotada exclusivamente dentro del
+sandbox (#182, #180).
 """
 
 from __future__ import annotations
 
 import os
-import xml.etree.ElementTree as ET
+from collections.abc import Callable
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -22,6 +22,7 @@ from tree_sitter import Node
 from qagent.analysis.analyzer import calcular_huella
 from qagent.lenguajes.base import (
     AdaptadorEnDesarrollo,
+    Clasificacion,
     ComandoSandbox,
     ComparacionAserciones,
     EntornoSandbox,
@@ -29,13 +30,14 @@ from qagent.lenguajes.base import (
     ReglasPlanificacion,
     ReglasRevision,
 )
+from qagent.lenguajes.java_cobertura import leer_jacoco
 from qagent.lenguajes.java_estructura import contar_decisiones, desglosar_javadoc
+from qagent.lenguajes.java_junit import interpretar_junit_java
 from qagent.lenguajes.java_llamadas import agregar_llamadas
 from qagent.lenguajes.registro import listar_archivos
 from qagent.lenguajes.treesitter import extraer_errores_sintaxis, obtener_parser
 from qagent.sandbox.ejecucion import ARCHIVO_JUNIT, DIR_SALIDA, DIR_TESTS
-from qagent.sandbox.informe_pytest import JUnitInvalido, parsear_junit
-from qagent.sandbox.modelos import IMAGEN_JAVA
+from qagent.sandbox.modelos import IMAGEN_JAVA, ResultadoSandbox
 
 if TYPE_CHECKING:
     from qagent.sandbox.mutacion import ResultadoMutacion
@@ -236,9 +238,10 @@ def _constructores(clase: Node, nombre: str) -> list[dict[str, Any]]:
 
 
 class JavaAdapter(AdaptadorEnDesarrollo):
-    """Análisis estático Java; ejecución y endpoints Spring todavía pendientes."""
+    """Análisis, generación y ejecución de unitarias Java; Spring es independiente."""
 
     lenguaje = "java"
+    completo = True
     extensiones = (".java",)
     marcadores = ("pom.xml", "build.gradle", "build.gradle.kts")
     frameworks_pruebas = ("junit5",)
@@ -309,6 +312,25 @@ class JavaAdapter(AdaptadorEnDesarrollo):
 
         return ejecutar_pit(*args, **opciones)
 
+    def comando_pruebas(self, modulo: str, framework: str | None = None) -> list[str]:
+        """Etapas Maven/JUnit 5/JaCoCo offline, tras preparar la copia (#182)."""
+        from qagent.lenguajes.java_ejecucion import comando_java
+
+        self.elegir_framework(framework)
+        return comando_java(modulo)
+
+    def preparador_sandbox(self) -> Callable[[Path, Path], None]:
+        """Prepara el POM y la prueba Java únicamente en la copia temporal (#182)."""
+        from qagent.lenguajes.java_ejecucion import preparar_java
+
+        return preparar_java
+
+    def lector_informe_sandbox(self) -> Callable[[Path], str | None]:
+        """Recoge las suites Surefire de esta ejecución antes de limpiar /out (#182)."""
+        from qagent.lenguajes.java_ejecucion import recoger_junit
+
+        return recoger_junit
+
     def prompt_generator(
         self,
         contrato: dict[str, Any],
@@ -334,12 +356,6 @@ class JavaAdapter(AdaptadorEnDesarrollo):
         from qagent.lenguajes.java_generacion import contexto_java
 
         return contexto_java(contrato, ruta_proyecto)["archivo"]
-
-    def reglas_revision(self) -> ReglasRevision:
-        """Sintaxis y oráculo estáticos Java; el runner sigue perteneciendo a #182."""
-        from qagent.lenguajes.java_generacion import ReglasGeneracionJava
-
-        return ReglasGeneracionJava()
 
     def comparar_aserciones(
         self, original: str, reparado: str
@@ -369,6 +385,26 @@ class JavaAdapter(AdaptadorEnDesarrollo):
         from qagent.lenguajes.java_planificacion import REGLAS_PLANIFICACION_JAVA
 
         return REGLAS_PLANIFICACION_JAVA
+
+    def reglas_revision(self) -> ReglasRevision:
+        """Reglas de generación, oráculo y ejecución Java integradas (#184, #182)."""
+        from qagent.lenguajes.java_revision import ReglasRevisionJava
+
+        return ReglasRevisionJava()
+
+    def clasificar_ejecucion(self, resultado: ResultadoSandbox) -> Clasificacion | None:
+        """Clasifica etapas Maven y JUnit antes de emitir un veredicto."""
+        from qagent.lenguajes.java_revision import clasificar_java
+
+        return clasificar_java(resultado)
+
+    def cobertura_de_objetivo(
+        self, cobertura: dict[str, Any] | None, modulo: str, objetivo: str
+    ) -> dict[str, float | None] | None:
+        """Devuelve líneas y ramas exactas del método JaCoCo seleccionado."""
+        from qagent.lenguajes.java_cobertura import cobertura_de_metodo
+
+        return cobertura_de_metodo(cobertura, modulo, objetivo)
 
     def objetivos(self, estructura: Estructura) -> list[dict[str, Any]]:
         """Lista métodos públicos del análisis y su criticidad por decisiones.
@@ -403,8 +439,9 @@ class JavaAdapter(AdaptadorEnDesarrollo):
         Devuelve total, pasaron, fallaron, errores, omitidos, duracion_s, inicio
         y casos. Reutiliza el lector de EN-17 y sus límites de tamaño y entidades.
         Acepta una testsuite o testsuites con suites planas, como escribe Surefire.
-        Conserva mensajes y trazas Java; no infiere valores esperados ni convierte
-        fallos en éxitos. La duración corresponde a suites, no al proceso Maven.
+        Conserva mensajes y marcos Java y extrae esperado/obtenido explícitos de
+        los diagnósticos JUnit para mostrarlos, sin usarlos como oráculo. No
+        convierte fallos en éxitos. La duración es de suites, no del proceso Maven.
 
         Args:
             informe: contenido del XML, no la ruta del archivo.
@@ -412,16 +449,17 @@ class JavaAdapter(AdaptadorEnDesarrollo):
         Raises:
             JUnitInvalido: si el XML es inseguro, inválido o tiene otra estructura.
         """
-        resultado = parsear_junit(informe).a_dict()
-        raiz = ET.fromstring(informe)  # El lector común ya validó tamaño y entidades.
-        if raiz.tag not in {"testsuite", "testsuites"}:
-            raise JUnitInvalido("Se esperaba testsuite o testsuites de JUnit.")
-        suites = [raiz] if raiz.tag == "testsuite" else list(raiz)
-        if any(
-            s.tag != "testsuite" or s.find(".//testsuite") is not None for s in suites
-        ):
-            raise JUnitInvalido("Se esperaban suites JUnit planas, sin anidamiento.")
-        return resultado
+        return interpretar_junit_java(informe)
+
+    def leer_cobertura(
+        self, dir_salida: str | os.PathLike[str]
+    ) -> dict[str, Any] | None:
+        """Convierte jacoco.xml de /out a files/totals y contadores por método (#182).
+
+        None si el informe falta, es inválido o no ofrece líneas de fuente. El
+        lector no ejecuta Java ni resuelve la DTD externa del informe.
+        """
+        return leer_jacoco(dir_salida)
 
     def validar_sintaxis(self, codigo: str) -> list[str]:
         """Devuelve diagnósticos de tree-sitter, o una lista vacía si es válido.

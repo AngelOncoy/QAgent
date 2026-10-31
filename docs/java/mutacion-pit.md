@@ -159,6 +159,54 @@ ningún fallo**, en 195.69 s; lint y formato aprobados. Se ejecutó con Python 3
 IA simulada, `GIT_CEILING_DIRECTORIES` apuntando a TEMP y selección
 `not docker and not red`. Los dos fallos históricos ya no aparecen tras integrar #214.
 
+## Integración definitiva con #182 aceptada (31/10/2026)
+
+Se incorporó `origin/develop` en `9976c25`, que contiene el PR #216 de #182,
+en la misma rama y el mismo PR #213. Los conflictos de `java.py` y `regresion.py`
+se resolvieron conservando `completo=True`, el runner Maven/JUnit/JaCoCo, los hooks
+de pruebas guardadas, los límites Java y las operaciones de PIT. Las huellas
+compartidas se mantuvieron sin duplicar métodos.
+
+La revisión encontró que `ejecutar_corrida` pasaba por defecto el mutador Python,
+lo que impedía usar el despacho por adaptador de `mutar_modulo`. El valor por
+defecto ahora es `None`: el adaptador del contrato selecciona mutmut para Python
+y PIT para Java. Los motores inyectados explícitamente en pruebas se conservan;
+no se añadió una condición específica de lenguaje al orquestador.
+
+La regresión focalizada aprobó **404 pruebas en 15.43 s**. La prueba de huellas
+que todavía exigía un adaptador incompleto se actualizó al estado integrado por
+#182: exige Java completo y motor PIT, y conserva las comprobaciones de SHA-256,
+recolección, métodos e invalidación por cambios.
+
+```powershell
+python -m pytest tests/sandbox/test_pit_corrida_docker.py tests/sandbox/test_pit_docker.py -q -s
+```
+
+Resultado: **2 aprobadas en 158.12 s**. La prueba nueva llama a la entrada real
+`ejecutar_corrida` con perfil `deep`, los tres agentes y el guardrail productivos;
+solo las respuestas de IA están grabadas. JUnit aprueba el caso, PIT evalúa solo
+`Criticos.critico` y el Mutation Score del **60 %** llega a `results.json`, a la
+vista común y al informe Markdown. El método no crítico queda fuera. La prueba
+JUnit es deliberadamente incompleta: los sobrevivientes muestran esa debilidad,
+no una protección suficiente del método.
+
+Después se ejecuta `reg_deep`: JUnit vuelve a comprobar la prueba guardada y
+la mutación se reutiliza de la primera corrida, con el mismo score, sobrevivientes
+y `run_origen`. La prueba hace fallar cualquier intento de volver a ejecutar PIT
+en esa segunda fase, por lo que comprueba la caché además de leer su indicador.
+Se conservan POM y fuente originales y ambas corridas consumen cero tokens.
+
+La prueba directa adicional conserva las verificaciones de clase/método de cada
+mutante y de dos artefactos JUnit con nombre de clase repetido: **3 detectados,
+2 sobrevivientes, 60 %**, 23.172 s dentro del sandbox.
+
+La revisión general final se registra en `.qagent/validacion-180-con182.txt`,
+fuera de Git, usando temporales nuevos dentro del workspace. Resultado:
+**2847 aprobadas, 39 deseleccionadas, sin fallos**, en 274.28 s; lint y formato
+aprobados. Se ejecutó con Python 3.10.10, IA simulada, selección
+`not docker and not red`, `--basetemp .qagent/pytest-180-con182` y techo Git en
+`.qagent`. Las dos pruebas Docker se verificaron por separado.
+
 ## Límites de esta entrega y dependencias
 
 La ejecución admite proyectos Maven de un módulo sin POM padre, con fuente en
@@ -166,9 +214,8 @@ La ejecución admite proyectos Maven de un módulo sin POM padre, con fuente en
 Gradle, herencia Maven, proyectos multimódulo, clases anidadas ni sobrecargas;
 los rechaza con motivo explícito. No muta endpoints Spring.
 
-`JavaAdapter.completo` sigue siendo `False`: #184 ya está integrada y su generación
-y oráculo se usan en la prueba PIT real. La ejecución JUnit/JaCoCo y la revisión
-del flujo Java completo desde la aplicación corresponden a #182, que se revisará
-por separado. Esta actualización no incorpora su rama ni declara completada
-EP-12a. El PR #213 conserva el alcance de mutación y queda sujeto a la revisión
-del equipo y al orden de dependencias de la épica.
+`JavaAdapter.completo=True` se conserva de #182 ya aceptada. Esta actualización
+añade PIT al flujo Profundo y comprueba `reg_deep` desde las entradas del backend.
+No se probó manualmente la ventana pywebview ni un proveedor de IA real. El PR #213
+queda para revisión del equipo; no se fusiona desde esta tarea. Los límites de
+Maven indicados arriba se mantienen y no se declara soporte Spring ni Gradle.

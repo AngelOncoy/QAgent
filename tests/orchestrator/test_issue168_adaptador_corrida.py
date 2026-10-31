@@ -68,7 +68,6 @@ def test_python_con_algo_de_javascript_se_sigue_probando_como_python(tmp_path) -
     [
         ({"src/suma.ts": "export const s = 1;\n", "tsconfig.json": "{}"}, "TypeScript"),
         ({"index.js": "module.exports = {};\n", "package.json": "{}"}, "JavaScript"),
-        ({"src/main/java/A.java": "class A {}\n", "pom.xml": "<project/>"}, "Java"),
     ],
 )
 def test_un_lenguaje_en_desarrollo_da_un_mensaje_claro(tmp_path, archivos, nombre):
@@ -90,13 +89,25 @@ def test_sin_archivos_fuente_se_usa_el_lenguaje_de_los_contratos_anteriores(
     assert adaptador_del_proyecto(tmp_path).lenguaje == "python"
 
 
-def test_solo_python_tiene_adaptador_completo() -> None:
+def test_python_y_java_tienen_adaptador_completo() -> None:
     completos = [
         nombre
         for nombre in REGISTRO.lenguajes
         if REGISTRO.adaptador_para(nombre).completo
     ]
-    assert completos == ["python"]
+    assert completos == ["python", "java"]
+
+
+def test_proyecto_java_selecciona_adaptador_integrado(tmp_path) -> None:
+    """El proyecto que antes se rechazaba entra ahora por el registro productivo."""
+    _escribir(
+        tmp_path, {"src/main/java/A.java": "class A {}\n", "pom.xml": "<project/>"}
+    )
+    adaptador = adaptador_del_proyecto(tmp_path)
+    assert adaptador.lenguaje == "java"
+    assert adaptador.completo is True
+    assert adaptador.entorno_sandbox().imagen == "qagent-sandbox:java"
+    assert "mvn" in " ".join(adaptador.comando_pruebas("src/main/java/A.java"))
 
 
 # --- La corrida y la app con un lenguaje sin soporte --------------------------------

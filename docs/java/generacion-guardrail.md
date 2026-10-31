@@ -149,10 +149,10 @@ rechazado: ambos permanecen sin llamadas durante el rechazo.
 
 ## Estado de la aplicación
 
-El guardrail y sus seis criterios cuentan con pruebas automatizadas. La regresión
-general y la comprobación del banco se registran abajo. completo permanece False porque
-la ejecución y lectura de JUnit/JaCoCo pertenecen a #182. No se declara Java
-operativo desde la aplicación antes de integrar esa parte con esta generación.
+El guardrail y sus seis criterios cuentan con pruebas automatizadas. En la entrega
+inicial de #184, completo permanecía False hasta disponer del runner. La actualización
+de #182 integra JUnit/JaCoCo con estas reglas y habilita las unitarias Maven en el
+registro normal. Su validación y límites están en [ejecucion-revision.md](ejecucion-revision.md).
 
 ## Validación final sobre TA-01
 

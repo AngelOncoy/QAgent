@@ -21,9 +21,10 @@ from __future__ import annotations
 
 import os
 from abc import ABC, abstractmethod
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path, PurePosixPath
+from types import NotImplementedType
 from typing import Any, ClassVar, Protocol
 
 Estructura = dict[str, Any]
@@ -99,10 +100,13 @@ class Clasificacion:
             (la respuesta del endpoint no cumple lo declarado), ``error_test`` (el
             test está mal) o ``fallo_asercion`` (una aserción legítima falló).
         detalle: texto para el feedback.
+        motivo_sin_veredicto: fallo técnico que impide juzgar el código; None
+            conserva las decisiones y los reintentos habituales.
     """
 
     tipo: str
     detalle: str
+    motivo_sin_veredicto: str | None = None
 
 
 class ReglasRevision(Protocol):
@@ -341,6 +345,35 @@ class LanguageAdapter(ABC):
     def variables_pruebas(self) -> dict[str, str]:
         """Variables de entorno extra del contenedor al correr las pruebas."""
         return {}
+
+    def preparador_sandbox(self) -> Callable[[Path, Path], None] | None:
+        """Preparación estática opcional sobre la copia y tests, antes del contenedor.
+
+        None conserva la ejecución actual. Nunca se ejecuta código del usuario
+        aquí; solo se disponen archivos y configuración del runner del lenguaje.
+        """
+        return None
+
+    def lector_informe_sandbox(self) -> Callable[[Path], str | None] | None:
+        """Lector opcional de informes del runner desde /out antes de la limpieza.
+
+        None utiliza el archivo indicado por entorno_sandbox().informe.
+        """
+        return None
+
+    def cobertura_de_objetivo(
+        self, cobertura: dict[str, Any] | None, modulo: str, objetivo: str
+    ) -> dict[str, float | None] | None | NotImplementedType:
+        """Contadores exactos del objetivo; NotImplemented usa el cálculo por líneas.
+
+        None significa que no hay medición del objetivo, sin sustituirla por
+        cobertura de otros métodos del archivo.
+        """
+        return NotImplemented
+
+    def clasificar_ejecucion(self, resultado: Any) -> Clasificacion | None:
+        """Clasifica informes y etapas del runner; None conserva las reglas actuales."""
+        return None
 
     @abstractmethod
     def entorno_sandbox(self) -> EntornoSandbox:

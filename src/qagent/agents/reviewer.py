@@ -177,6 +177,11 @@ class ReviewerAgent:
                     self.imagen, self.ruta_proyecto, ruta_tests, modulo_cov
                 )
             else:
+                opciones_sandbox = {}
+                if (preparar := adaptador.preparador_sandbox()) is not None:
+                    opciones_sandbox["preparar"] = preparar
+                if (leer_informe := adaptador.lector_informe_sandbox()) is not None:
+                    opciones_sandbox["leer_informe"] = leer_informe
                 resultado = ejecutar_comando_pruebas(
                     self.imagen,
                     comando,
@@ -186,6 +191,7 @@ class ReviewerAgent:
                     archivo_informe=adaptador.entorno_sandbox().informe,
                     variables=adaptador.variables_pruebas(),
                     limites=self.limites,
+                    **opciones_sandbox,
                 )
 
         estado = clasificar_resultado(resultado)
@@ -210,11 +216,32 @@ class ReviewerAgent:
             parte for parte in (resultado.stdout, resultado.stderr) if parte
         ).strip()
         # Cobertura de la función bajo prueba; si no se puede ubicar, la del módulo.
-        cobertura = self._cobertura_de_funcion(
-            resultado.coverage, modulo, rango
-        ) or self._extraer_cobertura(resultado.coverage)
+        cobertura = adaptador.cobertura_de_objetivo(
+            resultado.coverage, modulo, contrato["objetivo"]
+        )
+        if cobertura is NotImplemented:
+            cobertura = self._cobertura_de_funcion(
+                resultado.coverage, modulo, rango
+            ) or self._extraer_cobertura(resultado.coverage)
 
-        if estado == "ok":
+        clasificacion = adaptador.clasificar_ejecucion(resultado)
+        if clasificacion is not None and clasificacion.motivo_sin_veredicto:
+            revision = self._resultado(
+                objetivo=contrato["objetivo"],
+                intento=intento,
+                estado_sandbox=estado,
+                cobertura=cobertura,
+                laundering_detectado=False,
+                tipo_fallo=None,
+                hash_actual=hash_error(salida or clasificacion.detalle),
+                decision="stalled",
+                feedback=clasificacion.detalle,
+            )
+            revision["motivo_sin_veredicto"] = clasificacion.motivo_sin_veredicto
+            contracts.validar(contracts.REVIEW_RESULT, revision)
+            return revision
+
+        if estado == "ok" and clasificacion is None:
             return self._resultado(
                 objetivo=contrato["objetivo"],
                 intento=intento,
@@ -227,7 +254,10 @@ class ReviewerAgent:
                 feedback="Test aprobado en el sandbox.",
             )
 
-        clasificacion = reglas.clasificar_salida(salida, contrato, self.ruta_proyecto)
+        if clasificacion is None:
+            clasificacion = reglas.clasificar_salida(
+                salida, contrato, self.ruta_proyecto
+            )
         tipo = clasificacion.tipo if clasificacion is not None else None
         if clasificacion is not None and tipo == "entorno":
             return self._resultado(
