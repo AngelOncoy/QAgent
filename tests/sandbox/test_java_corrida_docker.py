@@ -1,4 +1,4 @@
-"""Corrida #182 con Planner/Reviewer reales y Generator de fixture (#184 aparte)."""
+"""Corrida #182 con tres agentes y guardrail productivos, IA grabada y Docker real."""
 
 import json
 import os
@@ -25,8 +25,8 @@ def test_corrida_banco_detecta_tres_bugs_y_guarda_metricas(
 ):
     """Seis métodos pasan por orquestador, JUnit, JaCoCo, Reviewer y resultados.
 
-    Solo el POM usa dependencias precargadas y el puerto Generator/guardrail
-    usa fuentes conocidas. No activa soporte Java ni sustituye #184 en la app.
+    Solo las respuestas de IA están grabadas. Generator, oráculo, comparación de
+    aserciones y revisión son productivos; no se parchea el registro de adaptadores.
     """
     if not _imagen_existe(cliente_docker, IMAGEN_JAVA):
         pytest.skip("Falta qagent-sandbox:java.")
@@ -115,4 +115,6 @@ def test_corrida_banco_detecta_tres_bugs_y_guarda_metricas(
             shutil.copyfile(archivo, destino / archivo.name)
         for archivo in (tmp_path / "informes").iterdir():
             shutil.copyfile(archivo, destino / archivo.name)
-        print(f"Evidencia real de integración controlada: {destino}", flush=True)
+        print(
+            f"Evidencia real con agentes y guardrail productivos: {destino}", flush=True
+        )

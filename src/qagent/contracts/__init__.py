@@ -30,6 +30,7 @@ EXPLANATION_V1 = "explanation.v1"
 EXPLICACIONES = "explicaciones"
 BUG_EVIDENCE_V1 = "bug_evidence.v1"
 RUN_COMPARISON_V1 = "run_comparison.v1"
+RECOMMENDATION_V1 = "recommendation.v1"
 CONTRATOS = (
     PLANNER,
     GENERATED_TEST,
@@ -43,6 +44,7 @@ CONTRATOS = (
     EXPLICACIONES,
     BUG_EVIDENCE_V1,
     RUN_COMPARISON_V1,
+    RECOMMENDATION_V1,
 )
 
 #: Familias de contratos versionados: valor del campo `version` -> contrato.
@@ -52,6 +54,7 @@ FAMILIA_ORACLE = "oracle"
 FAMILIA_EXPLANATION = "explanation"
 FAMILIA_BUG_EVIDENCE = "bug_evidence"
 FAMILIA_RUN_COMPARISON = "run_comparison"
+FAMILIA_RECOMMENDATION = "recommendation"
 VERSIONES: dict[str, dict[str, str]] = {
     FAMILIA_PLANNER: {"2": PLANNER, "3": PLANNER_V3},
     FAMILIA_GENERATED_TEST: {"1": GENERATED_TEST, "2": GENERATED_TEST_V2},
@@ -59,7 +62,13 @@ VERSIONES: dict[str, dict[str, str]] = {
     FAMILIA_EXPLANATION: {"1": EXPLANATION_V1},
     FAMILIA_BUG_EVIDENCE: {"1": BUG_EVIDENCE_V1},
     FAMILIA_RUN_COMPARISON: {"1": RUN_COMPARISON_V1},
+    FAMILIA_RECOMMENDATION: {"1": RECOMMENDATION_V1},
 }
+
+#: Tipos que el contrato del futuro Recomendador puede representar en su primera
+#: versión. La integración de #197 deberá contrastarlos además con las capacidades
+#: del adaptador elegido para el proyecto (ADR-011).
+TIPOS_PRUEBA_RECOMENDABLES = ("funcion", "endpoint", "mutacion")
 
 #: Lenguajes que pueden aparecer en un contrato (EN-17) y sus frameworks válidos.
 #: Debe coincidir con los `enum` de los schemas v3 / v2 (lo verifica una prueba).

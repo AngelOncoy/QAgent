@@ -75,7 +75,13 @@ def prompt_funciones(modulo: dict[str, Any], humo: bool) -> str:
 
 def _argumentos(funcion: dict[str, Any], entrada: Any) -> list[tuple[str, Any]] | None:
     """Liga nombres o posiciones a tipos escritos; None si la invocación no encaja."""
-    parametros = funcion.get("parametros", [])
+    parametros = funcion.get("parametros")
+    if parametros is None:
+        # Las specs persistidas contienen la firma, no la estructura extendida del
+        # análisis. Reconstituir sus parámetros evita descartar todos sus casos.
+        parametros = _parametros_de_firma(funcion.get("firma"))
+        if parametros is None:
+            return None
     if entrada is None and not parametros:
         return []
     variable = bool(parametros and (parametros[-1].get("tipo") or "").endswith("..."))
@@ -100,6 +106,29 @@ def _argumentos(funcion: dict[str, Any], entrada: Any) -> list[tuple[str, Any]] 
             (parametros[-1]["tipo"][:-3], valor) for valor in entrada[fijos:]
         )
     return resultado
+
+
+def _parametros_de_firma(firma: str | None) -> list[dict[str, Any]] | None:
+    """Lee parámetros de una firma guardada sin ejecutar ni compilar Java."""
+    from qagent.lenguajes.java import _parametros
+    from qagent.lenguajes.treesitter import obtener_parser
+
+    if not isinstance(firma, str) or not firma.strip():
+        return None
+    raiz = (
+        obtener_parser("java")
+        .parse(("class QAgentFirma { " + firma + " {} }").encode("utf-8"))
+        .root_node
+    )
+    if raiz.has_error:
+        return None
+    cuerpo = raiz.named_children[0].child_by_field_name("body")
+    if cuerpo is None or len(cuerpo.named_children) != 1:
+        return None
+    metodo = cuerpo.named_children[0]
+    if metodo.type != "method_declaration":
+        return None
+    return _parametros(metodo)
 
 
 def _compatible(tipo: str, valor: Any) -> bool:

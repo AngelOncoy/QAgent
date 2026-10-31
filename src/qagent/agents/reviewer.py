@@ -25,6 +25,7 @@ from qagent.sandbox import (
     ejecutar_pruebas,
     resumir_ejecucion,
 )
+from qagent.sandbox.archivos_prueba import ruta_de_prueba
 from qagent.sandbox.ejecucion import ejecutar_comando_pruebas
 from qagent.sandbox.normalizacion import hash_error
 
@@ -109,7 +110,12 @@ class ReviewerAgent:
         if referencia is None and test_anterior is not None:
             codigo_anterior = test_anterior["codigo"]
             try:
-                if reglas.validar_oraculo(contrato, codigo_anterior) is None:
+                if (
+                    adaptador.validar_oraculo(
+                        contrato, codigo_anterior, self.ruta_proyecto
+                    )
+                    is None
+                ):
                     referencia = codigo_anterior
             except (SyntaxError, ValueError):
                 referencia = None
@@ -128,20 +134,44 @@ class ReviewerAgent:
                 feedback=laundering,
             )
 
-        problema_oraculo = reglas.validar_oraculo(contrato, codigo)
+        problema_oraculo = adaptador.validar_oraculo(
+            contrato, codigo, self.ruta_proyecto
+        )
         if problema_oraculo is not None:
             return self._error_test(contrato, intento, problema_oraculo)
+        try:
+            archivo_calculado = adaptador.archivo_para_contrato(
+                contrato, self.ruta_proyecto
+            )
+            archivo = (
+                test.get("archivo")
+                or archivo_calculado
+                or adaptador.archivo_de_prueba(contrato["objetivo"])
+            )
+            if archivo_calculado is not None and archivo not in {
+                archivo_calculado,
+                Path(archivo_calculado).name,
+            }:
+                return self._error_test(
+                    contrato,
+                    intento,
+                    "El archivo de prueba no corresponde al paquete y clase del contrato.",
+                )
+        except (OSError, UnicodeError, ValueError) as error:
+            return self._error_test(contrato, intento, str(error))
         self._referencias[clave] = codigo
 
         modulo_cov = self.modulo_cov or adaptador.modulo_cobertura(contrato["modulo"])
         framework = contracts.normalizar_planner(contrato)["framework_pruebas"]
         comando = adaptador.comando_pruebas(modulo_cov, framework)
-        archivo = test.get("archivo") or adaptador.archivo_de_prueba(
-            contrato["objetivo"]
-        )
         with tempfile.TemporaryDirectory(prefix="qagent-reviewer-") as temporal:
             ruta_tests = Path(temporal)
-            (ruta_tests / archivo).write_text(codigo, encoding="utf-8")
+            try:
+                destino = ruta_de_prueba(ruta_tests, archivo)
+            except ValueError as error:
+                return self._error_test(contrato, intento, str(error))
+            destino.parent.mkdir(parents=True, exist_ok=True)
+            destino.write_text(codigo, encoding="utf-8")
             if self.ejecutor is not None:
                 resultado = self.ejecutor(
                     self.imagen, self.ruta_proyecto, ruta_tests, modulo_cov

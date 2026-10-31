@@ -9,8 +9,9 @@ import re
 from pathlib import Path
 from typing import Any
 
-from qagent.lenguajes.base import Clasificacion, NoImplementado
+from qagent.lenguajes.base import Clasificacion
 from qagent.lenguajes.java_ejecucion import MARCA
+from qagent.lenguajes.java_generacion import ReglasGeneracionJava
 from qagent.lenguajes.java_junit import interpretar_junit_java
 from qagent.lenguajes.treesitter import extraer_errores_sintaxis, obtener_parser
 from qagent.sandbox.informe_pytest import JUnitInvalido
@@ -93,17 +94,13 @@ def clasificar_java(resultado: ResultadoSandbox) -> Clasificacion | None:
     )
 
 
-class ReglasRevisionJava:
-    """Sintaxis y ubicación estáticas; el oráculo de #184 continúa obligatorio."""
+class ReglasRevisionJava(ReglasGeneracionJava):
+    """Conserva el oráculo de #184 y añade clasificación y ubicación para #182."""
 
     def error_de_sintaxis(self, codigo: str) -> str | None:
         """Devuelve errores del parser Java sin compilar ni ejecutar el test."""
         raiz = obtener_parser("java").parse(codigo.encode("utf-8")).root_node
         return "; ".join(extraer_errores_sintaxis(raiz)) if raiz.has_error else None
-
-    def validar_oraculo(self, contrato: dict[str, Any], codigo: str) -> str | None:
-        """Exige la implementación del guardrail en #184, sin aprobar por defecto."""
-        raise NoImplementado("java", "validar_oraculo (#184)")
 
     def clasificar_salida(
         self, salida: str, contrato: dict[str, Any], raiz: Path

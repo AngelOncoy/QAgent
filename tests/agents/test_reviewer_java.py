@@ -7,7 +7,6 @@ import pytest
 
 from qagent import contracts
 from qagent.lenguajes import JavaAdapter
-from qagent.lenguajes.base import NoImplementado
 from qagent.lenguajes.java_cobertura import interpretar_jacoco
 from qagent.lenguajes.java_revision import clasificar_java
 from qagent.llm import cargar_precios
@@ -183,11 +182,24 @@ def test_fallo_tecnico_sin_veredicto_se_guarda_sin_reintentar(
     )
 
 
-def test_guardrail_y_disponibilidad_no_se_habilitan_por_182():
-    """Java permanece incompleto y nunca acepta código libre sin el guardrail #184."""
-    assert JavaAdapter().completo is False
-    with pytest.raises(NoImplementado):
-        JavaAdapter().reglas_revision().validar_oraculo({}, "class Test {}")
+def test_java_disponible_con_guardrail_productivo_obligatorio():
+    """#182 integra #184 y rechaza código sin oráculo antes de ejecutar."""
+    assert JavaAdapter().completo is True
+    assert JavaAdapter().reglas_revision().validar_oraculo({}, "class Test {}")
+    assert JavaAdapter().validar_sintaxis("class Test {")
+
+
+def test_contrato_java_guardado_conserva_casos_al_repetir(monkeypatch) -> None:
+    """La firma persistida permite validar aridad y tipos sin perder casos válidos."""
+    from qagent.agents.planner import contrato_sin_triviales
+
+    banco = RAIZ / "bench_java"
+    orquestador, _, _ = preparar_corrida(monkeypatch, banco)
+    [contrato] = orquestador.planner.planificar(_modulo_promedio(banco))
+    assert "parametros" not in contrato
+    assert contrato_sin_triviales(contrato) == contrato
+    invalido = {**contrato, "casos": [{**contrato["casos"][0], "entrada": {"otro": 2}}]}
+    assert contrato_sin_triviales(invalido) is None
 
 
 def test_resultados_e_informes_conservan_java_y_sus_metricas(monkeypatch, tmp_path):

@@ -1,0 +1,560 @@
+{
+  "version": "1",
+  "tipo": "results",
+  "run_id": "spk167-banco-explicador",
+  "fecha": "2026-10-30T00:00:00-05:00",
+  "proyecto": "banco",
+  "perfil": "deep",
+  "modelos": {
+    "planner": {
+      "proveedor": "xiaomi",
+      "modelo": "mimo-v2.6-pro",
+      "precio_entrada_usd_m": 0.435,
+      "precio_salida_usd_m": 0.87
+    },
+    "generator": {
+      "proveedor": "xiaomi",
+      "modelo": "mimo-v2.6-pro",
+      "precio_entrada_usd_m": 0.435,
+      "precio_salida_usd_m": 0.87
+    },
+    "reviewer": {
+      "proveedor": "openai",
+      "modelo": "gpt-6-luna",
+      "precio_entrada_usd_m": 0.1,
+      "precio_salida_usd_m": 0.5
+    }
+  },
+  "estado_final": "fin",
+  "motivo_fallo": null,
+  "es_simulado": true,
+  "objetivos": [
+    {
+      "modulo": "banco_mvp.py",
+      "funcion": "calcular_descuento",
+      "tipo": "funcion",
+      "critical": false,
+      "decision": "bug_detectado",
+      "motivo_estancado": null,
+      "motivo_sin_veredicto": null,
+      "reutilizada": false,
+      "motivo_regresion": null,
+      "laundering_detectado": false,
+      "duracion_s": 0.016,
+      "inicio": "2026-10-30T05:58:32.512Z",
+      "fin": "2026-10-30T05:58:32.527Z",
+      "duracion_generacion_s": 0.016,
+      "duracion_revision_s": 0.0,
+      "duracion_sandbox_s": 1.25,
+      "duracion_pytest_s": 0.169,
+      "tiempos_intentos": [
+        {
+          "intento": 1,
+          "duracion_s": 0.016,
+          "generacion_s": 0.016,
+          "revision_s": 0.0
+        }
+      ],
+      "controles": {
+        "sintaxis": true,
+        "sandbox": true,
+        "aserciones": true,
+        "cobertura": true,
+        "mutation": null
+      },
+      "metricas": {
+        "paso": false,
+        "cobertura_lineas": 100.0,
+        "cobertura_ramas": null,
+        "iteraciones": 1,
+        "tokens_por_agente": {
+          "generator": {
+            "prompt_tokens": 0,
+            "completion_tokens": 0
+          }
+        },
+        "mutation_score": null
+      },
+      "lenguaje": "python",
+      "casos_por_categoria": {
+        "normal": 1,
+        "limite": 1,
+        "error": 2
+      }
+    },
+    {
+      "modulo": "banco_mvp.py",
+      "funcion": "clasificar_edad",
+      "tipo": "funcion",
+      "critical": false,
+      "decision": "bug_detectado",
+      "motivo_estancado": null,
+      "motivo_sin_veredicto": null,
+      "reutilizada": false,
+      "motivo_regresion": null,
+      "laundering_detectado": false,
+      "duracion_s": 0.015,
+      "inicio": "2026-10-30T05:58:32.527Z",
+      "fin": "2026-10-30T05:58:32.543Z",
+      "duracion_generacion_s": 0.015,
+      "duracion_revision_s": 0.0,
+      "duracion_sandbox_s": 1.234,
+      "duracion_pytest_s": 0.211,
+      "tiempos_intentos": [
+        {
+          "intento": 1,
+          "duracion_s": 0.015,
+          "generacion_s": 0.015,
+          "revision_s": 0.0
+        }
+      ],
+      "controles": {
+        "sintaxis": true,
+        "sandbox": true,
+        "aserciones": true,
+        "cobertura": true,
+        "mutation": null
+      },
+      "metricas": {
+        "paso": false,
+        "cobertura_lineas": 100.0,
+        "cobertura_ramas": null,
+        "iteraciones": 1,
+        "tokens_por_agente": {
+          "generator": {
+            "prompt_tokens": 0,
+            "completion_tokens": 0
+          }
+        },
+        "mutation_score": null
+      },
+      "lenguaje": "python",
+      "casos_por_categoria": {
+        "normal": 2,
+        "limite": 2,
+        "error": 1
+      }
+    },
+    {
+      "modulo": "banco_mvp.py",
+      "funcion": "buscar_elemento_mayor",
+      "tipo": "funcion",
+      "critical": false,
+      "decision": "bug_detectado",
+      "motivo_estancado": null,
+      "motivo_sin_veredicto": null,
+      "reutilizada": false,
+      "motivo_regresion": null,
+      "laundering_detectado": false,
+      "duracion_s": 0.016,
+      "inicio": "2026-10-30T05:58:32.543Z",
+      "fin": "2026-10-30T05:58:32.557Z",
+      "duracion_generacion_s": 0.016,
+      "duracion_revision_s": 0.0,
+      "duracion_sandbox_s": 1.11,
+      "duracion_pytest_s": 0.175,
+      "tiempos_intentos": [
+        {
+          "intento": 1,
+          "duracion_s": 0.016,
+          "generacion_s": 0.016,
+          "revision_s": 0.0
+        }
+      ],
+      "controles": {
+        "sintaxis": true,
+        "sandbox": true,
+        "aserciones": true,
+        "cobertura": true,
+        "mutation": null
+      },
+      "metricas": {
+        "paso": false,
+        "cobertura_lineas": 100.0,
+        "cobertura_ramas": null,
+        "iteraciones": 1,
+        "tokens_por_agente": {
+          "generator": {
+            "prompt_tokens": 0,
+            "completion_tokens": 0
+          }
+        },
+        "mutation_score": null
+      },
+      "lenguaje": "python",
+      "casos_por_categoria": {
+        "normal": 2,
+        "limite": 0,
+        "error": 1
+      }
+    },
+    {
+      "modulo": "banco_mvp.py",
+      "funcion": "es_palindromo",
+      "tipo": "funcion",
+      "critical": false,
+      "decision": "accept",
+      "motivo_estancado": null,
+      "motivo_sin_veredicto": null,
+      "reutilizada": false,
+      "motivo_regresion": null,
+      "laundering_detectado": false,
+      "duracion_s": 0.015,
+      "inicio": "2026-10-30T05:58:32.557Z",
+      "fin": "2026-10-30T05:58:32.567Z",
+      "duracion_generacion_s": 0.0,
+      "duracion_revision_s": 0.015,
+      "duracion_sandbox_s": 0.906,
+      "duracion_pytest_s": 0.024,
+      "tiempos_intentos": [
+        {
+          "intento": 1,
+          "duracion_s": 0.015,
+          "generacion_s": 0.0,
+          "revision_s": 0.015
+        }
+      ],
+      "controles": {
+        "sintaxis": true,
+        "sandbox": true,
+        "aserciones": true,
+        "cobertura": true,
+        "mutation": null
+      },
+      "metricas": {
+        "paso": true,
+        "cobertura_lineas": 100.0,
+        "cobertura_ramas": null,
+        "iteraciones": 1,
+        "tokens_por_agente": {
+          "generator": {
+            "prompt_tokens": 0,
+            "completion_tokens": 0
+          }
+        },
+        "mutation_score": null
+      },
+      "lenguaje": "python",
+      "casos_por_categoria": {
+        "normal": 2,
+        "limite": 0,
+        "error": 0
+      }
+    },
+    {
+      "modulo": "banco_mvp.py",
+      "funcion": "invertir_palabras",
+      "tipo": "funcion",
+      "critical": false,
+      "decision": "accept",
+      "motivo_estancado": null,
+      "motivo_sin_veredicto": null,
+      "reutilizada": false,
+      "motivo_regresion": null,
+      "laundering_detectado": false,
+      "duracion_s": 0.0,
+      "inicio": "2026-10-30T05:58:32.567Z",
+      "fin": "2026-10-30T05:58:32.576Z",
+      "duracion_generacion_s": 0.0,
+      "duracion_revision_s": 0.0,
+      "duracion_sandbox_s": 0.985,
+      "duracion_pytest_s": 0.026,
+      "tiempos_intentos": [
+        {
+          "intento": 1,
+          "duracion_s": 0.0,
+          "generacion_s": 0.0,
+          "revision_s": 0.0
+        }
+      ],
+      "controles": {
+        "sintaxis": true,
+        "sandbox": true,
+        "aserciones": true,
+        "cobertura": true,
+        "mutation": null
+      },
+      "metricas": {
+        "paso": true,
+        "cobertura_lineas": 100.0,
+        "cobertura_ramas": null,
+        "iteraciones": 1,
+        "tokens_por_agente": {
+          "generator": {
+            "prompt_tokens": 0,
+            "completion_tokens": 0
+          }
+        },
+        "mutation_score": null
+      },
+      "lenguaje": "python",
+      "casos_por_categoria": {
+        "normal": 1,
+        "limite": 0,
+        "error": 0
+      }
+    },
+    {
+      "modulo": "banco_mvp.py",
+      "funcion": "formatear_moneda",
+      "tipo": "funcion",
+      "critical": false,
+      "decision": "accept",
+      "motivo_estancado": null,
+      "motivo_sin_veredicto": null,
+      "reutilizada": false,
+      "motivo_regresion": null,
+      "laundering_detectado": false,
+      "duracion_s": 0.016,
+      "inicio": "2026-10-30T05:58:32.576Z",
+      "fin": "2026-10-30T05:58:32.587Z",
+      "duracion_generacion_s": 0.016,
+      "duracion_revision_s": 0.0,
+      "duracion_sandbox_s": 0.891,
+      "duracion_pytest_s": 0.026,
+      "tiempos_intentos": [
+        {
+          "intento": 1,
+          "duracion_s": 0.016,
+          "generacion_s": 0.016,
+          "revision_s": 0.0
+        }
+      ],
+      "controles": {
+        "sintaxis": true,
+        "sandbox": true,
+        "aserciones": true,
+        "cobertura": true,
+        "mutation": null
+      },
+      "metricas": {
+        "paso": true,
+        "cobertura_lineas": 100.0,
+        "cobertura_ramas": null,
+        "iteraciones": 1,
+        "tokens_por_agente": {
+          "generator": {
+            "prompt_tokens": 0,
+            "completion_tokens": 0
+          }
+        },
+        "mutation_score": null
+      },
+      "lenguaje": "python",
+      "casos_por_categoria": {
+        "normal": 2,
+        "limite": 0,
+        "error": 0
+      }
+    },
+    {
+      "modulo": "banco_explicador.py",
+      "funcion": "total_con_impuesto",
+      "tipo": "funcion",
+      "critical": false,
+      "decision": "stalled",
+      "motivo_estancado": "error_repetido",
+      "motivo_sin_veredicto": null,
+      "reutilizada": false,
+      "motivo_regresion": null,
+      "laundering_detectado": false,
+      "duracion_s": 0.016,
+      "inicio": "2026-10-30T05:58:32.512Z",
+      "fin": "2026-10-30T05:58:32.527Z",
+      "duracion_generacion_s": 0.016,
+      "duracion_revision_s": 0.0,
+      "duracion_sandbox_s": 1.25,
+      "duracion_pytest_s": 0.169,
+      "tiempos_intentos": [],
+      "controles": {
+        "sintaxis": true,
+        "sandbox": false,
+        "aserciones": true,
+        "cobertura": false,
+        "mutation": null
+      },
+      "metricas": {
+        "paso": false,
+        "cobertura_lineas": null,
+        "cobertura_ramas": null,
+        "iteraciones": 3,
+        "tokens_por_agente": {
+          "generator": {
+            "prompt_tokens": 0,
+            "completion_tokens": 0
+          }
+        },
+        "mutation_score": null
+      },
+      "lenguaje": "python",
+      "casos_por_categoria": null
+    },
+    {
+      "modulo": "banco_explicador.py",
+      "funcion": "calcular_envio",
+      "tipo": "funcion",
+      "critical": false,
+      "decision": "stalled",
+      "motivo_estancado": "error_repetido",
+      "motivo_sin_veredicto": null,
+      "reutilizada": false,
+      "motivo_regresion": null,
+      "laundering_detectado": true,
+      "duracion_s": 0.016,
+      "inicio": "2026-10-30T05:58:32.512Z",
+      "fin": "2026-10-30T05:58:32.527Z",
+      "duracion_generacion_s": 0.016,
+      "duracion_revision_s": 0.0,
+      "duracion_sandbox_s": 1.25,
+      "duracion_pytest_s": 0.169,
+      "tiempos_intentos": [],
+      "controles": {
+        "sintaxis": true,
+        "sandbox": false,
+        "aserciones": false,
+        "cobertura": false,
+        "mutation": null
+      },
+      "metricas": {
+        "paso": false,
+        "cobertura_lineas": null,
+        "cobertura_ramas": null,
+        "iteraciones": 3,
+        "tokens_por_agente": {
+          "generator": {
+            "prompt_tokens": 0,
+            "completion_tokens": 0
+          }
+        },
+        "mutation_score": null
+      },
+      "lenguaje": "python",
+      "casos_por_categoria": null
+    },
+    {
+      "modulo": "banco_explicador.py",
+      "funcion": "convertir_moneda",
+      "tipo": "funcion",
+      "critical": false,
+      "decision": null,
+      "motivo_estancado": null,
+      "motivo_sin_veredicto": "tiempo_agotado",
+      "reutilizada": false,
+      "motivo_regresion": null,
+      "laundering_detectado": false,
+      "duracion_s": 0.016,
+      "inicio": "2026-10-30T05:58:32.512Z",
+      "fin": "2026-10-30T05:58:32.527Z",
+      "duracion_generacion_s": 0.016,
+      "duracion_revision_s": 0.0,
+      "duracion_sandbox_s": 1.25,
+      "duracion_pytest_s": 0.169,
+      "tiempos_intentos": [],
+      "controles": {
+        "sintaxis": true,
+        "sandbox": false,
+        "aserciones": true,
+        "cobertura": false,
+        "mutation": null
+      },
+      "metricas": {
+        "paso": false,
+        "cobertura_lineas": null,
+        "cobertura_ramas": null,
+        "iteraciones": 2,
+        "tokens_por_agente": {
+          "generator": {
+            "prompt_tokens": 0,
+            "completion_tokens": 0
+          }
+        },
+        "mutation_score": null
+      },
+      "lenguaje": "python",
+      "casos_por_categoria": null
+    }
+  ],
+  "resumen": {
+    "total_funciones": 9,
+    "total_seleccionados": 9,
+    "total_elegibles": 9,
+    "total_procesados": 9,
+    "total_pendientes": 0,
+    "aceptadas": 3,
+    "bugs_detectados": 3,
+    "stalled": 2,
+    "sin_veredicto": 1,
+    "requieren_corrida_nueva": 0,
+    "pass_rate": 33.3,
+    "cobertura_lineas_promedio": 100.0,
+    "cobertura_ramas_promedio": null,
+    "casos_por_categoria": {
+      "normal": 10,
+      "limite": 3,
+      "error": 4
+    },
+    "iteraciones_promedio": 1.0,
+    "costo_total_usd": 0.0,
+    "total_tokens": 0,
+    "tokens_reales": 0,
+    "tokens_estimados": 0,
+    "por_agente": {
+      "planner": {
+        "prompt_tokens": 0,
+        "completion_tokens": 0,
+        "tokens_reales": 0,
+        "tokens_estimados": 0,
+        "costo_usd": 0.0,
+        "llamadas": 1
+      },
+      "generator": {
+        "prompt_tokens": 0,
+        "completion_tokens": 0,
+        "tokens_reales": 0,
+        "tokens_estimados": 0,
+        "costo_usd": 0.0,
+        "llamadas": 6
+      }
+    },
+    "metas": {
+      "pass_rate_min": 70.0,
+      "cobertura_lineas_min": 60.0,
+      "iteraciones_promedio_max": 2.0,
+      "tope_por_corrida_usd": 1.0
+    },
+    "tipo_terminacion": "completada",
+    "objetivos_omitidos": 0,
+    "duracion_s": 0.094,
+    "duracion_etapas": {
+      "planner": 0.0,
+      "generator": 0.063,
+      "reviewer": 0.015,
+      "sandbox": 6.376,
+      "pytest": 0.631,
+      "entorno": 0.0,
+      "espera_entorno": 0.0
+    },
+    "inicio": "2026-10-30T05:58:32.498Z",
+    "fin": "2026-10-30T05:58:32.588Z"
+  },
+  "total_seleccionados": 9,
+  "total_elegibles": 9,
+  "total_procesados": 9,
+  "total_pendientes": 0,
+  "tipo_terminacion": "completada",
+  "objetivos_omitidos": 0,
+  "rama": null,
+  "omitidos": [],
+  "inicio": "2026-10-30T05:58:32.498Z",
+  "fin": "2026-10-30T05:58:32.588Z",
+  "duracion_s": 0.094,
+  "duracion_etapas": {
+    "planner": 0.0,
+    "generator": 0.063,
+    "reviewer": 0.015,
+    "sandbox": 6.376,
+    "pytest": 0.631,
+    "entorno": 0.0,
+    "espera_entorno": 0.0
+  }
+}

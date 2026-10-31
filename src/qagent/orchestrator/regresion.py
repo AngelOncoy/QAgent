@@ -30,6 +30,7 @@ from qagent.orchestrator.tiempos import (
 )
 from qagent.proyectos.proyecto_local import detectar_rama
 from qagent.sandbox import LIMITES_POR_DEFECTO, clasificar_resultado, ejecutar_pruebas
+from qagent.sandbox.archivos_prueba import ruta_de_prueba
 from qagent.sandbox.ejecucion import ejecutar_comando_pruebas
 from qagent.storage import escribir_corrida
 from qagent.storage.registro import PERFIL_REGRESION_PROFUNDA
@@ -456,13 +457,23 @@ def ejecutar_regresion(
                 imagen = (preparar_imagen or _preparar_imagen)(raiz)
             emitir(f"Reejecutando prueba aprobada: {objetivo} (sin IA)", modulo)
             t0 = reloj()
+            adaptador = adaptador_de_contrato(contrato)
             with tempfile.TemporaryDirectory(prefix="qagent-regresion-") as temporal:
-                shutil.copy2(ruta_test, Path(temporal) / ruta_test.name)
-                adaptador = adaptador_de_contrato(contrato)
+                archivo = (
+                    adaptador.archivo_para_contrato(contrato, raiz) or ruta_test.name
+                )
+                destino = ruta_de_prueba(Path(temporal), archivo)
+                destino.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(ruta_test, destino)
                 modulo_cov = adaptador.modulo_cobertura(modulo)
                 if ejecutor_propio is not None:
                     salida = ejecutor_propio(imagen, raiz, temporal, modulo_cov)
                 else:
+                    opciones_sandbox = {}
+                    if (preparar := adaptador.preparador_sandbox()) is not None:
+                        opciones_sandbox["preparar"] = preparar
+                    if (leer := adaptador.lector_informe_sandbox()) is not None:
+                        opciones_sandbox["leer_informe"] = leer
                     salida = ejecutar_comando_pruebas(
                         imagen,
                         adaptador.comando_pruebas(
@@ -475,6 +486,7 @@ def ejecutar_regresion(
                         archivo_informe=adaptador.entorno_sandbox().informe,
                         variables=adaptador.variables_pruebas(),
                         limites=limites_del_lenguaje(configuracion, adaptador.lenguaje),
+                        **opciones_sandbox,
                     )
             duracion_sandbox = segundos(t0, reloj())
             duracion_pytest = 0.0
@@ -494,11 +506,27 @@ def ejecutar_regresion(
                 else "stalled"
             )
             texto = "\n".join(x for x in (salida.stdout, salida.stderr) if x).strip()
+            clasificacion = adaptador.clasificar_ejecucion(salida)
+            motivo_sin_veredicto = None
+            if clasificacion is not None:
+                motivo_sin_veredicto = clasificacion.motivo_sin_veredicto
+                if motivo_sin_veredicto:
+                    decision = None
+                elif clasificacion.tipo == "error_test":
+                    decision = (
+                        "stalled"  # La regresión no regenera pruebas ni llama IA.
+                    )
+                texto = clasificacion.detalle or texto
+            cobertura = adaptador.cobertura_de_objetivo(
+                salida.coverage, modulo, objetivo
+            )
+            if cobertura is NotImplemented:
+                cobertura = _cobertura(salida.coverage)
             revision = {
                 "intento": 1,
-                "decision": decision,
+                "decision": decision or "stalled",
                 "estado_sandbox": estado,
-                "tipo_fallo": "bug_codigo" if estado == "fallo" else None,
+                "tipo_fallo": "bug_codigo" if decision == "bug_detectado" else None,
                 "feedback": texto
                 or (
                     "Test aprobado en el sandbox."
@@ -507,12 +535,15 @@ def ejecutar_regresion(
                 ),
                 "laundering_detectado": False,
             }
+            if motivo_sin_veredicto:
+                revision["motivo_sin_veredicto"] = motivo_sin_veredicto
             obj = ResultadoObjetivo(
                 objetivo,
                 es_critica(modulo, objetivo, contrato),
                 decision=decision,
                 intentos=1,
-                cobertura=_cobertura(salida.coverage),
+                cobertura=cobertura,
+                motivo_sin_veredicto=motivo_sin_veredicto,
                 revisiones=[revision],
                 contrato=contrato,
                 codigo=codigo,
@@ -580,6 +611,11 @@ def ejecutar_regresion(
         resumen.aceptadas = decisiones.count("accept")
         resumen.bugs_detectados = decisiones.count("bug_detectado")
         resumen.estancadas = decisiones.count("stalled")
+        resumen.sin_veredicto = sum(
+            o.decision is None and o.motivo_sin_veredicto is not None
+            for r in resultados
+            for o in r.objetivos
+        )
         resumen.requieren_corrida_nueva = decisiones.count("requiere_corrida_nueva")
         if not resumen.tipo_terminacion or resumen.tipo_terminacion == "completada":
             if resumen.cancelada or (

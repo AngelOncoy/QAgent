@@ -142,7 +142,13 @@ def nombre_prueba(spec_id: str) -> str:
 def id_de_modulo(modulo: str) -> str:
     """Identificador seguro y estable de un módulo para su caché HU-24."""
     ruta = PurePosixPath(modulo)
-    if ruta.is_absolute() or ".." in ruta.parts or ruta.suffix != ".py":
+    if (
+        ruta.is_absolute()
+        or ".." in ruta.parts
+        or ruta.suffix not in {".py", ".java"}
+        or "\\" in modulo
+        or ":" in modulo
+    ):
         raise ErrorAlmacen(f"Ruta de módulo no válida: {modulo!r}")
     partes = [
         re.sub(r"[^A-Za-z0-9_-]+", "_", parte) for parte in ruta.with_suffix("").parts
@@ -155,7 +161,8 @@ def id_de_modulo(modulo: str) -> str:
     # Así `a/b.py` y `a__b.py` nunca terminan en el mismo archivo de caché.
     base_original = ruta.with_suffix("").as_posix()
     es_nombre_directo = (
-        len(ruta.parts) == 1
+        ruta.suffix == ".py"
+        and len(ruta.parts) == 1
         and re.fullmatch(r"[A-Za-z0-9_]+", base_original) is not None
     )
     if not es_nombre_directo:

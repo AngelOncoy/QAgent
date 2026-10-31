@@ -1,12 +1,12 @@
-"""Prototipo de análisis Java con tree-sitter (EN-19, ADR-009).
+"""Análisis Java con tree-sitter y generación JUnit 5 con guardrail (#132, #181, #184).
 
 Solo lee fuentes UTF-8: no importa, compila ni ejecuta el proyecto analizado.
 Extrae clases, constructores, métodos públicos, Javadoc y decisiones (#181). Excluye
 src/test, carpetas generadas y enlaces simbólicos. Resuelve llamadas explícitas
 del proyecto sin inferir tipos ni despacho dinámico. No extrae
-endpoints Spring ni sobrecargas. #182 añade ejecución Maven/JUnit/JaCoCo dentro
-del sandbox y lectura de reportes. La generación y su guardrail siguen en #184;
-el adaptador no se declara completo mientras falten esas operaciones.
+endpoints Spring ni sobrecargas. La generación usa el contrato del Planner y el
+guardrail valida aserciones sin ejecutar Java ni consultar IA. Lee informes JUnit
+XML y ejecuta Maven/JUnit/JaCoCo exclusivamente dentro del sandbox (#182).
 """
 
 from __future__ import annotations
@@ -22,6 +22,7 @@ from qagent.analysis.analyzer import calcular_huella
 from qagent.lenguajes.base import (
     AdaptadorEnDesarrollo,
     Clasificacion,
+    ComparacionAserciones,
     EntornoSandbox,
     Estructura,
     ReglasPlanificacion,
@@ -232,13 +233,57 @@ def _constructores(clase: Node, nombre: str) -> list[dict[str, Any]]:
 
 
 class JavaAdapter(AdaptadorEnDesarrollo):
-    """Análisis y ejecución Java; generación con guardrail y Spring siguen separados."""
+    """Análisis, generación y ejecución de unitarias Java; Spring es independiente."""
 
     lenguaje = "java"
+    completo = True
     extensiones = (".java",)
     marcadores = ("pom.xml", "build.gradle", "build.gradle.kts")
     frameworks_pruebas = ("junit5",)
     frameworks_app = ("spring",)
+    huellas_disponibles = True
+
+    def huellas_de_archivo(self, fuente: str, relativa: str) -> dict[str, str] | None:
+        """Devuelve SHA-256 por método público, sin ejecutar Java (#180).
+
+        La huella incluye nombre, ruta y fuente completa: cambios de campos,
+        imports o métodos auxiliares también invalidan la caché para evitar
+        reutilizar un score con un contexto distinto. Es conservadora: incluso
+        un comentario puede forzar otra ejecución. Sintaxis inválida o nombres
+        ambiguos devuelven None; nunca se reutiliza un resultado por conjetura.
+        """
+        arbol = obtener_parser("java").parse(fuente.encode("utf-8"))
+        if arbol.root_node.has_error:
+            return None
+        try:
+            _, funciones = _declaraciones(arbol.root_node)
+        except ValueError:
+            return None
+        return {
+            f["nombre"]: calcular_huella(
+                "java-pit-v1\n" + relativa + "\n" + f["nombre"] + "\n" + fuente
+            )
+            for f in funciones
+        }
+
+    def funciones_de_modulo(self, raiz: Path, modulo: str) -> list[dict[str, Any]]:
+        """Devuelve métodos públicos y líneas para la mutación/regresión común.
+
+        Lee solo una fuente dentro de la raíz; un archivo ilegible, un enlace,
+        una ruta externa o una declaración ambigua produce una lista vacía.
+        """
+        archivo = raiz / modulo
+        if archivo.is_symlink() or not archivo.resolve().is_relative_to(raiz.resolve()):
+            return []
+        try:
+            fuente = archivo.read_text(encoding="utf-8-sig")
+            arbol = obtener_parser("java").parse(fuente.encode("utf-8"))
+            if arbol.root_node.has_error:
+                return []
+            _, funciones = _declaraciones(arbol.root_node)
+        except (OSError, UnicodeError, ValueError):
+            return []
+        return [{"nombre": f["nombre"], "linea": f["linea"]} for f in funciones]
 
     def comando_pruebas(self, modulo: str, framework: str | None = None) -> list[str]:
         """Etapas Maven/JUnit 5/JaCoCo offline, tras preparar la copia (#182)."""
@@ -259,6 +304,55 @@ class JavaAdapter(AdaptadorEnDesarrollo):
 
         return recoger_junit
 
+    def prompt_generator(
+        self,
+        contrato: dict[str, Any],
+        intento: int,
+        feedback: str | None,
+        ruta_proyecto: Path | None,
+    ) -> str:
+        """Prompt JUnit 5 desde contrato y contexto estático, sin ejecutar Java (#184)."""
+        from qagent.lenguajes.java_generacion import prompt_java
+
+        return prompt_java(contrato, intento, feedback, ruta_proyecto)
+
+    def archivo_de_prueba(self, objetivo: str, *, paquete: str = "") -> str:
+        """Ruta src/test/java/paquete/ClaseTest.java; el paquete es explícito (#184)."""
+        from qagent.lenguajes.java_generacion import archivo_java
+
+        return archivo_java(objetivo, paquete)
+
+    def archivo_para_contrato(
+        self, contrato: dict[str, Any], ruta_proyecto: Path | None
+    ) -> str:
+        """Obtiene el paquete de la fuente real, sin suponer que coincide con su ruta."""
+        from qagent.lenguajes.java_generacion import contexto_java
+
+        return contexto_java(contrato, ruta_proyecto)["archivo"]
+
+    def comparar_aserciones(
+        self, original: str, reparado: str
+    ) -> ComparacionAserciones:
+        """Detecta cambios de aserciones por AST antes de ejecutar un intento (#184)."""
+        from qagent.lenguajes.java_laundering import comparar_java
+
+        return comparar_java(original, reparado)
+
+    def validar_oraculo(
+        self, contrato: dict[str, Any], codigo: str, ruta_proyecto: Path
+    ) -> str | None:
+        """Contrasta casos, paquete y mocks con el contrato y contexto real de la fuente."""
+        from qagent.lenguajes.java_generacion import contexto_java
+        from qagent.lenguajes.java_oraculo import validar_java
+
+        try:
+            contexto = contexto_java(contrato, ruta_proyecto)
+        except (OSError, UnicodeError, ValueError) as error:
+            return "Oráculo inválido: no se pudo verificar el contexto Java: " + str(
+                error
+            )
+        return validar_java(contrato, codigo, contexto)
+
     def reglas_planificacion(self) -> ReglasPlanificacion:
         """Reglas Java/JUnit 5 para los prompts y filtros del Planner compartido (#181)."""
         from qagent.lenguajes.java_planificacion import REGLAS_PLANIFICACION_JAVA
@@ -266,7 +360,7 @@ class JavaAdapter(AdaptadorEnDesarrollo):
         return REGLAS_PLANIFICACION_JAVA
 
     def reglas_revision(self) -> ReglasRevision:
-        """Reglas de ejecución Java; el guardrail de oráculo sigue en #184."""
+        """Reglas de generación, oráculo y ejecución Java integradas (#184, #182)."""
         from qagent.lenguajes.java_revision import ReglasRevisionJava
 
         return ReglasRevisionJava()

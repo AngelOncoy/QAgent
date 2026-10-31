@@ -1,6 +1,23 @@
 # Ejecución y revisión Java en el sandbox (#182)
 
-## Base de trabajo
+## Base de trabajo actualizada (31/10/2026)
+
+Se actualizó la misma rama `feat/182-ejecucion-revision-java` con `origin/develop`
+(`9fd6581`), que incluye #181, #184 y #214. Se conservó el PR #216. Los conflictos
+del adaptador y su documentación se resolvieron conservando la generación y el
+guardrail junto con la ejecución y cobertura. No se incorporó la rama de #180.
+
+`ReglasRevisionJava` conserva el oráculo de `ReglasGeneracionJava` y añade las reglas
+de ejecución. `JavaAdapter.completo=True` habilita las unitarias Maven/JUnit 5 en
+el registro que utiliza la aplicación. Esto no añade endpoints Spring, Gradle,
+proyectos multimódulo ni POM heredados.
+
+Las comprobaciones actuales usan Planner, Generator, Reviewer y Orquestador
+productivos con respuestas de IA grabadas. Ya no se sustituyen validación del
+oráculo, comparación de aserciones ni registro de adaptadores. Los apartados con
+resultados del 30/10 conservan la evidencia histórica, previa a #184.
+
+## Base inicial, antes de #184
 
 Rama: `feat/182-ejecucion-revision-java`, creada desde el commit `eeb64f7` de
 `feat/181-analisis-plan-java`. #181 todavía esperaba revisión al iniciar esta tarea.
@@ -238,7 +255,7 @@ error_compilacion_proyecto y el segundo como error_test. **2 pruebas aprobadas,
 python -m pytest tests/sandbox/test_java_ejecucion_docker.py -k compilacion_real -q -s
 ```
 
-## Validación de integración controlada sobre los seis métodos
+## Validación inicial de integración controlada sobre los seis métodos
 
 ```powershell
 python -m pytest tests/sandbox/test_java_corrida_docker.py -q -s
@@ -276,7 +293,96 @@ copia evidencia real a .qagent/evidencia-182/ (ignorada por Git). Sin esa variab
 no escribe evidencia en el repositorio. Para reproducir la integración basta la
 imagen Java ya construida: no necesita JDK ni Maven instalados en Windows.
 
-## Límites de esta entrega
+## Validación actualizada después de #184
+
+La corrida del banco usa ahora el Generator productivo (la instrumentación de
+pruebas solo anota feedback y llama a `super().generar`). Solo se simula la respuesta
+del proveedor de IA; se conserva todo el análisis, oráculo, sintaxis, guardrail,
+ejecución y revisión. Los reintentos y el corte por hash se comprueban con esas
+mismas operaciones productivas y resultados de sandbox grabados.
+
+Se repitieron las pruebas Docker de banco, compilación y ejecución:
+
+```powershell
+python -m pytest tests/sandbox/test_java_corrida_docker.py tests/sandbox/test_java_ejecucion_docker.py -q -s
+```
+
+Resultado: **5 aprobadas en 294.64 s**. Los tres métodos correctos terminaron en
+`accept` y los tres defectos sembrados en `bug_detectado`, en un intento por objetivo.
+Se conservaron las comprobaciones de líneas/ramas JaCoCo, 4 GB, 300 s, ausencia de
+cambios al proyecto original y exclusión de los once tests preexistentes del banco.
+Los errores reales de compilación quedaron clasificados como proyecto sin veredicto
+y prueba con reintento, respectivamente. Esta ejecución no usa el guardrail de fixture
+de la validación inicial.
+
+### Entrada del backend de la aplicación y repetición sin IA
+
+```powershell
+python -m pytest tests/sandbox/test_java_corrida_entrada_docker.py -q -s
+```
+
+Resultado: **1 aprobada en 62.47 s**, con dos ejecuciones reales JUnit/JaCoCo:
+la corrida inicial y la repetición de su prueba guardada. La prueba llama a
+`ejecutar_corrida`, la misma entrada del backend que usa la aplicación. No sustituye
+agentes ni el registro; solo inyecta respuestas de IA grabadas y selecciona la imagen
+ya construida, cuyas dependencias usa el POM de la fixture. Verifica selección Java,
+`accept`, cobertura del método, lenguaje, evento final, persistencia y repetición
+sin IA. No equivale a una prueba visual de la ventana pywebview ni a una llamada a
+un proveedor real.
+
+Esta comprobación encontró cuatro faltantes que no mostraba la corrida controlada:
+
+1. Huellas y enumeración de métodos para la persistencia. Se reutilizó la misma
+   implementación conservadora de #180, sin incorporar el motor PIT a esta rama.
+2. La caché modular solo aceptaba `.py`. Ahora admite `.java`, conserva los IDs Python
+   históricos y añade huella a los IDs Java para evitar colisiones entre lenguajes.
+3. Los contratos guardados no incluyen la lista extendida de parámetros del análisis.
+   El filtro Java los reconstruye desde la firma mediante tree-sitter para conservar
+   casos válidos y seguir rechazando argumentos incompatibles.
+4. La regresión copiaba siempre nombres internos `.py` y no pasaba los hooks Java.
+   Ahora dispone el artefacto mediante el adaptador, prepara la copia, recoge JUnit,
+   clasifica fallos técnicos y selecciona la cobertura exacta del método. Los
+   adaptadores sin hooks conservan la ruta de ejecución anterior.
+
+Se añadieron pruebas sin Docker para caché Java, IDs distintos por lenguaje, rutas
+inseguras y contratos persistidos. La comprobación de revisión, Planner, regresión
+Python y caché Java produjo **75 aprobadas en 11.04 s**. La integración focalizada
+anterior produjo **382 aprobadas en 14.13 s**.
+
+### Criterios de aceptación de #182
+
+| Criterio | Implementación y evidencia |
+|---|---|
+| Imagen Java y comando Maven que ejecuta solo el artefacto generado con JaCoCo | JavaAdapter, java_ejecucion; tests de preparación/comando y comprobación real de total=1, excluyendo las once pruebas preexistentes. |
+| Sandbox sin red, efímero y con límites Java | Ejecutor común; test_java_conexion comprueba restricciones y limpieza; ejecución real comprueba 4 GB y 300 s. |
+| Compilación de prueba reintenta; proyecto queda sin veredicto | Clasificación por etapas; pruebas reales de ambos errores y pruebas de reintentos con agentes productivos. |
+| JUnit XML con casos, esperado, obtenido y error | java_junit y fixtures sintéticas/guardadas; promedio real muestra 2.5 esperado y 2.0 obtenido. |
+| JaCoCo por método: líneas y ramas | java_cobertura y pruebas de selección exacta; banco real y regresión guardada. |
+| Reviewer con máximo de tres intentos y corte por hash repetido | test_reviewer_java con Generator/oráculo productivos y resultados grabados: tres errores distintos, dos cuando se repite el hash. |
+| Resultados, JSON e informes con métricas y lenguaje | Persistencia, vistas consumidas por la app y exportaciones Markdown/HTML/PDF; tests reales de banco y entrada del backend. |
+| Fixtures sin Docker y corrida real del banco marcada docker | Banco con tres accept y tres bug_detectado; entrada del backend y repetición también marcadas docker. |
+
+La regresión general definitiva produjo **2778 aprobadas y 37 deseleccionadas,
+sin fallos**, en 276.00 s, con lint y formato aprobados. Registro:
+`.qagent/validacion-182-final-workspace.txt`, ignorado por Git.
+
+Dos ejecuciones previas con temporales en AppData presentaron fallos distintos:
+un renombrado atómico WinError 5 en una prueba del Explicador y una reapertura
+de reciente que devolvió ok=False. Las 19 pruebas de esas áreas aprobaron juntas,
+sin cambiar su código o sus aserciones. Se repitió toda la suite con un basetemp
+nuevo dentro del workspace y el techo de búsqueda Git correspondiente:
+
+```powershell
+$env:GIT_CEILING_DIRECTORIES = (Resolve-Path .qagent).Path
+python test.py -m "not docker and not red" --basetemp .qagent/pytest-182-verificacion
+```
+
+La ejecución usó Python 3.10.10 con IA simulada. Se conservaron las trazas anteriores
+en `.qagent/validacion-182-bloqueo-windows.txt` y
+`.qagent/validacion-182-reapertura-temporal.txt`; no se alteró el escritor atómico
+para ocultar los fallos ni se omitieron pruebas.
+
+## Límites y evidencia histórica
 
 ### Regresión final
 
@@ -301,7 +407,9 @@ ejecutor y no se declara compatible. El POM temporal se genera en la copia
 desechable; nunca se modifica el POM del usuario. Las dependencias deben estar
 precargadas en la imagen derivada; no se descarga nada al ejecutar.
 
-La integración automática desde la interfaz y con generación libre sigue
-condicionada a #184 y a la integración de las ramas dependientes. La prueba con
-Generator controlado verifica #182 sin afirmar que #184 ya está implementada.
-No se ha validado una corrida iniciada desde la interfaz con generación Java real.
+Desde la actualización del 31/10, #184 está integrada y se validó la entrada del
+backend con agentes y guardrail productivos. No se probó una ventana de la app
+manualmente ni la calidad de un proveedor de IA real: las respuestas de IA están
+grabadas para reproducir los casos del Javadoc sin consumir tokens. El programa
+instalado previamente requiere una versión que incluya estos cambios; actualizar
+la rama no reemplaza su ejecutable. #180 se revisa por separado y no se activa aquí.
