@@ -322,7 +322,7 @@ def test_constructor_privado_no_se_sustituye_por_mock_del_objetivo(
         JavaAdapter().prompt_generator(contrato, 1, None, tmp_path)
 
 
-def test_java_no_se_habilita_antes_de_completar_ejecucion() -> None:
-    """El guardrail rechaza contratos inválidos y la generación no activa el runner."""
-    assert JavaAdapter().completo is False
+def test_java_integrado_conserva_guardrail_obligatorio() -> None:
+    """La ejecución integrada no permite aprobar contratos inválidos sin oráculo."""
+    assert JavaAdapter().completo is True
     assert JavaAdapter().reglas_revision().validar_oraculo({}, CODIGO) is not None

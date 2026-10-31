@@ -496,7 +496,9 @@ def _objetivo(
         "tiempos_intentos": getattr(objetivo, "tiempos_intentos", []),
         "controles": controles(objetivo, metas, perfil),  # HU-21
         "metricas": {
-            "paso": ultima is not None and ultima["estado_sandbox"] == "ok",
+            "paso": ultima is not None
+            and ultima["estado_sandbox"] == "ok"
+            and not getattr(objetivo, "motivo_sin_veredicto", None),
             "cobertura_lineas": cobertura.get("lineas"),
             "cobertura_ramas": cobertura.get("ramas"),
             "iteraciones": objetivo.intentos,
@@ -591,7 +593,7 @@ def controles(
 
     Cada uno es True (cumple), False (no cumple) o None (sin dato o no aplica):
 
-    - sintaxis: el último test generado compila (`ast.parse`, sin ejecutarlo).
+    - sintaxis: el último test se puede parsear con el adaptador, sin ejecutarlo.
     - sandbox: el último test se ejecutó en el sandbox sin errores de entorno (ni
       timeout, ni memoria, ni import o colección fallidos).
     - aserciones: el último test no debilitó aserciones (laundering) y cada valor
@@ -607,14 +609,26 @@ def controles(
     cobertura = objetivo.cobertura or {}
     lineas, ramas = cobertura.get("lineas"), cobertura.get("ramas")
     score = (getattr(objetivo, "mutacion", None) or {}).get("puntuacion")
+    sin_veredicto = getattr(objetivo, "motivo_sin_veredicto", None)
+    sintaxis = None
+    if objetivo.codigo is not None:
+        if (contrato := getattr(objetivo, "contrato", None)) is not None:
+            from qagent.lenguajes import adaptador_de_contrato
+
+            sintaxis = not adaptador_de_contrato(contrato).validar_sintaxis(
+                objetivo.codigo
+            )
+        else:
+            sintaxis = _compila(objetivo.codigo)  # Compatibilidad de corridas antiguas.
     return {
-        "sintaxis": None if objetivo.codigo is None else _compila(objetivo.codigo),
+        "sintaxis": sintaxis,
         "sandbox": None
         if ultima is None
         else ultima["estado_sandbox"] in ("ok", "fallo")
-        and ultima["tipo_fallo"] != "error_test",
+        and ultima["tipo_fallo"] != "error_test"
+        and not sin_veredicto,
         "aserciones": None
-        if ultima is None
+        if ultima is None or sin_veredicto
         else not ultima["laundering_detectado"]
         and not ultima["feedback"].startswith("Oráculo inválido"),
         "cobertura": None

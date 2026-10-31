@@ -19,7 +19,7 @@ Aplicación de escritorio local (pywebview + backend Python + Docker). No hay se
 
 ## Alcance (no ampliar sin un ADR)
 
-- **Implementado hoy:** dos tipos de prueba, ambos con pytest: **unitarias de funciones Python** y **de endpoints FastAPI** con `TestClient` dentro del sandbox, sin red y simulando `Depends` (EP-09).
+- **Implementado hoy:** **unitarias de funciones Python** y **endpoints FastAPI** con pytest/`TestClient` (EP-09); **unitarias Java en proyectos Maven de un módulo** con JUnit 5 y JaCoCo (#181, #184, #182). La ejecución ocurre dentro del sandbox sin red. Java conserva el guardrail de #184; Gradle, POM heredados, multimódulo y endpoints Spring no están incluidos en este ejecutor.
 - **Ampliación aprobada para el Sprint 2** (ADR-010; cada punto entra al alcance cuando su ítem se implementa): unitarias de JavaScript/TypeScript con Vitest (EP-11a) y de Java con JUnit 5 (EP-12a); componentes React (EP-11b) y servicios y componentes Angular (EP-11d); mutación en funciones críticas con Stryker y PIT (EP-11c, EP-12b); pruebas de arquitectura con reglas universales o declaradas por el usuario (EP-13a); E2E **de humo** con Playwright (EP-13b); Agente Explicador (EP-10).
 - **Fuera de alcance:** integración contra servicios reales, E2E de flujos completos que el usuario no declaró, carga y estrés, Astro (solo investigación) y pruebas de propiedades. (Las pruebas de interfaz se refieren al código del usuario; no confundir con `src/qagent/frontend/`, la interfaz de QAgent.)
 - El análisis estático del código del usuario usa tree-sitter en todos los lenguajes (ADR-009; Python desde TA-16, que reemplaza a ADR-002). `ast` solo se usa para revisar las pruebas que genera QAgent. No se integra Graphify.
@@ -56,7 +56,7 @@ La interfaz, los contratos y `config.toml` viajan dentro del paquete (`src/qagen
 | `src/qagent/storage/` | `log.json` y `results.json` de cada corrida en `.qagent/runs/<run_id>/` (EN-05) |
 | `src/qagent/frontend/` | Interfaz HTML/CSS/JS sin build: un componente por pantalla en `componentes/`, tokens de diseño en `css/tokens.css`, logo en `assets/logo/`. Ver `src/qagent/frontend/README.md` |
 | `src/qagent/contracts/` | JSON Schema de los contratos entre agentes y `validar()`; versiones con lenguaje y framework (`planner_contract.v3`, `generated_test.v2`) y `validar_versionado()` (EN-17 #129) |
-| `src/qagent/lenguajes/` | Adaptadores por lenguaje (EN-17 #129): interfaz `LanguageAdapter`, registro y detección; la corrida y los agentes le piden todo lo del lenguaje (#168). Python completo; JS/TS y Java aún no son completos (la app avisa). Ver su `README.md` y ADR-007 |
+| `src/qagent/lenguajes/` | Adaptadores por lenguaje (EN-17 #129): interfaz `LanguageAdapter`, registro y detección; la corrida y los agentes le piden todo lo del lenguaje (#168). Python completo; Java disponible para unitarias Maven/JUnit 5; JS/TS aún en desarrollo. Ver su `README.md` y ADR-007 |
 | `tests/` | Pruebas del sistema; reflejan `src/` (`almacenamiento`, `analysis`, `app`, `config`, `lenguajes`, `llm`, `orchestrator`, `proyectos`, `sandbox`, `storage`) y `tests/frontend/` para la estructura de la interfaz |
 | `test.py` | Ejecuta todas las pruebas con un comando (lint, formato y pytest) |
 | `pyproject.toml` | Dependencias, extra `dev`, configuración de pytest y ruff, script `qagent` |

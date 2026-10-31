@@ -21,6 +21,7 @@ from qagent.sandbox.cliente import obtener_cliente
 from qagent.sandbox.modelos import (
     ETIQUETA_CONTENEDOR,
     LIMITES_POR_DEFECTO,
+    ErrorPreparacionSandbox,
     ErrorSandbox,
     ImagenNoEncontrada,
     LimitesSandbox,
@@ -100,6 +101,8 @@ def ejecutar_en_sandbox(
     entorno: dict[str, str] | None = None,
     al_terminar: AlTerminar | None = None,
     cliente: docker.DockerClient | None = None,
+    *,
+    preparar: Callable[[Path, Path], None] | None = None,
 ) -> ResultadoSandbox:
     """Ejecuta un comando en un contenedor efímero, sin red y con límites de recursos.
 
@@ -118,6 +121,7 @@ def ejecutar_en_sandbox(
         al_terminar: función opcional que recibe (copia del proyecto, carpeta /out)
             antes de la limpieza, para leer resultados adicionales.
         cliente: cliente Docker; si es None se crea uno con `obtener_cliente()`.
+        preparar: dispone archivos en la copia y tests sin ejecutar código; opcional.
 
     Returns:
         Resultado con código de salida, stdout, stderr y coverage.json si se generó.
@@ -138,6 +142,14 @@ def ejecutar_en_sandbox(
         salida = temporal / "out"
         salida.mkdir()
         salida.chmod(0o777)  # el usuario del contenedor (uid 1000) debe poder escribir
+
+        if preparar is not None:
+            try:
+                preparar(copia, tests)
+            except ErrorPreparacionSandbox as error:
+                return ResultadoSandbox(
+                    2, "", str(error), comando=list(comando), limites=limites
+                )
 
         variables = {"PYTHONPATH": DIR_PROYECTO, "HOME": "/tmp", **(entorno or {})}
         limites = ajustar_cpus_a_docker(limites, cliente)
@@ -261,6 +273,8 @@ def ejecutar_comando_pruebas(
     variables: dict[str, str] | None = None,
     limites: LimitesSandbox = LIMITES_POR_DEFECTO,
     cliente: docker.DockerClient | None = None,
+    preparar: Callable[[Path, Path], None] | None = None,
+    leer_informe: Callable[[Path], str | None] | None = None,
 ) -> ResultadoSandbox:
     """Corre las pruebas con el comando y los lectores de un adaptador (#168).
 
@@ -273,12 +287,22 @@ def ejecutar_comando_pruebas(
         leer_cobertura: `LanguageAdapter.leer_cobertura`; recibe la carpeta `/out`.
         archivo_informe: nombre del informe dentro de `/out` (`entorno_sandbox().informe`).
         variables: variables de entorno extra del adaptador.
+        preparar: preparación estática opcional en la copia, antes de ejecutar.
+        leer_informe: lector opcional de informes del runner; por defecto un archivo.
     """
     lectura: dict[str, Any] = {}
 
     def leer(_copia: Path, salida: Path) -> None:
         lectura["cobertura"] = leer_cobertura(salida)
-        lectura["informe"] = _leer_texto(salida / archivo_informe, LIMITE_JUNIT_BYTES)
+        lectura["informe"] = (
+            leer_informe(salida)
+            if leer_informe is not None
+            else _leer_texto(salida / archivo_informe, LIMITE_JUNIT_BYTES)
+        )
+
+    opciones: dict[str, Any] = {}
+    if preparar is not None:
+        opciones["preparar"] = preparar
 
     resultado = ejecutar_en_sandbox(
         imagen,
@@ -289,6 +313,7 @@ def ejecutar_comando_pruebas(
         entorno=variables,
         al_terminar=leer,
         cliente=cliente,
+        **opciones,
     )
     resultado.coverage = lectura.get("cobertura")
     resultado.junit_xml = lectura.get("informe")
