@@ -46,6 +46,55 @@ Las pruebas que necesitan Docker (`-m docker`) se omiten solas si Docker Desktop
 
 Para abrir la aplicación con la IA simulada (sin claves ni gasto), agrega `QAGENT_FAKE_LLM=1` a `~/.qagent/.env` o define `set QAGENT_FAKE_LLM=1` (Linux: `export QAGENT_FAKE_LLM=1`) antes de abrirla. El nombre anterior, `PYAGENT_FAKE_LLM`, se sigue aceptando.
 
+### Compatibilidad de las pruebas del analizador con Python (#214)
+
+`texto_ts` normaliza expresiones con el formato de Python 3.11, independientemente
+del intérprete que ejecute QAgent. Sus pruebas conservan las comparaciones exactas
+con `ast.unparse`, salvo los dos casos con comprobaciones propias por versión:
+
+- La comprensión `{k: v for k, v in d.items()}` mantiene ese texto exacto en
+  tree-sitter. Python 3.10 añade paréntesis a `(k, v)` al usar `ast.unparse`;
+  se verifica el texto esperado de cada versión y la igualdad de los árboles AST
+  del original, de la salida normalizada y de la referencia.
+- `Generic[*Ts]` siempre se valida con tree-sitter y debe producir
+  `Generic[*Ts,]`. En Python 3.10 se exige `SyntaxError` al analizar ambas formas
+  con `ast.parse`; desde 3.11 se exige igualdad con `ast.unparse` y equivalencia
+  de los árboles AST. No se omite el caso con `skip` ni `xfail`.
+
+La documentación de [ast.unparse](https://docs.python.org/3.11/library/ast.html#ast.unparse)
+define la equivalencia del AST, sin garantizar el mismo texto original. Los
+[subíndices desempaquetados](https://docs.python.org/3.11/reference/expressions.html#subscriptions)
+se admiten en Python desde 3.11.
+
+Validación del 30 de octubre de 2026, sobre la rama `fix/214-compatibilidad-python310`:
+
+| Intérprete | pytest | tree-sitter / tree-sitter-python | `tests/analysis` |
+|---|---|---|---|
+| CPython 3.10.10 | 9.1.1 | 0.24.0 / 0.23.6 | 125 aprobadas en 31.48 s |
+| CPython 3.11.17 | 9.2.0 | 0.24.0 / 0.23.6 | 125 aprobadas en 17.04 s |
+| CPython 3.12.10 | 9.2.0 | 0.24.0 / 0.23.6 | 125 aprobadas en 27.78 s |
+
+La ejecución posterior capturada por el integrante confirmó 125 aprobadas en cada
+versión: 10.62 s en 3.10.10, 7.54 s en 3.11.17 y 6.54 s en 3.12.10.
+
+El archivo afectado conserva sus 50 casos: antes daba 2 fallidas y 48 aprobadas en
+Python 3.10; después produjo 50 aprobadas (también confirmado por el integrante,
+27.25 s). La regresión de 125 pruebas incluye esos 50 casos. No se modificó el
+analizador ni se elevó la versión mínima de Python del proyecto.
+
+Para reproducir, activar un entorno con las dependencias `.[dev]` en cada versión:
+
+```powershell
+python --version
+python -m pytest tests/analysis/test_texto_ts.py -q
+python -m pytest tests/analysis -q
+```
+
+Se usó `.venv` para 3.10 y entornos aislados `.qagent/venv311` y
+`.qagent/venv312` para 3.11 y 3.12. Son locales, están ignorados por Git y no se
+distribuyen con QAgent. Lint, formato del archivo corregido y `git diff --check`
+también aprobaron. No se ejecutaron Docker, APIs de IA ni código del usuario.
+
 ## Sandbox Docker
 
 Las pruebas generadas se ejecutan solo dentro de un contenedor efímero: sin red, con 4 CPU (o los que tenga Docker, si son menos), 3 GB de memoria y 120 s como máximo (EN-03). Esos límites los define el equipo en `[sandbox]` de `src/qagent/config/config.toml`, con memoria y tiempo propios de JavaScript, TypeScript y Java en `[sandbox.<lenguaje>]` (#169; ver `docs/arquitectura.md`, sección 7); no son un ajuste del usuario final, así que `~/.qagent/config.local.toml` no los cambia. La imagen base `qagent-sandbox:base` se construye sola en la primera corrida real (necesita internet). Para construirla antes, con Docker Desktop abierto:
