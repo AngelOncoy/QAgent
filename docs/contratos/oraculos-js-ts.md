@@ -89,10 +89,24 @@ Los seis casos completos, con código, documentación y justificación, están e
 - Validación estructural: `contracts.validar_versionado()`.
 - Validación contextual: `contracts.validar_oraculo_js_ts()`.
 
-EN-18 no cambia `planner_contract.v2`, `planner_contract.v3` ni el flujo Python. Un futuro analizador JS/TS podrá construir el registro de evidencias desde JSDoc, TypeScript y contratos explícitos; esa extracción no forma parte de esta issue.
+EN-18 no cambia `planner_contract.v2`, `planner_contract.v3` ni el flujo Python.
+
+## Uso en el análisis y el Planner (#176)
+
+El analizador JS/TS (`qagent.lenguajes.javascript_oraculo`) construye el registro confiable de cada función exportada y lo guarda en su campo `evidencias`. El oráculo es **estricto**: solo fijan una expectativa
+
+| Fuente | Ejemplo | Fija |
+|---|---|---|
+| `@example` con llamada y resultado literal | `calcularDescuento(100, 20) // => 80`, `f(-1) // throws RangeError` | el valor o la excepción para esa entrada exacta |
+| `@throws {Tipo} condición` | `@throws {RangeError} si la edad es negativa` | la excepción; la entrada la propone el modelo según la condición |
+| Tipo de retorno literal (TS o `@returns {…}`) | `function v(): "v1"` | el valor para cualquier entrada |
+
+Un `@returns` en prosa, una unión de literales y un tipo general se registran, pero no bastan: el caso queda `insuficiente`. Dos `@example` con la misma entrada y distinto resultado, o un resultado incompatible con el tipo de retorno, quedan `contradictoria`. Los números se comparan como en JS (`5` y `5.0` son iguales).
+
+El Planner solo pide casos de las funciones con alguna evidencia que fije un resultado; las demás quedan omitidas como «sin resultado esperado verificable». Cada caso propuesto se convierte en un `oracle.v1` con `oraculo_del_caso()` y se valida con `validar_oraculo_js_ts()`; si no es verificable, se descarta con su motivo. El `oracle.v1` no viaja dentro de `planner_contract.v3`: es determinista y la generación puede recalcularlo con el mismo análisis.
 
 ## Limitaciones
 
-- No se implementa el parser JS/TS ni se interpreta JSDoc automáticamente.
+- Solo se reconocen `@example` de una línea por llamada, con argumentos y resultado literales (sin variables, `undefined` ni `NaN`).
 - No se ejecutan Jest o Vitest.
 - No se certifica la veracidad material de la documentación; se conserva y contrasta su procedencia.
