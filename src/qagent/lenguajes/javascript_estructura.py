@@ -144,6 +144,8 @@ def desglosar_jsdoc(texto: str | None, linea: int = 1) -> dict[str, Any] | None:
     for etiqueta, numero, lineas in bloques[1:]:
         while len(lineas) > 1 and not lineas[-1].strip():
             lineas = lineas[:-1]
+        while len(lineas) > 1 and not lineas[0].strip():  # @example⏎llamada
+            lineas, numero = lineas[1:], numero + 1
         fin = numero + len(lineas) - 1
         contenido = "\n".join(lineas).strip()
         if etiqueta in {"param", "arg", "argument"}:

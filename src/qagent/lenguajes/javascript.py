@@ -20,6 +20,7 @@ from qagent.analysis.analyzer import _resumen, calcular_huella
 from qagent.lenguajes.base import AdaptadorEnDesarrollo, EntornoSandbox, Estructura
 from qagent.lenguajes.javascript_estructura import extraer_funciones, gramatica_de
 from qagent.lenguajes.javascript_llamadas import agregar_llamadas
+from qagent.lenguajes.javascript_oraculo import registro_de_evidencias
 from qagent.lenguajes.registro import listar_archivos
 from qagent.lenguajes.treesitter import (
     extraer_errores_sintaxis,
@@ -72,8 +73,9 @@ class _AdaptadorNode(AdaptadorEnDesarrollo):
         """Lee las fuentes del lenguaje y devuelve lenguaje, módulos, errores y resumen.
 
         Misma forma que :func:`qagent.analysis.analizar_proyecto`: cada módulo trae
-        ``ruta``, ``huella``, ``funciones`` exportadas (con ``llama_a``) y
-        ``endpoints`` (vacío hasta que se analice Express). Omite ``node_modules``,
+        ``ruta``, ``huella``, ``funciones`` exportadas (con ``llama_a`` y el
+        registro de ``evidencias`` de ``oracle.v1``) y ``endpoints`` (vacío hasta
+        que se analice Express). Omite ``node_modules``,
         ``dist``, carpetas ocultas, enlaces simbólicos y pruebas existentes. Los
         archivos ilegibles o con errores de sintaxis van a ``errores`` sin detener el
         resto. Nunca ejecuta ni transpila el código.
@@ -104,6 +106,9 @@ class _AdaptadorNode(AdaptadorEnDesarrollo):
                         or "error de sintaxis"
                     )
                 funciones = extraer_funciones(arbol.root_node)
+                for funcion in funciones:
+                    funcion["modulo"] = relativa
+                    funcion["evidencias"] = registro_de_evidencias(funcion, relativa)
             except (OSError, UnicodeError, SyntaxError, RecursionError) as error:
                 errores.append(_error(relativa, error))
                 continue

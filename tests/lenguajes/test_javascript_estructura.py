@@ -245,7 +245,7 @@ export function dividir(a: number, b = 1): number { return a / b; }
         },
         "retorno": {"tipo": "number", "descripcion": "el cociente", "linea": 6},
         "excepciones": [{"tipo": "RangeError", "descripcion": "si b es 0", "linea": 7}],
-        "ejemplos": [{"texto": "dividir(6, 3) // => 2", "linea": 8, "linea_fin": 9}],
+        "ejemplos": [{"texto": "dividir(6, 3) // => 2", "linea": 9, "linea_fin": 9}],
         "otras_etiquetas": {},
     }
 
