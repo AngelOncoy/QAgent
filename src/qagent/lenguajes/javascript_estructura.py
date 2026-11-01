@@ -286,7 +286,7 @@ def firma(nombre: str, funcion: Node) -> str:
 # --- Exportaciones -------------------------------------------------------------------
 
 
-def _locales(raiz: Node) -> dict[str, tuple[Node, Node]]:
+def declaraciones_locales(raiz: Node) -> dict[str, tuple[Node, Node]]:
     """Funciones y clases de primer nivel por nombre: (nodo, ancla del JSDoc)."""
     locales: dict[str, tuple[Node, Node]] = {}
     for sentencia in raiz.named_children:
@@ -374,7 +374,7 @@ def exportadas(raiz: Node) -> list[Exportada]:
     para escribir el ``import``. Las reexportaciones (``export … from``) se omiten:
     la función se analiza en su propio archivo.
     """
-    locales = _locales(raiz)
+    locales = declaraciones_locales(raiz)
     encontradas: list[Exportada] = []
 
     def agregar(nombre: str, nodo: Node, ancla: Node, exportacion: str) -> None:
