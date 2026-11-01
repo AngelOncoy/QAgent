@@ -14,7 +14,11 @@ concreto. Decisión completa en `docs/decisiones/ADR-007-adaptadores-por-lenguaj
 | `python_generacion.py` | Prompt del Generator: archivo pytest con el contexto del módulo (#168) | Completo |
 | `python_revision.py` | Sintaxis, oráculo y clasificación de la salida de pytest para el Reviewer (#168) | Completo |
 | `python_regresion.py` | Huellas de los objetivos y línea de cada función (#168) | Completo |
-| `javascript.py` | `JavaScriptAdapter`, `TypeScriptAdapter` | Solo detecta |
+| `javascript.py` | `JavaScriptAdapter`, `TypeScriptAdapter`: `analizar()`, `objetivos()` y reglas del Planner | Analiza y planifica (#176); generación y ejecución con Vitest pendientes |
+| `javascript_estructura.py` | Funciones exportadas (ESM, CommonJS y métodos de clase), parámetros y tipos de TS, JSDoc desglosado y conteo de ramas (#176) | Completo |
+| `javascript_llamadas.py` | `llama_a`: llamadas al mismo módulo, a imports ESM y a `require` relativos (#176) | Completo |
+| `javascript_oraculo.py` | Registro de evidencias desde JSDoc y tipos, y `oracle.v1` de cada caso validado con `validar_oraculo_js_ts` (#176) | Completo |
+| `javascript_planificacion.py` | Prompt de Vitest y filtros del Planner con oráculo estricto (#176) | Completo |
 | `java.py` | `JavaAdapter` | Unitarias Maven/JUnit 5 y endpoints Spring MVC con MockMvc, guardrail y JaCoCo en sandbox (#181, #184, #182, #183); Gradle queda fuera. |
 
 ## Uso
