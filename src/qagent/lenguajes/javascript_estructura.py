@@ -501,6 +501,7 @@ def describir(exportada: Exportada) -> dict[str, Any]:
         for p in lista
     )
     nombre_corto = exportada.nombre.rsplit(".", 1)[-1]
+    ramas = contar_ramas(nodo)
     descripcion = {
         "nombre": exportada.nombre,
         "linea": nodo.start_point.row + 1,
@@ -509,7 +510,8 @@ def describir(exportada: Exportada) -> dict[str, Any]:
         "retorno": retorno,
         "docstring": docstring,
         "jsdoc": jsdoc,
-        "ramas": contar_ramas(nodo),
+        "ramas": ramas,
+        "critical": ramas > 0,
         "tipada": tipada,
         "es_async": es_async(nodo),
         "exportacion": exportada.exportacion,

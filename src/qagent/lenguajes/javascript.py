@@ -17,7 +17,12 @@ from typing import Any
 from tree_sitter import Node
 
 from qagent.analysis.analyzer import _resumen, calcular_huella
-from qagent.lenguajes.base import AdaptadorEnDesarrollo, EntornoSandbox, Estructura
+from qagent.lenguajes.base import (
+    AdaptadorEnDesarrollo,
+    EntornoSandbox,
+    Estructura,
+    ReglasPlanificacion,
+)
 from qagent.lenguajes.javascript_estructura import extraer_funciones, gramatica_de
 from qagent.lenguajes.javascript_llamadas import agregar_llamadas
 from qagent.lenguajes.javascript_oraculo import registro_de_evidencias
@@ -141,6 +146,14 @@ class _AdaptadorNode(AdaptadorEnDesarrollo):
             for m in estructura.get("modulos", [])
             for f in m.get("funciones", [])
         ]
+
+    def reglas_planificacion(self) -> ReglasPlanificacion:
+        """Prompt Vitest y oráculo estricto desde JSDoc y tipos para el Planner (#176)."""
+        from qagent.lenguajes import javascript_planificacion as reglas
+
+        if self.lenguaje == "typescript":
+            return reglas.REGLAS_PLANIFICACION_TYPESCRIPT
+        return reglas.REGLAS_PLANIFICACION_JAVASCRIPT
 
     def entorno_sandbox(self) -> EntornoSandbox:
         return entorno_node()
