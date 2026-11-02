@@ -63,6 +63,7 @@ contracts.normalizar_planner(contrato_v2)  # copia en v3 (python + pytest)
 | Operación | Qué devuelve | Notas |
 |---|---|---|
 | `detectar(archivos)` | `Deteccion` o `None` | Ya implementada con `extensiones` y `marcadores`. Se puede sobrescribir `es_fuente` (TypeScript ignora `.d.ts`). |
+| `archivos_fuente(raiz)` | rutas relativas POSIX | Apertura y conteo de fuentes sin ejecutar código. Python conserva sus exclusiones históricas; Java reutiliza la misma lista al analizar y excluye pruebas, generados y enlaces. |
 | `analizar(raiz)` | `{"lenguaje", "modulos", "errores", "resumen"}` | Misma forma que `qagent.analysis.analizar_proyecto`. **Estático.** |
 | `objetivos(estructura)` | `[{"modulo", "tipo", "objetivo"}]` | Ya implementada: recorre `funciones` y `endpoints`. |
 | `comando_pruebas(modulo, framework=None)` | `list[str]` | Usa `elegir_framework()` para validar el framework del contrato. |

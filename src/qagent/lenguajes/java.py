@@ -510,6 +510,22 @@ class JavaAdapter(AdaptadorEnDesarrollo):
         raiz = obtener_parser("java").parse(codigo.encode("utf-8")).root_node
         return extraer_errores_sintaxis(raiz) if raiz.has_error else []
 
+    def archivos_fuente(self, raiz: str | os.PathLike[str]) -> list[str]:
+        """Fuentes Java sin pruebas, carpetas generadas ni enlaces simbólicos."""
+        carpeta = Path(raiz)
+        return [
+            relativa
+            for relativa in listar_archivos(carpeta)
+            if self.es_fuente(relativa)
+            and "test" not in Path(relativa).parts
+            and not (carpeta / relativa).is_symlink()
+            and not any(
+                p.is_symlink()
+                for p in (carpeta / relativa).parents
+                if p != carpeta.parent
+            )
+        ]
+
     def analizar(self, raiz: str | os.PathLike[str]) -> Estructura:
         """Lee fuentes Java y devuelve lenguaje, módulos, errores y resumen.
 
@@ -527,15 +543,8 @@ class JavaAdapter(AdaptadorEnDesarrollo):
         errores = []
         parser = obtener_parser("java")
         arboles: dict[str, Node] = {}
-        for relativa in listar_archivos(carpeta):
-            partes = Path(relativa).parts
-            if not self.es_fuente(relativa) or "test" in partes:
-                continue
+        for relativa in self.archivos_fuente(carpeta):
             archivo = carpeta / relativa
-            if archivo.is_symlink() or any(
-                p.is_symlink() for p in archivo.parents if p != carpeta.parent
-            ):
-                continue
             try:
                 fuente = archivo.read_text(encoding="utf-8-sig")
                 arbol = parser.parse(fuente.encode("utf-8"))
