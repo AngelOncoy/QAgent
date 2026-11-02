@@ -101,10 +101,7 @@ class DesktopAPI:
                             "ok": False,
                             "destino": resultado.destino,
                             "tipo_error": "incompatibilidad_lenguaje",
-                            "error": (
-                                "No es posible cargar/abrir el proyecto por incompatibilidad de lenguaje: "
-                                "QAgent solo admite proyectos en Python 3.10+."
-                            ),
+                            "error": inspeccion["error"],
                         },
                     )
                     return
@@ -131,17 +128,17 @@ class DesktopAPI:
         return {"iniciado": True}
 
     def inspeccionar_carpeta(self, ruta: str) -> dict:
-        """Valida la carpeta elegida y cuenta sus archivos ``.py`` (HU-01).
+        """Valida la carpeta y cuenta las fuentes del adaptador elegido (HU-01).
 
         Returns:
-            dict: ``ok``, ``nombre``, ``ruta``, ``cantidad_py`` y ``error``.
+            dict: lenguaje, cantidad de fuentes, ruta, rama y motivo si no se puede abrir.
         """
         return proyecto_local.inspeccionar_carpeta(ruta)
 
     def abrir_proyecto(self, ruta: str) -> dict:
-        """Revalida la carpeta y, si tiene ``.py``, la registra en recientes (HU-01).
+        """Revalida la carpeta y, si tiene fuentes soportadas, registra el proyecto.
 
-        Una carpeta sin ``.py`` nunca se registra.
+        Una carpeta sin fuentes analizables nunca se registra.
 
         Returns:
             dict: El resultado de ``inspeccionar_carpeta``; si no se pudo

@@ -1,8 +1,8 @@
 """Validación de una carpeta local antes de abrirla como proyecto — HU-01.
 
 Solo lee el sistema de archivos: nunca importa ni ejecuta código del usuario.
-Cuenta los ``.py`` con el mismo criterio que el analizador (EN-02), de modo que
-nunca se abre un proyecto en el que el analizador no encuentre módulos.
+Obtiene el adaptador del registro y cuenta sus fuentes con el mismo criterio
+que el análisis de la corrida, sin compilar ni ejecutar el proyecto.
 """
 
 from __future__ import annotations
@@ -12,11 +12,10 @@ import re
 from pathlib import Path
 from typing import Any
 
-from qagent.analysis.analyzer import listar_archivos_py
+from qagent.lenguajes import LenguajeNoSoportado, adaptador_del_proyecto
 
 SIN_ARCHIVOS_PY = (
-    "No es posible cargar/abrir el proyecto por incompatibilidad de lenguaje: "
-    "QAgent solo admite proyectos en Python 3.10+."
+    "La carpeta no contiene archivos fuente analizables de un lenguaje soportado."
 )
 
 
@@ -57,6 +56,10 @@ def _resultado(
     cantidad_py: int = 0,
     error: str | None = None,
     rama: str | None = None,
+    lenguaje: str | None = None,
+    nombre_lenguaje: str | None = None,
+    cantidad_fuentes: int = 0,
+    extensiones: tuple[str, ...] = (),
 ) -> dict[str, Any]:
     """Arma el diccionario de respuesta de ``inspeccionar_carpeta``."""
     return {
@@ -66,19 +69,24 @@ def _resultado(
         "cantidad_py": cantidad_py,
         "error": error,
         "rama": rama,
+        "lenguaje": lenguaje,
+        "nombre_lenguaje": nombre_lenguaje,
+        "cantidad_fuentes": cantidad_fuentes,
+        "extensiones": list(extensiones),
     }
 
 
 def inspeccionar_carpeta(ruta: str | os.PathLike[str]) -> dict[str, Any]:
-    """Indica si una carpeta puede abrirse como proyecto Python.
+    """Indica si una carpeta tiene fuentes de un adaptador operativo del registro.
 
     Args:
         ruta: Carpeta elegida por el usuario.
 
     Returns:
-        Diccionario con ``ok`` (la carpeta existe y tiene al menos un ``.py``
-        analizable), ``nombre`` (nombre de la carpeta), ``ruta`` (absoluta),
-        ``cantidad_py``, ``error`` (mensaje en español o ``None``) y ``rama``
+        Diccionario con ``ok`` (hay fuentes analizables), ``lenguaje``,
+        ``nombre_lenguaje``, ``cantidad_fuentes`` y ``extensiones``. Conserva
+        ``cantidad_py`` para clientes anteriores. Incluye ``nombre``, ``ruta``,
+        ``error`` (mensaje en español o ``None``) y ``rama``
         (rama Git actual o ``None`` si no es un repositorio).
         Nunca lanza excepciones.
     """
@@ -100,7 +108,10 @@ def inspeccionar_carpeta(ruta: str | os.PathLike[str]) -> dict[str, Any]:
         # que la raíz sea legible para no confundir "sin permisos" con "vacía".
         with os.scandir(carpeta):
             pass
-        cantidad = len(listar_archivos_py(carpeta))
+        adaptador = adaptador_del_proyecto(carpeta)
+        cantidad = len(adaptador.archivos_fuente(carpeta))
+    except LenguajeNoSoportado as error:
+        return _resultado(texto, nombre, error=str(error), rama=detectar_rama(carpeta))
     except PermissionError:
         return _resultado(
             texto, nombre, error=f"No hay permisos para leer la carpeta: {texto}"
@@ -111,4 +122,13 @@ def inspeccionar_carpeta(ruta: str | os.PathLike[str]) -> dict[str, Any]:
     rama = detectar_rama(carpeta)
     if cantidad == 0:
         return _resultado(texto, nombre, error=SIN_ARCHIVOS_PY, rama=rama)
-    return _resultado(texto, nombre, cantidad_py=cantidad, rama=rama)
+    return _resultado(
+        texto,
+        nombre,
+        cantidad_py=cantidad if adaptador.lenguaje == "python" else 0,
+        rama=rama,
+        lenguaje=adaptador.lenguaje,
+        nombre_lenguaje=adaptador.nombre_visible,
+        cantidad_fuentes=cantidad,
+        extensiones=adaptador.extensiones,
+    )

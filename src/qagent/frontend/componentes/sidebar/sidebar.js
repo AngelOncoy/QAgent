@@ -24,7 +24,7 @@ registrarComponente('sidebar/sidebar', `<!-- ======================= BARRA LATER
   <div class="lat-espacio lat-txt hide" id="latEspacio">
     <span class="lat-etiqueta">Espacio de trabajo</span>
     <b class="repoName"></b>
-    <span class="lat-detalle">Python · pytest<span id="sideBranch"> · rama <span id="branchLbl">main</span></span></span>
+    <span class="lat-detalle"><span id="sideLenguaje">Python · pytest</span><span id="sideBranch"> · rama <span id="branchLbl">main</span></span></span>
   </div>
 
   <!-- Estado del motor de ejecución (entorno aislado) -->

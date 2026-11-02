@@ -38,6 +38,10 @@ def test_carpeta_con_py_es_valida(tmp_path: Path) -> None:
         "cantidad_py": 2,
         "error": None,
         "rama": None,
+        "lenguaje": "python",
+        "nombre_lenguaje": "Python",
+        "cantidad_fuentes": 2,
+        "extensiones": [".py"],
     }
 
 

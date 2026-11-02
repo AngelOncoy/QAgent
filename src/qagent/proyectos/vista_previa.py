@@ -29,7 +29,7 @@ import os
 from pathlib import Path
 from typing import Any
 
-from qagent.analysis.analyzer import analizar_proyecto
+from qagent.lenguajes import LenguajeNoSoportado, adaptador_del_proyecto
 
 AVISO_ORACULO_DEBIL = "el valor esperado no tendrá fuente (oráculo débil)"
 ETIQUETA_FALTA_DOCSTRING = "⚠ falta"
@@ -65,7 +65,7 @@ def priorizar_modulos(modulos: list[dict[str, Any]]) -> list[dict[str, Any]]:
 def generar_vista_previa(raiz: str | os.PathLike[str]) -> dict[str, Any]:
     """Genera los datos de la Vista previa para un proyecto dado (HU-04).
 
-    Utiliza análisis estático (AST) mediante :func:`analizar_proyecto` (EN-02),
+    Utiliza el análisis estático del adaptador elegido por el registro,
     prioriza los módulos por funciones con ramas, enriquece las funciones con
     avisos de documentación y conserva el resumen exacto de EN-02.
 
@@ -98,7 +98,11 @@ def generar_vista_previa(raiz: str | os.PathLike[str]) -> dict[str, Any]:
             },
         }
 
-    resultado_ast = analizar_proyecto(carpeta)
+    try:
+        adaptador = adaptador_del_proyecto(carpeta)
+    except LenguajeNoSoportado as error:
+        return {"ok": False, "error": str(error), "modulos": [], "errores": []}
+    resultado_ast = adaptador.analizar(carpeta)
 
     # Anotamos los módulos con su conteo de funciones con ramas y aviso en funciones sin docstring
     modulos_procesados: list[dict[str, Any]] = []
@@ -149,6 +153,9 @@ def generar_vista_previa(raiz: str | os.PathLike[str]) -> dict[str, Any]:
         "ok": True,
         "ruta": str(carpeta.resolve()),
         "nombre": carpeta.name or str(carpeta),
+        "lenguaje": adaptador.lenguaje,
+        "nombre_lenguaje": adaptador.nombre_visible,
+        "framework_pruebas": adaptador.frameworks_pruebas[0],
         "modulos": modulos_priorizados,
         "errores": errores_procesados,
         "resumen": resultado_ast["resumen"],
