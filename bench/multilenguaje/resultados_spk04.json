@@ -1,0 +1,232 @@
+{
+  "item": "SPK-04",
+  "referencia": "ADR-009 secciones 4.1 y 4.2",
+  "entorno": {
+    "sistema_operativo": "Windows",
+    "version_so": "10.0.26300",
+    "arquitectura": "AMD64",
+    "procesador": "AMD64 Family 23 Model 104 Stepping 1, AuthenticAMD",
+    "version_python": "3.13.9",
+    "version_node": "v22.17.0",
+    "paquetes_ts": {
+      "tree_sitter": "disponible",
+      "tree_sitter_python": "disponible",
+      "tree_sitter_javascript": "disponible",
+      "tree_sitter_typescript": "disponible",
+      "tree_sitter_java": "disponible"
+    },
+    "fecha_ejecucion": "2026-10-31 20:49:00"
+  },
+  "archivos_evaluados": {
+    "python": {
+      "nombre": "calculadora.py",
+      "huella": "5b1176d5dc9d7dfae3a858ea5bb095d70e053ab04c596b98a84eff8e99ddba36"
+    },
+    "typescript": {
+      "nombre": "calculadora.ts",
+      "huella": "be1e60a6e22b8109a4b680b9fd816fa35e2a8383c2b216c25a98e722cf450430"
+    },
+    "javascript": {
+      "nombre": "calculadora.js",
+      "huella": "66ef7b2d2b4528859d864007d10bf16cb741229a2f5d5eebde792330d009499d"
+    },
+    "java": {
+      "nombre": "Calculadora.java",
+      "huella": "d164e6f1d0d49bf4cf1946cefc70b199aa05c5a7f2abad438cf27a28f0bf7068"
+    }
+  },
+  "mediciones_rendimiento": [
+    {
+      "herramienta": "Parser Nativo (Python ast)",
+      "lenguaje": "Python",
+      "archivo": "calculadora.py",
+      "iteraciones": 50,
+      "tiempo_medio_ms": 2.32,
+      "tiempo_min_ms": 1.75,
+      "tiempo_max_ms": 5.9,
+      "memoria_pico_kb": 295.3,
+      "tokens_consumidos": 0,
+      "determinista": true,
+      "disponible": true,
+      "dependencias_externas": [],
+      "observacion": "Biblioteca estándar de Python (ast)"
+    },
+    {
+      "herramienta": "Parser Nativo JS (Node subproceso)",
+      "lenguaje": "JavaScript",
+      "archivo": "calculadora.js",
+      "iteraciones": 20,
+      "tiempo_medio_ms": 85.53,
+      "tiempo_min_ms": 77.71,
+      "tiempo_max_ms": 102.83,
+      "memoria_pico_kb": 49.6,
+      "tokens_consumidos": 0,
+      "determinista": true,
+      "disponible": true,
+      "dependencias_externas": [
+        "Node.js runtime"
+      ],
+      "observacion": "Ejecutado con Node.js en subproceso"
+    },
+    {
+      "herramienta": "Tree-sitter (Python)",
+      "lenguaje": "Python",
+      "archivo": "calculadora.py",
+      "iteraciones": 50,
+      "tiempo_medio_ms": 0.81,
+      "tiempo_min_ms": 0.61,
+      "tiempo_max_ms": 2.31,
+      "memoria_pico_kb": 137.6,
+      "tokens_consumidos": 0,
+      "determinista": true,
+      "disponible": true,
+      "dependencias_externas": [
+        "tree-sitter (wheels compiladas de C en Python)"
+      ],
+      "observacion": "Motor C embebido nativo en Python (Python)"
+    },
+    {
+      "herramienta": "Tree-sitter (TypeScript)",
+      "lenguaje": "TypeScript",
+      "archivo": "calculadora.ts",
+      "iteraciones": 50,
+      "tiempo_medio_ms": 0.77,
+      "tiempo_min_ms": 0.6,
+      "tiempo_max_ms": 3.01,
+      "memoria_pico_kb": 117.7,
+      "tokens_consumidos": 0,
+      "determinista": true,
+      "disponible": true,
+      "dependencias_externas": [
+        "tree-sitter (wheels compiladas de C en Python)"
+      ],
+      "observacion": "Motor C embebido nativo en Python (TypeScript)"
+    },
+    {
+      "herramienta": "Tree-sitter (Java)",
+      "lenguaje": "Java",
+      "archivo": "Calculadora.java",
+      "iteraciones": 50,
+      "tiempo_medio_ms": 0.83,
+      "tiempo_min_ms": 0.64,
+      "tiempo_max_ms": 2.27,
+      "memoria_pico_kb": 120.8,
+      "tokens_consumidos": 0,
+      "determinista": true,
+      "disponible": true,
+      "dependencias_externas": [
+        "tree-sitter (wheels compiladas de C en Python)"
+      ],
+      "observacion": "Motor C embebido nativo en Python (Java)"
+    },
+    {
+      "herramienta": "Graphify",
+      "lenguaje": "Python",
+      "archivo": "calculadora.py",
+      "iteraciones": 1,
+      "tiempo_medio_ms": 2445.0,
+      "tiempo_min_ms": 2445.0,
+      "tiempo_max_ms": 2445.0,
+      "memoria_pico_kb": 3200.0,
+      "tokens_consumidos": 1647,
+      "tokens_entrada": 1327,
+      "tokens_salida": 320,
+      "determinista": false,
+      "disponible": false,
+      "dependencias_externas": [
+        "Graphify CLI",
+        "uv",
+        "API Key LLM",
+        "Conexión a internet"
+      ],
+      "observacion": "Herramienta externa descartada en ADR-002 y ADR-009. Cifras de referencia de SPK-04; no ejecutable sin CLI externo y LLM real."
+    },
+    {
+      "herramienta": "Graphify",
+      "lenguaje": "TypeScript",
+      "archivo": "calculadora.ts",
+      "iteraciones": 1,
+      "tiempo_medio_ms": 2445.0,
+      "tiempo_min_ms": 2445.0,
+      "tiempo_max_ms": 2445.0,
+      "memoria_pico_kb": 3450.0,
+      "tokens_consumidos": 1784,
+      "tokens_entrada": 1464,
+      "tokens_salida": 320,
+      "determinista": false,
+      "disponible": false,
+      "dependencias_externas": [
+        "Graphify CLI",
+        "uv",
+        "API Key LLM",
+        "Conexión a internet"
+      ],
+      "observacion": "Herramienta externa descartada en ADR-002 y ADR-009. Cifras de referencia de SPK-04; no ejecutable sin CLI externo y LLM real."
+    }
+  ],
+  "matriz_metadatos": [
+    {
+      "metadato": "Huella SHA-256 de archivo",
+      "ast": "Sí",
+      "parsers_externos": "Sí",
+      "treesitter": "Sí",
+      "graphify": "Sí"
+    },
+    {
+      "metadato": "Funciones y Métodos",
+      "ast": "Sí",
+      "parsers_externos": "Sí",
+      "treesitter": "Sí",
+      "graphify": "Parcial (grafo genérico)"
+    },
+    {
+      "metadato": "Clases y Constructores",
+      "ast": "Sí",
+      "parsers_externos": "Sí",
+      "treesitter": "Sí",
+      "graphify": "Sí"
+    },
+    {
+      "metadato": "Parámetros y Defaults",
+      "ast": "Sí",
+      "parsers_externos": "Sí",
+      "treesitter": "Sí",
+      "graphify": "Incompleto"
+    },
+    {
+      "metadato": "Tipos estáticos anotados",
+      "ast": "Sí",
+      "parsers_externos": "Sí",
+      "treesitter": "Sí (nodos type_annotation)",
+      "graphify": "No confiable / omitido"
+    },
+    {
+      "metadato": "Docstring / JSDoc / Javadoc (Oráculo)",
+      "ast": "Sí",
+      "parsers_externos": "Sí",
+      "treesitter": "Sí (nodos comment adyacentes)",
+      "graphify": "No (sintetizado en texto libre)"
+    },
+    {
+      "metadato": "Conteo de Ramas (critical)",
+      "ast": "Sí",
+      "parsers_externos": "Sí",
+      "treesitter": "Sí (queries de bifurcaciones)",
+      "graphify": "No"
+    },
+    {
+      "metadato": "Mapa de llamadas (llama_a)",
+      "ast": "Sí",
+      "parsers_externos": "Sí",
+      "treesitter": "Sí (queries call_expression)",
+      "graphify": "Sí (su mayor virtud)"
+    },
+    {
+      "metadato": "Endpoints y Decoradores",
+      "ast": "Sí (FastAPI)",
+      "parsers_externos": "Sí (Express / Spring)",
+      "treesitter": "Sí (queries decoradores)",
+      "graphify": "No como contrato"
+    }
+  ]
+}

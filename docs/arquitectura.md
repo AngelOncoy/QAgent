@@ -1017,7 +1017,7 @@ Responsables sugeridos en el plan del Sprint 2, a confirmar en el Sprint Plannin
 | Adaptador de Java completo y banco equivalente en los 3 lenguajes (brecha B5) | Nuevo integrante | ADR-009 · EP-12a |
 | Imágenes `node` y `java` del sandbox y límites de memoria y tiempo por lenguaje (**Resuelto**, #169); falta `navegador` con EP-13b | Sanchez Vargas, Adrián | Sección 7 |
 | Migrar el analizador de Python a tree-sitter, solo si da la misma estructura que `analizar_proyecto()` | Hecho (TA-16, #154) | ADR-009 |
-| Versionar en `bench/` los bancos y scripts de medición de SPK-03 y SPK-04 | Sanchez Vargas, Adrián y Castillo Pezo, Mateo | ADR-008 · ADR-009 |
+| Versionar en `bench/` los bancos y scripts de medición de SPK-03 y SPK-04 (**Resuelto**) | Sanchez Vargas, Adrián y Castillo Pezo, Mateo | ADR-008 · ADR-009 |
 | Implementar las reglas del Recomendador y la declaración de capacidades por adaptador; integrar la confirmación en Vista previa | bel001 | ADR-011 · #197 |
 | Implementar y medir el modo IA opcional antes de considerar un cambio del modo predeterminado | bel001, con revisión del equipo | ADR-011 · #200 · #201 |
 

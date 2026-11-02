@@ -67,6 +67,8 @@ Las tres alternativas se evaluaron sobre un banco de pruebas espejo, con impleme
 | **Graphify** | Python | 2,445.00 ms | **1,669** | 3,200 KB | No |
 | **Graphify** | TypeScript | 2,445.00 ms | **1,784** | 3,450 KB | No |
 
+> **Actualización de medición (2026-10-31):** Las cifras se repiten con `python bench/multilenguaje/medir_parsers_spk04.py` (resultados guardados en `bench/multilenguaje/resultados_spk04.json`). En la máquina de prueba actual, tree-sitter parsea en 0,64–0,68 ms con ~117–138 KB de memoria pico, `ast` en 1,82 ms con 295 KB, el subproceso de Node en 66,69 ms y Graphify mantiene su orden de latencia (2 445 ms) y consumo de >1 600 tokens, ratificando la ventaja en tiempo, recursos y consumo de 0 tokens de Tree-sitter.
+
 ---
 
 ## 5. Análisis de Viabilidad y Distribución
@@ -129,5 +131,5 @@ Las tres alternativas se evaluaron sobre un banco de pruebas espejo, con impleme
 - **Mapeo de Queries Tree-sitter:** Se deben mantener archivos de consulta `.scm` por cada lenguaje para capturar de forma robusta las asociaciones entre comentarios JSDoc/Javadoc y sus respectivas funciones/métodos.
 - **Extracción de endpoints Express y Spring Boot:** Se implementarán consultas específicas sobre decoradores y llamadas a routers (`app.get()`, `@GetMapping`) de forma análoga a lo desarrollado en EN-14 para FastAPI.
 - **Dependencias:** `tree-sitter`, `tree-sitter-javascript`, `tree-sitter-typescript` y `tree-sitter-python` quedan fijadas en `pyproject.toml`. Hay ruedas `abi3` de `tree-sitter-python` 0.23.6 para Windows, macOS y Linux, y de `tree-sitter` 0.24 para Python 3.10 a 3.13.
-- **Reproducibilidad de las cifras:** el banco espejo y los scripts de medición del spike se preservan en `bench/multilenguaje/`.
+- **Reproducibilidad de las cifras:** el banco espejo y los scripts de medición del spike se encuentran versionados en `bench/multilenguaje/` (`medir_parsers_spk04.py`, `README.md` y `resultados_spk04.json`).
 - **Python con tree-sitter:** hecho en TA-16 (#154), con la estructura idéntica a la de `analizar_proyecto()` (ver sección 6, punto 2). En las mediciones de TA-16 **no** se repitió la ventaja de la sección 4.2: solo el parseo tarda 2,71 ms por archivo con tree-sitter frente a 1,70 ms con `ast.parse`, y el análisis completo de `src/qagent` (84 archivos) unos 810 ms frente a 465 ms, porque los recorridos del árbol se hacen nodo por nodo desde Python. Sigue en milisegundos y la ganancia que se buscaba es tener un solo parser. Si hace falta acelerar, el camino es usar consultas de tree-sitter (corren en C), lo que exige subir el mínimo de `tree-sitter` a 0.23 (su API cambió). Las cifras se repiten con `python scripts/medir_analizador.py bench src/qagent`.
