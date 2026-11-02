@@ -79,6 +79,12 @@ DIRECTORIOS_IGNORADOS = frozenset(
         "graphify-out",
     }
 )
+#: Scripts de medición empírica versionados en bench/ que no forman parte del código a probar.
+ARCHIVOS_IGNORADOS = frozenset(
+    {
+        "medir_orquestador_spk03.py",
+    }
+)
 
 _ERRORES_LECTURA = (SyntaxError, ValueError, RecursionError, OSError)
 
@@ -102,7 +108,11 @@ def listar_archivos_py(raiz: Path) -> list[Path]:
     encontrados: list[Path] = []
     for directorio, subdirectorios, archivos in os.walk(raiz):
         subdirectorios[:] = [d for d in subdirectorios if not _es_ignorado(d)]
-        encontrados.extend(Path(directorio) / a for a in archivos if a.endswith(".py"))
+        encontrados.extend(
+            Path(directorio) / a
+            for a in archivos
+            if a.endswith(".py") and a not in ARCHIVOS_IGNORADOS
+        )
     return sorted(encontrados, key=lambda p: p.relative_to(raiz).as_posix())
 
 
