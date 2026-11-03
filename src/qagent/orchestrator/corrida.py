@@ -329,9 +329,12 @@ def ejecutar_corrida(
             )
 
         tracker = TokenTracker(configuracion.agentes)
+        # El Explicador crea su cliente al final (`_redactor_ia`): sin su clave la
+        # corrida no se detiene, usa la plantilla (ADR-008).
         clientes = {
             agente: crear_cliente(precio, claves, simulado=simulado)
             for agente, precio in configuracion.agentes.items()
+            if agente != "explicador"
         }
         avisar_entorno(
             "Preparando el entorno aislado (Docker) para ejecutar las pruebas",

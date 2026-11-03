@@ -30,7 +30,7 @@ import re
 import shutil
 import sys
 from collections.abc import Callable, Mapping
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Any
 
@@ -98,7 +98,12 @@ CLAVE_POR_PROVEEDOR = variable_por_proveedor()
 LectorClaves = Callable[[str], "str | None"]
 
 #: Nombre visible de cada agente.
-NOMBRE_AGENTE = {"planner": "Planner", "generator": "Generator", "reviewer": "Reviewer"}
+NOMBRE_AGENTE = {
+    "planner": "Planner",
+    "generator": "Generator",
+    "reviewer": "Reviewer",
+    "explicador": "Explicador",
+}
 
 #: Proveedor y modelo que ocupan el lugar de un agente sin configurar con la IA simulada.
 PROVEEDOR_SIMULADO = "simulado"
@@ -110,9 +115,9 @@ UMBRALES = ("pass_rate_min", "cobertura_lineas_min", "iteraciones_promedio_max")
 #: Tiempo máximo de mutmut por función crítica si `[mutacion]` no lo define (EN-09).
 TIEMPO_MUTACION_POR_DEFECTO_S = 120
 
-#: Modos del Explicador: plantillas sin IA (HU-32) o un LLM con la plantilla como
-#: respaldo (#166).
-MODOS_EXPLICADOR = ("plantilla", "ia")
+#: Modos del Explicador: un LLM con la plantilla como respaldo (#166), el de por
+#: defecto desde que su API es obligatoria (EP-10 #172), o solo plantillas (HU-32).
+MODOS_EXPLICADOR = ("ia", "plantilla")
 
 #: Segundos que espera el Explicador cada respuesta del LLM si no se fija otro (#166).
 TIEMPO_EXPLICADOR_POR_DEFECTO_S = 60.0
@@ -159,7 +164,8 @@ class Explicador:
 
     activo: bool = True
     modo: str = MODOS_EXPLICADOR[0]
-    #: Proveedor, modelo y precios con `modo = "ia"` (#166); None con plantillas.
+    #: Proveedor, modelo y precios de `Configuracion.agentes` con `modo = "ia"` (#166);
+    #: None con plantillas.
     precio: PrecioAgente | None = None
     #: Segundos máximos por explicación pedida al LLM; al vencer se usa la plantilla.
     tiempo_maximo_s: float = TIEMPO_EXPLICADOR_POR_DEFECTO_S
@@ -400,6 +406,7 @@ def cargar_configuracion(
                 )
             else:
                 avisos_config.append(mensaje_sin_configurar(agente))
+        config = _con_precio_del_explicador(config)
 
     claves = Claves()
     if not simulado:
@@ -407,6 +414,21 @@ def cargar_configuracion(
     return ResultadoCarga(
         config, claves, avisos_config, avisos_claves, simulado, sin_configurar
     )
+
+
+def _con_precio_del_explicador(config: Configuracion) -> Configuracion:
+    """El Explicador con `modo = "ia"` usa el modelo de `config.agentes` (EP-10 #172).
+
+    Se completa después de la IA simulada para que un Explicador sin configurar también
+    redacte con ella.
+    """
+    explicador = config.explicador
+    if explicador.modo != "ia" or explicador.precio is not None:
+        return config
+    precio = config.agentes.get("explicador")
+    if precio is None:
+        return config
+    return replace(config, explicador=replace(explicador, precio=precio))
 
 
 def mensaje_sin_configurar(agente: str) -> str:
@@ -678,11 +700,11 @@ def _leer_mutacion(tabla: Mapping[str, Any], avisos: list[str]) -> Mutacion | No
 
 
 def _leer_explicador(tabla: Mapping[str, Any], avisos: list[str]) -> Explicador | None:
-    """`[agentes.explicador]` es opcional: sin él, el Explicador queda activo (HU-32).
+    """Ajustes propios de `[agentes.explicador]`: `activo`, `modo` y `tiempo_maximo_s`.
 
-    Con `modo = "ia"` (#166) la sección lleva además `proveedor`, `modelo` y precios,
-    como los demás agentes (ADR-001), y `tiempo_maximo_s` opcional. No entra en
-    `Configuracion.agentes`: si falta su clave, la corrida usa la plantilla.
+    Su proveedor, modelo y precios se leen como los de los demás agentes, en
+    `Configuracion.agentes`: es obligatorio (EP-10 #172) y sin ellos queda «Sin
+    configurar». `_con_precio_del_explicador` los une después.
     """
     if not isinstance(tabla, Mapping):
         avisos.append("[agentes.explicador] de config.toml debe ser una sección.")
@@ -695,17 +717,12 @@ def _leer_explicador(tabla: Mapping[str, Any], avisos: list[str]) -> Explicador 
     if modo not in MODOS_EXPLICADOR:
         validos = ", ".join(f'"{m}"' for m in MODOS_EXPLICADOR)
         avisos.append(f"modo en [agentes.explicador] debe ser {validos}.")
-    if len(avisos) > antes:
-        return None
-    if modo != "ia":
-        return Explicador(activo, modo)
-    precio = _leer_agente("explicador", tabla, avisos)
-    tiempo = TIEMPO_EXPLICADOR_POR_DEFECTO_S
+    tiempo: float | None = TIEMPO_EXPLICADOR_POR_DEFECTO_S
     if "tiempo_maximo_s" in tabla:
         tiempo = _numero(tabla, "tiempo_maximo_s", "agentes.explicador", avisos)
-    if precio is None or tiempo is None:
+    if len(avisos) > antes or tiempo is None:
         return None
-    return Explicador(activo, modo, precio, tiempo)
+    return Explicador(activo, modo, tiempo_maximo_s=tiempo)
 
 
 def _leer_sandbox(tabla: Mapping[str, Any], avisos: list[str]) -> LimitesSandbox | None:
@@ -806,8 +823,16 @@ def _leer_agentes(
     for agente in AGENTES:
         tabla = seccion.get(agente)
         # `configurado = false` en config.local.toml tapa la sección del equipo (TA-06).
-        if tabla is None or (
-            isinstance(tabla, Mapping) and tabla.get("configurado") is False
+        # El Explicador puede tener sección solo con sus ajustes (`activo`, `modo`):
+        # sin proveedor también queda sin configurar (EP-10 #172).
+        if (
+            tabla is None
+            or (isinstance(tabla, Mapping) and tabla.get("configurado") is False)
+            or (
+                agente == "explicador"
+                and isinstance(tabla, Mapping)
+                and "proveedor" not in tabla
+            )
         ):
             sin_configurar.append(agente)
             continue

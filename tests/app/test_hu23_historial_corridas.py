@@ -123,7 +123,12 @@ def test_criterio1_y_criterio2_corridas_guardadas_en_runs_y_tabla_con_todos_los_
     assert fila["perfil_nombre"] == "Estándar + profundizar"
     # 4. modelos
     assert isinstance(fila["modelos"], dict)
-    assert set(fila["modelos"].keys()) == {"planner", "generator", "reviewer"}
+    assert set(fila["modelos"].keys()) == {
+        "planner",
+        "generator",
+        "reviewer",
+        "explicador",
+    }
     # 5. specs (generados o reutilizados)
     assert fila["resumen_specs"]["generado"] == 1
     assert fila["resumen_specs"]["reutilizado"] == 0
