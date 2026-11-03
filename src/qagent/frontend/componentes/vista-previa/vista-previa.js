@@ -1,6 +1,7 @@
 // vista-previa.js — pantalla «Explorar»: elige qué probar a partir del análisis del proyecto (sin ejecutarlo)
 // HTML del componente (se monta en el marcador data-componente="vista-previa/vista-previa" de index.html)
-// Cifras del proyecto, carpetas incluidas, tabla de funciones y endpoints con buscador, y avisos.
+// Cifras del proyecto, recomendación de pruebas, carpetas incluidas, tabla de funciones y endpoints
+// con buscador, y avisos.
 // Los íconos (ICO_*) vienen de inicio/modal-abrir.js, que se carga antes.
 const ICO_BUSCAR = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="11" cy="11" r="6"/><path d="m20 20-4.5-4.5"/></svg>';
 const ICO_AVISO_EXP = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M12 3 2 20h20z"/><path d="M12 10v4M12 17h.01"/></svg>';
@@ -26,6 +27,20 @@ registrarComponente('vista-previa/vista-previa', `<!-- ===== 2. EXPLORAR ===== -
       <div class="exp-cifra"><span class="exp-cifra-etq">Funciones</span><b id="resumenFunciones">0</b><span class="exp-cifra-sub" id="resumenFuncionesSub"></span></div>
       <div class="exp-cifra"><span class="exp-cifra-etq">Endpoints API</span><b id="resumenEndpoints">0</b><span class="exp-cifra-sub" id="resumenEndpointsSub"></span></div>
     </div>
+
+    <!-- Pruebas recomendadas (issue 197): reglas sin IA. Solo se aplican si la persona lo pide. -->
+    <section class="np-tarjeta exp-reco hide" id="expReco" aria-labelledby="expRecoTitulo">
+      <div class="exp-reco-cab">
+        <div>
+          <h2 id="expRecoTitulo">Pruebas recomendadas</h2>
+          <p class="exp-nota">Según el análisis del código, sin IA. Tú decides: puedes aplicarla o elegir otra cosa en Preparar.</p>
+        </div>
+        <button type="button" class="ini-btn" id="expRecoAplicar" onclick="aplicarRecomendacion()">Aplicar recomendación</button>
+      </div>
+      <ol class="exp-reco-lista" id="expRecoLista"></ol>
+      <div class="exp-reco-prox" id="expRecoProx"></div>
+      <p class="exp-reco-estado" id="expRecoEstado" role="status" aria-live="polite"></p>
+    </section>
 
     <div class="exp-rejilla">
       <!-- Carpetas incluidas -->
@@ -87,6 +102,15 @@ registrarComponente('vista-previa/vista-previa', `<!-- ===== 2. EXPLORAR ===== -
 
 let PROYECTO_RESUMEN = null;
 let PROYECTO_ERRORES = [];
+// issue 197: recomendación que llega con la vista previa ({recomendacion, proximamente}); null = no hay.
+let RECOMENDACION = null;
+// Nombre de cada tipo de recomendation.v1, igual que en Preparar.
+const TIPOS_RECOMENDADOS = {
+  endpoint: 'Endpoints API',
+  funcion: 'Unitarias',
+  mutacion: 'Análisis a fondo de críticas (mutación)',
+};
+const TIPOS_PROXIMAMENTE = {funcion: 'unitarias', endpoint: 'endpoints', mutacion: 'mutación'};
 // Vista de objetivos activa: 'funciones' (por defecto) o 'endpoints' (issue #66).
 let VISTA_OBJETIVOS = 'funciones';
 let BUSQUEDA = '';   // texto del buscador de la tabla, en minúsculas
@@ -101,6 +125,8 @@ function reiniciarVistaExplorar() {
 function aplicarResumenDemo() {
   mostrarLenguajeProyecto();
   reiniciarVistaExplorar();
+  RECOMENDACION = null;   // la recomendación sale del backend; la demostración no la inventa
+  renderRecomendacion();
   const modValidos = MODULES.filter(m => !m.error);
   const fns = modValidos.flatMap(m => m.fns);
   const total = fns.length;
@@ -153,6 +179,8 @@ function cargarDatosVistaPrevia(res) {
   reiniciarVistaExplorar();
   PROYECTO_RESUMEN = res.resumen;
   PROYECTO_ERRORES = res.errores || [];
+  RECOMENDACION = res.recomendacion ? {recomendacion: res.recomendacion, proximamente: res.proximamente || []} : null;
+  renderRecomendacion();
 
   const modulosAST = (res.modulos || []).map(m => {
     const fns = (m.funciones || []).map(f => ({
@@ -333,7 +361,48 @@ function vaciarVistaPrevia() {
   reiniciarVistaExplorar();
   PROYECTO_RESUMEN = null;
   PROYECTO_ERRORES = [];
+  RECOMENDACION = null;
+  renderRecomendacion();
   actualizarResumenUI({ total_modulos: 0, total_funciones_publicas: 0, total_errores: 0 });
+}
+
+/* ---------------- Pruebas recomendadas (issue 197) ----------------
+   La lista viene ordenada y validada del backend (recommendation.v1, reglas sin IA). Mostrarla no
+   cambia nada; «Aplicar recomendación» solo precarga los tipos y el modo de Preparar, que la
+   persona puede cambiar. Nunca inicia una corrida. */
+function recomendacionesActuales(){
+  return (RECOMENDACION && RECOMENDACION.recomendacion && RECOMENDACION.recomendacion.recomendaciones) || [];
+}
+function renderRecomendacion(){
+  const caja = $('expReco');
+  if(!caja) return;
+  caja.classList.toggle('hide', !RECOMENDACION);
+  $('expRecoEstado').textContent = '';
+  if(!RECOMENDACION){ $('expRecoLista').innerHTML = ''; $('expRecoProx').innerHTML = ''; return; }
+  const recs = recomendacionesActuales();
+  $('expRecoLista').innerHTML = recs.length
+    ? recs.map((r, i) => `<li><span class="exp-reco-n" aria-hidden="true">${i + 1}</span><div><b>${escHtml(TIPOS_RECOMENDADOS[r.tipo_prueba] || r.tipo_prueba)}</b><span>${escHtml(r.motivo)}</span></div></li>`).join('')
+    : '<li class="exp-reco-vacia">QAgent no encontró nada que pueda probar en este proyecto: no hay funciones públicas ni endpoints con ruta resuelta.</li>';
+  $('expRecoProx').innerHTML = (RECOMENDACION.proximamente || []).map(p => {
+    const tipos = (p.tipos_prueba || []).map(t => TIPOS_PROXIMAMENTE[t] || t).join(' y ');
+    return `<span class="np-chip np-chip-aviso" title="${escHtml(p.motivo)}">${escHtml(p.nombre)}${tipos ? ': ' + escHtml(tipos) : ''} · próximamente</span>`;
+  }).join('');
+  $('expRecoAplicar').disabled = recs.length === 0;
+}
+function aplicarRecomendacion(){
+  const recs = recomendacionesActuales();
+  if(!recs.length) return;
+  const tipos = new Set(recs.map(r => r.tipo_prueba));
+  eleccionPruebas = {
+    ...eleccionPruebas,
+    unitarias: tipos.has('funcion'),
+    endpoints: tipos.has('endpoint'),
+    modo: tipos.has('mutacion') ? 'fondo' : 'nuevas',
+    profundizarRepetir: false,
+  };
+  if (typeof calc === 'function') calc();
+  const nombres = recs.map(r => TIPOS_RECOMENDADOS[r.tipo_prueba] || r.tipo_prueba);
+  $('expRecoEstado').textContent = `Aplicada: ${nombres.join(', ')}. Puedes cambiarla en Preparar; nada se ejecuta hasta que inicies la corrida.`;
 }
 
 // Regresión requiere al menos una prueba aprobada persistida, no solo una corrida.

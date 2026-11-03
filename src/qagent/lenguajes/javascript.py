@@ -182,6 +182,8 @@ class JavaScriptAdapter(_AdaptadorNode):
     marcadores = ("package.json",)
     frameworks_pruebas = ("vitest", "jest")
     frameworks_app = ("express",)
+    # Vitest (EP-11a) y mutación con Stryker (EP-11c), ADR-010.
+    tipos_prueba_previstos = ("funcion", "mutacion")
 
     def validar_sintaxis(self, codigo: str) -> list[str]:
         """Errores de sintaxis del código JavaScript parseado con tree-sitter.
@@ -208,6 +210,8 @@ class TypeScriptAdapter(_AdaptadorNode):
     marcadores = ("tsconfig.json",)
     frameworks_pruebas = ("vitest", "jest")
     frameworks_app = ("express",)
+    # Vitest (EP-11a) y mutación con Stryker (EP-11c), ADR-010.
+    tipos_prueba_previstos = ("funcion", "mutacion")
 
     def es_fuente(self, archivo: str) -> bool:
         """Los ``.d.ts`` solo declaran tipos: no tienen código que probar."""

@@ -88,6 +88,19 @@ mientras falten, el adaptador hereda `completo = False` de `AdaptadorEnDesarroll
 la corrida no lo usa y la app avisa que el lenguaje aún no se soporta. Al terminarlas,
 el lenguaje pone `completo = True`.
 
+### Tipos de prueba que se recomiendan (#197)
+
+El Recomendador (`qagent.agents.recomendador`, ADR-011) solo propone lo que el
+adaptador declara. Los valores salen de `contracts.TIPOS_PRUEBA_RECOMENDABLES`
+(`funcion`, `endpoint`, `mutacion`) y el registro rechaza cualquier otro.
+
+| Atributo | Qué declara | Ejemplo |
+|---|---|---|
+| `tipos_prueba` | Tipos que el adaptador ya ejecuta de punta a punta. Un adaptador con `completo = False` no puede declarar ninguno. | Python y Java: `("funcion", "endpoint", "mutacion")` |
+| `tipos_prueba_previstos` | Tipos aprobados que aún no funcionan. La Vista previa los muestra como «próximamente». | JavaScript y TypeScript: `("funcion", "mutacion")` |
+
+Al completar un tipo, se pasa de `tipos_prueba_previstos` a `tipos_prueba`.
+
 | Operación | Qué devuelve | Notas |
 |---|---|---|
 | `reglas_planificacion()` | `ReglasPlanificacion`: `prompt_funciones`, `prompt_endpoints`, `preparar_caso`, `es_caso_trivial`, `motivo_limite_funcion`, `motivo_oraculo_funcion` y las de endpoints | Los prompts deben llevar `MARCA_MODULO` y `MARCA_OBJETIVOS` (los lee la IA simulada). Los filtros descartan casos sin IA. |
