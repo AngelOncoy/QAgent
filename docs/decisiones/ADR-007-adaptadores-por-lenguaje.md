@@ -116,3 +116,18 @@ Si algún día un proyecto real muestra que el análisis es el cuello de botella
 - Cada lenguaje se desarrolla en su archivo (`javascript.py`, `java.py`) sin tocar los agentes ni los contratos.
 - El alcance de AGENTS.md (solo Python) se mantiene hasta que un lenguaje esté completo y probado; entonces se actualiza junto con un ADR de ese lenguaje.
 - Hay que mantener sincronizados los `enum` de los schemas con las constantes de `contracts` (lo exige una prueba).
+
+## 6. Apéndice #185: verificaciones arquitectónicas
+
+La verificación arquitectónica amplía el adaptador sin convertirla en una corrida de
+Planner, Generator o Reviewer. `traducir_reglas_arquitectura(reglas, raiz)` recibe el
+modelo común validado y devuelve planes con argumentos separados y archivos de
+configuración generados por QAgent. No es abstracto: un adaptador sin soporte responde
+`NoImplementado` y la corrida queda **sin veredicto**, sin romper adaptadores antiguos.
+
+El ejecutor compartido usa la imagen declarada por `entorno_sandbox()` y las mismas
+garantías de Docker: copia temporal, red deshabilitada, límites, capacidades eliminadas
+y contenedor efímero. Lo específico permanece en cada adaptador: import-linter 2.15 en
+Python, dependency-cruiser 18.6.0 en JavaScript/TypeScript y ArchUnit 1.5.1 en Java.
+Una herramienta ausente, un timeout, una compilación necesaria fallida o un resultado
+ilegible no se interpreta como aprobación ni como infracción.

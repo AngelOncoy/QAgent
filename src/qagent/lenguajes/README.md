@@ -73,6 +73,7 @@ contracts.normalizar_planner(contrato_v2)  # copia en v3 (python + pytest)
 | `archivo_para_contrato(contrato, ruta_proyecto)` | ruta o `None` | Java obtiene el paquete del AST de la fuente. `None` conserva el nombre predeterminado de los adaptadores existentes. |
 | `validar_oraculo(contrato, codigo, ruta_proyecto)` | motivo de rechazo o `None` | Por defecto delega a las reglas existentes. Java contrasta también paquete, clase e imports y limita Mockito a dependencias del constructor (#184). |
 | `comando_mutacion(modulo, funciones)` | `ComandoSandbox` (comando y variables de entorno) | Solo sobre funciones `critical: true`: mutmut, Stryker o PIT. |
+| `traducir_reglas_arquitectura(reglas, raiz)` | lista de `PlanArquitectura` | #185: configuración y comando fijo de import-linter, dependency-cruiser o ArchUnit. Las reglas son datos validados, nunca fragmentos de shell. |
 
 ### Lo que usan los agentes (#168)
 
