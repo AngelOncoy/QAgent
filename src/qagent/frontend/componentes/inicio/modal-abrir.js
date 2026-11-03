@@ -75,7 +75,7 @@ registrarComponente('inicio/modal-abrir', `<!-- ===== Abrir proyecto (carpeta lo
 let realFolder = null;
 let pickedFolder = null;   // carpeta elegida en el selector de ejemplo (navegador sin pywebview)
 let estadoAbrir = null;    // lo que devolvió la inspección: {ok, ruta, cantidad_py, rama, error}
-const MSG_INCOMPATIBLE = 'QAgent solo admite proyectos en Python 3.10 o superior, y esta carpeta no tiene archivos .py para analizar.';
+const MSG_INCOMPATIBLE = 'La carpeta no contiene archivos fuente analizables de un lenguaje soportado.';
 // Datos de ejemplo del modo demostración (sin pywebview).
 const DEMO_CARPETAS = {
   'ecommerce-core':    {ok:true,  ruta:'E:\\Proyectos\\ecommerce-core',    cantidad_py:12, rama:'main'},
@@ -105,9 +105,10 @@ function renderAbrir(){
 
   $('openContenido').classList.toggle('hide', !e);
   if(e){
-    const n = e.cantidad_py || 0;
+    const n = e.cantidad_fuentes ?? e.cantidad_py ?? 0;
+    const lenguaje = e.nombre_lenguaje || 'Python';
     $('openCount').innerHTML = `
-      <div><dt>Archivos Python</dt><dd>${n} ${n === 1 ? 'encontrado' : 'encontrados'}</dd></div>
+      <div><dt>Archivos ${escHtml(lenguaje)}</dt><dd>${n} ${n === 1 ? 'encontrado' : 'encontrados'}</dd></div>
       <div><dt>Control de versiones</dt><dd>${e.rama ? 'Git · rama <span class="np-mono">' + escHtml(e.rama) + '</span>' : 'Sin repositorio Git'}</dd></div>
       <div><dt>No se analizan</dt><dd>Pruebas existentes, entornos virtuales y carpetas ocultas</dd></div>`;
   }
@@ -115,12 +116,14 @@ function renderAbrir(){
   if(!e){
     $('openReconocido').innerHTML = `<h2>Proyecto reconocido</h2><p class="np-texto">Elige una carpeta para ver qué encontramos.</p>`;
   } else if(e.ok){
-    const n = e.cantidad_py || 0;
+    const n = e.cantidad_fuentes ?? e.cantidad_py ?? 0;
+    const lenguaje = e.nombre_lenguaje || 'Python';
+    const extensiones = (e.extensiones || ['.py']).join(', ');
     $('openReconocido').innerHTML = `<h2>Proyecto reconocido</h2>
       <span class="np-chip np-chip-exito">${ICO_OK}Listo para analizar</span>
       <p class="np-proyecto">${escHtml(nombreCarpeta(e.ruta))}</p>
-      <p class="np-lenguaje">${ICO_CODIGO}Python</p>
-      <p class="np-meta">${n} ${n === 1 ? 'archivo .py encontrado' : 'archivos .py encontrados'} · lectura completada</p>`;
+      <p class="np-lenguaje">${ICO_CODIGO}${escHtml(lenguaje)}</p>
+      <p class="np-meta">${n} ${n === 1 ? 'archivo' : 'archivos'} ${escHtml(extensiones)} · lectura completada</p>`;
   } else {
     $('openReconocido').innerHTML = `<h2>Proyecto no compatible</h2>
       <span class="np-chip np-chip-bug">${ICO_ERROR}No se puede analizar</span>
@@ -140,7 +143,7 @@ function resetOpenModal() {
 // Muestra la carpeta real inspeccionada por Python: ruta, N archivos .py, rama y error si lo hay.
 function showOpenReal(info) {
   realFolder = info.ok ? info.ruta : null;
-  estadoAbrir = {ok: !!info.ok, ruta: info.ruta || '', cantidad_py: info.cantidad_py || 0, rama: info.rama || null, error: info.error || MSG_INCOMPATIBLE};
+  estadoAbrir = {...info, ok: !!info.ok, ruta: info.ruta || '', cantidad_py: info.cantidad_py || 0, rama: info.rama || null, error: info.error || MSG_INCOMPATIBLE};
   renderAbrir();
   go('open');
 }

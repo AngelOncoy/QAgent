@@ -31,7 +31,41 @@ def prompt_generator(
     ruta_proyecto: Path | None,
 ) -> str:
     """Prompt del test pytest de ``contrato``; ``feedback`` ya viene recortado."""
-    return crear_prompt(contrato, intento, feedback, _contexto(contrato, ruta_proyecto))
+    contexto = _contexto(contrato, ruta_proyecto)
+    texto_dependencias = _contexto_dependencias(contrato, ruta_proyecto)
+    return crear_prompt(
+        contrato,
+        intento,
+        feedback,
+        contexto,
+        texto_dependencias=texto_dependencias,
+    )
+
+
+def _contexto_dependencias(contrato: dict[str, Any], ruta_proyecto: Path | None) -> str:
+    """Contexto de dependencias inter-archivo con Graphify + Tree-sitter (0 tokens)."""
+    if ruta_proyecto is None:
+        return ""
+    try:
+        from qagent.analysis.graphify_dependencias import (
+            analizar_dependencias_con_graphify,
+            formatear_contexto_graphify,
+        )
+
+        nombre_simbolo = (
+            contrato.get("manejador")
+            if contrato.get("tipo") == "endpoint" and contrato.get("manejador")
+            else contrato["objetivo"]
+        )
+        deps = analizar_dependencias_con_graphify(
+            ruta_proyecto,
+            contrato["modulo"],
+            nombre_simbolo,
+            tipo_objetivo=contrato.get("tipo", "funcion"),
+        )
+        return formatear_contexto_graphify(deps, modulo_importable(contrato["modulo"]))
+    except (ImportError, OSError, ValueError, KeyError, TypeError, AttributeError):
+        return ""
 
 
 def _contexto(
@@ -48,6 +82,7 @@ def crear_prompt(
     intento: int,
     feedback: str | None,
     contexto: ContextoFuncion | None = None,
+    texto_dependencias: str = "",
 ) -> str:
     # Una sola línea: más corto (menos tokens) y la IA simulada lo puede leer.
     contrato_json = json.dumps(contrato, ensure_ascii=False)
@@ -88,6 +123,7 @@ REGLAS OBLIGATORIAS:
 FEEDBACK DEL INTENTO ANTERIOR:
 {correccion}
 {_texto_contexto(contexto)}
+{texto_dependencias}
 {MARCA_CONTRATO} {contrato_json}
 """.strip()
 

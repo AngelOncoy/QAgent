@@ -70,9 +70,10 @@ def test_detectar_lenguaje_en_disco(tmp_path: Path) -> None:
 
 
 @pytest.mark.parametrize("clase", [JavaScriptAdapter, TypeScriptAdapter])
-def test_los_esqueletos_avisan_lo_que_falta(clase: type, tmp_path: Path) -> None:
+def test_los_esqueletos_avisan_lo_que_falta(clase: type) -> None:
+    """Analizan desde #176; la ejecución con Vitest todavía no existe."""
     with pytest.raises(NoImplementado, match=clase.lenguaje):
-        clase().analizar(tmp_path)
+        clase().comando_pruebas("src/a.ts")
 
 
 def test_el_paquete_no_depende_de_la_interfaz() -> None:

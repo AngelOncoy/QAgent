@@ -62,6 +62,13 @@ class PythonAdapter(LanguageAdapter):
     motor_mutacion = "mutmut"
     comprobar_librerias_sistema = True
 
+    def archivos_fuente(self, raiz: str | os.PathLike[str]) -> list[str]:
+        """Fuentes Python con las mismas exclusiones que el analizador histórico."""
+        from qagent.analysis.analyzer import listar_archivos_py
+
+        carpeta = Path(raiz)
+        return [p.relative_to(carpeta).as_posix() for p in listar_archivos_py(carpeta)]
+
     def analizar(self, raiz: str | os.PathLike[str]) -> Estructura:
         """``analizar_proyecto(raiz)`` (tree-sitter) con ``lenguaje: "python"``."""
         return {"lenguaje": self.lenguaje, **analizar_proyecto(raiz)}

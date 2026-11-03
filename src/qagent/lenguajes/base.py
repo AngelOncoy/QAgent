@@ -276,6 +276,12 @@ class LanguageAdapter(ABC):
         """Si ``archivo`` es un archivo fuente de este lenguaje."""
         return archivo.lower().endswith(self.extensiones)
 
+    def archivos_fuente(self, raiz: str | os.PathLike[str]) -> list[str]:
+        """Rutas POSIX analizables para inspeccionar y abrir el proyecto sin ejecutarlo."""
+        from qagent.lenguajes.registro import listar_archivos
+
+        return [a for a in listar_archivos(raiz) if self.es_fuente(a)]
+
     # --- Análisis e información estructural ------------------------------------
 
     @abstractmethod
