@@ -51,6 +51,7 @@ CONTENIDO_GITIGNORE = (
     "runs/\n"
 )
 ARCHIVO_RUN = "run.json"
+ARCHIVO_REGLAS_ARQUITECTURA = "reglas_arquitectura.json"
 
 # Estados de una corrida: "en_curso" hasta que termina; luego el estado final del
 # orquestador ("fin" o "fallo_controlado"). Si la app se cierra a mitad, queda "en_curso"
@@ -87,7 +88,7 @@ def migrar_carpeta_anterior(raiz: str | Path) -> bool:
 # "vigente" se reutiliza en regresión; "obsoleta" cuando el código cambió (HU-24).
 ESTADOS_SPEC = ("vigente", "obsoleta")
 ACCIONES_SPEC_MODULO = ("generado", "reutilizado", "regenerado")
-TIPOS_PRUEBA = ("funcion", "endpoint")
+TIPOS_PRUEBA = ("funcion", "endpoint", "arquitectura")
 CAMPOS_RUN = (
     "run_id",
     "inicio",
@@ -201,6 +202,7 @@ class AlmacenProyecto:
         self.carpeta_evidencias_bugs = self.carpeta / "evidencias_bugs"
         self.carpeta_comparaciones = self.carpeta / "comparaciones"
         self.carpeta_mutacion = self.carpeta / "mutacion"
+        self.archivo_reglas_arquitectura = self.carpeta / ARCHIVO_REGLAS_ARQUITECTURA
 
     def existe(self) -> bool:
         """Indica si el proyecto ya tiene la carpeta `.qagent/`."""
@@ -226,6 +228,41 @@ class AlmacenProyecto:
         gitignore = self.carpeta / ".gitignore"
         if not gitignore.exists():
             escribir_texto_atomico(gitignore, CONTENIDO_GITIGNORE)
+
+    # --- Reglas arquitectónicas (#185) -------------------------------------------
+
+    def guardar_reglas_arquitectura(self, documento: dict[str, Any]) -> dict[str, Any]:
+        """Valida y guarda reglas declaradas en la ruta fija de `.qagent/`.
+
+        La regla universal se inyecta al leer y no se persiste. El nombre de archivo
+        no procede del usuario, de modo que no existe una superficie de path traversal.
+        """
+        from qagent.arquitectura.modelo import validar_documento
+
+        validar_documento(documento)
+        if any(r["origen"] == "universal" for r in documento["reglas"]):
+            raise ErrorAlmacen(
+                "Las reglas universales son administradas por QAgent y no se guardan."
+            )
+        self.inicializar()
+        escribir_json_atomico(self.archivo_reglas_arquitectura, documento)
+        return documento
+
+    def leer_reglas_arquitectura(self) -> dict[str, Any]:
+        """Lee reglas personalizadas y agrega la regla universal por defecto.
+
+        Un proyecto antiguo sin archivo conserva compatibilidad y recibe únicamente
+        la comprobación universal en memoria, sin modificar su disco.
+        """
+        from qagent.arquitectura.modelo import reglas_para_proyecto
+
+        if not self.archivo_reglas_arquitectura.exists():
+            return reglas_para_proyecto()
+        documento = leer_json_objeto(self.archivo_reglas_arquitectura)
+        try:
+            return reglas_para_proyecto(documento)
+        except contracts.ContratoInvalido as exc:
+            raise DatoCorrupto(f"{self.archivo_reglas_arquitectura}: {exc}") from exc
 
     # --- Corridas -------------------------------------------------------------------
 

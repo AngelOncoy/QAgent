@@ -1,0 +1,26 @@
+{
+  "version": "1",
+  "run_id": "20261031-120000-abcd",
+  "lenguaje": "python",
+  "estado": "incumple",
+  "duracion_s": 0.42,
+  "reglas": [
+    {
+      "id": "capas-001",
+      "nombre": "Dominio no debe depender de interfaz",
+      "tipo": "dependencia_prohibida",
+      "origen": "usuario",
+      "estado": "incumple",
+      "herramienta": "import-linter 2.15",
+      "hallazgos": [
+        {
+          "desde": "app.dominio",
+          "hacia": "app.interfaz",
+          "archivo": "app/dominio/servicio.py",
+          "linea": 1
+        }
+      ],
+      "motivo_sin_veredicto": null
+    }
+  ]
+}
