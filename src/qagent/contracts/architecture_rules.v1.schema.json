@@ -1,0 +1,59 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "architecture_rules.v1",
+  "title": "Reglas arquitectónicas de un proyecto",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "reglas"],
+  "properties": {
+    "version": {"const": "1"},
+    "reglas": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/regla"}
+    }
+  },
+  "$defs": {
+    "identificador": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 80,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]*$"
+    },
+    "patronModulo": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 160,
+      "pattern": "^[A-Za-z0-9_@./*{}()\\[\\]-]+$"
+    },
+    "regla": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "tipo", "nombre", "origen", "confirmada"],
+      "properties": {
+        "id": {"$ref": "#/$defs/identificador"},
+        "tipo": {"enum": ["ciclos_importacion", "dependencia_prohibida"]},
+        "nombre": {"type": "string", "minLength": 1, "maxLength": 200},
+        "origen": {"enum": ["universal", "usuario", "ia"]},
+        "confirmada": {"type": "boolean"},
+        "desde": {"$ref": "#/$defs/patronModulo"},
+        "hacia": {"$ref": "#/$defs/patronModulo"}
+      },
+      "allOf": [
+        {
+          "if": {"properties": {"tipo": {"const": "dependencia_prohibida"}}},
+          "then": {"required": ["desde", "hacia"]},
+          "else": {"not": {"anyOf": [{"required": ["desde"]}, {"required": ["hacia"]}]}}
+        },
+        {
+          "if": {"properties": {"origen": {"const": "universal"}}},
+          "then": {
+            "properties": {
+              "tipo": {"const": "ciclos_importacion"},
+              "confirmada": {"const": true}
+            }
+          }
+        }
+      ]
+    }
+  }
+}

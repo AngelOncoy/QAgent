@@ -6,6 +6,7 @@
 
 /* Filtros: botones con ícono, como en la maqueta */
 .hst-filtros{display:flex;gap:var(--esp-3);flex-wrap:wrap}
+.hst-acciones-corrida{display:flex;align-items:center;justify-content:flex-end;gap:var(--esp-3);flex-wrap:wrap}
 .hst-select{position:relative;display:flex;align-items:center;width:auto}
 .hst-select>svg{position:absolute;pointer-events:none;color:var(--texto-2)}
 .hst-select>svg:first-child{left:var(--esp-4)}

@@ -24,6 +24,7 @@ from qagent.lenguajes.base import (
     EntornoSandbox,
     Estructura,
     LanguageAdapter,
+    PlanArquitectura,
 )
 from qagent.lenguajes.python_planificacion import (
     REGLAS_PLANIFICACION_PYTHON,
@@ -59,6 +60,15 @@ class PythonAdapter(LanguageAdapter):
     frameworks_pruebas = ("pytest",)
     frameworks_app = ("fastapi",)
     tipos_prueba = ("funcion", "endpoint", "mutacion")
+    motor_mutacion = "mutmut"
+    comprobar_librerias_sistema = True
+
+    def archivos_fuente(self, raiz: str | os.PathLike[str]) -> list[str]:
+        """Fuentes Python con las mismas exclusiones que el analizador histórico."""
+        from qagent.analysis.analyzer import listar_archivos_py
+
+        carpeta = Path(raiz)
+        return [p.relative_to(carpeta).as_posix() for p in listar_archivos_py(carpeta)]
 
     def analizar(self, raiz: str | os.PathLike[str]) -> Estructura:
         """``analizar_proyecto(raiz)`` (tree-sitter) con ``lenguaje: "python"``."""
@@ -85,6 +95,14 @@ class PythonAdapter(LanguageAdapter):
             dir_salida=DIR_SALIDA,
             informe=ARCHIVO_JUNIT,
         )
+
+    def traducir_reglas_arquitectura(
+        self, reglas: list[dict[str, Any]], raiz: Path
+    ) -> list[PlanArquitectura]:
+        """Traduce a contratos INI de import-linter 2.15."""
+        from qagent.arquitectura.traduccion import traducir_python
+
+        return traducir_python(reglas, raiz)
 
     def interpretar_resultados(self, informe: str) -> dict[str, Any]:
         """Lee el ``junit.xml`` de pytest.

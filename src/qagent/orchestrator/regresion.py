@@ -29,7 +29,8 @@ from qagent.orchestrator.tiempos import (
     sumar_etapa,
 )
 from qagent.proyectos.proyecto_local import detectar_rama
-from qagent.sandbox import LIMITES_POR_DEFECTO, clasificar_resultado, ejecutar_pruebas
+from qagent.sandbox import clasificar_resultado, ejecutar_pruebas
+from qagent.sandbox.archivos_prueba import ruta_de_prueba
 from qagent.sandbox.ejecucion import ejecutar_comando_pruebas
 from qagent.storage import escribir_corrida
 from qagent.storage.registro import PERFIL_REGRESION_PROFUNDA
@@ -38,7 +39,7 @@ from qagent.storage.registro import PERFIL_REGRESION_PROFUNDA
 def huellas_de_objetivos(raiz: str | Path) -> dict[tuple[str, str], str]:
     """Calcula la huella de cada función y endpoint sin importar código del usuario.
 
-    Recorre los archivos fuente de los lenguajes con adaptador completo
+    Recorre los archivos fuente de los lenguajes con huellas disponibles
     (``es_fuente``, #168) y pide a su adaptador la huella de cada objetivo
     (``huellas_de_archivo``). Las specs guardadas con la huella anterior
     (``ast.dump``) se migran aquí mismo si su módulo no cambió (ver
@@ -47,7 +48,11 @@ def huellas_de_objetivos(raiz: str | Path) -> dict[tuple[str, str], str]:
     raiz = Path(raiz)
     resultado: dict[tuple[str, str], str] = {}
     ignorados = {"tests", "venv", "node_modules", "__pycache__"}
-    adaptadores = _adaptadores_completos()
+    adaptadores = [
+        a
+        for nombre in REGISTRO.lenguajes
+        if (a := REGISTRO.adaptador_para(nombre)).completo or a.huellas_disponibles
+    ]
     for ruta in sorted(raiz.rglob("*")):
         adaptador = _adaptador_de_archivo(adaptadores, ruta.name)
         if adaptador is None or not ruta.is_file():
@@ -451,18 +456,32 @@ def ejecutar_regresion(
                     },
                 )
                 continue
+            adaptador = adaptador_de_contrato(contrato)
             if imagen is None:
                 emitir("Preparando sandbox Docker sin red; no se llamara a ninguna IA")
-                imagen = (preparar_imagen or _preparar_imagen)(raiz)
+                imagen = (
+                    preparar_imagen(raiz)
+                    if preparar_imagen is not None
+                    else _preparar_imagen(raiz, adaptador)
+                )
             emitir(f"Reejecutando prueba aprobada: {objetivo} (sin IA)", modulo)
             t0 = reloj()
             with tempfile.TemporaryDirectory(prefix="qagent-regresion-") as temporal:
-                shutil.copy2(ruta_test, Path(temporal) / ruta_test.name)
-                adaptador = adaptador_de_contrato(contrato)
+                archivo = (
+                    adaptador.archivo_para_contrato(contrato, raiz) or ruta_test.name
+                )
+                destino = ruta_de_prueba(Path(temporal), archivo)
+                destino.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(ruta_test, destino)
                 modulo_cov = adaptador.modulo_cobertura(modulo)
                 if ejecutor_propio is not None:
                     salida = ejecutor_propio(imagen, raiz, temporal, modulo_cov)
                 else:
+                    opciones_sandbox = {}
+                    if (preparar := adaptador.preparador_sandbox()) is not None:
+                        opciones_sandbox["preparar"] = preparar
+                    if (leer := adaptador.lector_informe_sandbox()) is not None:
+                        opciones_sandbox["leer_informe"] = leer
                     salida = ejecutar_comando_pruebas(
                         imagen,
                         adaptador.comando_pruebas(
@@ -475,6 +494,7 @@ def ejecutar_regresion(
                         archivo_informe=adaptador.entorno_sandbox().informe,
                         variables=adaptador.variables_pruebas(),
                         limites=limites_del_lenguaje(configuracion, adaptador.lenguaje),
+                        **opciones_sandbox,
                     )
             duracion_sandbox = segundos(t0, reloj())
             duracion_pytest = 0.0
@@ -494,11 +514,27 @@ def ejecutar_regresion(
                 else "stalled"
             )
             texto = "\n".join(x for x in (salida.stdout, salida.stderr) if x).strip()
+            clasificacion = adaptador.clasificar_ejecucion(salida)
+            motivo_sin_veredicto = None
+            if clasificacion is not None:
+                motivo_sin_veredicto = clasificacion.motivo_sin_veredicto
+                if motivo_sin_veredicto:
+                    decision = None
+                elif clasificacion.tipo == "error_test":
+                    decision = (
+                        "stalled"  # La regresión no regenera pruebas ni llama IA.
+                    )
+                texto = clasificacion.detalle or texto
+            cobertura = adaptador.cobertura_de_objetivo(
+                salida.coverage, modulo, adaptador.objetivo_de_cobertura(contrato)
+            )
+            if cobertura is NotImplemented:
+                cobertura = _cobertura(salida.coverage)
             revision = {
                 "intento": 1,
-                "decision": decision,
+                "decision": decision or "stalled",
                 "estado_sandbox": estado,
-                "tipo_fallo": "bug_codigo" if estado == "fallo" else None,
+                "tipo_fallo": "bug_codigo" if decision == "bug_detectado" else None,
                 "feedback": texto
                 or (
                     "Test aprobado en el sandbox."
@@ -507,12 +543,15 @@ def ejecutar_regresion(
                 ),
                 "laundering_detectado": False,
             }
+            if motivo_sin_veredicto:
+                revision["motivo_sin_veredicto"] = motivo_sin_veredicto
             obj = ResultadoObjetivo(
                 objetivo,
                 es_critica(modulo, objetivo, contrato),
                 decision=decision,
                 intentos=1,
-                cobertura=_cobertura(salida.coverage),
+                cobertura=cobertura,
+                motivo_sin_veredicto=motivo_sin_veredicto,
                 revisiones=[revision],
                 contrato=contrato,
                 codigo=codigo,
@@ -580,6 +619,11 @@ def ejecutar_regresion(
         resumen.aceptadas = decisiones.count("accept")
         resumen.bugs_detectados = decisiones.count("bug_detectado")
         resumen.estancadas = decisiones.count("stalled")
+        resumen.sin_veredicto = sum(
+            o.decision is None and o.motivo_sin_veredicto is not None
+            for r in resultados
+            for o in r.objetivos
+        )
         resumen.requieren_corrida_nueva = decisiones.count("requiere_corrida_nueva")
         if not resumen.tipo_terminacion or resumen.tipo_terminacion == "completada":
             if resumen.cancelada or (
@@ -654,12 +698,15 @@ def _mutar_criticas(
     pruebas usadas no cambiaron, y guarda los nuevos.
     """
     from qagent.config.carga import Mutacion
+    from qagent.orchestrator.corrida import limites_del_lenguaje
 
     tiempo = getattr(configuracion, "mutacion", Mutacion()).tiempo_maximo_por_funcion_s
     por_modulo: dict[str, list[ResultadoObjetivo]] = {}
     for resultado in resultados:
         por_modulo.setdefault(resultado.modulo, []).extend(resultado.objetivos)
     for modulo, objetivos in por_modulo.items():
+        contrato = next((o.contrato for o in objetivos if o.contrato), None)
+        adaptador = adaptador_de_contrato(contrato)
         mutar_modulo(
             raiz,
             imagen,
@@ -672,7 +719,7 @@ def _mutar_criticas(
             run_id=run_id,
             huellas=huellas,
             con_endpoints=False,
-            limites=getattr(configuracion, "sandbox", LIMITES_POR_DEFECTO),
+            limites=limites_del_lenguaje(configuracion, adaptador.lenguaje),
         )
 
 
@@ -684,7 +731,14 @@ def _lineas_de(raiz: Path, modulo: str) -> list[dict[str, Any]]:
     return adaptador.funciones_de_modulo(raiz, modulo)
 
 
-def _preparar_imagen(ruta: Path) -> str:
+def _preparar_imagen(ruta: Path, adaptador: LanguageAdapter | None = None) -> str:
+    """Prepara el mismo entorno del adaptador al repetir una prueba guardada."""
     from qagent.orchestrator.corrida import _preparar_imagen as preparar
 
-    return preparar(ruta)
+    if adaptador is None:
+        return preparar(ruta)
+    return preparar(
+        ruta,
+        imagen_base=adaptador.entorno_sandbox().imagen,
+        comprobar_librerias=adaptador.comprobar_librerias_sistema,
+    )

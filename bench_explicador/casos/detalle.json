@@ -1,0 +1,1372 @@
+{
+  "version": "1",
+  "tipo": "detalle",
+  "run_id": "spk167-banco-explicador",
+  "entorno": {
+    "imagen": "qagent-sandbox:base",
+    "comando": "pytest /work/tests --cov=banco_mvp --cov-branch --cov-report=json:/out/coverage.json --junitxml=/out/junit.xml -p no:cacheprovider",
+    "plataforma": "win32",
+    "python": "3.10.11",
+    "pytest": "9.1.1",
+    "limites": {
+      "cpus": 4.0,
+      "memoria": "3g",
+      "timeout_s": 120
+    }
+  },
+  "totales_casos": {
+    "total": 17,
+    "pasaron": 13,
+    "fallaron": 4,
+    "errores": 0,
+    "omitidos": 0
+  },
+  "funciones": [
+    {
+      "modulo": "banco_mvp.py",
+      "funcion": "calcular_descuento",
+      "contrato": {
+        "version": "3",
+        "lenguaje": "python",
+        "framework_pruebas": "pytest",
+        "modulo": "banco_mvp.py",
+        "huella": "11ebd9c5b8e042bdc0407320590e7f767c2971f2d543625272a79c9d45641fa5",
+        "tipo": "funcion",
+        "objetivo": "calcular_descuento",
+        "firma": "(precio: float, porcentaje: float) -> float",
+        "critical": false,
+        "llama_a": [],
+        "casos": [
+          {
+            "id": "descuento_normal",
+            "descripcion": "100 con 20% de descuento queda en 80",
+            "entrada": {
+              "precio": 100.0,
+              "porcentaje": 20.0
+            },
+            "valor_esperado": 80.0,
+            "origen": "docstring",
+            "categoria": "normal"
+          },
+          {
+            "id": "sin_descuento",
+            "descripcion": "0% deja el precio igual",
+            "entrada": {
+              "precio": 50.0,
+              "porcentaje": 0.0
+            },
+            "valor_esperado": 50.0,
+            "origen": "docstring",
+            "categoria": "limite"
+          },
+          {
+            "id": "precio_negativo",
+            "entrada": {
+              "precio": -1.0,
+              "porcentaje": 10.0
+            },
+            "excepcion": "ValueError",
+            "origen": "docstring",
+            "categoria": "error"
+          },
+          {
+            "id": "porcentaje_mayor_a_100",
+            "entrada": {
+              "precio": 100.0,
+              "porcentaje": 150.0
+            },
+            "excepcion": "ValueError",
+            "origen": "docstring",
+            "categoria": "error"
+          }
+        ]
+      },
+      "codigo": "import pytest\n\nfrom banco_mvp import calcular_descuento\n\n\ndef test_descuento_normal():\n    assert calcular_descuento(precio=100.0, porcentaje=20.0) == pytest.approx(80.0)\n\ndef test_sin_descuento():\n    assert calcular_descuento(precio=50.0, porcentaje=0.0) == pytest.approx(50.0)\n\ndef test_precio_negativo():\n    with pytest.raises(ValueError):\n        calcular_descuento(precio=-1.0, porcentaje=10.0)\n\ndef test_porcentaje_mayor_a_100():\n    with pytest.raises(ValueError):\n        calcular_descuento(precio=100.0, porcentaje=150.0)\n",
+      "traza": "============================= test session starts =============================\nplatform win32 -- Python 3.10.11, pytest-9.1.1, pluggy-1.6.0\nrootdir: /work\ncollected 4 items\n\n../tests/test_generado.py FF..                                           [100%]\n\n================================== FAILURES ===================================\n____________________________ test_descuento_normal ____________________________\n\n    def test_descuento_normal():\n>       assert calcular_descuento(precio=100.0, porcentaje=20.0) == pytest.approx(80.0)\nE       assert 20.0 == 80.0 ± 8.0e-05\nE         \nE         comparison failed\nE         Obtained: 20.0\nE         Expected: 80.0 ± 8.0e-05\n\n../tests/test_generado.py:7: AssertionError\n_____________________________ test_sin_descuento ______________________________\n\n    def test_sin_descuento():\n>       assert calcular_descuento(precio=50.0, porcentaje=0.0) == pytest.approx(50.0)\nE       assert 0.0 == 50.0 ± 5.0e-05\nE         \nE         comparison failed\nE         Obtained: 0.0\nE         Expected: 50.0 ± 5.0e-05\n\n../tests/test_generado.py:10: AssertionError\n- generated xml file: /work/junit.xml -\n=========================== short test summary info ===========================\nFAILED ../tests/test_generado.py::test_descuento_normal - assert 20.0 == 80.0...\nFAILED ../tests/test_generado.py::test_sin_descuento - assert 0.0 == 50.0 ± 5...\n========================= 2 failed, 2 passed in 0.21s =========================",
+      "intentos": [
+        {
+          "intento": 1,
+          "decision": "bug_detectado",
+          "estado_sandbox": "fallo",
+          "tipo_fallo": "bug_codigo",
+          "laundering_detectado": false,
+          "feedback": "============================= test session starts =============================\nplatform win32 -- Python 3.10.11, pytest-9.1.1, pluggy-1.6.0\nrootdir: /work\ncollected 4 items\n\n../tests/test_generado.py FF..                                           [100%]\n\n================================== FAILURES ===================================\n____________________________ test_descuento_normal ____________________________\n\n    def test_descuento_normal():\n>       assert calcular_descuento(precio=100.0, porcentaje=20.0) == pytest.approx(80.0)\nE       assert 20.0 == 80.0 ± 8.0e-05\nE         \nE         comparison failed\nE         Obtained: 20.0\nE         Expected: 80.0 ± 8.0e-05\n\n../tests/test_generado.py:7: AssertionError\n_____________________________ test_sin_descuento ______________________________\n\n    def test_sin_descuento():\n>       assert calcular_descuento(precio=50.0, porcentaje=0.0) == pytest.approx(50.0)\nE       assert 0.0 == 50.0 ± 5.0e-05\nE         \nE         comparison failed\nE         Obtained: 0.0\nE         Expected: 50.0 ± 5.0e-05\n\n../tests/test_generado.py:10: AssertionError\n- generated xml file: /work/junit.xml -\n=========================== short test summary info ===========================\nFAILED ../tests/test_generado.py::test_descuento_normal - assert 20.0 == 80.0...\nFAILED ../tests/test_generado.py::test_sin_descuento - assert 0.0 == 50.0 ± 5...\n========================= 2 failed, 2 passed in 0.21s =========================",
+          "hash_error": "98343a898abccdd434b9e609dfb0b764895fcc6e7fa429f2f044b8662eba6b7d",
+          "cobertura": {
+            "lineas": 100.0,
+            "ramas": null
+          },
+          "ejecucion": {
+            "exit_code": 1,
+            "duracion_s": 1.25,
+            "duracion_pytest_s": 0.169,
+            "timeout": false,
+            "oom": false,
+            "salida": "============================= test session starts =============================\nplatform win32 -- Python 3.10.11, pytest-9.1.1, pluggy-1.6.0\nrootdir: /work\ncollected 4 items\n\n../tests/test_generado.py FF..                                           [100%]\n\n================================== FAILURES ===================================\n____________________________ test_descuento_normal ____________________________\n\n    def test_descuento_normal():\n>       assert calcular_descuento(precio=100.0, porcentaje=20.0) == pytest.approx(80.0)\nE       assert 20.0 == 80.0 ± 8.0e-05\nE         \nE         comparison failed\nE         Obtained: 20.0\nE         Expected: 80.0 ± 8.0e-05\n\n../tests/test_generado.py:7: AssertionError\n_____________________________ test_sin_descuento ______________________________\n\n    def test_sin_descuento():\n>       assert calcular_descuento(precio=50.0, porcentaje=0.0) == pytest.approx(50.0)\nE       assert 0.0 == 50.0 ± 5.0e-05\nE         \nE         comparison failed\nE         Obtained: 0.0\nE         Expected: 50.0 ± 5.0e-05\n\n../tests/test_generado.py:10: AssertionError\n- generated xml file: /work/junit.xml -\n=========================== short test summary info ===========================\nFAILED ../tests/test_generado.py::test_descuento_normal - assert 20.0 == 80.0...\nFAILED ../tests/test_generado.py::test_sin_descuento - assert 0.0 == 50.0 ± 5...\n========================= 2 failed, 2 passed in 0.21s =========================",
+            "codigo_test": "import pytest\n\nfrom banco_mvp import calcular_descuento\n\n\ndef test_descuento_normal():\n    assert calcular_descuento(precio=100.0, porcentaje=20.0) == pytest.approx(80.0)\n\ndef test_sin_descuento():\n    assert calcular_descuento(precio=50.0, porcentaje=0.0) == pytest.approx(50.0)\n\ndef test_precio_negativo():\n    with pytest.raises(ValueError):\n        calcular_descuento(precio=-1.0, porcentaje=10.0)\n\ndef test_porcentaje_mayor_a_100():\n    with pytest.raises(ValueError):\n        calcular_descuento(precio=100.0, porcentaje=150.0)\n",
+            "totales": {
+              "total": 4,
+              "pasaron": 2,
+              "fallaron": 2,
+              "errores": 0,
+              "omitidos": 0
+            },
+            "casos": [
+              {
+                "nombre": "test_descuento_normal",
+                "ruta": "tests.test_generado",
+                "resultado": "fallo",
+                "duracion_s": 0.001,
+                "mensaje": "assert 20.0 == 80.0 ± 8.0e-05\n  \n  comparison failed\n  Obtained: 20.0\n  Expected: 80.0 ± 8.0e-05",
+                "tipo_error": "AssertionError",
+                "archivo": "tests/test_generado.py",
+                "linea": 7,
+                "codigo": "assert calcular_descuento(precio=100.0, porcentaje=20.0) == pytest.approx(80.0)",
+                "operador": "==",
+                "esperado": "80.0 ± 8.0e-05",
+                "obtenido": "20.0",
+                "traza": "def test_descuento_normal():\n>       assert calcular_descuento(precio=100.0, porcentaje=20.0) == pytest.approx(80.0)\nE       assert 20.0 == 80.0 ± 8.0e-05\nE         \nE         comparison failed\nE         Obtained: 20.0\nE         Expected: 80.0 ± 8.0e-05\n\n../tests/test_generado.py:7: AssertionError",
+                "pila": [
+                  {
+                    "archivo": "tests/test_generado.py",
+                    "linea": 7,
+                    "detalle": "AssertionError",
+                    "codigo": "assert calcular_descuento(precio=100.0, porcentaje=20.0) == pytest.approx(80.0)"
+                  }
+                ]
+              },
+              {
+                "nombre": "test_sin_descuento",
+                "ruta": "tests.test_generado",
+                "resultado": "fallo",
+                "duracion_s": 0.001,
+                "mensaje": "assert 0.0 == 50.0 ± 5.0e-05\n  \n  comparison failed\n  Obtained: 0.0\n  Expected: 50.0 ± 5.0e-05",
+                "tipo_error": "AssertionError",
+                "archivo": "tests/test_generado.py",
+                "linea": 10,
+                "codigo": "assert calcular_descuento(precio=50.0, porcentaje=0.0) == pytest.approx(50.0)",
+                "operador": "==",
+                "esperado": "50.0 ± 5.0e-05",
+                "obtenido": "0.0",
+                "traza": "def test_sin_descuento():\n>       assert calcular_descuento(precio=50.0, porcentaje=0.0) == pytest.approx(50.0)\nE       assert 0.0 == 50.0 ± 5.0e-05\nE         \nE         comparison failed\nE         Obtained: 0.0\nE         Expected: 50.0 ± 5.0e-05\n\n../tests/test_generado.py:10: AssertionError",
+                "pila": [
+                  {
+                    "archivo": "tests/test_generado.py",
+                    "linea": 10,
+                    "detalle": "AssertionError",
+                    "codigo": "assert calcular_descuento(precio=50.0, porcentaje=0.0) == pytest.approx(50.0)"
+                  }
+                ]
+              },
+              {
+                "nombre": "test_precio_negativo",
+                "ruta": "tests.test_generado",
+                "resultado": "paso",
+                "duracion_s": 0.001,
+                "mensaje": null,
+                "tipo_error": null,
+                "archivo": null,
+                "linea": null,
+                "codigo": null,
+                "operador": null,
+                "esperado": null,
+                "obtenido": null,
+                "traza": null,
+                "pila": []
+              },
+              {
+                "nombre": "test_porcentaje_mayor_a_100",
+                "ruta": "tests.test_generado",
+                "resultado": "paso",
+                "duracion_s": 0.001,
+                "mensaje": null,
+                "tipo_error": null,
+                "archivo": null,
+                "linea": null,
+                "codigo": null,
+                "operador": null,
+                "esperado": null,
+                "obtenido": null,
+                "traza": null,
+                "pila": []
+              }
+            ],
+            "lineas_sin_cubrir": [],
+            "entorno": {
+              "imagen": "qagent-sandbox:base",
+              "comando": "pytest /work/tests --cov=banco_mvp --cov-branch --cov-report=json:/out/coverage.json --junitxml=/out/junit.xml -p no:cacheprovider",
+              "plataforma": "win32",
+              "python": "3.10.11",
+              "pytest": "9.1.1",
+              "limites": {
+                "cpus": 4.0,
+                "memoria": "3g",
+                "timeout_s": 120
+              }
+            }
+          },
+          "duracion_s": 0.016,
+          "generacion_s": 0.016,
+          "revision_s": 0.0
+        }
+      ]
+    },
+    {
+      "modulo": "banco_mvp.py",
+      "funcion": "clasificar_edad",
+      "contrato": {
+        "version": "3",
+        "lenguaje": "python",
+        "framework_pruebas": "pytest",
+        "modulo": "banco_mvp.py",
+        "huella": "11ebd9c5b8e042bdc0407320590e7f767c2971f2d543625272a79c9d45641fa5",
+        "tipo": "funcion",
+        "objetivo": "clasificar_edad",
+        "firma": "(edad: int) -> str",
+        "critical": false,
+        "llama_a": [],
+        "casos": [
+          {
+            "id": "menor_17",
+            "entrada": {
+              "edad": 17
+            },
+            "valor_esperado": "menor",
+            "origen": "docstring",
+            "categoria": "normal"
+          },
+          {
+            "id": "adulto_18",
+            "descripcion": "Límite: 18 ya es adulto",
+            "entrada": {
+              "edad": 18
+            },
+            "valor_esperado": "adulto",
+            "origen": "docstring",
+            "categoria": "limite"
+          },
+          {
+            "id": "adulto_64",
+            "entrada": {
+              "edad": 64
+            },
+            "valor_esperado": "adulto",
+            "origen": "docstring",
+            "categoria": "normal"
+          },
+          {
+            "id": "adulto_mayor_65",
+            "entrada": {
+              "edad": 65
+            },
+            "valor_esperado": "adulto mayor",
+            "origen": "docstring",
+            "categoria": "limite"
+          },
+          {
+            "id": "edad_negativa",
+            "entrada": {
+              "edad": -1
+            },
+            "excepcion": "ValueError",
+            "origen": "docstring",
+            "categoria": "error"
+          }
+        ]
+      },
+      "codigo": "import pytest\n\nfrom banco_mvp import clasificar_edad\n\n\ndef test_menor_17():\n    assert clasificar_edad(edad=17) == 'menor'\n\ndef test_adulto_18():\n    assert clasificar_edad(edad=18) == 'adulto'\n\ndef test_adulto_64():\n    assert clasificar_edad(edad=64) == 'adulto'\n\ndef test_adulto_mayor_65():\n    assert clasificar_edad(edad=65) == 'adulto mayor'\n\ndef test_edad_negativa():\n    with pytest.raises(ValueError):\n        clasificar_edad(edad=-1)\n",
+      "traza": "============================= test session starts =============================\nplatform win32 -- Python 3.10.11, pytest-9.1.1, pluggy-1.6.0\nrootdir: /work\ncollected 5 items\n\n../tests/test_generado.py .F...                                          [100%]\n\n================================== FAILURES ===================================\n_______________________________ test_adulto_18 ________________________________\n\n    def test_adulto_18():\n>       assert clasificar_edad(edad=18) == 'adulto'\nE       AssertionError: assert 'menor' == 'adulto'\nE         \nE         - adulto\nE         + menor\n\n../tests/test_generado.py:10: AssertionError\n- generated xml file: /work/junit.xml -\n=========================== short test summary info ===========================\nFAILED ../tests/test_generado.py::test_adulto_18 - AssertionError: assert 'me...\n========================= 1 failed, 4 passed in 0.26s =========================",
+      "intentos": [
+        {
+          "intento": 1,
+          "decision": "bug_detectado",
+          "estado_sandbox": "fallo",
+          "tipo_fallo": "bug_codigo",
+          "laundering_detectado": false,
+          "feedback": "============================= test session starts =============================\nplatform win32 -- Python 3.10.11, pytest-9.1.1, pluggy-1.6.0\nrootdir: /work\ncollected 5 items\n\n../tests/test_generado.py .F...                                          [100%]\n\n================================== FAILURES ===================================\n_______________________________ test_adulto_18 ________________________________\n\n    def test_adulto_18():\n>       assert clasificar_edad(edad=18) == 'adulto'\nE       AssertionError: assert 'menor' == 'adulto'\nE         \nE         - adulto\nE         + menor\n\n../tests/test_generado.py:10: AssertionError\n- generated xml file: /work/junit.xml -\n=========================== short test summary info ===========================\nFAILED ../tests/test_generado.py::test_adulto_18 - AssertionError: assert 'me...\n========================= 1 failed, 4 passed in 0.26s =========================",
+          "hash_error": "ca228063167ee6b06bff7fbedbc08fe8087611e71f197087597b6aa6d6935a4f",
+          "cobertura": {
+            "lineas": 100.0,
+            "ramas": null
+          },
+          "ejecucion": {
+            "exit_code": 1,
+            "duracion_s": 1.234,
+            "duracion_pytest_s": 0.211,
+            "timeout": false,
+            "oom": false,
+            "salida": "============================= test session starts =============================\nplatform win32 -- Python 3.10.11, pytest-9.1.1, pluggy-1.6.0\nrootdir: /work\ncollected 5 items\n\n../tests/test_generado.py .F...                                          [100%]\n\n================================== FAILURES ===================================\n_______________________________ test_adulto_18 ________________________________\n\n    def test_adulto_18():\n>       assert clasificar_edad(edad=18) == 'adulto'\nE       AssertionError: assert 'menor' == 'adulto'\nE         \nE         - adulto\nE         + menor\n\n../tests/test_generado.py:10: AssertionError\n- generated xml file: /work/junit.xml -\n=========================== short test summary info ===========================\nFAILED ../tests/test_generado.py::test_adulto_18 - AssertionError: assert 'me...\n========================= 1 failed, 4 passed in 0.26s =========================",
+            "codigo_test": "import pytest\n\nfrom banco_mvp import clasificar_edad\n\n\ndef test_menor_17():\n    assert clasificar_edad(edad=17) == 'menor'\n\ndef test_adulto_18():\n    assert clasificar_edad(edad=18) == 'adulto'\n\ndef test_adulto_64():\n    assert clasificar_edad(edad=64) == 'adulto'\n\ndef test_adulto_mayor_65():\n    assert clasificar_edad(edad=65) == 'adulto mayor'\n\ndef test_edad_negativa():\n    with pytest.raises(ValueError):\n        clasificar_edad(edad=-1)\n",
+            "totales": {
+              "total": 5,
+              "pasaron": 4,
+              "fallaron": 1,
+              "errores": 0,
+              "omitidos": 0
+            },
+            "casos": [
+              {
+                "nombre": "test_menor_17",
+                "ruta": "tests.test_generado",
+                "resultado": "paso",
+                "duracion_s": 0.001,
+                "mensaje": null,
+                "tipo_error": null,
+                "archivo": null,
+                "linea": null,
+                "codigo": null,
+                "operador": null,
+                "esperado": null,
+                "obtenido": null,
+                "traza": null,
+                "pila": []
+              },
+              {
+                "nombre": "test_adulto_18",
+                "ruta": "tests.test_generado",
+                "resultado": "fallo",
+                "duracion_s": 0.002,
+                "mensaje": "AssertionError: assert 'menor' == 'adulto'\n  \n  - adulto\n  + menor",
+                "tipo_error": "AssertionError",
+                "archivo": "tests/test_generado.py",
+                "linea": 10,
+                "codigo": "assert clasificar_edad(edad=18) == 'adulto'",
+                "operador": null,
+                "esperado": null,
+                "obtenido": null,
+                "traza": "def test_adulto_18():\n>       assert clasificar_edad(edad=18) == 'adulto'\nE       AssertionError: assert 'menor' == 'adulto'\nE         \nE         - adulto\nE         + menor\n\n../tests/test_generado.py:10: AssertionError",
+                "pila": [
+                  {
+                    "archivo": "tests/test_generado.py",
+                    "linea": 10,
+                    "detalle": "AssertionError",
+                    "codigo": "assert clasificar_edad(edad=18) == 'adulto'"
+                  }
+                ]
+              },
+              {
+                "nombre": "test_adulto_64",
+                "ruta": "tests.test_generado",
+                "resultado": "paso",
+                "duracion_s": 0.001,
+                "mensaje": null,
+                "tipo_error": null,
+                "archivo": null,
+                "linea": null,
+                "codigo": null,
+                "operador": null,
+                "esperado": null,
+                "obtenido": null,
+                "traza": null,
+                "pila": []
+              },
+              {
+                "nombre": "test_adulto_mayor_65",
+                "ruta": "tests.test_generado",
+                "resultado": "paso",
+                "duracion_s": 0.001,
+                "mensaje": null,
+                "tipo_error": null,
+                "archivo": null,
+                "linea": null,
+                "codigo": null,
+                "operador": null,
+                "esperado": null,
+                "obtenido": null,
+                "traza": null,
+                "pila": []
+              },
+              {
+                "nombre": "test_edad_negativa",
+                "ruta": "tests.test_generado",
+                "resultado": "paso",
+                "duracion_s": 0.001,
+                "mensaje": null,
+                "tipo_error": null,
+                "archivo": null,
+                "linea": null,
+                "codigo": null,
+                "operador": null,
+                "esperado": null,
+                "obtenido": null,
+                "traza": null,
+                "pila": []
+              }
+            ],
+            "lineas_sin_cubrir": [],
+            "entorno": {
+              "imagen": "qagent-sandbox:base",
+              "comando": "pytest /work/tests --cov=banco_mvp --cov-branch --cov-report=json:/out/coverage.json --junitxml=/out/junit.xml -p no:cacheprovider",
+              "plataforma": "win32",
+              "python": "3.10.11",
+              "pytest": "9.1.1",
+              "limites": {
+                "cpus": 4.0,
+                "memoria": "3g",
+                "timeout_s": 120
+              }
+            }
+          },
+          "duracion_s": 0.015,
+          "generacion_s": 0.015,
+          "revision_s": 0.0
+        }
+      ]
+    },
+    {
+      "modulo": "banco_mvp.py",
+      "funcion": "buscar_elemento_mayor",
+      "contrato": {
+        "version": "3",
+        "lenguaje": "python",
+        "framework_pruebas": "pytest",
+        "modulo": "banco_mvp.py",
+        "huella": "11ebd9c5b8e042bdc0407320590e7f767c2971f2d543625272a79c9d45641fa5",
+        "tipo": "funcion",
+        "objetivo": "buscar_elemento_mayor",
+        "firma": "(numeros: list[int | float]) -> int | float",
+        "critical": false,
+        "llama_a": [],
+        "casos": [
+          {
+            "id": "positivos",
+            "entrada": {
+              "numeros": [
+                1,
+                5,
+                3
+              ]
+            },
+            "valor_esperado": 5,
+            "origen": "docstring",
+            "categoria": "normal"
+          },
+          {
+            "id": "solo_negativos",
+            "entrada": {
+              "numeros": [
+                -5,
+                -2,
+                -9
+              ]
+            },
+            "valor_esperado": -2,
+            "origen": "docstring",
+            "categoria": "normal"
+          },
+          {
+            "id": "lista_vacia",
+            "entrada": {
+              "numeros": []
+            },
+            "excepcion": "ValueError",
+            "origen": "docstring",
+            "categoria": "error"
+          }
+        ]
+      },
+      "codigo": "import pytest\n\nfrom banco_mvp import buscar_elemento_mayor\n\n\ndef test_positivos():\n    assert buscar_elemento_mayor(numeros=[1, 5, 3]) == 5\n\ndef test_solo_negativos():\n    assert buscar_elemento_mayor(numeros=[-5, -2, -9]) == -2\n\ndef test_lista_vacia():\n    with pytest.raises(ValueError):\n        buscar_elemento_mayor(numeros=[])\n",
+      "traza": "============================= test session starts =============================\nplatform win32 -- Python 3.10.11, pytest-9.1.1, pluggy-1.6.0\nrootdir: /work\ncollected 3 items\n\n../tests/test_generado.py .F.                                            [100%]\n\n================================== FAILURES ===================================\n_____________________________ test_solo_negativos _____________________________\n\n    def test_solo_negativos():\n>       assert buscar_elemento_mayor(numeros=[-5, -2, -9]) == -2\nE       assert 0 == -2\nE        +  where 0 = buscar_elemento_mayor(numeros=[-5, -2, -9])\n\n../tests/test_generado.py:10: AssertionError\n- generated xml file: /work/junit.xml -\n=========================== short test summary info ===========================\nFAILED ../tests/test_generado.py::test_solo_negativos - assert 0 == -2\n========================= 1 failed, 2 passed in 0.21s =========================",
+      "intentos": [
+        {
+          "intento": 1,
+          "decision": "bug_detectado",
+          "estado_sandbox": "fallo",
+          "tipo_fallo": "bug_codigo",
+          "laundering_detectado": false,
+          "feedback": "============================= test session starts =============================\nplatform win32 -- Python 3.10.11, pytest-9.1.1, pluggy-1.6.0\nrootdir: /work\ncollected 3 items\n\n../tests/test_generado.py .F.                                            [100%]\n\n================================== FAILURES ===================================\n_____________________________ test_solo_negativos _____________________________\n\n    def test_solo_negativos():\n>       assert buscar_elemento_mayor(numeros=[-5, -2, -9]) == -2\nE       assert 0 == -2\nE        +  where 0 = buscar_elemento_mayor(numeros=[-5, -2, -9])\n\n../tests/test_generado.py:10: AssertionError\n- generated xml file: /work/junit.xml -\n=========================== short test summary info ===========================\nFAILED ../tests/test_generado.py::test_solo_negativos - assert 0 == -2\n========================= 1 failed, 2 passed in 0.21s =========================",
+          "hash_error": "f555b5ada4f8394c8b562e118f3dc389edb6fa433592bf19afb0a184f5b8c86d",
+          "cobertura": {
+            "lineas": 100.0,
+            "ramas": null
+          },
+          "ejecucion": {
+            "exit_code": 1,
+            "duracion_s": 1.11,
+            "duracion_pytest_s": 0.175,
+            "timeout": false,
+            "oom": false,
+            "salida": "============================= test session starts =============================\nplatform win32 -- Python 3.10.11, pytest-9.1.1, pluggy-1.6.0\nrootdir: /work\ncollected 3 items\n\n../tests/test_generado.py .F.                                            [100%]\n\n================================== FAILURES ===================================\n_____________________________ test_solo_negativos _____________________________\n\n    def test_solo_negativos():\n>       assert buscar_elemento_mayor(numeros=[-5, -2, -9]) == -2\nE       assert 0 == -2\nE        +  where 0 = buscar_elemento_mayor(numeros=[-5, -2, -9])\n\n../tests/test_generado.py:10: AssertionError\n- generated xml file: /work/junit.xml -\n=========================== short test summary info ===========================\nFAILED ../tests/test_generado.py::test_solo_negativos - assert 0 == -2\n========================= 1 failed, 2 passed in 0.21s =========================",
+            "codigo_test": "import pytest\n\nfrom banco_mvp import buscar_elemento_mayor\n\n\ndef test_positivos():\n    assert buscar_elemento_mayor(numeros=[1, 5, 3]) == 5\n\ndef test_solo_negativos():\n    assert buscar_elemento_mayor(numeros=[-5, -2, -9]) == -2\n\ndef test_lista_vacia():\n    with pytest.raises(ValueError):\n        buscar_elemento_mayor(numeros=[])\n",
+            "totales": {
+              "total": 3,
+              "pasaron": 2,
+              "fallaron": 1,
+              "errores": 0,
+              "omitidos": 0
+            },
+            "casos": [
+              {
+                "nombre": "test_positivos",
+                "ruta": "tests.test_generado",
+                "resultado": "paso",
+                "duracion_s": 0.001,
+                "mensaje": null,
+                "tipo_error": null,
+                "archivo": null,
+                "linea": null,
+                "codigo": null,
+                "operador": null,
+                "esperado": null,
+                "obtenido": null,
+                "traza": null,
+                "pila": []
+              },
+              {
+                "nombre": "test_solo_negativos",
+                "ruta": "tests.test_generado",
+                "resultado": "fallo",
+                "duracion_s": 0.002,
+                "mensaje": "assert 0 == -2\n +  where 0 = buscar_elemento_mayor(numeros=[-5, -2, -9])",
+                "tipo_error": "AssertionError",
+                "archivo": "tests/test_generado.py",
+                "linea": 10,
+                "codigo": "assert buscar_elemento_mayor(numeros=[-5, -2, -9]) == -2",
+                "operador": "==",
+                "esperado": "-2",
+                "obtenido": "0",
+                "traza": "def test_solo_negativos():\n>       assert buscar_elemento_mayor(numeros=[-5, -2, -9]) == -2\nE       assert 0 == -2\nE        +  where 0 = buscar_elemento_mayor(numeros=[-5, -2, -9])\n\n../tests/test_generado.py:10: AssertionError",
+                "pila": [
+                  {
+                    "archivo": "tests/test_generado.py",
+                    "linea": 10,
+                    "detalle": "AssertionError",
+                    "codigo": "assert buscar_elemento_mayor(numeros=[-5, -2, -9]) == -2"
+                  }
+                ]
+              },
+              {
+                "nombre": "test_lista_vacia",
+                "ruta": "tests.test_generado",
+                "resultado": "paso",
+                "duracion_s": 0.001,
+                "mensaje": null,
+                "tipo_error": null,
+                "archivo": null,
+                "linea": null,
+                "codigo": null,
+                "operador": null,
+                "esperado": null,
+                "obtenido": null,
+                "traza": null,
+                "pila": []
+              }
+            ],
+            "lineas_sin_cubrir": [],
+            "entorno": {
+              "imagen": "qagent-sandbox:base",
+              "comando": "pytest /work/tests --cov=banco_mvp --cov-branch --cov-report=json:/out/coverage.json --junitxml=/out/junit.xml -p no:cacheprovider",
+              "plataforma": "win32",
+              "python": "3.10.11",
+              "pytest": "9.1.1",
+              "limites": {
+                "cpus": 4.0,
+                "memoria": "3g",
+                "timeout_s": 120
+              }
+            }
+          },
+          "duracion_s": 0.016,
+          "generacion_s": 0.016,
+          "revision_s": 0.0
+        }
+      ]
+    },
+    {
+      "modulo": "banco_mvp.py",
+      "funcion": "es_palindromo",
+      "contrato": {
+        "version": "3",
+        "lenguaje": "python",
+        "framework_pruebas": "pytest",
+        "modulo": "banco_mvp.py",
+        "huella": "11ebd9c5b8e042bdc0407320590e7f767c2971f2d543625272a79c9d45641fa5",
+        "tipo": "funcion",
+        "objetivo": "es_palindromo",
+        "firma": "(texto: str) -> bool",
+        "critical": false,
+        "llama_a": [],
+        "casos": [
+          {
+            "id": "frase_palindromo",
+            "descripcion": "Ignora mayúsculas y espacios",
+            "entrada": {
+              "texto": "Anita lava la tina"
+            },
+            "valor_esperado": true,
+            "origen": "docstring",
+            "categoria": "normal"
+          },
+          {
+            "id": "no_palindromo",
+            "entrada": {
+              "texto": "hola"
+            },
+            "valor_esperado": false,
+            "origen": "docstring",
+            "categoria": "normal"
+          }
+        ]
+      },
+      "codigo": "import pytest\n\nfrom banco_mvp import es_palindromo\n\n\ndef test_frase_palindromo():\n    assert es_palindromo(texto='Anita lava la tina') == True\n\ndef test_no_palindromo():\n    assert es_palindromo(texto='hola') == False\n",
+      "traza": null,
+      "intentos": [
+        {
+          "intento": 1,
+          "decision": "accept",
+          "estado_sandbox": "ok",
+          "tipo_fallo": null,
+          "laundering_detectado": false,
+          "feedback": "Test aprobado en el sandbox.",
+          "hash_error": null,
+          "cobertura": {
+            "lineas": 100.0,
+            "ramas": null
+          },
+          "ejecucion": {
+            "exit_code": 0,
+            "duracion_s": 0.906,
+            "duracion_pytest_s": 0.024,
+            "timeout": false,
+            "oom": false,
+            "salida": "============================= test session starts =============================\nplatform win32 -- Python 3.10.11, pytest-9.1.1, pluggy-1.6.0\nrootdir: /work\ncollected 2 items\n\n../tests/test_generado.py ..                                             [100%]\n\n- generated xml file: /work/junit.xml -\n============================== 2 passed in 0.06s ==============================",
+            "codigo_test": "import pytest\n\nfrom banco_mvp import es_palindromo\n\n\ndef test_frase_palindromo():\n    assert es_palindromo(texto='Anita lava la tina') == True\n\ndef test_no_palindromo():\n    assert es_palindromo(texto='hola') == False\n",
+            "totales": {
+              "total": 2,
+              "pasaron": 2,
+              "fallaron": 0,
+              "errores": 0,
+              "omitidos": 0
+            },
+            "casos": [
+              {
+                "nombre": "test_frase_palindromo",
+                "ruta": "tests.test_generado",
+                "resultado": "paso",
+                "duracion_s": 0.001,
+                "mensaje": null,
+                "tipo_error": null,
+                "archivo": null,
+                "linea": null,
+                "codigo": null,
+                "operador": null,
+                "esperado": null,
+                "obtenido": null,
+                "traza": null,
+                "pila": []
+              },
+              {
+                "nombre": "test_no_palindromo",
+                "ruta": "tests.test_generado",
+                "resultado": "paso",
+                "duracion_s": 0.001,
+                "mensaje": null,
+                "tipo_error": null,
+                "archivo": null,
+                "linea": null,
+                "codigo": null,
+                "operador": null,
+                "esperado": null,
+                "obtenido": null,
+                "traza": null,
+                "pila": []
+              }
+            ],
+            "lineas_sin_cubrir": [],
+            "entorno": {
+              "imagen": "qagent-sandbox:base",
+              "comando": "pytest /work/tests --cov=banco_mvp --cov-branch --cov-report=json:/out/coverage.json --junitxml=/out/junit.xml -p no:cacheprovider",
+              "plataforma": "win32",
+              "python": "3.10.11",
+              "pytest": "9.1.1",
+              "limites": {
+                "cpus": 4.0,
+                "memoria": "3g",
+                "timeout_s": 120
+              }
+            }
+          },
+          "duracion_s": 0.015,
+          "generacion_s": 0.0,
+          "revision_s": 0.015
+        }
+      ]
+    },
+    {
+      "modulo": "banco_mvp.py",
+      "funcion": "invertir_palabras",
+      "contrato": {
+        "version": "3",
+        "lenguaje": "python",
+        "framework_pruebas": "pytest",
+        "modulo": "banco_mvp.py",
+        "huella": "11ebd9c5b8e042bdc0407320590e7f767c2971f2d543625272a79c9d45641fa5",
+        "tipo": "funcion",
+        "objetivo": "invertir_palabras",
+        "firma": "(frase: str) -> str",
+        "critical": false,
+        "llama_a": [],
+        "casos": [
+          {
+            "id": "tres_palabras",
+            "entrada": {
+              "frase": "hola mundo feliz"
+            },
+            "valor_esperado": "feliz mundo hola",
+            "origen": "docstring",
+            "categoria": "normal"
+          }
+        ]
+      },
+      "codigo": "import pytest\n\nfrom banco_mvp import invertir_palabras\n\n\ndef test_tres_palabras():\n    assert invertir_palabras(frase='hola mundo feliz') == 'feliz mundo hola'\n",
+      "traza": null,
+      "intentos": [
+        {
+          "intento": 1,
+          "decision": "accept",
+          "estado_sandbox": "ok",
+          "tipo_fallo": null,
+          "laundering_detectado": false,
+          "feedback": "Test aprobado en el sandbox.",
+          "hash_error": null,
+          "cobertura": {
+            "lineas": 100.0,
+            "ramas": null
+          },
+          "ejecucion": {
+            "exit_code": 0,
+            "duracion_s": 0.985,
+            "duracion_pytest_s": 0.026,
+            "timeout": false,
+            "oom": false,
+            "salida": "============================= test session starts =============================\nplatform win32 -- Python 3.10.11, pytest-9.1.1, pluggy-1.6.0\nrootdir: /work\ncollected 1 item\n\n../tests/test_generado.py .                                              [100%]\n\n- generated xml file: /work/junit.xml -\n============================== 1 passed in 0.07s ==============================",
+            "codigo_test": "import pytest\n\nfrom banco_mvp import invertir_palabras\n\n\ndef test_tres_palabras():\n    assert invertir_palabras(frase='hola mundo feliz') == 'feliz mundo hola'\n",
+            "totales": {
+              "total": 1,
+              "pasaron": 1,
+              "fallaron": 0,
+              "errores": 0,
+              "omitidos": 0
+            },
+            "casos": [
+              {
+                "nombre": "test_tres_palabras",
+                "ruta": "tests.test_generado",
+                "resultado": "paso",
+                "duracion_s": 0.001,
+                "mensaje": null,
+                "tipo_error": null,
+                "archivo": null,
+                "linea": null,
+                "codigo": null,
+                "operador": null,
+                "esperado": null,
+                "obtenido": null,
+                "traza": null,
+                "pila": []
+              }
+            ],
+            "lineas_sin_cubrir": [],
+            "entorno": {
+              "imagen": "qagent-sandbox:base",
+              "comando": "pytest /work/tests --cov=banco_mvp --cov-branch --cov-report=json:/out/coverage.json --junitxml=/out/junit.xml -p no:cacheprovider",
+              "plataforma": "win32",
+              "python": "3.10.11",
+              "pytest": "9.1.1",
+              "limites": {
+                "cpus": 4.0,
+                "memoria": "3g",
+                "timeout_s": 120
+              }
+            }
+          },
+          "duracion_s": 0.0,
+          "generacion_s": 0.0,
+          "revision_s": 0.0
+        }
+      ]
+    },
+    {
+      "modulo": "banco_mvp.py",
+      "funcion": "formatear_moneda",
+      "contrato": {
+        "version": "3",
+        "lenguaje": "python",
+        "framework_pruebas": "pytest",
+        "modulo": "banco_mvp.py",
+        "huella": "11ebd9c5b8e042bdc0407320590e7f767c2971f2d543625272a79c9d45641fa5",
+        "tipo": "funcion",
+        "objetivo": "formatear_moneda",
+        "firma": "(cantidad: float, simbolo: str='$') -> str",
+        "critical": false,
+        "llama_a": [],
+        "casos": [
+          {
+            "id": "simbolo_por_defecto",
+            "entrada": {
+              "cantidad": 12.5
+            },
+            "valor_esperado": "$12.50",
+            "origen": "docstring",
+            "categoria": "normal"
+          },
+          {
+            "id": "otro_simbolo",
+            "entrada": {
+              "cantidad": 3,
+              "simbolo": "S/"
+            },
+            "valor_esperado": "S/3.00",
+            "origen": "docstring",
+            "categoria": "normal"
+          }
+        ]
+      },
+      "codigo": "import pytest\n\nfrom banco_mvp import formatear_moneda\n\n\ndef test_simbolo_por_defecto():\n    assert formatear_moneda(cantidad=12.5) == '$12.50'\n\ndef test_otro_simbolo():\n    assert formatear_moneda(cantidad=3, simbolo='S/') == 'S/3.00'\n",
+      "traza": null,
+      "intentos": [
+        {
+          "intento": 1,
+          "decision": "accept",
+          "estado_sandbox": "ok",
+          "tipo_fallo": null,
+          "laundering_detectado": false,
+          "feedback": "Test aprobado en el sandbox.",
+          "hash_error": null,
+          "cobertura": {
+            "lineas": 100.0,
+            "ramas": null
+          },
+          "ejecucion": {
+            "exit_code": 0,
+            "duracion_s": 0.891,
+            "duracion_pytest_s": 0.026,
+            "timeout": false,
+            "oom": false,
+            "salida": "============================= test session starts =============================\nplatform win32 -- Python 3.10.11, pytest-9.1.1, pluggy-1.6.0\nrootdir: /work\ncollected 2 items\n\n../tests/test_generado.py ..                                             [100%]\n\n- generated xml file: /work/junit.xml -\n============================== 2 passed in 0.06s ==============================",
+            "codigo_test": "import pytest\n\nfrom banco_mvp import formatear_moneda\n\n\ndef test_simbolo_por_defecto():\n    assert formatear_moneda(cantidad=12.5) == '$12.50'\n\ndef test_otro_simbolo():\n    assert formatear_moneda(cantidad=3, simbolo='S/') == 'S/3.00'\n",
+            "totales": {
+              "total": 2,
+              "pasaron": 2,
+              "fallaron": 0,
+              "errores": 0,
+              "omitidos": 0
+            },
+            "casos": [
+              {
+                "nombre": "test_simbolo_por_defecto",
+                "ruta": "tests.test_generado",
+                "resultado": "paso",
+                "duracion_s": 0.001,
+                "mensaje": null,
+                "tipo_error": null,
+                "archivo": null,
+                "linea": null,
+                "codigo": null,
+                "operador": null,
+                "esperado": null,
+                "obtenido": null,
+                "traza": null,
+                "pila": []
+              },
+              {
+                "nombre": "test_otro_simbolo",
+                "ruta": "tests.test_generado",
+                "resultado": "paso",
+                "duracion_s": 0.001,
+                "mensaje": null,
+                "tipo_error": null,
+                "archivo": null,
+                "linea": null,
+                "codigo": null,
+                "operador": null,
+                "esperado": null,
+                "obtenido": null,
+                "traza": null,
+                "pila": []
+              }
+            ],
+            "lineas_sin_cubrir": [],
+            "entorno": {
+              "imagen": "qagent-sandbox:base",
+              "comando": "pytest /work/tests --cov=banco_mvp --cov-branch --cov-report=json:/out/coverage.json --junitxml=/out/junit.xml -p no:cacheprovider",
+              "plataforma": "win32",
+              "python": "3.10.11",
+              "pytest": "9.1.1",
+              "limites": {
+                "cpus": 4.0,
+                "memoria": "3g",
+                "timeout_s": 120
+              }
+            }
+          },
+          "duracion_s": 0.016,
+          "generacion_s": 0.016,
+          "revision_s": 0.0
+        }
+      ]
+    },
+    {
+      "modulo": "banco_explicador.py",
+      "funcion": "total_con_impuesto",
+      "contrato": {
+        "version": "3",
+        "lenguaje": "python",
+        "framework_pruebas": "pytest",
+        "modulo": "banco_explicador.py",
+        "tipo": "funcion",
+        "objetivo": "total_con_impuesto",
+        "firma": "(carrito: Carrito) -> float",
+        "critical": false,
+        "llama_a": [],
+        "casos": [
+          {
+            "id": "dos_productos",
+            "descripcion": "Dos productos de 10.0 con impuesto general de 18 %",
+            "entrada": {
+              "carrito": "dos productos de 10.0, tasa general 0.18"
+            },
+            "valor_esperado": 23.6,
+            "origen": "docstring",
+            "categoria": "normal"
+          }
+        ]
+      },
+      "codigo": "from banco_explicador import Carrito, total_con_impuesto\n\n\ndef test_dos_productos():\n    carrito = Carrito([(\"a\", 10.0), (\"b\", 10.0)], tasas={})\n    assert total_con_impuesto(carrito) == 23.6\n",
+      "traza": "============================= test session starts =============================\nplatform linux -- Python 3.11.9, pytest-9.1.1, pluggy-1.6.0\nrootdir: /work\ncollected 1 item\n\n../tests/test_generado.py E                                                [100%]\n\n==================================== ERRORS ====================================\n______________________ ERROR at setup of test_dos_productos ______________________\ndef test_dos_productos():\n>       carrito = Carrito([(\"a\", 10.0), (\"b\", 10.0)], tasas={})\nE       ValueError: el carrito necesita las tasas de su región\n\n../tests/test_generado.py:5: ValueError\n=========================== short test summary info ============================\nERROR ../tests/test_generado.py::test_dos_productos - ValueError: el carrito necesita las tasas de su región\n============================== 1 error in 0.08s ===============================",
+      "intentos": [
+        {
+          "intento": 1,
+          "decision": "retry",
+          "estado_sandbox": "fallo",
+          "tipo_fallo": "error_test",
+          "laundering_detectado": false,
+          "feedback": "============================= test session starts =============================\nplatform linux -- Python 3.11.9, pytest-9.1.1, pluggy-1.6.0\nrootdir: /work\ncollected 1 item\n\n../tests/test_generado.py E                                                [100%]\n\n==================================== ERRORS ====================================\n______________________ ERROR at setup of test_dos_productos ______________________\ndef test_dos_productos():\n>       carrito = Carrito([(\"a\", 10.0), (\"b\", 10.0)])\nE       TypeError: Carrito.__init__() missing 1 required keyword-only argument: 'tasas'\n\n../tests/test_generado.py:5: TypeError\n=========================== short test summary info ============================\nERROR ../tests/test_generado.py::test_dos_productos - TypeError: Carrito.__init__() missing 1 required keyword-only argument: 'tasas'\n============================== 1 error in 0.08s ===============================",
+          "hash_error": "a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1",
+          "cobertura": null,
+          "ejecucion": {
+            "exit_code": 1,
+            "duracion_s": 1.4,
+            "duracion_pytest_s": 0.08,
+            "timeout": false,
+            "oom": false,
+            "salida": "============================= test session starts =============================\nplatform linux -- Python 3.11.9, pytest-9.1.1, pluggy-1.6.0\nrootdir: /work\ncollected 1 item\n\n../tests/test_generado.py E                                                [100%]\n\n==================================== ERRORS ====================================\n______________________ ERROR at setup of test_dos_productos ______________________\ndef test_dos_productos():\n>       carrito = Carrito([(\"a\", 10.0), (\"b\", 10.0)])\nE       TypeError: Carrito.__init__() missing 1 required keyword-only argument: 'tasas'\n\n../tests/test_generado.py:5: TypeError\n=========================== short test summary info ============================\nERROR ../tests/test_generado.py::test_dos_productos - TypeError: Carrito.__init__() missing 1 required keyword-only argument: 'tasas'\n============================== 1 error in 0.08s ===============================",
+            "codigo_test": "from banco_explicador import Carrito, total_con_impuesto\n\n\ndef test_dos_productos():\n    carrito = Carrito([(\"a\", 10.0), (\"b\", 10.0)])\n    assert total_con_impuesto(carrito) == 23.6\n",
+            "totales": {
+              "total": 1,
+              "pasaron": 0,
+              "fallaron": 0,
+              "errores": 1,
+              "omitidos": 0
+            },
+            "casos": [
+              {
+                "nombre": "test_dos_productos",
+                "ruta": "tests.test_generado",
+                "resultado": "error",
+                "duracion_s": 0.001,
+                "mensaje": "TypeError: Carrito.__init__() missing 1 required keyword-only argument: 'tasas'",
+                "tipo_error": "TypeError",
+                "archivo": "tests/test_generado.py",
+                "linea": 5,
+                "traza": "def test_dos_productos():\n>       carrito = Carrito([(\"a\", 10.0), (\"b\", 10.0)])\nE       TypeError: Carrito.__init__() missing 1 required keyword-only argument: 'tasas'\n\n../tests/test_generado.py:5: TypeError",
+                "pila": [
+                  {
+                    "archivo": "tests/test_generado.py",
+                    "linea": 5,
+                    "detalle": "TypeError"
+                  }
+                ]
+              }
+            ],
+            "lineas_sin_cubrir": [],
+            "entorno": {
+              "imagen": "qagent-sandbox:base",
+              "comando": "pytest /work/tests --cov=banco_explicador --cov-branch --cov-report=json:/out/coverage.json --junitxml=/out/junit.xml -p no:cacheprovider",
+              "plataforma": "linux",
+              "python": "3.11.9",
+              "pytest": "9.1.1",
+              "limites": {
+                "cpus": 4.0,
+                "memoria": "3g",
+                "timeout_s": 120
+              }
+            }
+          },
+          "duracion_s": 9.0,
+          "generacion_s": 7.5,
+          "revision_s": 1.5
+        },
+        {
+          "intento": 2,
+          "decision": "retry",
+          "estado_sandbox": "fallo",
+          "tipo_fallo": "error_test",
+          "laundering_detectado": false,
+          "feedback": "============================= test session starts =============================\nplatform linux -- Python 3.11.9, pytest-9.1.1, pluggy-1.6.0\nrootdir: /work\ncollected 1 item\n\n../tests/test_generado.py E                                                [100%]\n\n==================================== ERRORS ====================================\n______________________ ERROR at setup of test_dos_productos ______________________\ndef test_dos_productos():\n>       carrito = Carrito([(\"a\", 10.0), (\"b\", 10.0)], tasas={})\nE       ValueError: el carrito necesita las tasas de su región\n\n../tests/test_generado.py:5: ValueError\n=========================== short test summary info ============================\nERROR ../tests/test_generado.py::test_dos_productos - ValueError: el carrito necesita las tasas de su región\n============================== 1 error in 0.08s ===============================",
+          "hash_error": "b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2",
+          "cobertura": null,
+          "ejecucion": {
+            "exit_code": 1,
+            "duracion_s": 1.4,
+            "duracion_pytest_s": 0.08,
+            "timeout": false,
+            "oom": false,
+            "salida": "============================= test session starts =============================\nplatform linux -- Python 3.11.9, pytest-9.1.1, pluggy-1.6.0\nrootdir: /work\ncollected 1 item\n\n../tests/test_generado.py E                                                [100%]\n\n==================================== ERRORS ====================================\n______________________ ERROR at setup of test_dos_productos ______________________\ndef test_dos_productos():\n>       carrito = Carrito([(\"a\", 10.0), (\"b\", 10.0)], tasas={})\nE       ValueError: el carrito necesita las tasas de su región\n\n../tests/test_generado.py:5: ValueError\n=========================== short test summary info ============================\nERROR ../tests/test_generado.py::test_dos_productos - ValueError: el carrito necesita las tasas de su región\n============================== 1 error in 0.08s ===============================",
+            "codigo_test": "from banco_explicador import Carrito, total_con_impuesto\n\n\ndef test_dos_productos():\n    carrito = Carrito([(\"a\", 10.0), (\"b\", 10.0)], tasas={})\n    assert total_con_impuesto(carrito) == 23.6\n",
+            "totales": {
+              "total": 1,
+              "pasaron": 0,
+              "fallaron": 0,
+              "errores": 1,
+              "omitidos": 0
+            },
+            "casos": [
+              {
+                "nombre": "test_dos_productos",
+                "ruta": "tests.test_generado",
+                "resultado": "error",
+                "duracion_s": 0.001,
+                "mensaje": "ValueError: el carrito necesita las tasas de su región",
+                "tipo_error": "ValueError",
+                "archivo": "tests/test_generado.py",
+                "linea": 5,
+                "traza": "def test_dos_productos():\n>       carrito = Carrito([(\"a\", 10.0), (\"b\", 10.0)], tasas={})\nE       ValueError: el carrito necesita las tasas de su región\n\n../tests/test_generado.py:5: ValueError",
+                "pila": [
+                  {
+                    "archivo": "tests/test_generado.py",
+                    "linea": 5,
+                    "detalle": "ValueError"
+                  }
+                ]
+              }
+            ],
+            "lineas_sin_cubrir": [],
+            "entorno": {
+              "imagen": "qagent-sandbox:base",
+              "comando": "pytest /work/tests --cov=banco_explicador --cov-branch --cov-report=json:/out/coverage.json --junitxml=/out/junit.xml -p no:cacheprovider",
+              "plataforma": "linux",
+              "python": "3.11.9",
+              "pytest": "9.1.1",
+              "limites": {
+                "cpus": 4.0,
+                "memoria": "3g",
+                "timeout_s": 120
+              }
+            }
+          },
+          "duracion_s": 9.0,
+          "generacion_s": 7.5,
+          "revision_s": 1.5
+        },
+        {
+          "intento": 3,
+          "decision": "stalled",
+          "estado_sandbox": "fallo",
+          "tipo_fallo": "error_test",
+          "laundering_detectado": false,
+          "feedback": "============================= test session starts =============================\nplatform linux -- Python 3.11.9, pytest-9.1.1, pluggy-1.6.0\nrootdir: /work\ncollected 1 item\n\n../tests/test_generado.py E                                                [100%]\n\n==================================== ERRORS ====================================\n______________________ ERROR at setup of test_dos_productos ______________________\ndef test_dos_productos():\n>       carrito = Carrito([(\"a\", 10.0), (\"b\", 10.0)], tasas={})\nE       ValueError: el carrito necesita las tasas de su región\n\n../tests/test_generado.py:5: ValueError\n=========================== short test summary info ============================\nERROR ../tests/test_generado.py::test_dos_productos - ValueError: el carrito necesita las tasas de su región\n============================== 1 error in 0.08s ===============================",
+          "hash_error": "b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2",
+          "cobertura": null,
+          "ejecucion": {
+            "exit_code": 1,
+            "duracion_s": 1.4,
+            "duracion_pytest_s": 0.08,
+            "timeout": false,
+            "oom": false,
+            "salida": "============================= test session starts =============================\nplatform linux -- Python 3.11.9, pytest-9.1.1, pluggy-1.6.0\nrootdir: /work\ncollected 1 item\n\n../tests/test_generado.py E                                                [100%]\n\n==================================== ERRORS ====================================\n______________________ ERROR at setup of test_dos_productos ______________________\ndef test_dos_productos():\n>       carrito = Carrito([(\"a\", 10.0), (\"b\", 10.0)], tasas={})\nE       ValueError: el carrito necesita las tasas de su región\n\n../tests/test_generado.py:5: ValueError\n=========================== short test summary info ============================\nERROR ../tests/test_generado.py::test_dos_productos - ValueError: el carrito necesita las tasas de su región\n============================== 1 error in 0.08s ===============================",
+            "codigo_test": "from banco_explicador import Carrito, total_con_impuesto\n\n\ndef test_dos_productos():\n    carrito = Carrito([(\"a\", 10.0), (\"b\", 10.0)], tasas={})\n    assert total_con_impuesto(carrito) == 23.6\n",
+            "totales": {
+              "total": 1,
+              "pasaron": 0,
+              "fallaron": 0,
+              "errores": 1,
+              "omitidos": 0
+            },
+            "casos": [
+              {
+                "nombre": "test_dos_productos",
+                "ruta": "tests.test_generado",
+                "resultado": "error",
+                "duracion_s": 0.001,
+                "mensaje": "ValueError: el carrito necesita las tasas de su región",
+                "tipo_error": "ValueError",
+                "archivo": "tests/test_generado.py",
+                "linea": 5,
+                "traza": "def test_dos_productos():\n>       carrito = Carrito([(\"a\", 10.0), (\"b\", 10.0)], tasas={})\nE       ValueError: el carrito necesita las tasas de su región\n\n../tests/test_generado.py:5: ValueError",
+                "pila": [
+                  {
+                    "archivo": "tests/test_generado.py",
+                    "linea": 5,
+                    "detalle": "ValueError"
+                  }
+                ]
+              }
+            ],
+            "lineas_sin_cubrir": [],
+            "entorno": {
+              "imagen": "qagent-sandbox:base",
+              "comando": "pytest /work/tests --cov=banco_explicador --cov-branch --cov-report=json:/out/coverage.json --junitxml=/out/junit.xml -p no:cacheprovider",
+              "plataforma": "linux",
+              "python": "3.11.9",
+              "pytest": "9.1.1",
+              "limites": {
+                "cpus": 4.0,
+                "memoria": "3g",
+                "timeout_s": 120
+              }
+            }
+          },
+          "duracion_s": 9.0,
+          "generacion_s": 7.5,
+          "revision_s": 1.5
+        }
+      ]
+    },
+    {
+      "modulo": "banco_explicador.py",
+      "funcion": "calcular_envio",
+      "contrato": {
+        "version": "3",
+        "lenguaje": "python",
+        "framework_pruebas": "pytest",
+        "modulo": "banco_explicador.py",
+        "tipo": "funcion",
+        "objetivo": "calcular_envio",
+        "firma": "(peso_kg: float, express: bool = False) -> float",
+        "critical": false,
+        "llama_a": [],
+        "casos": [
+          {
+            "id": "envio_normal",
+            "descripcion": "3 kg con envío normal cuesta 11.0",
+            "entrada": {
+              "peso_kg": 3.0
+            },
+            "valor_esperado": 11.0,
+            "origen": "docstring",
+            "categoria": "normal"
+          },
+          {
+            "id": "envio_express",
+            "descripcion": "3 kg con envío express cuesta el doble: 22.0",
+            "entrada": {
+              "peso_kg": 3.0,
+              "express": true
+            },
+            "valor_esperado": 22.0,
+            "origen": "docstring",
+            "categoria": "normal"
+          },
+          {
+            "id": "peso_negativo",
+            "entrada": {
+              "peso_kg": -1.0
+            },
+            "excepcion": "ValueError",
+            "origen": "docstring",
+            "categoria": "error"
+          }
+        ]
+      },
+      "codigo": "import pytest\n\nfrom banco_explicador import calcular_envio\n\n\ndef test_envio_normal():\n    assert calcular_envio(peso_kg=3.0) == 11.0\n\n\ndef test_envio_express():\n    assert calcular_envio(peso_kg=3.0, express=True) > 0\n\n\ndef test_peso_negativo():\n    with pytest.raises(ValueError):\n        calcular_envio(peso_kg=-1.0)\n",
+      "traza": "Aserción de contrato                    │ Aserción sintetizada\n────────────────────────────────────────┼────────────────────────────────────────\nassert calcular_envio(peso_kg=3.0) == ..│ assert calcular_envio(peso_kg=3.0) == ..\nwith pytest.raises(ValueError):\n    ca..│ with pytest.raises(ValueError):\n    ca..\nassert calcular_envio(peso_kg=3.0, exp..│ assert calcular_envio(peso_kg=3.0, exp..\n\n🔴 ASSERTION LAUNDERING DETECTADO:\n  ⚠ Rigor debilitado: eq (rigor 9) → rango (rigor 3)",
+      "intentos": [
+        {
+          "intento": 1,
+          "decision": "retry",
+          "estado_sandbox": "fallo",
+          "tipo_fallo": "error_test",
+          "laundering_detectado": false,
+          "feedback": "============================= test session starts =============================\nplatform linux -- Python 3.11.9, pytest-9.1.1, pluggy-1.6.0\nrootdir: /work\ncollected 1 item\n\n../tests/test_generado.py E                                                [100%]\n\n==================================== ERRORS ====================================\n______________________ ERROR at setup of test_envio_normal ______________________\n../tests/test_generado.py:3: in <module>\n    from banco_explicador import calcular_envios\nE   ImportError: cannot import name 'calcular_envios' from 'banco_explicador' (/work/proyecto/banco_explicador.py). Did you mean: 'calcular_envio'?\n=========================== short test summary info ============================\nERROR ../tests/test_generado.py::test_envio_normal - ImportError: cannot import name 'calcular_envios' from 'banco_explicador' (/work/proyecto/banco_explicador.py). Did you mean: 'calcular_envio'?\n============================== 1 error in 0.08s ===============================",
+          "hash_error": "c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3",
+          "cobertura": null,
+          "ejecucion": {
+            "exit_code": 1,
+            "duracion_s": 1.4,
+            "duracion_pytest_s": 0.08,
+            "timeout": false,
+            "oom": false,
+            "salida": "============================= test session starts =============================\nplatform linux -- Python 3.11.9, pytest-9.1.1, pluggy-1.6.0\nrootdir: /work\ncollected 1 item\n\n../tests/test_generado.py E                                                [100%]\n\n==================================== ERRORS ====================================\n______________________ ERROR at setup of test_envio_normal ______________________\n../tests/test_generado.py:3: in <module>\n    from banco_explicador import calcular_envios\nE   ImportError: cannot import name 'calcular_envios' from 'banco_explicador' (/work/proyecto/banco_explicador.py). Did you mean: 'calcular_envio'?\n=========================== short test summary info ============================\nERROR ../tests/test_generado.py::test_envio_normal - ImportError: cannot import name 'calcular_envios' from 'banco_explicador' (/work/proyecto/banco_explicador.py). Did you mean: 'calcular_envio'?\n============================== 1 error in 0.08s ===============================",
+            "codigo_test": "import pytest\n\nfrom banco_explicador import calcular_envios\n\n\ndef test_envio_normal():\n    assert calcular_envio(peso_kg=3.0) == 11.0\n\n\ndef test_envio_express():\n    assert calcular_envio(peso_kg=3.0, express=True) == 22.0\n\n\ndef test_peso_negativo():\n    with pytest.raises(ValueError):\n        calcular_envio(peso_kg=-1.0)\n",
+            "totales": {
+              "total": 1,
+              "pasaron": 0,
+              "fallaron": 0,
+              "errores": 1,
+              "omitidos": 0
+            },
+            "casos": [
+              {
+                "nombre": "test_envio_normal",
+                "ruta": "tests.test_generado",
+                "resultado": "error",
+                "duracion_s": 0.001,
+                "mensaje": "ImportError: cannot import name 'calcular_envios' from 'banco_explicador' (/work/proyecto/banco_explicador.py). Did you mean: 'calcular_envio'?",
+                "tipo_error": "ImportError",
+                "archivo": "tests/test_generado.py",
+                "linea": 3,
+                "traza": "../tests/test_generado.py:3: in <module>\n    from banco_explicador import calcular_envios\nE   ImportError: cannot import name 'calcular_envios' from 'banco_explicador' (/work/proyecto/banco_explicador.py). Did you mean: 'calcular_envio'?",
+                "pila": [
+                  {
+                    "archivo": "tests/test_generado.py",
+                    "linea": 3,
+                    "detalle": "ImportError"
+                  }
+                ]
+              }
+            ],
+            "lineas_sin_cubrir": [],
+            "entorno": {
+              "imagen": "qagent-sandbox:base",
+              "comando": "pytest /work/tests --cov=banco_explicador --cov-branch --cov-report=json:/out/coverage.json --junitxml=/out/junit.xml -p no:cacheprovider",
+              "plataforma": "linux",
+              "python": "3.11.9",
+              "pytest": "9.1.1",
+              "limites": {
+                "cpus": 4.0,
+                "memoria": "3g",
+                "timeout_s": 120
+              }
+            }
+          },
+          "duracion_s": 9.0,
+          "generacion_s": 7.5,
+          "revision_s": 1.5
+        },
+        {
+          "intento": 2,
+          "decision": "retry",
+          "estado_sandbox": "fallo",
+          "tipo_fallo": "error_test",
+          "laundering_detectado": true,
+          "feedback": "Aserción de contrato                    │ Aserción sintetizada\n────────────────────────────────────────┼────────────────────────────────────────\nassert calcular_envio(peso_kg=3.0) == ..│ assert calcular_envio(peso_kg=3.0) == ..\nwith pytest.raises(ValueError):\n    ca..│ with pytest.raises(ValueError):\n    ca..\nassert calcular_envio(peso_kg=3.0, exp..│ assert calcular_envio(peso_kg=3.0, exp..\n\n🔴 ASSERTION LAUNDERING DETECTADO:\n  ⚠ Rigor debilitado: eq (rigor 9) → rango (rigor 3)",
+          "hash_error": "d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4",
+          "cobertura": null,
+          "ejecucion": null,
+          "duracion_s": 9.0,
+          "generacion_s": 7.5,
+          "revision_s": 1.5
+        },
+        {
+          "intento": 3,
+          "decision": "stalled",
+          "estado_sandbox": "fallo",
+          "tipo_fallo": "error_test",
+          "laundering_detectado": true,
+          "feedback": "Aserción de contrato                    │ Aserción sintetizada\n────────────────────────────────────────┼────────────────────────────────────────\nassert calcular_envio(peso_kg=3.0) == ..│ assert calcular_envio(peso_kg=3.0) == ..\nwith pytest.raises(ValueError):\n    ca..│ with pytest.raises(ValueError):\n    ca..\nassert calcular_envio(peso_kg=3.0, exp..│ assert calcular_envio(peso_kg=3.0, exp..\n\n🔴 ASSERTION LAUNDERING DETECTADO:\n  ⚠ Rigor debilitado: eq (rigor 9) → rango (rigor 3)",
+          "hash_error": "d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4",
+          "cobertura": null,
+          "ejecucion": null,
+          "duracion_s": 9.0,
+          "generacion_s": 7.5,
+          "revision_s": 1.5
+        }
+      ]
+    },
+    {
+      "modulo": "banco_explicador.py",
+      "funcion": "convertir_moneda",
+      "contrato": {
+        "version": "3",
+        "lenguaje": "python",
+        "framework_pruebas": "pytest",
+        "modulo": "banco_explicador.py",
+        "tipo": "funcion",
+        "objetivo": "convertir_moneda",
+        "firma": "(monto: float, tasa: float) -> float",
+        "critical": false,
+        "llama_a": [],
+        "casos": [
+          {
+            "id": "conversion_normal",
+            "descripcion": "100.0 con tasa 3.75 da 375.0",
+            "entrada": {
+              "monto": 100.0,
+              "tasa": 3.75
+            },
+            "valor_esperado": 375.0,
+            "origen": "docstring",
+            "categoria": "normal"
+          },
+          {
+            "id": "tasa_cero",
+            "entrada": {
+              "monto": 100.0,
+              "tasa": 0.0
+            },
+            "excepcion": "ValueError",
+            "origen": "docstring",
+            "categoria": "error"
+          }
+        ]
+      },
+      "codigo": "from banco_explicador import convertir_moneda\n\n\ndef test_conversion_normal():\n    assert convertir_moneda(monto=100.0, tasa=3.75) == pytest.approx(375.0)\n",
+      "traza": "============================= test session starts =============================\nplatform linux -- Python 3.11.9, pytest-9.1.1, pluggy-1.6.0\nrootdir: /work\ncollected 1 item\n\n../tests/test_generado.py E                                                [100%]\n\n==================================== ERRORS ====================================\n______________________ ERROR at setup of test_conversion_normal ______________________\ndef test_conversion_normal():\n>       assert convertir_moneda(monto=100.0, tasa=3.75) == pytest.approx(375.0)\nE       NameError: name 'pytest' is not defined\n\n../tests/test_generado.py:5: NameError\n=========================== short test summary info ============================\nERROR ../tests/test_generado.py::test_conversion_normal - NameError: name 'pytest' is not defined\n============================== 1 error in 0.08s ===============================",
+      "intentos": [
+        {
+          "intento": 1,
+          "decision": "retry",
+          "estado_sandbox": "fallo",
+          "tipo_fallo": "error_test",
+          "laundering_detectado": false,
+          "feedback": "============================= test session starts =============================\nplatform linux -- Python 3.11.9, pytest-9.1.1, pluggy-1.6.0\nrootdir: /work\ncollected 1 item\n\n../tests/test_generado.py E                                                [100%]\n\n==================================== ERRORS ====================================\n______________________ ERROR at setup of test_conversion_normal ______________________\ndef test_conversion_normal():\n>       assert convertir_moneda(monto=100.0, tasa=3.75) == pytest.approx(375.0)\nE       NameError: name 'pytest' is not defined\n\n../tests/test_generado.py:5: NameError\n=========================== short test summary info ============================\nERROR ../tests/test_generado.py::test_conversion_normal - NameError: name 'pytest' is not defined\n============================== 1 error in 0.08s ===============================",
+          "hash_error": "e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5",
+          "cobertura": null,
+          "ejecucion": {
+            "exit_code": 1,
+            "duracion_s": 1.4,
+            "duracion_pytest_s": 0.08,
+            "timeout": false,
+            "oom": false,
+            "salida": "============================= test session starts =============================\nplatform linux -- Python 3.11.9, pytest-9.1.1, pluggy-1.6.0\nrootdir: /work\ncollected 1 item\n\n../tests/test_generado.py E                                                [100%]\n\n==================================== ERRORS ====================================\n______________________ ERROR at setup of test_conversion_normal ______________________\ndef test_conversion_normal():\n>       assert convertir_moneda(monto=100.0, tasa=3.75) == pytest.approx(375.0)\nE       NameError: name 'pytest' is not defined\n\n../tests/test_generado.py:5: NameError\n=========================== short test summary info ============================\nERROR ../tests/test_generado.py::test_conversion_normal - NameError: name 'pytest' is not defined\n============================== 1 error in 0.08s ===============================",
+            "codigo_test": "from banco_explicador import convertir_moneda\n\n\ndef test_conversion_normal():\n    assert convertir_moneda(monto=100.0, tasa=3.75) == pytest.approx(375.0)\n",
+            "totales": {
+              "total": 1,
+              "pasaron": 0,
+              "fallaron": 0,
+              "errores": 1,
+              "omitidos": 0
+            },
+            "casos": [
+              {
+                "nombre": "test_conversion_normal",
+                "ruta": "tests.test_generado",
+                "resultado": "error",
+                "duracion_s": 0.001,
+                "mensaje": "NameError: name 'pytest' is not defined",
+                "tipo_error": "NameError",
+                "archivo": "tests/test_generado.py",
+                "linea": 5,
+                "traza": "def test_conversion_normal():\n>       assert convertir_moneda(monto=100.0, tasa=3.75) == pytest.approx(375.0)\nE       NameError: name 'pytest' is not defined\n\n../tests/test_generado.py:5: NameError",
+                "pila": [
+                  {
+                    "archivo": "tests/test_generado.py",
+                    "linea": 5,
+                    "detalle": "NameError"
+                  }
+                ]
+              }
+            ],
+            "lineas_sin_cubrir": [],
+            "entorno": {
+              "imagen": "qagent-sandbox:base",
+              "comando": "pytest /work/tests --cov=banco_explicador --cov-branch --cov-report=json:/out/coverage.json --junitxml=/out/junit.xml -p no:cacheprovider",
+              "plataforma": "linux",
+              "python": "3.11.9",
+              "pytest": "9.1.1",
+              "limites": {
+                "cpus": 4.0,
+                "memoria": "3g",
+                "timeout_s": 120
+              }
+            }
+          },
+          "duracion_s": 9.0,
+          "generacion_s": 7.5,
+          "revision_s": 1.5
+        }
+      ]
+    }
+  ]
+}

@@ -275,9 +275,15 @@ def test_entradas_arrays_y_varargs(
     assert len(plan) == 1
 
 
-def test_endpoints_spring_siguen_fuera_de_esta_tarea() -> None:
-    """Las reglas Java no reutilizan por accidente los prompts de FastAPI."""
-    from qagent.lenguajes import NoImplementado
-
-    with pytest.raises(NoImplementado, match="planificacion_endpoints_spring"):
-        JavaAdapter().reglas_planificacion().prompt_endpoints({}, {}, None, False)
+def test_endpoints_spring_no_reutilizan_prompts_fastapi() -> None:
+    """#183 implementa Spring sin usar instrucciones Python/TestClient de FastAPI."""
+    prompt = (
+        JavaAdapter()
+        .reglas_planificacion()
+        .prompt_endpoints({"ruta": "Api.java"}, {}, None, False)
+    )
+    assert "Spring MVC" in prompt
+    assert "JUnit 5" in prompt
+    assert "MockMvc" in prompt
+    assert "TestClient" not in prompt
+    assert "FastAPI" not in prompt

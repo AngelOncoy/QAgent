@@ -48,6 +48,20 @@ registrarComponente('config-pruebas/config-pruebas', `<!-- ===== 3. PREPARAR ===
       </div>
 
       <div class="np-columna">
+        <section class="np-tarjeta prep-arquitectura" aria-labelledby="prepArquitecturaTitulo">
+          <h2 id="prepArquitecturaTitulo">Reglas de arquitectura</h2>
+          <p class="np-meta">La detección de ciclos está activa siempre. Puedes declarar una dependencia prohibida; se analiza en Docker, sin IA ni red.</p>
+          <div class="prep-arq-campos">
+            <label><span>Desde la capa o módulo</span><input class="ini-input" id="prepArqDesde" placeholder="dominio" autocomplete="off"></label>
+            <label><span>No puede depender de</span><input class="ini-input" id="prepArqHacia" placeholder="interfaz" autocomplete="off"></label>
+          </div>
+          <div class="prep-arq-acciones">
+            <button type="button" class="ini-btn" onclick="guardarReglaArquitectura()">Guardar regla</button>
+            <button type="button" class="ini-btn ini-btn-principal" id="prepArqVerificar" onclick="verificarReglasArquitectura()">Verificar arquitectura</button>
+          </div>
+          <ul class="np-meta prep-arq-lista" id="prepArqReglas"></ul>
+          <div class="np-aviso np-aviso-info hide" id="prepArqResultado" aria-live="polite"></div>
+        </section>
         <section class="np-tarjeta" id="prepComprobaciones" aria-live="polite"></section>
         <section class="np-tarjeta" id="prepLimites"></section>
         <p class="np-meta">Si una prueba revela un posible bug, conservaremos el criterio original. No la debilitamos para hacerla pasar.</p>
@@ -57,6 +71,90 @@ registrarComponente('config-pruebas/config-pruebas', `<!-- ===== 3. PREPARAR ===
   </div></div>
 </section>
 `);
+
+let reglasArquitecturaCargadasPara = '';
+let reglasArquitecturaDeclaradas = [];
+function mostrarReglasArquitectura(){
+  const lista = $('prepArqReglas');
+  if (!lista) return;
+  lista.innerHTML = reglasArquitecturaDeclaradas.length
+    ? reglasArquitecturaDeclaradas.map(r => `<li><code>${escHtml(r.desde)}</code> no depende de <code>${escHtml(r.hacia)}</code></li>`).join('')
+    : '<li>Sin restricciones de capas declaradas.</li>';
+}
+async function cargarReglasArquitectura(){
+  if (!projectPath || reglasArquitecturaCargadasPara === projectPath) return;
+  const api = window.pywebview && window.pywebview.api;
+  if (!api || !api.obtener_reglas_arquitectura) return;
+  try {
+    const r = await api.obtener_reglas_arquitectura(projectPath);
+    if (!r || !r.ok) return;
+    reglasArquitecturaDeclaradas = (r.reglas || []).filter(x => x.origen !== 'universal');
+    const personalizada = reglasArquitecturaDeclaradas.find(x => x.tipo === 'dependencia_prohibida');
+    if (personalizada) {
+      $('prepArqDesde').value = personalizada.desde || '';
+      $('prepArqHacia').value = personalizada.hacia || '';
+    }
+    mostrarReglasArquitectura();
+    reglasArquitecturaCargadasPara = projectPath;
+  } catch (err) { console.warn('No se pudieron cargar las reglas de arquitectura:', err); }
+}
+async function guardarReglaArquitectura(){
+  const api = window.pywebview && window.pywebview.api;
+  if (!api || !api.guardar_reglas_arquitectura) return;
+  const desde = $('prepArqDesde').value.trim(), hacia = $('prepArqHacia').value.trim();
+  if (!desde || !hacia) { toastError('Indica las dos capas o módulos de la regla.'); return; }
+  const existe = reglasArquitecturaDeclaradas.some(r => r.desde === desde && r.hacia === hacia);
+  if (!existe) {
+    let numero = reglasArquitecturaDeclaradas.length + 1;
+    while (reglasArquitecturaDeclaradas.some(r => r.id === `capas-${String(numero).padStart(3, '0')}`)) numero++;
+    reglasArquitecturaDeclaradas.push({id:`capas-${String(numero).padStart(3, '0')}`, tipo:'dependencia_prohibida', nombre:`${desde} no debe depender de ${hacia}`, origen:'usuario', confirmada:true, desde, hacia});
+  }
+  const documento = {version:'1', reglas:reglasArquitecturaDeclaradas};
+  const r = await api.guardar_reglas_arquitectura(projectPath, documento);
+  if (!r || !r.ok) { toastError(escHtml((r && r.motivo) || 'No se pudo guardar la regla.')); return; }
+  mostrarReglasArquitectura();
+  toast('Regla de arquitectura guardada.');
+}
+async function verificarReglasArquitectura(){
+  const api = window.pywebview && window.pywebview.api;
+  if (!api || !api.verificar_arquitectura) return;
+  const boton = $('prepArqVerificar'), salida = $('prepArqResultado');
+  boton.disabled = true; boton.textContent = 'Verificando…';
+  salida.classList.remove('hide'); salida.innerHTML = `${ICO_GIRANDO}<div><b>Analizando dependencias en Docker</b><span>Sin acceso a red y sin consumo de tokens.</span></div>`;
+  try {
+    const r = await api.verificar_arquitectura(projectPath);
+    if (!r || !r.ok) throw new Error((r && r.motivo) || 'No se pudo verificar la arquitectura.');
+    renderResultadoArquitectura(r);
+  } catch (err) {
+    salida.innerHTML = `${ICO_ERROR}<div><b>No se completó la verificación</b><span>${escHtml(String(err.message || err))}</span></div>`;
+  } finally { boton.disabled = false; boton.textContent = 'Verificar arquitectura'; }
+}
+function renderResultadoArquitectura(r){
+  const salida = $('prepArqResultado');
+  const incumplen = (r.reglas || []).filter(x => x.estado === 'incumple').length;
+  const sinVeredicto = (r.reglas || []).filter(x => x.estado === 'sin_veredicto').length;
+  const detalle = (r.reglas || []).map(regla => {
+    const ubicaciones = (regla.hallazgos || []).map(h => `${escHtml(h.desde)} → ${escHtml(h.hacia)} · ${escHtml(h.archivo || 'ubicación no disponible')}${h.linea ? `:${h.linea}` : ''}`).join('; ');
+    return `<li><b>${escHtml(regla.nombre)}</b>: ${escHtml(regla.estado)}${ubicaciones ? ` — ${ubicaciones}` : ''}</li>`;
+  }).join('');
+  salida.classList.remove('hide');
+  salida.innerHTML = `${incumplen ? ICO_ERROR : sinVeredicto ? ICO_AVISO_CLON : ICO_OK}<div><b>${incumplen ? `${incumplen} reglas incumplidas` : sinVeredicto ? 'Verificación sin veredicto completo' : 'Arquitectura conforme'}</b><span>Corrida ${escHtml(r.run_id)} · ${(r.reglas || []).length} reglas registradas.</span><ul>${detalle}</ul><button type="button" class="ini-btn" onclick="exportarInformeArquitectura('${escHtml(r.run_id)}')">Exportar PDF</button></div>`;
+}
+async function abrirResultadoArquitectura(runId){
+  const api = window.pywebview && window.pywebview.api;
+  if (!api || !api.obtener_resultado_arquitectura) return;
+  const r = await api.obtener_resultado_arquitectura(projectPath, runId);
+  if (!r || !r.ok) { toastError(escHtml((r && r.motivo) || 'No se pudo abrir la verificación.')); return; }
+  go('config');
+  renderResultadoArquitectura(r);
+}
+async function exportarInformeArquitectura(runId){
+  const api = window.pywebview && window.pywebview.api;
+  if (!api || !api.exportar_informe_arquitectura) return;
+  const r = await api.exportar_informe_arquitectura(projectPath, runId, 'pdf');
+  if (!r || !r.ok) { toastError(escHtml((r && r.motivo) || 'No se pudo exportar el informe.')); return; }
+  toast(`Informe guardado en ${r.ruta}`);
+}
 
 // #69: la elección de la pantalla se traduce al perfil que recibe start_run (humo, std, deep o reg, #70).
 // Sin críticas marcadas no hay nada que analizar a fondo: se corre como Estándar.
@@ -309,6 +407,7 @@ function accionPrincipalPreparar(){
 }
 
 function calc(){
+  cargarReglasArquitectura();
   if (eleccionPruebas.modo === 'repetir' && !HAS_PRIOR_RUN) eleccionPruebas.modo = 'nuevas';
   // La columna Profundizar de Explorar solo se ve con «Análisis a fondo de críticas».
   if (typeof mostrarProfundizar === 'function') mostrarProfundizar(eleccionPruebas.modo === 'fondo');
@@ -333,7 +432,7 @@ function calc(){
   const bloqueado = !verificando && (!entornoListo || !total || pendientes > 0);
 
   // Cabecera: título, resumen y botón principal según el estado.
-  const resumen = `${total} ${total === 1 ? 'seleccionada' : 'seleccionadas'} · ${fns.length} ${fns.length === 1 ? 'función' : 'funciones'} y ${endpoints.length} ${endpoints.length === 1 ? 'endpoint' : 'endpoints'} · Python`;
+  const resumen = `${total} ${total === 1 ? 'seleccionada' : 'seleccionadas'} · ${fns.length} ${fns.length === 1 ? 'función' : 'funciones'} y ${endpoints.length} ${endpoints.length === 1 ? 'endpoint' : 'endpoints'} · ${PROYECTO_NOMBRE_LENGUAJE}`;
   $('prepSub').textContent = bloqueado ? 'Resuelve estos puntos antes de empezar.' : resumen;
   $('prepTitulo').textContent = verificando ? 'Comprobando tu entorno…'
     : !bloqueado ? 'Prepara una corrida fiable'

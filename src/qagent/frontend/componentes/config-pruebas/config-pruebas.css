@@ -51,10 +51,17 @@
 /* Límites de la corrida */
 .prep-limites{display:flex;flex-direction:column;gap:var(--esp-2);color:var(--texto-2)}
 .prep-limites b{color:var(--texto);font-weight:var(--peso-medio)}
+.prep-arquitectura{gap:var(--esp-3)}
+.prep-arq-campos{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--esp-3)}
+.prep-arq-campos label{display:flex;flex-direction:column;gap:var(--esp-2);font-size:var(--texto-meta);color:var(--texto-2)}
+.prep-arq-acciones{display:flex;flex-wrap:wrap;gap:var(--esp-3)}
+.prep-arq-acciones .ini-btn{flex:1}
+.prep-arquitectura .np-aviso{align-items:flex-start}
 
 @media(max-width:1100px){.prep-rejilla{grid-template-columns:minmax(0,1fr)}}
 @media(max-width:760px){
   .prep-fila{grid-template-columns:minmax(0,1fr)}
+  .prep-arq-campos{grid-template-columns:minmax(0,1fr)}
   #s-tests .page.prep{padding-left:var(--esp-4);padding-right:var(--esp-4)}
 }
 

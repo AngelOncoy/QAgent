@@ -1,0 +1,263 @@
+﻿par;objetivo;hechos;A;B;A_correcta;A_se_entiende;A_no_inventa;A_no_contradice;A_usa_traza;B_correcta;B_se_entiende;B_no_inventa;B_no_contradice;B_usa_traza;preferida;comentario
+P01;total_con_impuesto;"Decisión de QAgent: stalled (motivo: error_repetido)
+Assertion Laundering detectado: no
+Intentos: 3
+Documentación: Suma el precio de los productos del carrito más el impuesto general.
+
+Ejemplo: dos productos de 10.0 con un impuesto general de 18 % dan 23.6.
+Caso dos_productos: con {'carrito': 'dos productos de 10.0, tasa general 0.18'} devuelve 23.6
+Intento 1: retry, error_test: TypeError: Carrito.__init__() missing 1 required keyword-only argument: 'tasas'
+Intento 2: retry, error_test: ValueError: el carrito necesita las tasas de su región
+Intento 3: stalled, error_test: ValueError: el carrito necesita las tasas de su región";"Resumen: No se pudo terminar la prueba de la función total_con_impuesto.
+Qué se esperaba: Lo que la documentación de la función total_con_impuesto promete: dos productos de 10.0 con impuesto general de 18 %.
+Qué pasó: La prueba falló dos veces seguidas por el mismo motivo (3 intentos), así que QAgent dejó de intentarlo para no gastar más.
+Qué hacer: Revisa que la documentación de la función total_con_impuesto diga con claridad qué recibe y qué devuelve, con un ejemplo si se puede, y vuelve a ejecutar. Esto no significa que tu código tenga un error.";"Resumen: La prueba quedó estancada: tres intentos fallaron al preparar el carrito, así que no hay veredicto sobre la función.
+Qué se esperaba: Que la función total_con_impuesto sumara dos productos de 10.0 más el impuesto general del 18 %, dando 23.6.
+Qué pasó: En el primer intento faltaba indicar «tasas» al crear el carrito. En el segundo y tercero se indicó una lista vacía de tasas y el carrito la rechazó porque necesita las tasas de su región. El mismo error se repitió, por eso quedó estancado. Esto no prueba que la función tenga un error.
+Qué hacer: Revisar cómo se debe preparar el carrito con las tasas de su región, completar ese dato y volver a probar la función con el mismo valor esperado.";;;;;;;;;;;;
+P02;calcular_envio;"Decisión de QAgent: stalled (motivo: error_repetido)
+Assertion Laundering detectado: sí
+Intentos: 3
+Documentación: Costo de envío: 5.0 de base más 2.0 por kilo; el envío express cuesta el doble.
+
+Ejemplos: 3 kg normal cuesta 11.0; 3 kg express cuesta 22.0.
+Lanza ValueError si el peso es negativo.
+Caso envio_normal: con {'peso_kg': 3.0} devuelve 11.0
+Caso envio_express: con {'peso_kg': 3.0, 'express': True} devuelve 22.0
+Caso peso_negativo: con {'peso_kg': -1.0} lanza ValueError
+Intento 1: retry, error_test: ImportError: cannot import name 'calcular_envios' from 'banco_explicador' (banco_explicador.py). Did you mean: 'calcular_envio'?
+Intento 2: retry, error_test, debilitó la prueba: Rigor debilitado: eq (rigor 9) → rango (rigor 3)
+Intento 3: stalled, error_test, debilitó la prueba: Rigor debilitado: eq (rigor 9) → rango (rigor 3)";"Resumen: La verificación automática se detuvo con decisión stalled porque hubo un error repetido. Esto no prueba que la función tenga un error.
+Qué se esperaba: Que la función calcular_envio siguiera la documentación: cobrar 5.0 de base más 2.0 por kilo, cobrar el doble si el envío es express y lanzar ValueError si el peso es negativo.
+Qué pasó: En el primer intento se buscó un nombre que no existe: calcular_envios en lugar de calcular_envio. En los intentos siguientes se debilitó la comprobación exacta de los valores esperados y se usó un rango, lo que no respeta los ejemplos exactos de la documentación. El proceso repitió el error y quedó estancado.
+Qué hacer: Revisar la verificación para que use el nombre correcto de la función y mantenga las comprobaciones exactas que promete la documentación, sin debilitarlas.";"Resumen: Se descartó una prueba de la función calcular_envio porque se había debilitado.
+Qué se esperaba: Lo que la documentación de la función calcular_envio promete: 3 kg con envío normal cuesta 11.0; 3 kg con envío express cuesta el doble: 22.0.
+Qué pasó: Una versión de la prueba dejaba de comprobar lo que la documentación promete, y así habría pasado sin demostrar nada. QAgent la detectó y la descartó (3 intentos): no cuenta como aprobada.
+Qué hacer: Revisa el código de la función calcular_envio y su documentación: lo que la documentación promete sigue siendo lo que debe cumplirse. Cuando estén de acuerdo, vuelve a ejecutar las pruebas.";;;;;;;;;;;;
+P03;convertir_moneda;"Decisión de QAgent: sin veredicto (motivo: tiempo_agotado)
+Assertion Laundering detectado: no
+Intentos: 2
+Documentación: Convierte un monto con la tasa de cambio dada, redondeado a 2 decimales.
+
+Ejemplo: 100.0 con una tasa de 3.75 da 375.0.
+Lanza ValueError si la tasa no es positiva.
+Caso conversion_normal: con {'monto': 100.0, 'tasa': 3.75} devuelve 375.0
+Caso tasa_cero: con {'monto': 100.0, 'tasa': 0.0} lanza ValueError
+Intento 1: retry, error_test: NameError: name 'pytest' is not defined";"Resumen: No hubo veredicto final porque se agotó el tiempo. El primer intento no llegó a probar la función por un fallo de preparación del entorno. Eso no demuestra que la función tenga un error.
+Qué se esperaba: Que la función convierta 100.0 con una tasa de 3.75 en 375.0, redondeando a 2 decimales. También que rechace una tasa de 0.0 con un aviso de valor no válido, tal como indica la documentación.
+Qué pasó: En el primer intento, la comprobación no se ejecutó porque faltaba una pieza de apoyo en el entorno de prueba. La traza no muestra el resultado del segundo intento. Al no haber decisión, no se puede concluir que el código esté mal.
+Qué hacer: Volver a ejecutar la misma prueba con el entorno de prueba completo y bien preparado. Si vuelve a fallar, revisar la función para que cumpla exactamente lo que promete la documentación, sin cambiar lo esperado.";"Resumen: No hay resultado para la función convertir_moneda.
+Qué se esperaba: Lo que la documentación de la función convertir_moneda promete: 100.0 con tasa 3.75 da 375.0.
+Qué pasó: Un paso de la revisión o el proveedor de IA tardó demasiado en responder, así que no hubo resultado.
+Qué hacer: Vuelve a ejecutar la corrida. Si se repite, revisa tu conexión y la cuenta del proveedor de IA en Configuración. Esto no dice nada sobre si tu código está bien o mal.";;;;;;;;;;;;
+P04;convertir_moneda;"Decisión de QAgent: sin veredicto (motivo: tiempo_agotado)
+Assertion Laundering detectado: no
+Intentos: 2
+Documentación: Convierte un monto con la tasa de cambio dada, redondeado a 2 decimales.
+
+Ejemplo: 100.0 con una tasa de 3.75 da 375.0.
+Lanza ValueError si la tasa no es positiva.
+Caso conversion_normal: con {'monto': 100.0, 'tasa': 3.75} devuelve 375.0
+Caso tasa_cero: con {'monto': 100.0, 'tasa': 0.0} lanza ValueError
+Intento 1: retry, error_test: NameError: name 'pytest' is not defined";"Resumen: No hay resultado para la función convertir_moneda.
+Qué se esperaba: Lo que la documentación de la función convertir_moneda promete: 100.0 con tasa 3.75 da 375.0.
+Qué pasó: Un paso de la revisión o el proveedor de IA tardó demasiado en responder, así que no hubo resultado.
+Qué hacer: Vuelve a ejecutar la corrida. Si se repite, revisa tu conexión y la cuenta del proveedor de IA en Configuración. Esto no dice nada sobre si tu código está bien o mal.";"Resumen: La comprobación automática no llegó a un veredicto porque se agotó el tiempo. En el intento visible, la prueba falló antes de comprobar la función: faltaba una utilidad auxiliar de la prueba. Esto no prueba que el código tenga un error.
+Qué se esperaba: Que la función convirtiera 100.0 con tasa 3.75 a 375.0, y que una tasa de 0.0 produjera un ValueError.
+Qué pasó: La prueba no pudo arrancar: el propio código de prueba usó una utilidad auxiliar que no estaba disponible y falló antes de evaluar la función. Luego se agotó el tiempo sin un veredicto.
+Qué hacer: Revisar el entorno de ejecución para que la prueba tenga disponibles sus utilidades auxiliares y volver a ejecutar la comprobación.";;;;;;;;;;;;
+P05;calcular_envio;"Decisión de QAgent: stalled (motivo: error_repetido)
+Assertion Laundering detectado: sí
+Intentos: 3
+Documentación: Costo de envío: 5.0 de base más 2.0 por kilo; el envío express cuesta el doble.
+
+Ejemplos: 3 kg normal cuesta 11.0; 3 kg express cuesta 22.0.
+Lanza ValueError si el peso es negativo.
+Caso envio_normal: con {'peso_kg': 3.0} devuelve 11.0
+Caso envio_express: con {'peso_kg': 3.0, 'express': True} devuelve 22.0
+Caso peso_negativo: con {'peso_kg': -1.0} lanza ValueError
+Intento 1: retry, error_test: ImportError: cannot import name 'calcular_envios' from 'banco_explicador' (banco_explicador.py). Did you mean: 'calcular_envio'?
+Intento 2: retry, error_test, debilitó la prueba: Rigor debilitado: eq (rigor 9) → rango (rigor 3)
+Intento 3: stalled, error_test, debilitó la prueba: Rigor debilitado: eq (rigor 9) → rango (rigor 3)";"Resumen: Se descartó una prueba de la función calcular_envio porque se había debilitado.
+Qué se esperaba: Lo que la documentación de la función calcular_envio promete: 3 kg con envío normal cuesta 11.0; 3 kg con envío express cuesta el doble: 22.0.
+Qué pasó: Una versión de la prueba dejaba de comprobar lo que la documentación promete, y así habría pasado sin demostrar nada. QAgent la detectó y la descartó (3 intentos): no cuenta como aprobada.
+Qué hacer: Revisa el código de la función calcular_envio y su documentación: lo que la documentación promete sigue siendo lo que debe cumplirse. Cuando estén de acuerdo, vuelve a ejecutar las pruebas.";"Resumen: La prueba automática no terminó con un veredicto: quedó estancada tras 3 intentos. Eso no prueba por sí solo que la función tenga un error.
+Qué se esperaba: Que la función calcular_envio devolviera 11.0 para 3 kg con envío normal, 22.0 para 3 kg con envío express y rechazara un peso negativo con ValueError.
+Qué pasó: En el primer intento se buscó un nombre de función distinto. Después se detectó dos veces que la comparación exacta se había sustituido por un rango, y el proceso se detuvo sin decidir.
+Qué hacer: Revisar que la función tenga el nombre correcto y cumpla exactamente lo que promete la documentación. Al estar estancada, hace falta una nueva revisión o ejecución para obtener un veredicto.";;;;;;;;;;;;
+P06;total_con_impuesto;"Decisión de QAgent: stalled (motivo: error_repetido)
+Assertion Laundering detectado: no
+Intentos: 3
+Documentación: Suma el precio de los productos del carrito más el impuesto general.
+
+Ejemplo: dos productos de 10.0 con un impuesto general de 18 % dan 23.6.
+Caso dos_productos: con {'carrito': 'dos productos de 10.0, tasa general 0.18'} devuelve 23.6
+Intento 1: retry, error_test: TypeError: Carrito.__init__() missing 1 required keyword-only argument: 'tasas'
+Intento 2: retry, error_test: ValueError: el carrito necesita las tasas de su región
+Intento 3: stalled, error_test: ValueError: el carrito necesita las tasas de su región";"Resumen: No se llegó a comprobar la función porque la preparación del carrito falló desde el principio y el proceso se detuvo tras repetirse el mismo problema.
+Qué se esperaba: Que con dos productos de 10.0 y una tasa general de 18%, la función total_con_impuesto devolviera 23.6, como indica la documentación.
+Qué pasó: Primero, al crear el carrito faltaba el dato de tasas y no se pudo continuar. Luego, al entregar unas tasas vacías, el sistema indicó que el carrito necesita las tasas de su región. El mismo fallo se repitió en el tercer intento, por lo que la prueba quedó estancada; no se llegó a ejecutar la función ni a comparar el resultado.
+Qué hacer: Revisar cómo se debe crear el carrito: asegurarse de entregar las tasas de la región que espera y de usar los datos correctos antes de llamar a la función. Después se puede volver a ejecutar la prueba. Como quedó estancada, no se puede afirmar que el cálculo esté mal.";"Resumen: No se pudo terminar la prueba de la función total_con_impuesto.
+Qué se esperaba: Lo que la documentación de la función total_con_impuesto promete: dos productos de 10.0 con impuesto general de 18 %.
+Qué pasó: La prueba falló dos veces seguidas por el mismo motivo (3 intentos), así que QAgent dejó de intentarlo para no gastar más.
+Qué hacer: Revisa que la documentación de la función total_con_impuesto diga con claridad qué recibe y qué devuelve, con un ejemplo si se puede, y vuelve a ejecutar. Esto no significa que tu código tenga un error.";;;;;;;;;;;;
+P07;calcular_descuento;"Decisión de QAgent: bug_detectado
+Assertion Laundering detectado: no
+Intentos: 1
+Documentación: Calcula el precio final tras aplicar un porcentaje de descuento.
+
+Args:
+    precio: Monto original del producto, debe ser mayor o igual a 0.
+    porcentaje: Porcentaje de descuento, valor entre 0 y 100 inclusive.
+
+Returns:
+    float: Precio final con el descuento aplicado.
+
+Raises:
+    ValueError: Si el precio es negativo o el porcentaje no está entre 0 y 100.
+Caso descuento_normal: con {'precio': 100.0, 'porcentaje': 20.0} devuelve 80.0
+Caso sin_descuento: con {'precio': 50.0, 'porcentaje': 0.0} devuelve 50.0
+Caso precio_negativo: con {'precio': -1.0, 'porcentaje': 10.0} lanza ValueError
+Caso porcentaje_mayor_a_100: con {'precio': 100.0, 'porcentaje': 150.0} lanza ValueError
+Intento 1: bug_detectado, bug_codigo: assert 20.0 == 80.0...
+Primer caso que falló: test_descuento_normal, se esperaba 80.0 ± 8.0e-05 y se obtuvo 20.0";"Resumen: Se encontró un posible error en la función calcular_descuento.
+Qué se esperaba: Lo que la documentación de la función calcular_descuento promete: 100 con 20% de descuento queda en 80; 0% deja el precio igual.
+Qué pasó: Con precio = 100.0, porcentaje = 20.0, la función calcular_descuento dio 20.0, pero debía dar 80.0 ± 8.0e-05. La prueba se ejecutó en un entorno aislado (1 intento).
+Qué hacer: Revisa el código de la función calcular_descuento: la documentación describe el comportamiento correcto, así que el arreglo va en la función. Cuando la corrijas, vuelve a ejecutar las pruebas.";"Resumen: La prueba automática no terminó bien porque la función no devuelve el precio final prometido en dos casos válidos.
+Qué se esperaba: Que al calcular el precio final, 100 con 20% de descuento diera 80, y 50 con 0% de descuento diera 50. También se esperaba que rechazara un precio negativo y un porcentaje fuera del rango de 0 a 100.
+Qué pasó: La función devolvió 20 en el primer caso y 0 en el segundo. Parece que entrega el monto del descuento en vez del precio final. Los dos casos con valores inválidos sí fueron rechazados.
+Qué hacer: Corregir la función para que reste el descuento al precio y devuelva el precio final. Mantener las comprobaciones de precio negativo y porcentaje fuera de rango tal como están.";;;;;;;;;;;;
+P08;clasificar_edad;"Decisión de QAgent: bug_detectado
+Assertion Laundering detectado: no
+Intentos: 1
+Documentación: Clasifica a una persona según su rango etario.
+
+Categorías:
+    - ""menor"": edad menor estricta a 18 años (0 a 17 años).
+    - ""adulto"": edad entre 18 y 64 años inclusive.
+    - ""adulto mayor"": edad mayor o igual a 65 años.
+
+Args:
+    edad: Años cumplidos, debe ser mayor o igual a 0.
+
+Returns:
+    str: Categoría correspondiente ('menor', 'adulto', 'adulto mayor').
+
+Raises:
+    ValueError: Si la edad es menor a 0.
+Caso menor_17: con {'edad': 17} devuelve 'menor'
+Caso adulto_18: con {'edad': 18} devuelve 'adulto'
+Caso adulto_64: con {'edad': 64} devuelve 'adulto'
+Caso adulto_mayor_65: con {'edad': 65} devuelve 'adulto mayor'
+Caso edad_negativa: con {'edad': -1} lanza ValueError
+Intento 1: bug_detectado, bug_codigo: AssertionError: assert 'me...";"Resumen: Se encontró un posible error en la función clasificar_edad.
+Qué se esperaba: Lo que la documentación de la función clasificar_edad promete: límite: 18 ya es adulto.
+Qué pasó: En al menos uno de los casos, la función clasificar_edad no se comportó como prometía. La prueba se ejecutó en un entorno aislado (1 intento).
+Qué hacer: Revisa el código de la función clasificar_edad: la documentación describe el comportamiento correcto, así que el arreglo va en la función. Cuando la corrijas, vuelve a ejecutar las pruebas.";"Resumen: La función clasifica mal a una persona de 18 años: la devuelve como 'menor' en lugar de 'adulto'.
+Qué se esperaba: La documentación dice que de 18 a 64 años inclusive corresponde 'adulto'. Por eso, al pasar 18, la función debería responder 'adulto'.
+Qué pasó: Al llamar a la función con edad 18, respondió 'menor'. Los demás casos revisados sí terminaron bien, pero este límite falló.
+Qué hacer: Revisar la condición que separa 'menor' de 'adulto' para que 18 quede dentro de 'adulto', cumpliendo lo que promete la documentación.";;;;;;;;;;;;
+P09;buscar_elemento_mayor;"Decisión de QAgent: bug_detectado
+Assertion Laundering detectado: no
+Intentos: 1
+Documentación: Encuentra el valor numérico máximo en una lista.
+
+Args:
+    numeros: Lista de números (enteros o flotantes), no debe estar vacía.
+
+Returns:
+    int | float: El número de mayor valor en la lista.
+
+Raises:
+    ValueError: Si la lista está vacía.
+Caso positivos: con {'numeros': [1, 5, 3]} devuelve 5
+Caso solo_negativos: con {'numeros': [-5, -2, -9]} devuelve -2
+Caso lista_vacia: con {'numeros': []} lanza ValueError
+Intento 1: bug_detectado, bug_codigo: assert 0 == -2
+Primer caso que falló: test_solo_negativos, se esperaba -2 y se obtuvo 0";"Resumen: La función falló al buscar el mayor en una lista con solo números negativos: devolvió 0 en lugar de -2. Las otras dos verificaciones terminaron bien.
+Qué se esperaba: Que la función devolviera -2 al recibir [-5, -2, -9], porque es el número de mayor valor en esa lista.
+Qué pasó: La función devolvió 0 al recibir [-5, -2, -9]. Eso sugiere que la lógica interna parte de un valor inicial de 0 y no lo reemplaza cuando todos los números son menores que 0.
+Qué hacer: Revisar la lógica de la función para que encuentre el mayor incluso cuando todos los números son negativos. Debe devolver -2 para [-5, -2, -9], sin cambiar la verificación ni el valor esperado.";"Resumen: Se encontró un posible error en la función buscar_elemento_mayor.
+Qué se esperaba: Que la función buscar_elemento_mayor hiciera lo que dicen su documentación y sus tipos.
+Qué pasó: Con numeros = [-5, -2, -9], la función buscar_elemento_mayor dio 0, pero debía dar -2. La prueba se ejecutó en un entorno aislado (1 intento).
+Qué hacer: Revisa el código de la función buscar_elemento_mayor: la documentación describe el comportamiento correcto, así que el arreglo va en la función. Cuando la corrijas, vuelve a ejecutar las pruebas.";;;;;;;;;;;;
+P10;clasificar_edad;"Decisión de QAgent: bug_detectado
+Assertion Laundering detectado: no
+Intentos: 1
+Documentación: Clasifica a una persona según su rango etario.
+
+Categorías:
+    - ""menor"": edad menor estricta a 18 años (0 a 17 años).
+    - ""adulto"": edad entre 18 y 64 años inclusive.
+    - ""adulto mayor"": edad mayor o igual a 65 años.
+
+Args:
+    edad: Años cumplidos, debe ser mayor o igual a 0.
+
+Returns:
+    str: Categoría correspondiente ('menor', 'adulto', 'adulto mayor').
+
+Raises:
+    ValueError: Si la edad es menor a 0.
+Caso menor_17: con {'edad': 17} devuelve 'menor'
+Caso adulto_18: con {'edad': 18} devuelve 'adulto'
+Caso adulto_64: con {'edad': 64} devuelve 'adulto'
+Caso adulto_mayor_65: con {'edad': 65} devuelve 'adulto mayor'
+Caso edad_negativa: con {'edad': -1} lanza ValueError
+Intento 1: bug_detectado, bug_codigo: AssertionError: assert 'me...";"Resumen: Se encontró un posible error en la función clasificar_edad.
+Qué se esperaba: Lo que la documentación de la función clasificar_edad promete: límite: 18 ya es adulto.
+Qué pasó: En al menos uno de los casos, la función clasificar_edad no se comportó como prometía. La prueba se ejecutó en un entorno aislado (1 intento).
+Qué hacer: Revisa el código de la función clasificar_edad: la documentación describe el comportamiento correcto, así que el arreglo va en la función. Cuando la corrijas, vuelve a ejecutar las pruebas.";"Resumen: La función clasificar_edad no cumple la documentación en el límite de 18 años.
+Qué se esperaba: Que al clasificar una edad de 18 años la función devolviera «adulto».
+Qué pasó: La revisión automática falló en ese caso: para 18 años la función devolvió «menor». De los cinco casos, uno falló y cuatro pasaron.
+Qué hacer: Revisar la condición de la función que separa «menor» de «adulto». El límite debe incluir 18 años en «adulto», tal como indica la documentación.";;;;;;;;;;;;
+P11;calcular_descuento;"Decisión de QAgent: bug_detectado
+Assertion Laundering detectado: no
+Intentos: 1
+Documentación: Calcula el precio final tras aplicar un porcentaje de descuento.
+
+Args:
+    precio: Monto original del producto, debe ser mayor o igual a 0.
+    porcentaje: Porcentaje de descuento, valor entre 0 y 100 inclusive.
+
+Returns:
+    float: Precio final con el descuento aplicado.
+
+Raises:
+    ValueError: Si el precio es negativo o el porcentaje no está entre 0 y 100.
+Caso descuento_normal: con {'precio': 100.0, 'porcentaje': 20.0} devuelve 80.0
+Caso sin_descuento: con {'precio': 50.0, 'porcentaje': 0.0} devuelve 50.0
+Caso precio_negativo: con {'precio': -1.0, 'porcentaje': 10.0} lanza ValueError
+Caso porcentaje_mayor_a_100: con {'precio': 100.0, 'porcentaje': 150.0} lanza ValueError
+Intento 1: bug_detectado, bug_codigo: assert 20.0 == 80.0...
+Primer caso que falló: test_descuento_normal, se esperaba 80.0 ± 8.0e-05 y se obtuvo 20.0";"Resumen: Se encontró un posible error en la función calcular_descuento.
+Qué se esperaba: Lo que la documentación de la función calcular_descuento promete: 100 con 20% de descuento queda en 80; 0% deja el precio igual.
+Qué pasó: Con precio = 100.0, porcentaje = 20.0, la función calcular_descuento dio 20.0, pero debía dar 80.0 ± 8.0e-05. La prueba se ejecutó en un entorno aislado (1 intento).
+Qué hacer: Revisa el código de la función calcular_descuento: la documentación describe el comportamiento correcto, así que el arreglo va en la función. Cuando la corrijas, vuelve a ejecutar las pruebas.";"Resumen: La función calcular_descuento no está haciendo bien el cálculo: entrega el importe del descuento, no el precio final con descuento aplicado.
+Qué se esperaba: Que 100 con 20% quedara en 80 y que 50 con 0% quedara en 50, como indica la documentación.
+Qué pasó: En la primera comprobación la función devolvió 20 en lugar de 80. En la segunda devolvió 0 en lugar de 50. Es decir, devolvió el monto a descontar, no el precio que debe pagar la persona.
+Qué hacer: Revisar la función calcular_descuento para que reste el descuento al precio original y devuelva el resultado final, cumpliendo lo que promete la documentación.";;;;;;;;;;;;
+P12;buscar_elemento_mayor;"Decisión de QAgent: bug_detectado
+Assertion Laundering detectado: no
+Intentos: 1
+Documentación: Encuentra el valor numérico máximo en una lista.
+
+Args:
+    numeros: Lista de números (enteros o flotantes), no debe estar vacía.
+
+Returns:
+    int | float: El número de mayor valor en la lista.
+
+Raises:
+    ValueError: Si la lista está vacía.
+Caso positivos: con {'numeros': [1, 5, 3]} devuelve 5
+Caso solo_negativos: con {'numeros': [-5, -2, -9]} devuelve -2
+Caso lista_vacia: con {'numeros': []} lanza ValueError
+Intento 1: bug_detectado, bug_codigo: assert 0 == -2
+Primer caso que falló: test_solo_negativos, se esperaba -2 y se obtuvo 0";"Resumen: La función no cumple lo que promete la documentación cuando la lista solo tiene números negativos.
+Qué se esperaba: En una lista de solo negativos, la función debía devolver el mayor valor: -2. En la lista de positivos debía devolver 5. En la lista vacía debía rechazar la entrada con ValueError.
+Qué pasó: En el intento 1, con la lista de solo negativos, la función devolvió 0 en vez de -2. Los otros dos casos pasaron. Eso indica un error en cómo la función trata los valores negativos.
+Qué hacer: Revisar la lógica de la función para que el resultado no se convierta en 0 cuando todos los números son negativos. Mantener las comprobaciones y el valor esperado tal como están. Corregir el código y volver a ejecutar las pruebas.";"Resumen: Se encontró un posible error en la función buscar_elemento_mayor.
+Qué se esperaba: Que la función buscar_elemento_mayor hiciera lo que dicen su documentación y sus tipos.
+Qué pasó: Con numeros = [-5, -2, -9], la función buscar_elemento_mayor dio 0, pero debía dar -2. La prueba se ejecutó en un entorno aislado (1 intento).
+Qué hacer: Revisa el código de la función buscar_elemento_mayor: la documentación describe el comportamiento correcto, así que el arreglo va en la función. Cuando la corrijas, vuelve a ejecutar las pruebas.";;;;;;;;;;;;

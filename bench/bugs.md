@@ -59,3 +59,24 @@ Cada bug presenta un docstring correcto (que define el contrato esperado para el
   def test_buscar_elemento_mayor_todos_negativos():
       assert buscar_elemento_mayor([-10, -5, -20]) == -5
   ```
+---
+
+## Hallazgos para el Agente Explicador (SPK #167)
+
+El Explicador explica cuatro tipos de hallazgo, y este banco solo produce el primero (bug de código). Los otros tres no dependen solo del código: también de lo que haga el Generator o de si el proveedor del LLM responde a tiempo. Por eso sus funciones están en `bench_explicador/banco_explicador.py`, y la medición usa una **traza fija** de cada uno en `bench_explicador/casos/` (`results.json` y `detalle.json`, armados con `bench_explicador/preparar_casos.py`).
+
+No van en esta carpeta porque las pruebas del sistema analizan `bench/` completo y esperan solo las 6 funciones de arriba.
+
+| Tipo de hallazgo | Función | Qué pasa en la traza fija |
+|---|---|---|
+| Bug de código | Las 3 de arriba | La corrida grabada del banco: salida real de pytest, decisión `bug_detectado` en el intento 1 |
+| Prueba estancada | `total_con_impuesto` | El test no logra construir `Carrito`. Intento 1: `TypeError` (falta `tasas`); intentos 2 y 3: `ValueError` (tasas vacías). Al repetirse el error se corta en `stalled` (`error_repetido`) |
+| Assertion Laundering | `calcular_envio` | Intento 1: `ImportError` (nombre mal escrito). Intentos 2 y 3: el test corrige el import pero cambia `== 22.0` por `> 0` en el envío express. El Reviewer lo detecta las dos veces (`laundering_detectado`) y se corta en `stalled`. Además tiene un bug sembrado: el express suma 5.0 en lugar de duplicar |
+| Sin veredicto | `convertir_moneda` | Intento 1: `NameError` (falta `import pytest`). En el intento 2 el Generator no responde a tiempo: decisión `null`, motivo `tiempo_agotado`. La función es correcta |
+
+### Bug 4: `calcular_envio`
+* **Archivo:** `bench_explicador/banco_explicador.py`
+* **Descripción del error:** con `express=True` suma 5.0 al costo en lugar de duplicarlo.
+* **Comportamiento esperado (según docstring):** con `peso_kg=3.0` y `express=True`, `22.0`.
+* **Comportamiento real (código actual):** retorna `16.0`.
+* **Por qué no termina en `bug_detectado` en la traza fija:** el único test que lo habría demostrado (`== 22.0`) se debilitó a `> 0`, y QAgent lo descartó. Es justo lo que el Explicador tiene que contar sin sugerir que se relaje la comprobación.

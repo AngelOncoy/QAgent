@@ -16,7 +16,7 @@ registrarComponente('vista-previa/vista-previa', `<!-- ===== 2. EXPLORAR ===== -
     <div class="np-cabecera">
       <div>
         <h1 class="ini-titulo">Elige qué quieres probar</h1>
-        <p class="np-subtitulo"><span class="repoName"></span> · Python · pytest<span class="hide" id="projRama"> · rama <span class="brLbl"></span></span> · Análisis sin ejecutar el proyecto</p>
+        <p class="np-subtitulo"><span class="repoName"></span> · <span id="projLenguaje">Python · pytest</span><span class="hide" id="projRama"> · rama <span class="brLbl"></span></span> · Análisis sin ejecutar el proyecto</p>
       </div>
       <button type="button" class="ini-btn ini-btn-principal" id="toTests" onclick="go('tests')">${ICO_FLECHA}<span id="toTestsTxt">Preparar selección</span></button>
     </div>
@@ -123,6 +123,7 @@ function reiniciarVistaExplorar() {
 }
 
 function aplicarResumenDemo() {
+  mostrarLenguajeProyecto();
   reiniciarVistaExplorar();
   RECOMENDACION = null;   // la recomendación sale del backend; la demostración no la inventa
   renderRecomendacion();
@@ -162,8 +163,19 @@ function actualizarResumenUI(resumen, errores = []) {
   $('resumenEndpoints').textContent = resumen.total_endpoints ?? 0;
 }
 
+let PROYECTO_NOMBRE_LENGUAJE = 'Python';
+
+function mostrarLenguajeProyecto(res = {}) {
+  PROYECTO_NOMBRE_LENGUAJE = res.nombre_lenguaje || 'Python';
+  const framework = res.framework_pruebas || 'pytest';
+  const etiqueta = `${PROYECTO_NOMBRE_LENGUAJE} · ${{junit5:'JUnit 5'}[framework] || framework}`;
+  $('projLenguaje').textContent = etiqueta;
+  $('sideLenguaje').textContent = etiqueta;
+}
+
 function cargarDatosVistaPrevia(res) {
   if (!res || !res.ok) return;
+  mostrarLenguajeProyecto(res);
   reiniciarVistaExplorar();
   PROYECTO_RESUMEN = res.resumen;
   PROYECTO_ERRORES = res.errores || [];
@@ -285,7 +297,7 @@ async function loadProject(name, src, where, br='main', ruta='', opciones = {}){
         cargarDatosVistaPrevia(res);
       } else {
         vaciarVistaPrevia();
-        const msgIncompatible = 'No es posible cargar/abrir el proyecto por incompatibilidad de lenguaje: QAgent solo admite proyectos en Python 3.10+.';
+        const msgIncompatible = 'No se encontraron módulos analizables en el proyecto.';
         toastError(escHtml((res && res.error) || msgIncompatible));
         go('welcome');
         return;
@@ -345,6 +357,7 @@ async function loadProject(name, src, where, br='main', ruta='', opciones = {}){
 // Sin análisis (fallo en la app real): lista vacía y contadores en cero, sin datos de ejemplo.
 function vaciarVistaPrevia() {
   MODULES = [];
+  mostrarLenguajeProyecto();
   reiniciarVistaExplorar();
   PROYECTO_RESUMEN = null;
   PROYECTO_ERRORES = [];

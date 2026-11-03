@@ -265,6 +265,7 @@ def test_maven_usa_dependency_go_offline(proyecto_maven):
     assert construccion["archivos"] == ["Dockerfile", "pom.xml"]
     assert construccion["dockerfile"].startswith(f"FROM {IMAGEN_JAVA}\n")
     assert "mvn dependency:go-offline" in construccion["dockerfile"]
+    assert "dependency:resolve" in construccion["dockerfile"]
 
 
 def test_maven_reutiliza_la_derivada_si_no_cambia_el_pom(proyecto_maven):

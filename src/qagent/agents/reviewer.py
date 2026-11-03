@@ -25,6 +25,7 @@ from qagent.sandbox import (
     ejecutar_pruebas,
     resumir_ejecucion,
 )
+from qagent.sandbox.archivos_prueba import ruta_de_prueba
 from qagent.sandbox.ejecucion import ejecutar_comando_pruebas
 from qagent.sandbox.normalizacion import hash_error
 
@@ -109,7 +110,12 @@ class ReviewerAgent:
         if referencia is None and test_anterior is not None:
             codigo_anterior = test_anterior["codigo"]
             try:
-                if reglas.validar_oraculo(contrato, codigo_anterior) is None:
+                if (
+                    adaptador.validar_oraculo(
+                        contrato, codigo_anterior, self.ruta_proyecto
+                    )
+                    is None
+                ):
                     referencia = codigo_anterior
             except (SyntaxError, ValueError):
                 referencia = None
@@ -128,25 +134,54 @@ class ReviewerAgent:
                 feedback=laundering,
             )
 
-        problema_oraculo = reglas.validar_oraculo(contrato, codigo)
+        problema_oraculo = adaptador.validar_oraculo(
+            contrato, codigo, self.ruta_proyecto
+        )
         if problema_oraculo is not None:
             return self._error_test(contrato, intento, problema_oraculo)
+        try:
+            archivo_calculado = adaptador.archivo_para_contrato(
+                contrato, self.ruta_proyecto
+            )
+            archivo = (
+                test.get("archivo")
+                or archivo_calculado
+                or adaptador.archivo_de_prueba(contrato["objetivo"])
+            )
+            if archivo_calculado is not None and archivo not in {
+                archivo_calculado,
+                Path(archivo_calculado).name,
+            }:
+                return self._error_test(
+                    contrato,
+                    intento,
+                    "El archivo de prueba no corresponde al paquete y clase del contrato.",
+                )
+        except (OSError, UnicodeError, ValueError) as error:
+            return self._error_test(contrato, intento, str(error))
         self._referencias[clave] = codigo
 
         modulo_cov = self.modulo_cov or adaptador.modulo_cobertura(contrato["modulo"])
         framework = contracts.normalizar_planner(contrato)["framework_pruebas"]
         comando = adaptador.comando_pruebas(modulo_cov, framework)
-        archivo = test.get("archivo") or adaptador.archivo_de_prueba(
-            contrato["objetivo"]
-        )
         with tempfile.TemporaryDirectory(prefix="qagent-reviewer-") as temporal:
             ruta_tests = Path(temporal)
-            (ruta_tests / archivo).write_text(codigo, encoding="utf-8")
+            try:
+                destino = ruta_de_prueba(ruta_tests, archivo)
+            except ValueError as error:
+                return self._error_test(contrato, intento, str(error))
+            destino.parent.mkdir(parents=True, exist_ok=True)
+            destino.write_text(codigo, encoding="utf-8")
             if self.ejecutor is not None:
                 resultado = self.ejecutor(
                     self.imagen, self.ruta_proyecto, ruta_tests, modulo_cov
                 )
             else:
+                opciones_sandbox = {}
+                if (preparar := adaptador.preparador_sandbox()) is not None:
+                    opciones_sandbox["preparar"] = preparar
+                if (leer_informe := adaptador.lector_informe_sandbox()) is not None:
+                    opciones_sandbox["leer_informe"] = leer_informe
                 resultado = ejecutar_comando_pruebas(
                     self.imagen,
                     comando,
@@ -156,6 +191,7 @@ class ReviewerAgent:
                     archivo_informe=adaptador.entorno_sandbox().informe,
                     variables=adaptador.variables_pruebas(),
                     limites=self.limites,
+                    **opciones_sandbox,
                 )
 
         estado = clasificar_resultado(resultado)
@@ -180,11 +216,32 @@ class ReviewerAgent:
             parte for parte in (resultado.stdout, resultado.stderr) if parte
         ).strip()
         # Cobertura de la función bajo prueba; si no se puede ubicar, la del módulo.
-        cobertura = self._cobertura_de_funcion(
-            resultado.coverage, modulo, rango
-        ) or self._extraer_cobertura(resultado.coverage)
+        cobertura = adaptador.cobertura_de_objetivo(
+            resultado.coverage, modulo, adaptador.objetivo_de_cobertura(contrato)
+        )
+        if cobertura is NotImplemented:
+            cobertura = self._cobertura_de_funcion(
+                resultado.coverage, modulo, rango
+            ) or self._extraer_cobertura(resultado.coverage)
 
-        if estado == "ok":
+        clasificacion = adaptador.clasificar_ejecucion(resultado)
+        if clasificacion is not None and clasificacion.motivo_sin_veredicto:
+            revision = self._resultado(
+                objetivo=contrato["objetivo"],
+                intento=intento,
+                estado_sandbox=estado,
+                cobertura=cobertura,
+                laundering_detectado=False,
+                tipo_fallo=None,
+                hash_actual=hash_error(salida or clasificacion.detalle),
+                decision="stalled",
+                feedback=clasificacion.detalle,
+            )
+            revision["motivo_sin_veredicto"] = clasificacion.motivo_sin_veredicto
+            contracts.validar(contracts.REVIEW_RESULT, revision)
+            return revision
+
+        if estado == "ok" and clasificacion is None:
             return self._resultado(
                 objetivo=contrato["objetivo"],
                 intento=intento,
@@ -197,7 +254,10 @@ class ReviewerAgent:
                 feedback="Test aprobado en el sandbox.",
             )
 
-        clasificacion = reglas.clasificar_salida(salida, contrato, self.ruta_proyecto)
+        if clasificacion is None:
+            clasificacion = reglas.clasificar_salida(
+                salida, contrato, self.ruta_proyecto
+            )
         tipo = clasificacion.tipo if clasificacion is not None else None
         if clasificacion is not None and tipo == "entorno":
             return self._resultado(

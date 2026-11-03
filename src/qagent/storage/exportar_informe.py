@@ -828,7 +828,7 @@ def _markdown_ejecucion(datos: dict[str, Any], con_traza: bool) -> list[str]:
             f"- **Objetivo analizado:** `{firma}` ({len(casos_plan)} casos deducidos del AST · {crit_txt})"
         )
         lineas.append(
-            f"- **Suite pytest:** `tests/test_{f['funcion']}.py` ({f['iteraciones']}/3 iteraciones en sandbox hermético)"
+            f"- **Suite {f.get('framework_pruebas', 'pytest')}:** prueba generada ({f['iteraciones']}/3 iteraciones en sandbox hermético)"
         )
         laund_txt = (
             "Se bloqueó intento de debilitar pruebas"
@@ -1333,8 +1333,8 @@ def construir_markdown_informe(
             [
                 "## Resultado por función",
                 "",
-                "| Función | Módulo | Estado | Intentos | Cob. líneas | Cob. ramas | Fortaleza | Tokens |",
-                "|---|---|---|---|---|---|---|---|\n".rstrip("\n"),
+                "| Función | Módulo | Lenguaje | Estado | Intentos | Cob. líneas | Cob. ramas | Fortaleza | Tokens |",
+                "|---|---|---|---|---|---|---|---|---|\n".rstrip("\n"),
             ]
         )
         for f in funciones:
@@ -1350,7 +1350,7 @@ def construir_markdown_informe(
             )
             nom = str(f.get("identificador") or f.get("funcion") or "Función")
             lineas.append(
-                f"| `{nom}` | {f.get('modulo', '')} | {etiqueta} | {f.get('iteraciones', 1)}/3 | "
+                f"| `{nom}` | {f.get('modulo', '')} | {f.get('lenguaje', 'python')} | {etiqueta} | {f.get('iteraciones', 1)}/3 | "
                 f"{_fmt_pct(f.get('cobertura_lineas'))} | {_fmt_pct(f.get('cobertura_ramas'))} | "
                 f"{ms_lbl} | {f.get('tokens', 0)} |"
             )
@@ -1440,17 +1440,17 @@ def construir_markdown_informe(
             [
                 "## Código de las pruebas generadas",
                 "",
-                "_Anexo de referencia: suites de prueba pytest generadas._",
+                "_Anexo de referencia: suites de prueba generadas._",
                 "",
             ]
         )
         for f in funciones:
             etiqueta = BANDEJA.get(str(f.get("estado")), BANDEJA["sin_veredicto"])[1]
             nom = str(f.get("identificador") or f.get("funcion") or "Función")
-            lineas.append(f"### tests/test_{f['funcion']}.py ({f['modulo']})")
+            lineas.append(f"### Prueba de {f['funcion']} ({f['modulo']})")
             lineas.append("")
             lineas.append(
-                f"- **Suite de pruebas:** Generada con pytest hermético · **Estado:** {etiqueta} · "
+                f"- **Suite de pruebas:** {f.get('framework_pruebas', 'pytest')} en sandbox · **Estado:** {etiqueta} · "
                 f"**Iteraciones:** {f.get('iteraciones', 1)}/3"
             )
             lineas.append(
@@ -1458,7 +1458,7 @@ def construir_markdown_informe(
             )
             lineas.append("")
             if f.get("codigo"):
-                lineas.append("```python")
+                lineas.append("```" + f.get("lenguaje", "python"))
                 lineas.append(str(f["codigo"]).rstrip())
                 lineas.append("```")
             else:
@@ -1973,7 +1973,7 @@ def construir_html_informe(
             f"<div style='display:flex;justify-content:space-between;align-items:center;margin-bottom:8px'>"
             f"<b><code>{esc(nom)}</code></b> <span>({esc(f['modulo'])})</span> — <span class='badge {badge_class}'>{esc(etiqueta)}</span>"
             f"</div>"
-            f"<small>Intentos: {f.get('iteraciones', 1)}/3 · Cob. líneas: {_fmt_pct(f.get('cobertura_lineas'))} · "
+            f"<small>Lenguaje: {esc(f.get('lenguaje', 'python'))} · Intentos: {f.get('iteraciones', 1)}/3 · Cob. líneas: {_fmt_pct(f.get('cobertura_lineas'))} · "
             f"Cob. ramas: {_fmt_pct(f.get('cobertura_ramas'))} · Fortaleza: {esc(ms_lbl)} · "
             f"Tokens: {f.get('tokens', 0)}</small>"
             f"<div class='agent-grid'>"
@@ -1982,8 +1982,8 @@ def construir_html_informe(
             f"{llama_html}"
             f"<details><summary>Casos deducidos ({len(casos_plan)})</summary>{casos_plan_html}</details>"
             f"</div>"
-            f"<div class='agent-box'><h4>⚙️ Suite pytest</h4>"
-            f"<p><small><b>Archivo:</b> <code>tests/test_{esc(f['funcion'])}.py</code></small></p>"
+            f"<div class='agent-box'><h4>⚙️ Suite {esc(f.get('framework_pruebas', 'pytest'))}</h4>"
+            f"<p><small><b>Prueba generada para:</b> <code>{esc(f['funcion'])}</code></small></p>"
             f"<p><small><b>Iteraciones:</b> {f.get('iteraciones', 1)}/3 | <b>Aislamiento:</b> Sandbox Docker hermético</small></p>"
             f"</div>"
             f"<div class='agent-box'><h4>🛡️ Verificación</h4>"

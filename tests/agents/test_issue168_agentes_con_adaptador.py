@@ -243,7 +243,6 @@ def test_el_reviewer_aplica_el_oraculo_y_la_clasificacion_del_adaptador(
 @pytest.mark.parametrize(
     "operacion, argumentos",
     [
-        ("reglas_planificacion", ()),
         ("reglas_revision", ()),
         ("prompt_generator", ({}, 1, None, None)),
         ("huellas_de_archivo", ("", "a.ts")),

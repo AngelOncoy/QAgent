@@ -88,6 +88,10 @@ class ErrorSandbox(Exception):
     """Error base del sandbox; su mensaje se puede mostrar al usuario."""
 
 
+class ErrorPreparacionSandbox(ErrorSandbox):
+    """Un preparador de lenguaje no pudo disponer la copia o las pruebas del sandbox."""
+
+
 class DockerNoDisponible(ErrorSandbox):
     """Docker no está instalado o Docker Desktop no está iniciado."""
 

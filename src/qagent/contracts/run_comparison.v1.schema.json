@@ -37,7 +37,9 @@
         "id": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]*$" },
         "archivo": { "type": "string", "pattern": "^test_[A-Za-z0-9_]+\\.py$" },
         "run_origen_id": { "$ref": "#/$defs/run_id" },
-        "huella_origen": { "$ref": "#/$defs/huella" },
+        "huella_origen": {
+          "oneOf": [{ "$ref": "#/$defs/huella" }, { "type": "null" }]
+        },
         "huella_verificacion": {
           "oneOf": [{ "$ref": "#/$defs/huella" }, { "type": "null" }]
         }
@@ -73,7 +75,7 @@
       "properties": {
         "objetivo": { "$ref": "#/$defs/objetivo" },
         "prueba": { "$ref": "#/$defs/prueba" },
-        "firma_origen": { "type": "string", "minLength": 1 },
+        "firma_origen": { "type": ["string", "null"], "minLength": 1 },
         "firma_verificacion": { "type": ["string", "null"], "minLength": 1 },
         "estado_anterior": { "$ref": "#/$defs/estado" },
         "estado_posterior": { "$ref": "#/$defs/estado" },

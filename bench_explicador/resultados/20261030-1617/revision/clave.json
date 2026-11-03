@@ -1,0 +1,155 @@
+{
+  "semilla": 881065439,
+  "repeticion": 2,
+  "revisores": [
+    "abel",
+    "angel"
+  ],
+  "omitidas": [],
+  "pares": {
+    "P01": {
+      "objetivo": "total_con_impuesto",
+      "tipo": "estancada",
+      "A": {
+        "origen": "plantilla",
+        "modelo": "plantilla"
+      },
+      "B": {
+        "origen": "ia",
+        "modelo": "deepseek-flash"
+      }
+    },
+    "P02": {
+      "objetivo": "calcular_envio",
+      "tipo": "assertion_laundering",
+      "A": {
+        "origen": "ia",
+        "modelo": "deepseek-v4-pro"
+      },
+      "B": {
+        "origen": "plantilla",
+        "modelo": "plantilla"
+      }
+    },
+    "P03": {
+      "objetivo": "convertir_moneda",
+      "tipo": "sin_veredicto",
+      "A": {
+        "origen": "ia",
+        "modelo": "deepseek-flash"
+      },
+      "B": {
+        "origen": "plantilla",
+        "modelo": "plantilla"
+      }
+    },
+    "P04": {
+      "objetivo": "convertir_moneda",
+      "tipo": "sin_veredicto",
+      "A": {
+        "origen": "plantilla",
+        "modelo": "plantilla"
+      },
+      "B": {
+        "origen": "ia",
+        "modelo": "deepseek-v4-pro"
+      }
+    },
+    "P05": {
+      "objetivo": "calcular_envio",
+      "tipo": "assertion_laundering",
+      "A": {
+        "origen": "plantilla",
+        "modelo": "plantilla"
+      },
+      "B": {
+        "origen": "ia",
+        "modelo": "deepseek-flash"
+      }
+    },
+    "P06": {
+      "objetivo": "total_con_impuesto",
+      "tipo": "estancada",
+      "A": {
+        "origen": "ia",
+        "modelo": "deepseek-v4-pro"
+      },
+      "B": {
+        "origen": "plantilla",
+        "modelo": "plantilla"
+      }
+    },
+    "P07": {
+      "objetivo": "calcular_descuento",
+      "tipo": "bug_detectado",
+      "A": {
+        "origen": "plantilla",
+        "modelo": "plantilla"
+      },
+      "B": {
+        "origen": "ia",
+        "modelo": "deepseek-flash"
+      }
+    },
+    "P08": {
+      "objetivo": "clasificar_edad",
+      "tipo": "bug_detectado",
+      "A": {
+        "origen": "plantilla",
+        "modelo": "plantilla"
+      },
+      "B": {
+        "origen": "ia",
+        "modelo": "deepseek-v4-pro"
+      }
+    },
+    "P09": {
+      "objetivo": "buscar_elemento_mayor",
+      "tipo": "bug_detectado",
+      "A": {
+        "origen": "ia",
+        "modelo": "deepseek-v4-pro"
+      },
+      "B": {
+        "origen": "plantilla",
+        "modelo": "plantilla"
+      }
+    },
+    "P10": {
+      "objetivo": "clasificar_edad",
+      "tipo": "bug_detectado",
+      "A": {
+        "origen": "plantilla",
+        "modelo": "plantilla"
+      },
+      "B": {
+        "origen": "ia",
+        "modelo": "deepseek-flash"
+      }
+    },
+    "P11": {
+      "objetivo": "calcular_descuento",
+      "tipo": "bug_detectado",
+      "A": {
+        "origen": "plantilla",
+        "modelo": "plantilla"
+      },
+      "B": {
+        "origen": "ia",
+        "modelo": "deepseek-v4-pro"
+      }
+    },
+    "P12": {
+      "objetivo": "buscar_elemento_mayor",
+      "tipo": "bug_detectado",
+      "A": {
+        "origen": "ia",
+        "modelo": "deepseek-flash"
+      },
+      "B": {
+        "origen": "plantilla",
+        "modelo": "plantilla"
+      }
+    }
+  }
+}

@@ -189,7 +189,7 @@ function doClone(){
     logClone(`Cloning into '${dir}'...`);
     avanceClonado({linea:'Receiving objects:  64% (136/212)', porcentaje:64});
     setTimeout(() => {
-      finClonado({ok: false, error: 'QAgent solo admite proyectos en Python 3.10 o superior, y este repositorio no tiene archivos .py para analizar.'});
+      finClonado({ok: false, error: 'El repositorio no contiene fuentes de un lenguaje soportado.'});
     }, 500);
     return;
   }
@@ -219,7 +219,7 @@ async function finClonado(r){
   if(!r.ok){
     // Se detiene el avance y se muestra el motivo; la URL y el destino se conservan para reintentar
     clearInterval(cloneTimer);
-    const msg = r.error || 'QAgent solo admite proyectos en Python 3.10 o superior.';
+    const msg = r.error || 'No se pudo abrir el repositorio. Comprueba que contiene fuentes de un lenguaje soportado.';
     const pct = $('clonePct').textContent;
     const enDescarga = document.querySelector('#clonePasos li[data-paso="2"]').className === 'np-paso-actual';
     if(enDescarga){

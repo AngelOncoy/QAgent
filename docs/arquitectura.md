@@ -664,7 +664,7 @@ flowchart TB
 | Imagen | Contenido (versión fija) | Dependencias del proyecto (imagen derivada, con red) |
 |---|---|---|
 | `qagent-sandbox:base` | Python 3.11, pytest, pytest-cov, coverage, mutmut, httpx | `requirements.txt` → `pip install` · etiqueta `req-<hash>` |
-| `qagent-sandbox:node` | Node 26.13.0 (LTS), Vitest 5.0.5, @vitest/coverage-v8 5.0.5, Stryker 10.1.1 (+ vitest-runner), TypeScript 7.0.2 | `package.json` + `package-lock.json` → `npm ci` (sin lockfile, `npm install`) en `/work/node_modules` · etiqueta `node-<hash>` |
+| `qagent-sandbox:node` | Node 26.13.0 (LTS), Vitest 5.0.5, @vitest/coverage-v8 5.0.5, Stryker 10.1.1 (+ vitest-runner), TypeScript 6.0.3 y dependency-cruiser 18.6.0 | `package.json` + `package-lock.json` → `npm ci` (sin lockfile, `npm install`) en `/work/node_modules` · etiqueta `node-<hash>` |
 | `qagent-sandbox:java` | Temurin JDK 25.0.4, Maven 3.9.16, Gradle 9.8.2, JUnit 5.14.4, JaCoCo 0.8.16, PIT 1.30.1 (+ junit5-plugin 1.2.3) | `pom.xml` → `mvn dependency:go-offline` en `/opt/qagent/m2`; o `build.gradle(.kts)` (+ settings, `gradle.properties`, `libs.versions.toml`) → caché de solo lectura `GRADLE_RO_DEP_CACHE` · etiqueta `java-<hash>` |
 
 La etiqueta de la derivada sale del hash de sus archivos de dependencias: mientras no cambien, se reutiliza entre corridas (igual que con `requirements.txt`), y la limpieza al abrir la app borra las `req-`, `node-` y `java-` sin uso en 30 días. El contexto de build solo lleva esos archivos, nunca el código del proyecto ni su `.env`. Las dependencias quedan fuera de `/work/proyecto` (Node las busca subiendo hasta `/work/node_modules`; Maven y Gradle las leen de su repositorio en `/opt/qagent`), así el montaje de la copia del proyecto no las tapa. La imagen de Java se construye con un proyecto de calentamiento (`sandbox/java/calentamiento`) para que los plugins de JUnit 5, JaCoCo y PIT queden descargados y funcionen sin red.
@@ -836,8 +836,11 @@ Los schemas completos van en `src/qagent/contracts/` y los valida `tests/test_co
 | `explanation.v1` (EN-18, alineado con ADR-008; Agente Explicador propuesto) | Explicador → validación determinista → `explicaciones.json` → Informes | `version`, `objetivo`, `decision` (eco estricto de `results.json`), `resumen`, `que_se_esperaba`, `que_paso`, `que_hacer`, `origen` y `modelo`. No contiene campos para modificar veredictos ni relajar aserciones | `explanation.v1.schema.json` |
 | `explicaciones.json` (ADR-008) | Explicador → `.qagent/runs/<run_id>/explicaciones.json` | Contenedor de las explicaciones de la corrida (`explanation.v1`), persistido por separado de `results.json` | `explicaciones.schema.json` |
 | `bug_evidence.v1` (#193) | Orquestador → `.qagent/evidencias_bugs/<run_id>/<spec_id>.json` | Evidencia inmutable de una decisión `bug_detectado`: código exacto y su SHA-256, contrato Planner con `firma`, objetivo y corrida de origen. Se guarda separada de `tests/`, que sigue conteniendo solo pruebas aprobadas | `bug_evidence.v1.schema.json` |
-| `run_comparison.v1` (#193) | Comparador determinista → `.qagent/comparaciones/<run_verificacion>/<run_origen>.json` | Comparación por objetivo y prueba entre dos corridas: `corregido`, `sigue_fallando`, `regresion` o `no_comparable`. Un resultado concluyente exige la misma huella de prueba, la misma firma y veredictos confiables; `no_comparable` siempre conserva el motivo | `run_comparison.v1.schema.json` |
+| `run_comparison.v1` (#193, #194) | Comparador determinista → `.qagent/comparaciones/<run_verificacion>/<run_origen>.json` | Comparación por objetivo y prueba entre dos corridas: `corregido`, `sigue_fallando`, `regresion` o `no_comparable`. Un resultado concluyente exige la misma huella de prueba, la misma firma y veredictos confiables. `no_comparable` siempre conserva el motivo y admite metadatos de origen nulos únicamente para representar corridas históricas incompletas sin fabricar evidencia | `run_comparison.v1.schema.json` |
 | `recommendation.v1` (#199, Agente Recomendador definido) | Vista previa → validación estructural y de capacidades → usuario | `version`, `origen` (`reglas` \| `ia`) y lista priorizada de `tipo_prueba` + `motivo`. Admite `funcion`, `endpoint` y `mutacion`, sin campos de ejecución; la lista puede ser vacía. El schema no sustituye la validación dinámica contra capacidades del adaptador | `recommendation.v1.schema.json` · ADR-011 |
+
+| `architecture_rules.v1` (#185) | Pantalla Preparar / `.qagent` → adaptador del lenguaje | Reglas de `ciclos_importacion` y `dependencia_prohibida`, con origen y confirmación explícitos; rechaza propiedades de ejecución y patrones inseguros | `architecture_rules.v1.schema.json` · ADR-007 |
+| `architecture_result.v1` (#185) | Sandbox → `.qagent/runs/<run_id>/architecture.json` → informe | Estado global y por regla, herramienta, hallazgos con dependencia/archivo/línea y motivo verificable de `sin_veredicto` | `architecture_result.v1.schema.json` |
 
 **Origen del valor esperado (oráculo):** firma, tipos o docstring de una función (en JS/TS, JSDoc y tipos de TypeScript; en Java, Javadoc y tipos); o la declaración de la ruta (`response_model`, `status_code`, modelos Pydantic) de un endpoint. Nunca el resultado de ejecutar el código.
 
@@ -892,6 +895,8 @@ El análisis a fondo no se ofrece con Humo porque añade la capa de caja blanca 
 
 Desde la issue #150, «Volver a correr las guardadas» vuelve a ofrecer la casilla opcional «Medir la fortaleza de las críticas». La decisión de recuperarla como una opción interna de Regresión —no como un quinto modo— fue comunicada por el responsable el 28/10/2026; su registro formal en GitHub queda pendiente. Desmarcada conserva `reg`; marcada envía `reg_deep` a `start_run`. Cambiar de modo o perder la elegibilidad la desmarca para que una regresión normal nunca active mutación de forma silenciosa.
 
+«Verificar corrección» (#194) es una acción distinta disponible sobre una corrida concreta del Historial. Recupera de esa corrida el código exacto de las pruebas aprobadas y las evidencias inmutables `bug_detectado`, confirma por análisis estático que el objetivo mantiene identidad y firma, y vuelve a ejecutarlas sin regeneración ni LLM dentro del sandbox. A diferencia de HU-25, permite que cambie el cuerpo de la función: su propósito es comprobar la corrección. Un objetivo eliminado, renombrado, con firma distinta, no analizable o sin evidencia suficiente se registra como `no_comparable` sin ejecutarse. El resultado queda en una corrida `verify_fix` y en un contrato `run_comparison.v1`; la visualización detallada de la comparación corresponde a #195.
+
 Al repetir con `reg_deep`, Profundizar (#70) mide sin gastar tokens qué tan fuertes son las pruebas que ya están guardadas, por ejemplo las que se aprobaron con Estándar. Solo habilitan la casilla las funciones críticas seleccionadas que tienen hoy una prueba guardada vigente (`objetivos_repetibles`): las que requieren corrida nueva, tienen metadatos incompletos, fallaron o solo comprueban un `TypeError` trivial de firma (#149) no cuentan. El backend vuelve a validar la selección antes de iniciar. La casilla viene desmarcada, porque mutmut añade tiempo de CPU aunque no realiza llamadas LLM.
 
 ### 10.4 Por qué Profundizar solo en funciones prioritarias
@@ -918,7 +923,7 @@ QAgent propone como prioritaria toda función con al menos una decisión (`if`/`
 | Mutación en endpoints | Pendiente | Issue de endpoints con caja blanca |
 | Categoría de cada caso (normal / límite / error) | Pendiente | Issue «Feat: categoría de cada caso de prueba» |
 
-### 10.6 Nuevos tipos de prueba del Sprint 2 (propuesto)
+### 10.6 Nuevos tipos de prueba del Sprint 2
 
 Las categorías actuales se aplican a cada lenguaje. **Caja negra:** el valor esperado sale del contrato (docstring, JSDoc, Javadoc, tipos). **Caja blanca:** se leen las ramas del código para elegir entradas, nunca para decidir el resultado. Prioridades tentativas del plan del Sprint 2, a confirmar en el Sprint Planning:
 
@@ -934,6 +939,37 @@ Las categorías actuales se aplican a cada lenguaje. **Caja negra:** el valor es
 | Astro, E2E de flujos completos, carga y estrés | — | — | Fuera de este sprint | — |
 
 **Regla para frameworks no soportados:** el framework se detecta por `package.json` (`react`, `@angular/core`, `astro`). Si no tiene soporte, QAgent prueba solo los archivos de lógica `.ts`/`.js` y el informe marca «componentes no soportados». Así el producto funciona en cualquier proyecto aunque el soporte del framework llegue después.
+
+#### Verificación arquitectónica implementada (#185)
+
+La pantalla **Preparar** ofrece una acción independiente de los perfiles `std`, `humo`,
+`reg`, `reg_deep` y `verify_fix`. Solo se ejecuta cuando la persona la solicita. No
+genera pytest ni llama al Planner, Generator, Reviewer, Explicador o Recomendador.
+
+- `architecture_rules.v1` representa reglas de ciclos o dependencias prohibidas. La
+  regla `universal-sin-ciclos` se inyecta siempre en memoria. Las reglas declaradas se
+  guardan, después de validar, en `.qagent/reglas_arquitectura.json` mediante escritura
+  atómica. Un proyecto anterior sin ese archivo no se modifica.
+- Una sugerencia con `origen: ia` solo se vuelve ejecutable con `confirmada: true`.
+  #185 no agrega llamadas LLM ni un flujo de sugerencias automático.
+- `LanguageAdapter.traducir_reglas_arquitectura()` produce configuraciones controladas.
+  Python usa import-linter 2.15; JavaScript y TypeScript, dependency-cruiser 18.6.0;
+  Java, ArchUnit 1.5.1 sobre clases compiladas únicamente dentro del contenedor.
+- La ejecución reutiliza `ejecutar_en_sandbox`: copia temporal, `network_mode=none`,
+  límites de CPU/memoria/tiempo, filesystem de solo lectura, `cap_drop=ALL` y limpieza
+  del contenedor. Las imágenes contienen las herramientas con versiones fijas; nunca
+  se usa `npx` ni se instala durante la evaluación.
+- `architecture_result.v1` distingue `cumple`, `incumple`, `sin_veredicto` y la regla
+  `no_ejecutada`. Los hallazgos conservan origen, destino, archivo y una línea solo
+  cuando se pudo verificar. La corrida queda en `.qagent/runs/<run_id>/architecture.json`
+  y puede exportarse como JSON, Markdown, HTML o PDF.
+- Un timeout, una imagen o herramienta ausente, una resolución incompleta, un fallo de
+  compilación o una salida ilegible produce `sin_veredicto`; nunca un falso cumplimiento.
+  Un incumplimiento se conserva como hallazgo y no relaja ni elimina reglas.
+
+Límite explícito de Java: ArchUnit necesita compilar las fuentes. Si el proyecto exige
+dependencias que la imagen no tiene o no declara paquetes comparables, la regla queda
+sin veredicto. E2E con Playwright continúa fuera de #185 y pertenece a EP-13b (#186).
 
 ---
 
@@ -1015,7 +1051,7 @@ Responsables sugeridos en el plan del Sprint 2, a confirmar en el Sprint Plannin
 | Adaptador de Java completo y banco equivalente en los 3 lenguajes (brecha B5) | Nuevo integrante | ADR-009 · EP-12a |
 | Imágenes `node` y `java` del sandbox y límites de memoria y tiempo por lenguaje (**Resuelto**, #169); falta `navegador` con EP-13b | Sanchez Vargas, Adrián | Sección 7 |
 | Migrar el analizador de Python a tree-sitter, solo si da la misma estructura que `analizar_proyecto()` | Hecho (TA-16, #154) | ADR-009 |
-| Versionar en `bench/` los bancos y scripts de medición de SPK-03 y SPK-04 | Sanchez Vargas, Adrián y Castillo Pezo, Mateo | ADR-008 · ADR-009 |
+| Versionar en `bench/` los bancos y scripts de medición de SPK-03 y SPK-04 (**Resuelto**) | Sanchez Vargas, Adrián y Castillo Pezo, Mateo | ADR-008 · ADR-009 |
 | Implementar las reglas del Recomendador y la declaración de capacidades por adaptador; integrar la confirmación en Vista previa | bel001 | ADR-011 · #197 |
 | Implementar y medir el modo IA opcional antes de considerar un cambio del modo predeterminado | bel001, con revisión del equipo | ADR-011 · #200 · #201 |
 

@@ -47,7 +47,14 @@ def test_nombre_de_cada_perfil(perfil, nombre) -> None:
 
 
 def test_los_nombres_son_los_de_la_configuracion() -> None:
-    assert set(NOMBRES_PERFIL) == {"humo", "std", "deep", "reg", "reg_deep"}
+    assert set(NOMBRES_PERFIL) == {
+        "humo",
+        "std",
+        "deep",
+        "reg",
+        "reg_deep",
+        "verify_fix",
+    }
 
 
 def test_el_informe_nombra_el_perfil_y_marca_el_resultado_reutilizado(results) -> None:

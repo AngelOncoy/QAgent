@@ -57,7 +57,7 @@ registrarComponente('inicio/inicio', `<!-- ===== 1. INICIO ===== -->
       </section>
 
       <footer class="ini-pie">
-        <span>Python · Próximamente Java, JavaScript y TypeScript</span>
+        <span>Python y Java · Próximamente JavaScript y TypeScript</span>
         <span>Pruebas unitarias y de endpoints de API</span>
       </footer>
     </div>

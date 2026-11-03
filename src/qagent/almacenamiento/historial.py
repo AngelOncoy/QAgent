@@ -101,6 +101,9 @@ def construir_historial(ruta_proyecto: str | Path) -> dict[str, Any]:
 
 def _fila_corrida(almacen: AlmacenProyecto, run: dict[str, Any]) -> dict[str, Any]:
     carpeta = almacen.carpeta_run(run["run_id"])
+    arquitectura = _leer_json_opcional(carpeta / "architecture.json")
+    if arquitectura:
+        return _fila_arquitectura(run, arquitectura)
     results = _leer_json_opcional(carpeta / "results.json")
     log = _leer_json_opcional(carpeta / "log.json")
     resumen = results.get("resumen", {})
@@ -256,6 +259,63 @@ def _fila_corrida(almacen: AlmacenProyecto, run: dict[str, Any]) -> dict[str, An
         "no_procesados_por_detencion": no_procesados_val,
         "cobertura_lineas": resumen.get("cobertura_lineas_promedio"),
         "es_simulado": bool(results.get("es_simulado", False)),
+        "es_arquitectura": False,
+    }
+
+
+def _fila_arquitectura(
+    run: dict[str, Any], arquitectura: dict[str, Any]
+) -> dict[str, Any]:
+    """Resume una verificación arquitectónica sin fingir resultados Reviewer."""
+    reglas = arquitectura.get("reglas") or []
+    total = len(reglas)
+    cumplen = sum(r.get("estado") == "cumple" for r in reglas)
+    incumplen = sum(r.get("estado") == "incumple" for r in reglas)
+    sin_veredicto = sum(r.get("estado") == "sin_veredicto" for r in reglas)
+    no_ejecutadas = sum(r.get("estado") == "no_ejecutada" for r in reglas)
+    evaluadas = max(0, total - no_ejecutadas)
+    registros = run.get("specs", [])
+    estado = arquitectura.get("estado", "sin_veredicto")
+    return {
+        "run_id": run["run_id"],
+        "fecha": run.get("inicio"),
+        "inicio": run.get("inicio"),
+        "fin": run.get("fin"),
+        "duracion_s": _numero(arquitectura.get("duracion_s")),
+        "perfil": "arquitectura",
+        "perfil_nombre": "Arquitectura",
+        "estado": run["estado"],
+        "modelos": {},
+        "specs": registros,
+        "resumen_specs": {
+            accion: sum(1 for spec in registros if spec["estado"] == accion)
+            for accion in ("generado", "reutilizado", "regenerado")
+        },
+        "pass_rate": round(cumplen / evaluadas * 100.0, 1) if evaluadas else None,
+        "total_tokens": 0,
+        "tokens_planner": 0,
+        "costo_usd": 0.0,
+        "requieren_corrida_nueva": 0,
+        "posibles_bugs": incumplen,
+        "pasaron": cumplen,
+        "total_objetivos": total,
+        "total_seleccionados": total,
+        "contadores_disponibles": True,
+        "total_elegibles": evaluadas,
+        "total_procesados": evaluadas,
+        "total_pendientes": 0,
+        "tipo_terminacion": "arquitectura",
+        "terminacion_nombre": "Arquitectura",
+        "es_parcial": estado == "sin_veredicto",
+        "pruebas_ejecutadas": evaluadas,
+        "pruebas_aprobadas": cumplen,
+        "errores_tecnicos": sin_veredicto,
+        "objetivos_omitidos": no_ejecutadas,
+        "no_procesados_por_detencion": 0,
+        "cobertura_lineas": None,
+        "es_simulado": False,
+        "es_arquitectura": True,
+        "estado_arquitectura": estado,
     }
 
 

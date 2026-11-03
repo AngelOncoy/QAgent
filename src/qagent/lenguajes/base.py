@@ -21,9 +21,10 @@ from __future__ import annotations
 
 import os
 from abc import ABC, abstractmethod
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path, PurePosixPath
+from types import NotImplementedType
 from typing import Any, ClassVar, Protocol
 
 Estructura = dict[str, Any]
@@ -79,6 +80,16 @@ class ComandoSandbox:
     entorno: dict[str, str] = field(default_factory=dict)
 
 
+@dataclass(frozen=True)
+class PlanArquitectura:
+    """Traducción segura de una regla común para una herramienta del lenguaje."""
+
+    regla: dict[str, Any]
+    herramienta: str
+    comando: list[str]
+    archivos: dict[str, str]
+
+
 class ComparacionAserciones(Protocol):
     """Resultado mínimo de comparar las aserciones de dos versiones de un test.
 
@@ -99,10 +110,13 @@ class Clasificacion:
             (la respuesta del endpoint no cumple lo declarado), ``error_test`` (el
             test está mal) o ``fallo_asercion`` (una aserción legítima falló).
         detalle: texto para el feedback.
+        motivo_sin_veredicto: fallo técnico que impide juzgar el código; None
+            conserva las decisiones y los reintentos habituales.
     """
 
     tipo: str
     detalle: str
+    motivo_sin_veredicto: str | None = None
 
 
 class ReglasRevision(Protocol):
@@ -229,6 +243,12 @@ class LanguageAdapter(ABC):
     #: Si el adaptador implementa todo lo que necesita una corrida (#168). Los
     #: lenguajes en desarrollo solo detectan y la app avisa que aún no se soportan.
     completo: ClassVar[bool] = True
+    #: Permite calcular huellas estáticas aun cuando la generación no está completa.
+    huellas_disponibles: ClassVar[bool] = False
+    #: Nombre del motor que usa el adaptador, para los mensajes compartidos.
+    motor_mutacion: ClassVar[str] = "mutación"
+    #: Comprobación opcional de librerías del sistema propia del entorno Python.
+    comprobar_librerias_sistema: ClassVar[bool] = False
     extensiones: ClassVar[tuple[str, ...]]
     marcadores: ClassVar[tuple[str, ...]] = ()
     frameworks_pruebas: ClassVar[tuple[str, ...]]
@@ -262,6 +282,12 @@ class LanguageAdapter(ABC):
     def es_fuente(self, archivo: str) -> bool:
         """Si ``archivo`` es un archivo fuente de este lenguaje."""
         return archivo.lower().endswith(self.extensiones)
+
+    def archivos_fuente(self, raiz: str | os.PathLike[str]) -> list[str]:
+        """Rutas POSIX analizables para inspeccionar y abrir el proyecto sin ejecutarlo."""
+        from qagent.lenguajes.registro import listar_archivos
+
+        return [a for a in listar_archivos(raiz) if self.es_fuente(a)]
 
     # --- Análisis e información estructural ------------------------------------
 
@@ -302,6 +328,22 @@ class LanguageAdapter(ABC):
                         }
                     )
         return encontrados
+
+    def motivo_endpoint_no_planificable(self, endpoint: dict[str, Any]) -> str | None:
+        """Filtro estático opcional anterior al LLM; None conserva la planificación.
+
+        El adaptador puede explicar que falta una declaración verificable. El
+        Planner registra la omisión sin pedir a la IA que invente un resultado.
+        """
+        return None
+
+    def aplicacion_de_endpoint(self, endpoint: dict[str, Any], principal: str) -> str:
+        """Símbolo de aplicación por endpoint; por defecto usa el del módulo."""
+        return principal
+
+    def objetivo_de_cobertura(self, contrato: dict[str, Any]) -> str:
+        """Identidad del cuerpo probado: manejador de endpoint o función del contrato."""
+        return contrato.get("manejador") or contrato["objetivo"]
 
     # --- Puntos de extensión ----------------------------------------------------
 
@@ -345,6 +387,35 @@ class LanguageAdapter(ABC):
         """Variables de entorno extra del contenedor al correr las pruebas."""
         return {}
 
+    def preparador_sandbox(self) -> Callable[[Path, Path], None] | None:
+        """Preparación estática opcional sobre la copia y tests, antes del contenedor.
+
+        None conserva la ejecución actual. Nunca se ejecuta código del usuario
+        aquí; solo se disponen archivos y configuración del runner del lenguaje.
+        """
+        return None
+
+    def lector_informe_sandbox(self) -> Callable[[Path], str | None] | None:
+        """Lector opcional de informes del runner desde /out antes de la limpieza.
+
+        None utiliza el archivo indicado por entorno_sandbox().informe.
+        """
+        return None
+
+    def cobertura_de_objetivo(
+        self, cobertura: dict[str, Any] | None, modulo: str, objetivo: str
+    ) -> dict[str, float | None] | None | NotImplementedType:
+        """Contadores exactos del objetivo; NotImplemented usa el cálculo por líneas.
+
+        None significa que no hay medición del objetivo, sin sustituirla por
+        cobertura de otros métodos del archivo.
+        """
+        return NotImplemented
+
+    def clasificar_ejecucion(self, resultado: Any) -> Clasificacion | None:
+        """Clasifica informes y etapas del runner; None conserva las reglas actuales."""
+        return None
+
     @abstractmethod
     def entorno_sandbox(self) -> EntornoSandbox:
         """Imagen, herramientas y carpetas del sandbox para este lenguaje."""
@@ -386,10 +457,20 @@ class LanguageAdapter(ABC):
 
     @abstractmethod
     def archivo_de_prueba(self, objetivo: str) -> str:
-        """Nombre del archivo, sin carpetas, donde se escribe el test de ``objetivo``.
+        """Nombre o ruta relativa del test de ``objetivo`` dentro de su carpeta aislada.
 
         Es el valor de ``archivo`` en ``generated_test.v2``.
         """
+
+    def archivo_para_contrato(
+        self, contrato: dict[str, Any], ruta_proyecto: Path | None
+    ) -> str | None:
+        """Ruta calculada con contexto estático; None conserva el nombre predeterminado.
+
+        Permite respetar paquetes sin añadir reglas de un lenguaje al Generator.
+        Los adaptadores existentes conservan su comportamiento y sus contratos.
+        """
+        return None
 
     @abstractmethod
     def comando_mutacion(self, modulo: str, funciones: list[str]) -> ComandoSandbox:
@@ -397,6 +478,12 @@ class LanguageAdapter(ABC):
 
         La mutación corre únicamente sobre funciones ``critical: true``.
         """
+
+    def traducir_reglas_arquitectura(
+        self, reglas: list[dict[str, Any]], raiz: Path
+    ) -> list[PlanArquitectura]:
+        """Traduce reglas comunes sin ejecutarlas; los adaptadores optan al soporte."""
+        raise NoImplementado(self.lenguaje, "traducir_reglas_arquitectura")
 
     # --- Agentes y regresión (#168) ---------------------------------------------
     # No son abstractos para que un lenguaje en desarrollo pueda registrarse sin
@@ -419,6 +506,16 @@ class LanguageAdapter(ABC):
     def reglas_revision(self) -> ReglasRevision:
         """Sintaxis, oráculo y clasificación de la salida para el Reviewer."""
         raise NoImplementado(self.lenguaje, "reglas_revision")
+
+    def validar_oraculo(
+        self, contrato: dict[str, Any], codigo: str, ruta_proyecto: Path
+    ) -> str | None:
+        """Valida el oráculo con contexto opcional del proyecto, sin ejecutar código.
+
+        Por defecto conserva las reglas existentes. Un lenguaje puede contrastar
+        también su paquete, clase y dependencias con el análisis de la fuente.
+        """
+        return self.reglas_revision().validar_oraculo(contrato, codigo)
 
     def ejecutar_mutacion(self, *args: Any, **opciones: Any) -> Any:
         """Muta las funciones críticas en el sandbox (firma de ``sandbox.ejecutar_mutacion``).

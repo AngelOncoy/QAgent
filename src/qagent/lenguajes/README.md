@@ -14,10 +14,18 @@ concreto. Decisión completa en `docs/decisiones/ADR-007-adaptadores-por-lenguaj
 | `python_generacion.py` | Prompt del Generator: archivo pytest con el contexto del módulo (#168) | Completo |
 | `python_revision.py` | Sintaxis, oráculo y clasificación de la salida de pytest para el Reviewer (#168) | Completo |
 | `python_regresion.py` | Huellas de los objetivos y línea de cada función (#168) | Completo |
-| `javascript.py` | `JavaScriptAdapter`, `TypeScriptAdapter` | Solo detecta |
-| `java.py` | `JavaAdapter` | Detecta, analiza, valida sintaxis y lee JUnit XML (prototipo EN-19) |
+| `javascript.py` | `JavaScriptAdapter`, `TypeScriptAdapter`: `analizar()`, `objetivos()` y reglas del Planner | Analiza y planifica (#176); generación y ejecución con Vitest pendientes |
+| `javascript_estructura.py` | Funciones exportadas (ESM, CommonJS y métodos de clase), parámetros y tipos de TS, JSDoc desglosado y conteo de ramas (#176) | Completo |
+| `javascript_llamadas.py` | `llama_a`: llamadas al mismo módulo, a imports ESM y a `require` relativos (#176) | Completo |
+| `javascript_oraculo.py` | Registro de evidencias desde JSDoc y tipos, y `oracle.v1` de cada caso validado con `validar_oraculo_js_ts` (#176) | Completo |
+| `javascript_planificacion.py` | Prompt de Vitest y filtros del Planner con oráculo estricto (#176) | Completo |
+| `java.py` | `JavaAdapter` | Unitarias Maven/JUnit 5 y endpoints Spring MVC con MockMvc, guardrail y JaCoCo en sandbox (#181, #184, #182, #183); Gradle queda fuera. |
 
 ## Uso
+
+Spring (#183) añade detección estática, planificación, generación y ejecución de
+endpoints sobre la base Java. El alcance y sus límites están en
+[Controladores Spring y MockMvc](../../../docs/java/spring-mockmvc.md).
 
 ```python
 from qagent.lenguajes import adaptador_de_contrato, adaptador_para, detectar_lenguaje
@@ -55,6 +63,7 @@ contracts.normalizar_planner(contrato_v2)  # copia en v3 (python + pytest)
 | Operación | Qué devuelve | Notas |
 |---|---|---|
 | `detectar(archivos)` | `Deteccion` o `None` | Ya implementada con `extensiones` y `marcadores`. Se puede sobrescribir `es_fuente` (TypeScript ignora `.d.ts`). |
+| `archivos_fuente(raiz)` | rutas relativas POSIX | Apertura y conteo de fuentes sin ejecutar código. Python conserva sus exclusiones históricas; Java reutiliza la misma lista al analizar y excluye pruebas, generados y enlaces. |
 | `analizar(raiz)` | `{"lenguaje", "modulos", "errores", "resumen"}` | Misma forma que `qagent.analysis.analizar_proyecto`. **Estático.** |
 | `objetivos(estructura)` | `[{"modulo", "tipo", "objetivo"}]` | Ya implementada: recorre `funciones` y `endpoints`. |
 | `comando_pruebas(modulo, framework=None)` | `list[str]` | Usa `elegir_framework()` para validar el framework del contrato. |
@@ -63,8 +72,13 @@ contracts.normalizar_planner(contrato_v2)  # copia en v3 (python + pytest)
 | `validar_sintaxis(codigo)` | `list[str]` (vacía = válido) | Parsear, no ejecutar. |
 | `comparar_aserciones(original, reparado)` | objeto con `es_laundering` y `resumen` | Ver las 7 reglas de `qagent.analysis.laundering`. |
 | `leer_cobertura(dir_salida)` | `dict` en el formato JSON de coverage.py (`files`, `totals`) o `None` | Es el formato que lee el Reviewer. Cada lenguaje convierte el suyo (v8, JaCoCo) a este. |
-| `archivo_de_prueba(objetivo)` | nombre del archivo, sin carpetas | Valor de `archivo` en `generated_test.v2` (`test_generado.py`, `precios.test.ts`, `PreciosTest.java`). |
+| `cobertura_de_objetivo(cobertura, modulo, objetivo)` | porcentajes o `None`; `NotImplemented` usa rangos | Java selecciona contadores exactos JaCoCo, sin atribuir métricas de otro método. |
+| `clasificar_ejecucion(resultado)` | `Clasificacion` o `None` | Permite inspeccionar etapas y reportes antes de aceptar; motivo_sin_veredicto evita reintentar errores del proyecto. |
+| `archivo_de_prueba(objetivo)` | nombre o ruta relativa del archivo | Valor de `archivo` en `generated_test.v2`; Java admite `src/test/java/paquete/ClaseTest.java` (#184). Python y JS/TS conservan nombres sin carpetas. |
+| `archivo_para_contrato(contrato, ruta_proyecto)` | ruta o `None` | Java obtiene el paquete del AST de la fuente. `None` conserva el nombre predeterminado de los adaptadores existentes. |
+| `validar_oraculo(contrato, codigo, ruta_proyecto)` | motivo de rechazo o `None` | Por defecto delega a las reglas existentes. Java contrasta también paquete, clase e imports y limita Mockito a dependencias del constructor (#184). |
 | `comando_mutacion(modulo, funciones)` | `ComandoSandbox` (comando y variables de entorno) | Solo sobre funciones `critical: true`: mutmut, Stryker o PIT. |
+| `traducir_reglas_arquitectura(reglas, raiz)` | lista de `PlanArquitectura` | #185: configuración y comando fijo de import-linter, dependency-cruiser o ArchUnit. Las reglas son datos validados, nunca fragmentos de shell. |
 
 ### Lo que usan los agentes (#168)
 
@@ -95,6 +109,8 @@ Al completar un tipo, se pasa de `tipos_prueba_previstos` a `tipos_prueba`.
 | `modulo_cobertura(modulo)` · `variables_pruebas()` | lo que recibe `comando_pruebas` · variables del contenedor | Por defecto, la misma ruta y ninguna variable. |
 | `huellas_de_archivo(fuente, ruta)` · `funciones_de_modulo(raiz, modulo)` | `objetivo -> huella` · `[{"nombre", "linea"}]` | Reutilización de specs (HU-24), regresión (HU-25) y mutación de `reg_deep`. |
 | `ejecutar_mutacion(...)` | `ResultadoMutacion` | Misma firma que `qagent.sandbox.ejecutar_mutacion`. |
+| `preparador_sandbox()` | callback `(copia, tests)` o None | Preparación estática en la copia antes de crear el contenedor (#182). No ejecuta código del usuario. |
+| `lector_informe_sandbox()` | callback `(salida) -> XML` o None | Recoge/agrega informes antes de limpiar /out; None conserva el lector habitual (#182). |
 
 ## Cómo implementar un lenguaje
 
@@ -138,8 +154,9 @@ sin errores. Se excluyen `src/test`, las carpetas ignoradas por el registro
 (`testsuite`) o varias suites planas (`testsuites`) reutilizando el lector común
 de EN-17. Recibe contenido, no una ruta. Devuelve `total`, `pasaron`, `fallaron`,
 `errores`, `omitidos`, `duracion_s`, `inicio` y `casos`. Conserva mensajes y
-trazas Java, pero no extrae todavía sus marcos de pila ni el tipo de excepción
-del atributo XML `type`; tampoco deduce valores esperados desde mensajes.
+trazas Java, marcos de pila y el tipo de error del atributo XML `type`. El lector
+actual extrae esperado/obtenido de diagnósticos JUnit y MockMvc explícitos, solo
+para informar del resultado; nunca los utiliza como oráculo para planificar.
 Un fallo de aserción sigue siendo fallo y un error técnico sigue siendo error.
 Las detecciones controladas del banco aparecen como éxitos porque así las
 registró JUnit, no porque el lector haya reclasificado un fallo.
@@ -150,13 +167,13 @@ de tamaño excesivo, con entidades, con raíz ajena a JUnit o suites anidadas.
 La fixture `tests/fixtures/java/junit5-banco.xml` preserva suites y casos de la
 ejecución local del banco; no requiere Maven para verificar su interpretación.
 
-Limitaciones de esta etapa: no ofrece objetivos de métodos no públicos,
-clases locales o anónimas, cobertura ni endpoints Spring.
+Limitaciones que se conservan: no ofrece objetivos de métodos no públicos ni
+clases locales o anónimas. #182 añadió cobertura JaCoCo y #183 endpoints Spring.
 Las sobrecargas públicas de una misma clase se rechazan porque `Clase.metodo`
 todavía no distingue sus firmas. `validar_sintaxis` no reemplaza `javac`:
 un árbol válido no demuestra que los tipos o dependencias sean correctos.
-Los puntos de ejecución y seguridad no implementados siguen lanzando
-`NoImplementado`; el prototipo no habilita el pipeline Java de la aplicación.
+La ejecución Maven/JUnit/JaCoCo usa el pipeline compartido de la aplicación;
+los límites de Spring se documentan por separado y no habilitan Gradle.
 
 `reglas_planificacion()` conecta el Planner común con los prompts y filtros Java.
 Los casos se basan en Javadoc funcional; los tipos filtran incompatibilidades y
@@ -167,6 +184,12 @@ el mapa de llamadas, las exclusiones, las reglas y la validación con IA simulad
 La [propuesta del sandbox Java](../../../docs/java/sandbox-propuesto.md) registra
 versiones, tiempos locales, recursos propuestos y validaciones todavía no
 realizadas para ejecutar JUnit en Docker sin red (EN-19).
+
+La [mutación PIT de métodos críticos](../../../docs/java/mutacion-pit.md) (#180)
+añade ejecución acotada en Docker, lectura de XML, huellas y conexión con la caché
+y los informes comunes. `huellas_disponibles` permite obtener huellas aunque
+`completo` siga siendo falso en un adaptador en desarrollo. Java ya declara
+`completo = True` desde #182. `motor_mutacion` identifica el ejecutor en los mensajes compartidos.
 
 Antes de cerrar EN-17 conviene revisar juntos:
 

@@ -66,6 +66,14 @@ def validar_comparacion(dato: dict[str, Any]) -> dict[str, Any]:
                 f"{prefijo}/estado_posterior/referencia_resultado: no apunta al resultado de verificación"
             )
         if comparacion["resultado"] != "no_comparable":
+            if prueba["huella_origen"] is None:
+                errores.append(
+                    f"{prefijo}/prueba/huella_origen: es obligatoria para una comparación concluyente"
+                )
+            if comparacion["firma_origen"] is None:
+                errores.append(
+                    f"{prefijo}/firma_origen: es obligatoria para una comparación concluyente"
+                )
             if prueba["huella_verificacion"] != prueba["huella_origen"]:
                 errores.append(
                     f"{prefijo}/prueba: una comparación concluyente exige la misma prueba"
