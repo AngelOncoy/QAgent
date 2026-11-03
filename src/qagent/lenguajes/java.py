@@ -27,6 +27,7 @@ from qagent.lenguajes.base import (
     ComparacionAserciones,
     EntornoSandbox,
     Estructura,
+    PlanArquitectura,
     ReglasPlanificacion,
     ReglasRevision,
 )
@@ -44,7 +45,7 @@ if TYPE_CHECKING:
     from qagent.sandbox.mutacion import ResultadoMutacion
 
 #: Herramientas que trae ``qagent-sandbox:java`` (``sandbox/Dockerfile.java``).
-PAQUETES_JAVA = ("maven", "gradle", "junit-jupiter", "jacoco", "pitest")
+PAQUETES_JAVA = ("maven", "gradle", "junit-jupiter", "jacoco", "pitest", "archunit")
 
 
 def _texto(nodo: Node | None) -> str | None:
@@ -473,6 +474,14 @@ class JavaAdapter(AdaptadorEnDesarrollo):
             dir_salida=DIR_SALIDA,
             informe=ARCHIVO_JUNIT,
         )
+
+    def traducir_reglas_arquitectura(
+        self, reglas: list[dict[str, Any]], raiz: Path
+    ) -> list[PlanArquitectura]:
+        """Traduce reglas comunes a un verificador ArchUnit aislado."""
+        from qagent.arquitectura.traduccion import traducir_java
+
+        return traducir_java(reglas, raiz)
 
     def interpretar_resultados(self, informe: str) -> dict[str, Any]:
         """Convierte el contenido XML de Surefire/JUnit en resultados comunes.

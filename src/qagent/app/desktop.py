@@ -536,6 +536,49 @@ class DesktopAPI:
 
         return {"ok": True, **construir_historial(ruta)}
 
+    def obtener_reglas_arquitectura(self, ruta: str) -> dict:
+        """Reglas vigentes: la universal y las declaradas en `.qagent`."""
+        try:
+            return {
+                "ok": True,
+                **AlmacenProyecto(ruta).leer_reglas_arquitectura(),
+            }
+        except (OSError, ValueError) as error:
+            return {"ok": False, "motivo": str(error)}
+
+    def guardar_reglas_arquitectura(self, ruta: str, documento: dict) -> dict:
+        """Valida y persiste reglas declaradas; nunca acepta comandos ejecutables."""
+        try:
+            guardado = AlmacenProyecto(ruta).guardar_reglas_arquitectura(documento)
+            return {"ok": True, **guardado}
+        except (OSError, ValueError) as error:
+            return {"ok": False, "motivo": str(error)}
+
+    def verificar_arquitectura(self, ruta: str) -> dict:
+        """Ejecuta la comprobación determinista en Docker y devuelve su Run ID."""
+        from qagent.arquitectura.ejecucion import verificar_arquitectura
+        from qagent.config import cargar_configuracion
+        from qagent.lenguajes import REGISTRO
+
+        try:
+            lenguaje = REGISTRO.lenguaje_principal(ruta)
+            carga = cargar_configuracion()
+            limites = carga.config.limites_sandbox(lenguaje) if carga.config else None
+            return {"ok": True, **verificar_arquitectura(ruta, limites=limites)}
+        except (OSError, ValueError) as error:
+            return {"ok": False, "motivo": str(error)}
+
+    def exportar_informe_arquitectura(
+        self, ruta: str, run_id: str, formato: str = "pdf", destino: str | None = None
+    ) -> dict:
+        """Exporta una corrida arquitectónica como JSON, MD, HTML o PDF."""
+        from qagent.arquitectura.informe import exportar
+
+        try:
+            return exportar(ruta, run_id, formato, destino)
+        except (OSError, ValueError) as error:
+            return {"ok": False, "motivo": str(error)}
+
     def tiene_pruebas_aprobadas(self, ruta: str) -> bool:
         """Habilita Regresion solo si hay pruebas aprobadas persistidas."""
         return AlmacenProyecto(ruta).tiene_pruebas_aprobadas()

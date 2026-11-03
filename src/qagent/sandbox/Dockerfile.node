@@ -29,7 +29,8 @@ RUN mkdir -p /opt/qagent \
         @vitest/coverage-v8@5.0.5 \
         @stryker-mutator/core@10.1.1 \
         @stryker-mutator/vitest-runner@10.1.1 \
-        typescript@7.0.2 \
+        dependency-cruiser@18.6.0 \
+        typescript@6.0.3 \
     && npm cache clean --force \
     && ln -s /opt/qagent/node_modules /node_modules
 

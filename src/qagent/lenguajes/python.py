@@ -24,6 +24,7 @@ from qagent.lenguajes.base import (
     EntornoSandbox,
     Estructura,
     LanguageAdapter,
+    PlanArquitectura,
 )
 from qagent.lenguajes.python_planificacion import (
     REGLAS_PLANIFICACION_PYTHON,
@@ -86,6 +87,14 @@ class PythonAdapter(LanguageAdapter):
             dir_salida=DIR_SALIDA,
             informe=ARCHIVO_JUNIT,
         )
+
+    def traducir_reglas_arquitectura(
+        self, reglas: list[dict[str, Any]], raiz: Path
+    ) -> list[PlanArquitectura]:
+        """Traduce a contratos INI de import-linter 2.15."""
+        from qagent.arquitectura.traduccion import traducir_python
+
+        return traducir_python(reglas, raiz)
 
     def interpretar_resultados(self, informe: str) -> dict[str, Any]:
         """Lee el ``junit.xml`` de pytest.

@@ -80,6 +80,16 @@ class ComandoSandbox:
     entorno: dict[str, str] = field(default_factory=dict)
 
 
+@dataclass(frozen=True)
+class PlanArquitectura:
+    """Traducción segura de una regla común para una herramienta del lenguaje."""
+
+    regla: dict[str, Any]
+    herramienta: str
+    comando: list[str]
+    archivos: dict[str, str]
+
+
 class ComparacionAserciones(Protocol):
     """Resultado mínimo de comparar las aserciones de dos versiones de un test.
 
@@ -455,6 +465,12 @@ class LanguageAdapter(ABC):
 
         La mutación corre únicamente sobre funciones ``critical: true``.
         """
+
+    def traducir_reglas_arquitectura(
+        self, reglas: list[dict[str, Any]], raiz: Path
+    ) -> list[PlanArquitectura]:
+        """Traduce reglas comunes sin ejecutarlas; los adaptadores optan al soporte."""
+        raise NoImplementado(self.lenguaje, "traducir_reglas_arquitectura")
 
     # --- Agentes y regresión (#168) ---------------------------------------------
     # No son abstractos para que un lenguaje en desarrollo pueda registrarse sin

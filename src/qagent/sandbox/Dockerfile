@@ -14,6 +14,7 @@ RUN pip install \
         pytest-cov==7.1.0 \
         coverage==7.16.2 \
         mutmut==3.8.0 \
+        import-linter==2.15 \
         httpx==0.28.1
 
 RUN useradd --create-home --uid 1000 sandbox \
