@@ -182,3 +182,19 @@ def test_sin_repositorio_o_head_invalido_no_hay_rama(
 
     assert resultado["ok"] is True
     assert resultado["rama"] is None
+
+
+def test_proyecto_javascript_se_abre_solo_para_humo_e2e(tmp_path: Path) -> None:
+    _crear(tmp_path, "package.json", '{"scripts":{"start":"node server.js"}}')
+    _crear(
+        tmp_path,
+        "server.js",
+        "const app = express(); app.get('/', (_q, r) => r.send('ok'));\n",
+    )
+
+    resultado = inspeccionar_carpeta(str(tmp_path))
+
+    assert resultado["ok"] is True
+    assert resultado["lenguaje"] == "javascript"
+    assert resultado["cantidad_fuentes"] == 1
+    assert resultado["solo_e2e"] is True

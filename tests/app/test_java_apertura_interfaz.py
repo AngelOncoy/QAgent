@@ -8,7 +8,7 @@ from pathlib import Path
 import pytest
 
 from qagent.app import desktop
-from qagent.lenguajes import JavaAdapter
+from qagent.lenguajes import JavaAdapter, LenguajeNoSoportado, adaptador_del_proyecto
 from qagent.proyectos.proyecto_local import inspeccionar_carpeta
 from qagent.proyectos.seleccion import filtrar_modulos
 
@@ -121,17 +121,19 @@ def test_java_con_sintaxis_invalida_se_muestra_como_error(
 @pytest.mark.parametrize(
     "extension,lenguaje", [("js", "JavaScript"), ("ts", "TypeScript")]
 )
-def test_lenguaje_incompleto_da_motivo_correcto(
+def test_lenguaje_incompleto_se_abre_solo_para_e2e(
     tmp_path: Path, api: desktop.DesktopAPI, extension: str, lenguaje: str
 ) -> None:
-    """La apertura no promete ejecutar un adaptador que sigue en desarrollo."""
+    """JS/TS acceden a E2E sin prometer la corrida de agentes incompleta."""
     (tmp_path / f"main.{extension}").write_text(
         "export function f() { return 1; }", encoding="utf-8"
     )
     inspeccion = api.inspeccionar_carpeta(str(tmp_path))
-    assert inspeccion["ok"] is False
-    assert lenguaje in inspeccion["error"]
-    assert "desarrollo" in inspeccion["error"]
+    assert inspeccion["ok"] is True
+    assert inspeccion["nombre_lenguaje"] == lenguaje
+    assert inspeccion["solo_e2e"] is True
     vista = api.obtener_vista_previa(str(tmp_path))
-    assert vista["ok"] is False
-    assert vista["error"] == inspeccion["error"]
+    assert vista["ok"] is True
+    assert vista["solo_e2e"] is True
+    with pytest.raises(LenguajeNoSoportado):
+        adaptador_del_proyecto(tmp_path)
