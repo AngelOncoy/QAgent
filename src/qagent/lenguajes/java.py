@@ -248,6 +248,8 @@ class JavaAdapter(AdaptadorEnDesarrollo):
     marcadores = ("pom.xml", "build.gradle", "build.gradle.kts")
     frameworks_pruebas = ("junit5",)
     frameworks_app = ("spring",)
+    # JUnit 5 (#184), Spring MVC con MockMvc (#183) y mutación con PIT (#180).
+    tipos_prueba = ("funcion", "endpoint", "mutacion")
     huellas_disponibles = True
     motor_mutacion = "PIT"
 

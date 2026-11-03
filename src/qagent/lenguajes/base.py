@@ -222,6 +222,11 @@ class LanguageAdapter(ABC):
             predeterminado. Deben estar en ``contracts.FRAMEWORKS_PRUEBAS``.
         frameworks_app: frameworks web cuyos endpoints se prueban
             (``contracts.FRAMEWORKS_APP``).
+        tipos_prueba: tipos de prueba que el adaptador ya ejecuta de punta a punta
+            (``contracts.TIPOS_PRUEBA_RECOMENDABLES``). Solo estos los recomienda el
+            Recomendador (#197, ADR-011); un adaptador no ``completo`` no declara ninguno.
+        tipos_prueba_previstos: tipos aprobados para el lenguaje que aún no funcionan;
+            la Vista previa los muestra como «próximamente».
 
     Operaciones:
         * Detección: :meth:`detectar`.
@@ -250,6 +255,8 @@ class LanguageAdapter(ABC):
     marcadores: ClassVar[tuple[str, ...]] = ()
     frameworks_pruebas: ClassVar[tuple[str, ...]]
     frameworks_app: ClassVar[tuple[str, ...]] = ()
+    tipos_prueba: ClassVar[tuple[str, ...]] = ()
+    tipos_prueba_previstos: ClassVar[tuple[str, ...]] = ()
 
     @property
     def nombre_visible(self) -> str:
