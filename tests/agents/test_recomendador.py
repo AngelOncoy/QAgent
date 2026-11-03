@@ -7,7 +7,8 @@ Criterios de aceptación:
    como «próximamente».
 3. (Interfaz: ver ``tests/frontend/test_issue197_recomendacion.py``.)
 4. No usa ningún LLM (0 tokens).
-5. Proyectos de ejemplo: solo funciones, solo FastAPI, mixto y sin nada que probar.
+5. Proyectos de ejemplo: solo funciones, solo FastAPI, mixto y sin nada que probar
+   (y, desde que Java está completo, un proyecto Maven con Spring).
 """
 
 from __future__ import annotations
@@ -82,7 +83,7 @@ def test_solo_funciones_recomienda_unitarias_y_mutacion(tmp_path: Path) -> None:
 
     assert _tipos(vista) == ["funcion", "mutacion"]
     motivos = [r["motivo"] for r in vista["recomendacion"]["recomendaciones"]]
-    assert "Las 2 funciones públicas tienen tipos y docstring" in motivos[0]
+    assert "Las 2 funciones públicas tienen tipos y documentación" in motivos[0]
     assert "1 objetivo con decisiones" in motivos[1]
     assert vista["proximamente"] == []
 
@@ -92,7 +93,8 @@ def test_solo_fastapi_recomienda_endpoints(tmp_path: Path) -> None:
 
     assert _tipos(vista) == ["endpoint"]
     motivo = vista["recomendacion"]["recomendaciones"][0]["motivo"]
-    assert "2 endpoints FastAPI" in motivo
+    assert "2 endpoints con ruta resuelta" in motivo
+    assert "FastAPI" not in motivo  # los motivos no nombran frameworks (ADR-007)
     assert "GET /items/{item_id}" in motivo
 
 
@@ -145,7 +147,7 @@ def test_funciones_sin_documentar_avisan_oraculo_debil(tmp_path: Path) -> None:
 
     assert _tipos(vista) == ["funcion"]
     assert (
-        "ninguna tiene tipos y docstring"
+        "ninguna tiene tipos y documentación"
         in (vista["recomendacion"]["recomendaciones"][0]["motivo"])
     )
 
@@ -187,27 +189,92 @@ def test_la_proyeccion_no_lleva_codigo_ni_rutas_de_archivos(tmp_path: Path) -> N
 # --- Capacidades del adaptador (criterio 2) -----------------------------------------
 
 
-def test_lenguaje_en_desarrollo_aparece_como_proximamente(tmp_path: Path) -> None:
+CALC_JAVA = """package demo;
+
+public class Calc {
+    /** Devuelve el mayor de dos enteros. */
+    public int mayor(int a, int b) {
+        if (a > b) {
+            return a;
+        }
+        return b;
+    }
+}
+"""
+
+API_SPRING = """package demo;
+
+import org.springframework.web.bind.annotation.*;
+
+@RestController
+@RequestMapping("/api")
+public class Api {
+    /** Saluda. */
+    @GetMapping("/hola")
+    public String hola() { return "hola"; }
+}
+"""
+
+POM = "<project><modelVersion>4.0.0</modelVersion></project>\n"
+
+
+def test_proyecto_java_con_spring_recomienda_los_tres_tipos(tmp_path: Path) -> None:
     raiz = _crear(
         tmp_path,
-        {"calc.py": FUNCIONES, "src/App.java": "class App {}\n", "web/a.ts": "x;"},
+        {
+            "pom.xml": POM,
+            "src/main/java/demo/Calc.java": CALC_JAVA,
+            "src/main/java/demo/Api.java": API_SPRING,
+        },
     )
     vista = generar_vista_previa(raiz)
 
+    assert vista["lenguaje"] == "java"
+    assert _tipos(vista) == ["endpoint", "funcion", "mutacion"]
+    assert "GET /api/hola" in vista["recomendacion"]["recomendaciones"][0]["motivo"]
+    assert vista["proximamente"] == []
+
+
+def test_lenguaje_en_desarrollo_aparece_como_proximamente(tmp_path: Path) -> None:
+    raiz = _crear(tmp_path, {"calc.py": FUNCIONES, "web/a.ts": "x;"})
+    vista = generar_vista_previa(raiz)
+
     assert _tipos(vista) == ["funcion", "mutacion"]
-    nombres = {p["nombre"]: p for p in vista["proximamente"]}
-    assert set(nombres) == {"Java", "TypeScript"}
-    assert nombres["Java"]["tipos_prueba"] == ["funcion", "mutacion"]
-    assert "Se detectó 1 archivo de Java" in nombres["Java"]["motivo"]
+    assert [p["nombre"] for p in vista["proximamente"]] == ["TypeScript"]
+    assert vista["proximamente"][0]["tipos_prueba"] == ["funcion", "mutacion"]
+    assert "Se detectó 1 archivo de TypeScript" in vista["proximamente"][0]["motivo"]
+
+
+def test_proyecto_solo_en_lenguaje_en_desarrollo(tmp_path: Path) -> None:
+    vista = generar_vista_previa(_crear(tmp_path, {"web/a.ts": "export const x = 1;"}))
+
+    assert vista["ok"] is False
+    assert vista["recomendacion"]["recomendaciones"] == []
+    assert [p["lenguaje"] for p in vista["proximamente"]] == ["typescript"]
+
+
+def test_solo_cuenta_el_lenguaje_analizado() -> None:
+    # Proyecto Python con algo de Java: los objetivos son de Python, así que Java
+    # (aunque esté completo) no aporta tipos ni aparece como «próximamente».
+    vista = {
+        "lenguaje": "python",
+        "modulos": [{"funciones": [{"nombre": "f", "ramas": 0}]}],
+    }
+    proyeccion = proyectar(vista, REGISTRO.detectar_en(["a.py", "b.py", "C.java"]))
+    por_lenguaje = {x["lenguaje"]: x for x in proyeccion["lenguajes"]}
+
+    assert por_lenguaje["python"]["analizado"] is True
+    assert por_lenguaje["java"]["tipos_prueba_soportados"] == []
+    assert proximamente(proyeccion) == []
 
 
 def test_sin_adaptador_completo_no_recomienda_nada() -> None:
     vista = {"modulos": [{"funciones": [{"nombre": "f", "ramas": 1}]}]}
-    proyeccion = proyectar(vista, REGISTRO.detectar_en(["src/App.java"]))
+    proyeccion = proyectar(vista, REGISTRO.detectar_en(["web/a.ts"]))
 
     assert proyeccion["lenguajes"][0]["tipos_prueba_soportados"] == []
     assert recomendar(proyeccion)["recomendaciones"] == []
-    assert [p["lenguaje"] for p in proximamente(proyeccion)] == ["java"]
+    assert [p["lenguaje"] for p in proximamente(proyeccion)] == ["typescript"]
 
 
 def test_solo_recomienda_lo_que_declara_el_adaptador(tmp_path: Path) -> None:

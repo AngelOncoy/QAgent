@@ -8,9 +8,11 @@ Reglas que no se rompen (ADR-008 y ADR-011):
 
 * Es determinista y no usa ningún LLM (0 tokens). Si más adelante se agrega un modo
   con IA (#200), estas reglas siguen siendo la autoridad y el respaldo.
-* Solo recomienda lo que el adaptador de un lenguaje detectado declara en
-  ``tipos_prueba`` y que además tiene objetivos en el proyecto. Lo que un lenguaje
-  aún no ejecuta va aparte, como «próximamente».
+* Solo recomienda lo que declara en ``tipos_prueba`` el adaptador con el que se
+  analizó el proyecto (el de la Vista previa) y que además tiene objetivos. Lo que
+  un lenguaje detectado aún no ejecuta va aparte, como «próximamente».
+* Los motivos no nombran frameworks: lo propio de cada lenguaje vive en su
+  adaptador (ADR-007).
 * Informa y nada más: no inicia corridas, no cambia la selección del usuario y no
   entra en la máquina de estados del orquestador.
 * Trabaja sobre una proyección hecha por lista permitida (cantidades, rutas HTTP y
@@ -72,24 +74,31 @@ def proyectar(
     capacidades, cantidades de objetivos, algunas rutas HTTP y cuántos objetivos
     se proponen como críticos. No copia código, docstrings ni rutas de archivos.
 
+    Los objetivos de la vista salen de un solo adaptador (``vista["lenguaje"]``):
+    solo ese lenguaje aporta tipos soportados. Si la vista no lo indica, cuentan
+    todos los adaptadores completos detectados.
+
     Args:
         vista: resultado de ``generar_vista_previa`` (módulos con funciones y
             endpoints, ya anotados con ``critica_propuesta``).
         detecciones: lenguajes del proyecto (``Registro.detectar``).
         registro: registro de adaptadores que declara las capacidades.
     """
+    analizado = vista.get("lenguaje")
     lenguajes = []
     for deteccion in detecciones:
         if not deteccion.archivos:
             continue
         adaptador = registro.adaptador_para(deteccion.lenguaje)
+        aporta = adaptador.completo and analizado in (None, adaptador.lenguaje)
         lenguajes.append(
             {
                 "lenguaje": adaptador.lenguaje,
                 "nombre": adaptador.nombre_visible,
                 "archivos": deteccion.archivos,
+                "analizado": adaptador.lenguaje == analizado,
                 "tipos_prueba_soportados": list(adaptador.tipos_prueba)
-                if adaptador.completo
+                if aporta
                 else [],
                 "tipos_prueba_previstos": list(adaptador.tipos_prueba_previstos),
             }
@@ -128,7 +137,7 @@ def proyectar(
 
 
 def tipos_soportados(proyeccion: Proyeccion) -> set[str]:
-    """Unión de los tipos operativos que declaran los adaptadores detectados."""
+    """Tipos operativos del adaptador analizado (o de los completos detectados)."""
     return {
         tipo
         for lenguaje in proyeccion.get("lenguajes", [])
@@ -153,13 +162,12 @@ def _motivo_endpoint(endpoints: dict[str, Any]) -> str:
     n = endpoints["cantidad"]
     ejemplos = ", ".join(endpoints["rutas_http"])
     encontrados = (
-        f"Se encontró 1 endpoint FastAPI con ruta resuelta ({ejemplos})"
+        f"Se encontró 1 endpoint con ruta resuelta ({ejemplos})"
         if n == 1
-        else f"Se encontraron {n} endpoints FastAPI con ruta resuelta "
-        f"(por ejemplo, {ejemplos})"
+        else f"Se encontraron {n} endpoints con ruta resuelta (por ejemplo, {ejemplos})"
     )
     motivo = (
-        f"{encontrados}. Se prueban con TestClient, sin red y comparando contra lo "
+        f"{encontrados}. Se prueban en el sandbox, sin red y comparando contra lo "
         "que declara cada ruta."
     )
     if endpoints["sin_resolver"]:
@@ -178,26 +186,29 @@ def _motivo_funcion(funciones: dict[str, Any]) -> str:
             if total == 1
             else f"Las {total} funciones públicas tienen"
         )
-        return f"{todas} tipos y docstring: hay de dónde sacar los valores esperados."
+        return (
+            f"{todas} tipos y documentación: hay de dónde sacar los valores esperados."
+        )
 
     if documentadas:
         return (
             f"{documentadas} de {_plural(total, 'función pública', 'funciones públicas')} "
-            "tienen tipos y docstring. Las demás tendrán un oráculo débil hasta que "
-            "se documenten."
+            "tienen tipos y documentación. Las demás tendrán un oráculo débil hasta "
+            "que se documenten."
         )
     return (
         f"Hay {_plural(total, 'función pública', 'funciones públicas')}, pero ninguna "
-        "tiene tipos y docstring: los valores esperados serán débiles. Documentarlas "
-        "mejora las pruebas."
+        "tiene tipos y documentación: los valores esperados serán débiles. "
+        "Documentarlas mejora las pruebas."
     )
 
 
 def _motivo_mutacion(criticos: int) -> str:
     propuestos = (
-        "1 objetivo con decisiones (if, try) se propone como crítico"
+        "1 objetivo con decisiones (condiciones o excepciones) se propone como crítico"
         if criticos == 1
-        else f"{criticos} objetivos con decisiones (if, try) se proponen como críticos"
+        else f"{criticos} objetivos con decisiones (condiciones o excepciones) se "
+        "proponen como críticos"
     )
     return (
         f"{propuestos}. La mutación comprueba si sus pruebas detectan errores; va al "
