@@ -279,6 +279,10 @@ function abrirCorridaSeleccionada(){
   if(historialDatos && historialDatos.demo) { go('exec'); return; }
   // issue 139: una corrida interrumpida (o sin results.json) no tiene resultados que abrir.
   const fila = ((historialDatos && historialDatos.corridas) || []).find(h => h.run_id === histSel);
+  if (fila && fila.es_arquitectura && typeof abrirResultadoArquitectura === 'function') {
+    abrirResultadoArquitectura(histSel);
+    return;
+  }
   if (fila && !tieneResultados(fila)) {
     toast(fila.tipo_terminacion === 'interrumpida'
       ? 'Esta corrida se interrumpió antes de terminar: no dejó resultados que abrir.'

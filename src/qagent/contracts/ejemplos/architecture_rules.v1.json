@@ -1,0 +1,21 @@
+{
+  "version": "1",
+  "reglas": [
+    {
+      "id": "universal-sin-ciclos",
+      "tipo": "ciclos_importacion",
+      "nombre": "No deben existir ciclos de importación",
+      "origen": "universal",
+      "confirmada": true
+    },
+    {
+      "id": "capas-001",
+      "tipo": "dependencia_prohibida",
+      "nombre": "Dominio no debe depender de interfaz",
+      "origen": "usuario",
+      "confirmada": true,
+      "desde": "dominio",
+      "hacia": "interfaz"
+    }
+  ]
+}

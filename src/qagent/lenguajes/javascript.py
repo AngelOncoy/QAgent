@@ -21,6 +21,7 @@ from qagent.lenguajes.base import (
     AdaptadorEnDesarrollo,
     EntornoSandbox,
     Estructura,
+    PlanArquitectura,
     ReglasPlanificacion,
 )
 from qagent.lenguajes.javascript_estructura import extraer_funciones, gramatica_de
@@ -43,6 +44,7 @@ PAQUETES_NODE = (
     "@stryker-mutator/core",
     "@stryker-mutator/vitest-runner",
     "typescript",
+    "dependency-cruiser",
 )
 
 
@@ -189,6 +191,13 @@ class JavaScriptAdapter(_AdaptadorNode):
         """
         return validar_sintaxis_js(codigo)
 
+    def traducir_reglas_arquitectura(
+        self, reglas: list[dict[str, Any]], raiz: Path
+    ) -> list[PlanArquitectura]:
+        from qagent.arquitectura.traduccion import traducir_node
+
+        return traducir_node(reglas, raiz, self.lenguaje)
+
 
 class TypeScriptAdapter(_AdaptadorNode):
     """TypeScript con Jest o Vitest; endpoints Express."""
@@ -211,3 +220,10 @@ class TypeScriptAdapter(_AdaptadorNode):
         con su número de línea si encuentra nodos ERROR o MISSING.
         """
         return validar_sintaxis_ts(codigo)
+
+    def traducir_reglas_arquitectura(
+        self, reglas: list[dict[str, Any]], raiz: Path
+    ) -> list[PlanArquitectura]:
+        from qagent.arquitectura.traduccion import traducir_node
+
+        return traducir_node(reglas, raiz, self.lenguaje)
