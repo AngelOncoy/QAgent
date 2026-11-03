@@ -13,7 +13,7 @@ Tres agentes coordinados por un orquestador (metodología GAIA), comunicados **s
 2. **Generator:** escribe el test pytest de una función a partir del contrato.
 3. **Reviewer/Executor:** ejecuta el test en un sandbox Docker, detecta Assertion Laundering y decide si reintentar (máx. 3).
 
-El orquestador es determinista, sin LLM (ADR-008). En el Sprint 2 se propone un cuarto agente, el **Explicador**, que explica en lenguaje simple los hallazgos después del veredicto, sin cambiar resultados (ADR-008).
+El orquestador es determinista, sin LLM (ADR-008). Un cuarto agente, el **Explicador** (EP-10), explica en lenguaje simple los hallazgos después del veredicto, sin cambiar resultados (ADR-008). Su API es obligatoria como la de los otros tres; redacta con un LLM y usa la plantilla sin IA como respaldo.
 
 Aplicación de escritorio local (pywebview + backend Python + Docker). No hay servidor propio ni API REST.
 
