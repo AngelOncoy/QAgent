@@ -70,7 +70,8 @@ def test_modo_ia_explica_con_la_ia_y_registra_al_explicador(proyecto, config_ia)
 
 
 def test_modo_ia_no_cambia_los_veredictos(proyecto, config, config_ia):
-    _, con_plantilla = correr(proyecto, config)
+    plantilla = dataclasses.replace(config, explicador=Explicador(modo="plantilla"))
+    _, con_plantilla = correr(proyecto, plantilla)
     _, con_ia = correr(proyecto, config_ia)
 
     def veredictos(carpeta):
