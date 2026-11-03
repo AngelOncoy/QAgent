@@ -33,6 +33,8 @@ RUN_COMPARISON_V1 = "run_comparison.v1"
 RECOMMENDATION_V1 = "recommendation.v1"
 ARCHITECTURE_RULES_V1 = "architecture_rules.v1"
 ARCHITECTURE_RESULT_V1 = "architecture_result.v1"
+E2E_ROUTES_V1 = "e2e_routes.v1"
+E2E_RESULT_V1 = "e2e_result.v1"
 CONTRATOS = (
     PLANNER,
     GENERATED_TEST,
@@ -49,6 +51,8 @@ CONTRATOS = (
     RECOMMENDATION_V1,
     ARCHITECTURE_RULES_V1,
     ARCHITECTURE_RESULT_V1,
+    E2E_ROUTES_V1,
+    E2E_RESULT_V1,
 )
 
 #: Familias de contratos versionados: valor del campo `version` -> contrato.
@@ -61,6 +65,8 @@ FAMILIA_RUN_COMPARISON = "run_comparison"
 FAMILIA_RECOMMENDATION = "recommendation"
 FAMILIA_ARCHITECTURE_RULES = "architecture_rules"
 FAMILIA_ARCHITECTURE_RESULT = "architecture_result"
+FAMILIA_E2E_ROUTES = "e2e_routes"
+FAMILIA_E2E_RESULT = "e2e_result"
 VERSIONES: dict[str, dict[str, str]] = {
     FAMILIA_PLANNER: {"2": PLANNER, "3": PLANNER_V3},
     FAMILIA_GENERATED_TEST: {"1": GENERATED_TEST, "2": GENERATED_TEST_V2},
@@ -71,6 +77,8 @@ VERSIONES: dict[str, dict[str, str]] = {
     FAMILIA_RECOMMENDATION: {"1": RECOMMENDATION_V1},
     FAMILIA_ARCHITECTURE_RULES: {"1": ARCHITECTURE_RULES_V1},
     FAMILIA_ARCHITECTURE_RESULT: {"1": ARCHITECTURE_RESULT_V1},
+    FAMILIA_E2E_ROUTES: {"1": E2E_ROUTES_V1},
+    FAMILIA_E2E_RESULT: {"1": E2E_RESULT_V1},
 }
 
 #: Tipos que el contrato del futuro Recomendador puede representar en su primera

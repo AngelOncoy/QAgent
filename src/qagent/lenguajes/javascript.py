@@ -76,6 +76,8 @@ def es_prueba(relativa: str) -> bool:
 class _AdaptadorNode(AdaptadorEnDesarrollo):
     """Análisis compartido de JavaScript y TypeScript; cada uno con sus extensiones."""
 
+    e2e_humo_disponible = True
+
     def analizar(self, raiz: str | os.PathLike[str]) -> Estructura:
         """Lee las fuentes del lenguaje y devuelve lenguaje, módulos, errores y resumen.
 
@@ -159,6 +161,12 @@ class _AdaptadorNode(AdaptadorEnDesarrollo):
 
     def entorno_sandbox(self) -> EntornoSandbox:
         return entorno_node()
+
+    def rutas_web(self, raiz: Path) -> tuple[list[Any], list[str], str]:
+        """Delega la detección web estática compartida por JavaScript y TypeScript."""
+        from qagent.lenguajes.javascript_rutas import detectar_rutas_web
+
+        return detectar_rutas_web(raiz, self.extensiones)
 
 
 def _error(relativa: str, causa: Exception) -> dict[str, Any]:

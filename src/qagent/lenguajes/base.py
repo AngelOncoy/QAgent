@@ -240,6 +240,8 @@ class LanguageAdapter(ABC):
     completo: ClassVar[bool] = True
     #: Permite calcular huellas estáticas aun cuando la generación no está completa.
     huellas_disponibles: ClassVar[bool] = False
+    #: Permite abrir el proyecto para ejecutar exclusivamente humo E2E (#186).
+    e2e_humo_disponible: ClassVar[bool] = False
     #: Nombre del motor que usa el adaptador, para los mensajes compartidos.
     motor_mutacion: ClassVar[str] = "mutación"
     #: Comprobación opcional de librerías del sistema propia del entorno Python.
@@ -477,6 +479,10 @@ class LanguageAdapter(ABC):
     ) -> list[PlanArquitectura]:
         """Traduce reglas comunes sin ejecutarlas; los adaptadores optan al soporte."""
         raise NoImplementado(self.lenguaje, "traducir_reglas_arquitectura")
+
+    def rutas_web(self, raiz: Path) -> tuple[list[Any], list[str], str]:
+        """Detecta páginas y un comando de arranque estructurado para humo E2E."""
+        raise NoImplementado(self.lenguaje, "rutas_web")
 
     # --- Agentes y regresión (#168) ---------------------------------------------
     # No son abstractos para que un lenguaje en desarrollo pueda registrarse sin

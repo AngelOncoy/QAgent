@@ -12,6 +12,8 @@ IMAGEN_BASE = f"{REPOSITORIO}:base"
 IMAGEN_NODE = f"{REPOSITORIO}:node"
 #: Imagen de Java: JDK, Maven, Gradle, JUnit 5, JaCoCo y PIT (#169).
 IMAGEN_JAVA = f"{REPOSITORIO}:java"
+#: Navegador aislado para humo E2E; solo se aprovisiona al pedir ese flujo (#186).
+IMAGEN_NAVEGADOR = f"{REPOSITORIO}:navegador"
 #: Etiqueta Docker de los contenedores del sandbox (para encontrarlos y limpiarlos).
 ETIQUETA_CONTENEDOR = {"qagent": "sandbox"}
 

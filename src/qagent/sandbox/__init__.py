@@ -31,6 +31,7 @@ from qagent.sandbox.informe_pytest import (
 )
 from qagent.sandbox.modelos import (
     IMAGEN_JAVA,
+    IMAGEN_NAVEGADOR,
     IMAGEN_NODE,
     LIMITES_POR_DEFECTO,
     MENSAJE_DOCKER_CERRADO,
@@ -52,6 +53,7 @@ from qagent.sandbox.mutacion import (
 __all__ = [
     "IMAGEN_BASE",
     "IMAGEN_JAVA",
+    "IMAGEN_NAVEGADOR",
     "IMAGEN_NODE",
     "LIMITES_POR_DEFECTO",
     "MENSAJE_DOCKER_CERRADO",
