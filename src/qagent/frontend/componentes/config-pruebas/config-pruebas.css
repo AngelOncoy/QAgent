@@ -58,7 +58,9 @@
 .prep-arq-acciones .ini-btn{flex:1}
 .prep-arquitectura .np-aviso{align-items:flex-start}
 
-@media(max-width:1100px){.prep-rejilla{grid-template-columns:minmax(0,1fr)}}
+/* El viewport incluye la barra lateral: apilar antes evita que las acciones E2E
+   queden fuera del área visible en pantallas de 1366/1550 px (issue 186). */
+@media(max-width:1600px){.prep-rejilla{grid-template-columns:minmax(0,1fr)}}
 @media(max-width:760px){
   .prep-fila{grid-template-columns:minmax(0,1fr)}
   .prep-arq-campos{grid-template-columns:minmax(0,1fr)}

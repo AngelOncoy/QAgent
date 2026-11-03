@@ -12,7 +12,11 @@ import re
 from pathlib import Path
 from typing import Any
 
-from qagent.lenguajes import LenguajeNoSoportado, adaptador_del_proyecto
+from qagent.lenguajes import (
+    LenguajeNoSoportado,
+    adaptador_del_proyecto,
+    adaptador_e2e_del_proyecto,
+)
 
 SIN_ARCHIVOS_PY = (
     "La carpeta no contiene archivos fuente analizables de un lenguaje soportado."
@@ -60,9 +64,10 @@ def _resultado(
     nombre_lenguaje: str | None = None,
     cantidad_fuentes: int = 0,
     extensiones: tuple[str, ...] = (),
+    solo_e2e: bool = False,
 ) -> dict[str, Any]:
     """Arma el diccionario de respuesta de ``inspeccionar_carpeta``."""
-    return {
+    resultado = {
         "ok": error is None,
         "nombre": nombre,
         "ruta": ruta,
@@ -74,6 +79,9 @@ def _resultado(
         "cantidad_fuentes": cantidad_fuentes,
         "extensiones": list(extensiones),
     }
+    if solo_e2e:
+        resultado["solo_e2e"] = True
+    return resultado
 
 
 def inspeccionar_carpeta(ruta: str | os.PathLike[str]) -> dict[str, Any]:
@@ -108,7 +116,12 @@ def inspeccionar_carpeta(ruta: str | os.PathLike[str]) -> dict[str, Any]:
         # que la raíz sea legible para no confundir "sin permisos" con "vacía".
         with os.scandir(carpeta):
             pass
-        adaptador = adaptador_del_proyecto(carpeta)
+        solo_e2e = False
+        try:
+            adaptador = adaptador_del_proyecto(carpeta)
+        except LenguajeNoSoportado:
+            adaptador = adaptador_e2e_del_proyecto(carpeta)
+            solo_e2e = True
         cantidad = len(adaptador.archivos_fuente(carpeta))
     except LenguajeNoSoportado as error:
         return _resultado(texto, nombre, error=str(error), rama=detectar_rama(carpeta))
@@ -131,4 +144,5 @@ def inspeccionar_carpeta(ruta: str | os.PathLike[str]) -> dict[str, Any]:
         nombre_lenguaje=adaptador.nombre_visible,
         cantidad_fuentes=cantidad,
         extensiones=adaptador.extensiones,
+        solo_e2e=solo_e2e,
     )

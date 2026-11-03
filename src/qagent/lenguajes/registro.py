@@ -179,6 +179,34 @@ class Registro:
             )
         return self.adaptador_para(predeterminado)
 
+    def adaptador_e2e_del_proyecto(
+        self, raiz: str | os.PathLike[str]
+    ) -> LanguageAdapter:
+        """Devuelve el adaptador principal si admite humo E2E determinista.
+
+        Esta selección no convierte un adaptador en completo ni habilita las
+        corridas de Planner/Generator/Reviewer. Solo permite abrir el proyecto,
+        analizarlo estáticamente y acceder al flujo separado de #186.
+
+        Raises:
+            LenguajeNoSoportado: si hay fuentes, pero su adaptador no admite E2E.
+            LookupError: si no se detectaron fuentes de ningún lenguaje.
+        """
+        detecciones = [d for d in self.detectar(raiz) if d.archivos]
+        if not detecciones:
+            raise LookupError("No se detectaron fuentes para humo E2E.")
+        principal = self.adaptador_para(detecciones[0].lenguaje)
+        if principal.e2e_humo_disponible:
+            return principal
+        soportados = [
+            a.nombre_visible
+            for a in self._adaptadores.values()
+            if a.e2e_humo_disponible
+        ]
+        raise LenguajeNoSoportado(
+            principal.lenguaje, principal.nombre_visible, soportados
+        )
+
 
 def _verificar(adaptador: LanguageAdapter) -> None:
     lenguaje = getattr(adaptador, "lenguaje", None)

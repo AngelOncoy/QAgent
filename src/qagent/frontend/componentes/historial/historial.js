@@ -283,6 +283,10 @@ function abrirCorridaSeleccionada(){
     abrirResultadoArquitectura(histSel);
     return;
   }
+  if (fila && fila.es_e2e && typeof abrirResultadoE2E === 'function') {
+    abrirResultadoE2E(histSel);
+    return;
+  }
   if (fila && !tieneResultados(fila)) {
     toast(fila.tipo_terminacion === 'interrumpida'
       ? 'Esta corrida se interrumpió antes de terminar: no dejó resultados que abrir.'

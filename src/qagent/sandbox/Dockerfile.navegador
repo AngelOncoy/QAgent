@@ -1,0 +1,21 @@
+# Humo E2E determinista (#186). La etiqueta de origen fija Playwright, Chromium y
+# Ubuntu; el paquete npm debe coincidir exactamente con el navegador de la imagen.
+FROM mcr.microsoft.com/playwright:v1.64.1-noble
+
+ENV NODE_ENV=test \
+    NPM_CONFIG_UPDATE_NOTIFIER=false \
+    NPM_CONFIG_FUND=false \
+    NPM_CONFIG_AUDIT=false \
+    PLAYWRIGHT_BROWSERS_PATH=/ms-playwright \
+    PATH=/work/node_modules/.bin:/opt/qagent/node_modules/.bin:$PATH
+
+RUN mkdir -p /opt/qagent /work/proyecto /work/tests /out \
+    && cd /opt/qagent \
+    && npm init -y >/dev/null \
+    && npm install --omit=optional --no-audit --no-fund playwright@1.64.1 \
+    && chown -R pwuser:pwuser /opt/qagent /work /out
+
+COPY navegador/runner.mjs /opt/qagent/runner.mjs
+
+USER pwuser
+WORKDIR /work/proyecto

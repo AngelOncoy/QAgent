@@ -633,13 +633,13 @@ flowchart TB
             IMG["qagent-sandbox:base<br/>Python 3.11 · pytest · coverage · mutmut"]
             IMGN["qagent-sandbox:node<br/>Node 26 LTS · Vitest · coverage-v8 · Stryker"]
             IMGJ["qagent-sandbox:java<br/>JDK 25 · Maven/Gradle · JUnit 5 · JaCoCo · PIT"]
-            IMGE["qagent-sandbox:navegador · propuesto<br/>Chromium headless · Playwright (solo E2E)"]
+            IMGE["qagent-sandbox:navegador<br/>Playwright 1.64.1 · Chromium 156 (solo E2E)"]
             IMGP["Imagen derivada por proyecto<br/>+ dependencias del usuario"]
             CT["Contenedor efímero por prueba<br/>--network none · --rm"]
             IMG --> IMGP --> CT
             IMGN --> IMGP
             IMGJ --> IMGP
-            IMGE -.-> IMGP
+            IMGE --> IMGP
         end
         FS[("Disco<br/>proyecto del usuario · .qagent/ · ~/.qagent/")]
     end
@@ -659,15 +659,16 @@ flowchart TB
 
 **Requisitos de la máquina:** Windows 10/11, Python 3.10+, Docker Desktop y Git. EN-06 los verifica al abrir un proyecto. Analizar JS/TS o Java **no** exige Node ni un JDK en la PC del usuario: tree-sitter corre dentro de QAgent (ADR-009) y los runtimes solo viven en las imágenes del sandbox.
 
-**Imágenes por lenguaje (#169).** La imagen de cada lenguaje la declara su adaptador (`LanguageAdapter.entorno_sandbox()`, ADR-007): Python usa `qagent-sandbox:base`, JavaScript y TypeScript `qagent-sandbox:node` y Java `qagent-sandbox:java`. Sus Dockerfile están junto al de Python (`src/qagent/sandbox/Dockerfile.node` y `Dockerfile.java`) con versiones fijas, y `sandbox/imagen.py` tiene una receta por imagen. Una imagen se construye solo la primera vez que un proyecto de su lenguaje la pide (`asegurar_imagen`); un proyecto de Python nunca descarga Node ni el JDK. La imagen `navegador` (E2E) sigue propuesta para EP-13b.
+**Imágenes por lenguaje (#169, #186).** La imagen de cada lenguaje la declara su adaptador (`LanguageAdapter.entorno_sandbox()`, ADR-007): Python usa `qagent-sandbox:base`, JavaScript y TypeScript `qagent-sandbox:node` y Java `qagent-sandbox:java`. El flujo E2E usa una imagen independiente, `qagent-sandbox:navegador`. Sus Dockerfile están junto al de Python con versiones fijas y `sandbox/imagen.py` tiene una receta por imagen. Una imagen se construye solo cuando una corrida que la necesita llama a `asegurar_imagen`; abrir un proyecto, Vista previa y los perfiles unitarios, de regresión, corrección o arquitectura nunca aprovisionan el navegador.
 
 | Imagen | Contenido (versión fija) | Dependencias del proyecto (imagen derivada, con red) |
 |---|---|---|
 | `qagent-sandbox:base` | Python 3.11, pytest, pytest-cov, coverage, mutmut, httpx | `requirements.txt` → `pip install` · etiqueta `req-<hash>` |
 | `qagent-sandbox:node` | Node 26.13.0 (LTS), Vitest 5.0.5, @vitest/coverage-v8 5.0.5, Stryker 10.1.1 (+ vitest-runner), TypeScript 6.0.3 y dependency-cruiser 18.6.0 | `package.json` + `package-lock.json` → `npm ci` (sin lockfile, `npm install`) en `/work/node_modules` · etiqueta `node-<hash>` |
 | `qagent-sandbox:java` | Temurin JDK 25.0.4, Maven 3.9.16, Gradle 9.8.2, JUnit 5.14.4, JaCoCo 0.8.16, PIT 1.30.1 (+ junit5-plugin 1.2.3) | `pom.xml` → `mvn dependency:go-offline` en `/opt/qagent/m2`; o `build.gradle(.kts)` (+ settings, `gradle.properties`, `libs.versions.toml`) → caché de solo lectura `GRADLE_RO_DEP_CACHE` · etiqueta `java-<hash>` |
+| `qagent-sandbox:navegador` | Imagen oficial Noble fijada en Playwright 1.64.1, Node 26.13.0 y Chrome for Testing 156.0.8078.80 | `package.json` + lockfile → dependencias en `/work/node_modules` · etiqueta `browser-<hash>`; nunca descarga paquetes o navegadores durante la corrida |
 
-La etiqueta de la derivada sale del hash de sus archivos de dependencias: mientras no cambien, se reutiliza entre corridas (igual que con `requirements.txt`), y la limpieza al abrir la app borra las `req-`, `node-` y `java-` sin uso en 30 días. El contexto de build solo lleva esos archivos, nunca el código del proyecto ni su `.env`. Las dependencias quedan fuera de `/work/proyecto` (Node las busca subiendo hasta `/work/node_modules`; Maven y Gradle las leen de su repositorio en `/opt/qagent`), así el montaje de la copia del proyecto no las tapa. La imagen de Java se construye con un proyecto de calentamiento (`sandbox/java/calentamiento`) para que los plugins de JUnit 5, JaCoCo y PIT queden descargados y funcionen sin red.
+La etiqueta de la derivada sale del hash de sus archivos de dependencias: mientras no cambien, se reutiliza entre corridas (igual que con `requirements.txt`), y la limpieza al abrir la app borra las `req-`, `node-`, `java-` y `browser-` sin uso en 30 días. El contexto de build solo lleva esos archivos, nunca el código del proyecto ni su `.env`. Las dependencias quedan fuera de `/work/proyecto` (Node las busca subiendo hasta `/work/node_modules`; Maven y Gradle las leen de su repositorio en `/opt/qagent`), así el montaje de la copia del proyecto no las tapa. La imagen de Java se construye con un proyecto de calentamiento (`sandbox/java/calentamiento`) para que los plugins de JUnit 5, JaCoCo y PIT queden descargados y funcionen sin red.
 
 Las reglas del sandbox son las mismas para todas: contenedor efímero (`--rm`), `--network none`, sistema de archivos de solo lectura salvo `/work/proyecto` (copia), `/out` y `/tmp` (64 MB), y los mismos CPU que Python (`ajustar_cpus_a_docker`). La memoria y el tiempo pueden cambiar por lenguaje en `[sandbox.<lenguaje>]` de `config.toml`; lo que no se fija (y los CPU) sale de `[sandbox]`, que sigue siendo el de Python (3 GB, 120 s).
 
@@ -678,6 +679,7 @@ Las reglas del sandbox son las mismas para todas: contenedor efímero (`--rm`), 
 | `base` (Python, referencia) | 255 MB | — | — | límites actuales: 3 GB · 120 s |
 | `node` | 532 MB | ≈ 45 s | 9 s (`npm ci`, 2 paquetes) | Vitest + coverage-v8: 1,0 s · 100-130 MB; Stryker (3 mutantes): 3,2 s · 340 MB |
 | `java` | 998 MB | ≈ 200 s | 51 s (`mvn dependency:go-offline`) · 25 s (Gradle) | Maven `verify` (JUnit 5 + JaCoCo): 5,8 s · 300 MB; + PIT: 11,3 s · 340 MB; Gradle `test`: 17,9 s · 790 MB |
+| `navegador` (#186, 03/11/2026) | 1.005.625.362 bytes (959 MiB, `docker image inspect`) | Construcción finalizada; la duración exacta no quedó preservada en un registro fiable | Imagen derivada: 1.006.336.771 bytes | 6,29 s para 6 rutas; pico observado 212,4 MiB y 102 procesos; límite aplicado: 2 CPU, 2 GB y 120 s |
 
 Con eso se fijan los límites por defecto en `config.toml`: **JavaScript y TypeScript, 2 GB y 120 s** (unas 6 veces el pico medido con Stryker; un proyecto Node rara vez necesita más) y **Java, 4 GB y 300 s** (la JVM arranca en cada ejecución, Gradle ya usa casi 0,8 GB con un proyecto mínimo y un proyecto real suma compilación y, con Spring, el contexto). Python no cambia. Si un proyecto real los supera, el equipo los ajusta en `[sandbox.<lenguaje>]`.
 
@@ -969,7 +971,36 @@ genera pytest ni llama al Planner, Generator, Reviewer, Explicador o Recomendado
 
 Límite explícito de Java: ArchUnit necesita compilar las fuentes. Si el proyecto exige
 dependencias que la imagen no tiene o no declara paquetes comparables, la regla queda
-sin veredicto. E2E con Playwright continúa fuera de #185 y pertenece a EP-13b (#186).
+sin veredicto.
+
+#### Humo E2E implementado (#186)
+
+La pantalla **Preparar** ofrece una acción voluntaria separada de los perfiles existentes.
+`LanguageAdapter.rutas_web()` detecta únicamente rutas literales justificadas por Express
+o la entrada de Vite. `.qagent/e2e.json` permite declarar rutas y un comando estructurado;
+no acepta shells ni código en línea. Una ruta dinámica (`:id`, `[id]`, `{id}`) queda sin
+veredicto salvo que la persona declare una ruta concreta. Endpoints API, autenticación y
+archivos estáticos no se convierten en páginas.
+
+El controlador y la aplicación viven en el mismo contenedor. La aplicación escucha en
+`127.0.0.1`; Docker usa `network_mode=none`, y Playwright intercepta solicitudes y bloquea
+cualquier host o puerto distinto del loopback autorizado, incluidos subrecursos,
+redirecciones y `fetch`. El contenedor se ejecuta como `pwuser`, con `cap_drop=ALL`,
+`no-new-privileges`, filesystem raíz de solo lectura, 128 procesos como máximo y `/tmp`
+limitado. No se añade `SYS_ADMIN`, modo privilegiado, socket Docker ni secretos del host.
+
+Por ruta se registra HTTP, URL final, `console.error`, `pageerror`, fallos de solicitudes,
+contenido visible y duración. HTTP 4xx/5xx, navegación fallida, salida del origen, errores
+JavaScript o una página vacía producen `falla`; antes de cerrar la página se guarda un PNG
+auténtico. Un fallo de arranque, timeout, OOM, navegador ausente o resultado ilegible
+produce `sin_veredicto`, conserva el log de arranque y no atribuye fallos a páginas que no
+se visitaron. `e2e_result.v1` se escribe atómicamente en
+`.qagent/runs/<run_id>/e2e.json`; Historial e informes JSON/Markdown/HTML lo leen sin
+confundirlo con `results.json`. Todo el flujo es determinista y registra cero tokens.
+
+El alcance operativo validado es Express y Vite en JavaScript/TypeScript. No se generan
+credenciales, formularios, compras ni flujos de negocio; los flujos completos siguen fuera
+de alcance hasta que exista una declaración y un contrato seguro específico.
 
 ---
 
@@ -1049,7 +1080,7 @@ Responsables sugeridos en el plan del Sprint 2, a confirmar en el Sprint Plannin
 | Conectar el registro de adaptadores a la corrida y usar `planner_contract.v3` en el flujo (**Resuelto**, #168) | Oncoy Patricio, Angel | ADR-007 |
 | Agregar tree-sitter y las gramáticas de JS/TS; analizador y guardrail de `expect` | Castillo Pezo, Mateo | ADR-009 · EP-11a |
 | Adaptador de Java completo y banco equivalente en los 3 lenguajes (brecha B5) | Nuevo integrante | ADR-009 · EP-12a |
-| Imágenes `node` y `java` del sandbox y límites de memoria y tiempo por lenguaje (**Resuelto**, #169); falta `navegador` con EP-13b | Sanchez Vargas, Adrián | Sección 7 |
+| Imágenes `node`, `java` y `navegador` del sandbox y límites medidos (**Resuelto**, #169 y #186) | Sanchez Vargas, Adrián · bel001 | Sección 7 |
 | Migrar el analizador de Python a tree-sitter, solo si da la misma estructura que `analizar_proyecto()` | Hecho (TA-16, #154) | ADR-009 |
 | Versionar en `bench/` los bancos y scripts de medición de SPK-03 y SPK-04 (**Resuelto**) | Sanchez Vargas, Adrián y Castillo Pezo, Mateo | ADR-008 · ADR-009 |
 | Implementar las reglas del Recomendador y la declaración de capacidades por adaptador; integrar la confirmación en Vista previa | bel001 | ADR-011 · #197 |

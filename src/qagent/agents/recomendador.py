@@ -301,7 +301,7 @@ def proximamente(proyeccion: Proyeccion) -> list[dict[str, Any]]:
                 "tipos_prueba": tipos,
                 "motivo": (
                     f"{_detectados(lenguaje['archivos'])} de {nombre}. QAgent "
-                    "todavía no prueba este lenguaje."
+                    "todavía no ofrece estos tipos de prueba para el lenguaje."
                 ),
             }
         )

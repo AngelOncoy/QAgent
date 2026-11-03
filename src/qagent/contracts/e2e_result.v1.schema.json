@@ -1,0 +1,57 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "e2e_result.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "run_id", "status", "language", "framework", "image", "limits", "startup", "routes", "summary", "duration_s", "tokens"],
+  "properties": {
+    "version": {"const": "1"},
+    "run_id": {"type": "string", "pattern": "^[0-9]{8}-[0-9]{6}-[0-9a-f]{4}$"},
+    "status": {"enum": ["cumple", "falla", "sin_veredicto"]},
+    "language": {"enum": ["javascript", "typescript"]},
+    "framework": {"enum": ["express", "vite"]},
+    "image": {"type": "string", "minLength": 1},
+    "limits": {
+      "type": "object", "additionalProperties": false,
+      "required": ["cpus", "memory", "startup_timeout_s", "route_timeout_s", "total_timeout_s", "max_routes", "network"],
+      "properties": {
+        "cpus": {"type": "number", "exclusiveMinimum": 0}, "memory": {"type": "string"},
+        "startup_timeout_s": {"type": "integer"}, "route_timeout_s": {"type": "integer"},
+        "total_timeout_s": {"type": "integer"}, "max_routes": {"type": "integer"},
+        "network": {"const": "none"}
+      }
+    },
+    "startup": {
+      "type": "object", "additionalProperties": false,
+      "required": ["ready", "exit_code", "port", "timeout_ms", "log", "reason"],
+      "properties": {
+        "ready": {"type": "boolean"}, "exit_code": {"type": ["integer", "null"]},
+        "port": {"type": "integer"}, "timeout_ms": {"type": "integer"},
+        "log": {"type": "string", "maxLength": 12000}, "reason": {"type": ["string", "null"], "maxLength": 5000}
+      }
+    },
+    "routes": {
+      "type": "array",
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["path", "status", "http_status", "final_url", "console_errors", "page_errors", "request_errors", "visible_content", "screenshot", "duration_ms", "reason"],
+        "properties": {
+          "path": {"type": "string"}, "status": {"enum": ["cumple", "falla", "sin_veredicto"]},
+          "http_status": {"type": ["integer", "null"]}, "final_url": {"type": ["string", "null"]},
+          "console_errors": {"type": "array", "items": {"type": "string"}},
+          "page_errors": {"type": "array", "items": {"type": "string"}},
+          "request_errors": {"type": "array", "items": {"type": "string"}},
+          "visible_content": {"type": "boolean"}, "screenshot": {"type": ["string", "null"]},
+          "duration_ms": {"type": "integer", "minimum": 0}, "reason": {"type": ["string", "null"], "maxLength": 5000}
+        }
+      }
+    },
+    "summary": {
+      "type": "object", "additionalProperties": false,
+      "required": ["total", "passed", "failed", "no_verdict"],
+      "properties": {"total": {"type": "integer"}, "passed": {"type": "integer"}, "failed": {"type": "integer"}, "no_verdict": {"type": "integer"}}
+    },
+    "duration_s": {"type": "number", "minimum": 0},
+    "tokens": {"const": 0}
+  }
+}

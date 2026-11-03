@@ -104,6 +104,9 @@ def _fila_corrida(almacen: AlmacenProyecto, run: dict[str, Any]) -> dict[str, An
     arquitectura = _leer_json_opcional(carpeta / "architecture.json")
     if arquitectura:
         return _fila_arquitectura(run, arquitectura)
+    e2e = _leer_json_opcional(carpeta / "e2e.json")
+    if e2e:
+        return _fila_e2e(run, e2e)
     results = _leer_json_opcional(carpeta / "results.json")
     log = _leer_json_opcional(carpeta / "log.json")
     resumen = results.get("resumen", {})
@@ -316,6 +319,55 @@ def _fila_arquitectura(
         "es_simulado": False,
         "es_arquitectura": True,
         "estado_arquitectura": estado,
+    }
+
+
+def _fila_e2e(run: dict[str, Any], e2e: dict[str, Any]) -> dict[str, Any]:
+    """Resume una corrida Playwright sin atribuirle decisiones del Reviewer."""
+    summary = e2e.get("summary") or {}
+    total = int(summary.get("total") or 0)
+    passed = int(summary.get("passed") or 0)
+    failed = int(summary.get("failed") or 0)
+    no_verdict = int(summary.get("no_verdict") or 0)
+    processed = passed + failed
+    return {
+        "run_id": run["run_id"],
+        "fecha": run.get("inicio"),
+        "inicio": run.get("inicio"),
+        "fin": run.get("fin"),
+        "duracion_s": _numero(e2e.get("duration_s")),
+        "perfil": "e2e_humo",
+        "perfil_nombre": "E2E de humo",
+        "estado": run["estado"],
+        "modelos": {},
+        "specs": [],
+        "resumen_specs": {},
+        "pass_rate": round(passed / processed * 100.0, 1) if processed else None,
+        "total_tokens": 0,
+        "tokens_planner": 0,
+        "costo_usd": 0.0,
+        "requieren_corrida_nueva": 0,
+        "posibles_bugs": failed,
+        "pasaron": passed,
+        "total_objetivos": total,
+        "total_seleccionados": total,
+        "contadores_disponibles": True,
+        "total_elegibles": total,
+        "total_procesados": processed,
+        "total_pendientes": no_verdict,
+        "tipo_terminacion": "e2e_humo",
+        "terminacion_nombre": "E2E de humo",
+        "es_parcial": no_verdict > 0,
+        "pruebas_ejecutadas": processed,
+        "pruebas_aprobadas": passed,
+        "errores_tecnicos": no_verdict,
+        "objetivos_omitidos": 0,
+        "no_procesados_por_detencion": no_verdict,
+        "cobertura_lineas": None,
+        "es_simulado": False,
+        "es_arquitectura": False,
+        "es_e2e": True,
+        "estado_e2e": e2e.get("status"),
     }
 
 

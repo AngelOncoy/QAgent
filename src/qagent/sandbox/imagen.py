@@ -34,6 +34,7 @@ from qagent.sandbox.cliente import obtener_cliente
 from qagent.sandbox.modelos import (
     IMAGEN_BASE,
     IMAGEN_JAVA,
+    IMAGEN_NAVEGADOR,
     IMAGEN_NODE,
     REPOSITORIO,
     ConstruccionCancelada,
@@ -50,6 +51,7 @@ _CARPETA = Path(__file__).parent
 DOCKERFILE_BASE = _CARPETA / "Dockerfile"
 DOCKERFILE_NODE = _CARPETA / "Dockerfile.node"
 DOCKERFILE_JAVA = _CARPETA / "Dockerfile.java"
+DOCKERFILE_NAVEGADOR = _CARPETA / "Dockerfile.navegador"
 #: Proyecto de calentamiento y script de Gradle que usa la imagen de Java.
 RECURSOS_JAVA = _CARPETA / "java"
 
@@ -156,6 +158,11 @@ def _dockerfile_npm(base: str, archivos: list[str]) -> str:
     )
 
 
+def _dockerfile_npm_navegador(base: str, archivos: list[str]) -> str:
+    """Dependencias web como la receta Node, conservando el usuario `pwuser`."""
+    return _dockerfile_npm(base, archivos).replace("USER sandbox\n", "USER pwuser\n")
+
+
 def _dockerfile_maven(base: str, archivos: list[str]) -> str:
     """Dependencias y plugins de Maven en el repositorio local de la imagen."""
     return (
@@ -232,6 +239,20 @@ RECETAS: dict[str, RecetaImagen] = {
                     "gradle/libs.versions.toml",
                 ),
                 _dockerfile_gradle,
+            ),
+        ),
+    ),
+    IMAGEN_NAVEGADOR: RecetaImagen(
+        imagen=IMAGEN_NAVEGADOR,
+        dockerfile=DOCKERFILE_NAVEGADOR,
+        recursos=(_CARPETA / "navegador",),
+        prefijo="browser-",
+        dependencias=(
+            Dependencias(
+                "package.json",
+                ("package.json",),
+                ("package-lock.json",),
+                _dockerfile_npm_navegador,
             ),
         ),
     ),
@@ -329,6 +350,9 @@ def etiqueta_para_dependencias(prefijo: str, archivos: Mapping[str, bytes]) -> s
         # #183: go-offline por sí solo dejó versiones gestionadas por BOM sin
         # descargar. No reutilizar una imagen anterior a dependency:resolve.
         huella.update(b"maven-resolve-v2\0")
+    if prefijo == "browser-":
+        # Invalida la primera receta de #186, que heredaba por error USER sandbox.
+        huella.update(b"browser-runner-exit-v3\0")
     for nombre in sorted(archivos):
         huella.update(nombre.encode("utf-8") + b"\0" + archivos[nombre] + b"\0")
     return f"{REPOSITORIO}:{prefijo}{huella.hexdigest()[:12]}"

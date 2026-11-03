@@ -1,0 +1,17 @@
+{
+  "version": "1",
+  "language": "javascript",
+  "framework": "express",
+  "adapter": "JavaScriptAdapter",
+  "start_command": ["npm", "run", "start"],
+  "port": 4173,
+  "routes": [
+    {
+      "path": "/",
+      "source": "server.js:4",
+      "route_type": "page",
+      "eligible": true,
+      "reason": null
+    }
+  ]
+}

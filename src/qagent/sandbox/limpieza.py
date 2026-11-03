@@ -31,7 +31,7 @@ RUTA_USOS = carpeta_usuario() / "imagenes_sandbox.json"
 #: Prefijo del tag de las imágenes derivadas por requirements.txt.
 PREFIJO_REQ = "req-"
 #: Prefijos de todas las imágenes derivadas por proyecto: Python, Node y Java (#169).
-PREFIJOS_DERIVADAS = (PREFIJO_REQ, "node-", "java-")
+PREFIJOS_DERIVADAS = (PREFIJO_REQ, "node-", "java-", "browser-")
 #: Una imagen `req-` sin usar durante este tiempo se borra (se reconstruye si vuelve a hacer falta).
 DIAS_SIN_USO = 30
 #: Un contenedor del sandbox que sigue corriendo se considera huérfano pasado este tiempo.

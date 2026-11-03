@@ -35,7 +35,11 @@ from pathlib import Path
 from typing import Any
 
 from qagent.agents.recomendador import recomendar_para_vista
-from qagent.lenguajes import LenguajeNoSoportado, adaptador_del_proyecto
+from qagent.lenguajes import (
+    LenguajeNoSoportado,
+    adaptador_del_proyecto,
+    adaptador_e2e_del_proyecto,
+)
 
 AVISO_ORACULO_DEBIL = "el valor esperado no tendrá fuente (oráculo débil)"
 ETIQUETA_FALTA_DOCSTRING = "⚠ falta"
@@ -110,17 +114,23 @@ def generar_vista_previa(raiz: str | os.PathLike[str]) -> dict[str, Any]:
             "proximamente": [],
         }
 
+    solo_e2e = False
     try:
         adaptador = adaptador_del_proyecto(carpeta)
     except LenguajeNoSoportado as error:
-        # #197: sin objetivos no hay recomendación, pero sí lo que viene «próximamente».
-        return {
-            "ok": False,
-            "error": str(error),
-            "modulos": [],
-            "errores": [],
-            **recomendar_para_vista({"modulos": []}, carpeta),
-        }
+        try:
+            adaptador = adaptador_e2e_del_proyecto(carpeta)
+            solo_e2e = True
+        except (LenguajeNoSoportado, LookupError):
+            # #197: sin objetivos no hay recomendación, pero sí lo que viene
+            # «próximamente» para los lenguajes detectados.
+            return {
+                "ok": False,
+                "error": str(error),
+                "modulos": [],
+                "errores": [],
+                **recomendar_para_vista({"modulos": []}, carpeta),
+            }
     resultado_ast = adaptador.analizar(carpeta)
 
     # Anotamos los módulos con su conteo de funciones con ramas y aviso en funciones sin docstring
@@ -175,6 +185,7 @@ def generar_vista_previa(raiz: str | os.PathLike[str]) -> dict[str, Any]:
         "lenguaje": adaptador.lenguaje,
         "nombre_lenguaje": adaptador.nombre_visible,
         "framework_pruebas": adaptador.frameworks_pruebas[0],
+        "solo_e2e": solo_e2e,
         "modulos": modulos_priorizados,
         "errores": errores_procesados,
         "resumen": resultado_ast["resumen"],
