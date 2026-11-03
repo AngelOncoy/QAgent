@@ -124,16 +124,29 @@ async function verificarReglasArquitectura(){
   try {
     const r = await api.verificar_arquitectura(projectPath);
     if (!r || !r.ok) throw new Error((r && r.motivo) || 'No se pudo verificar la arquitectura.');
-    const incumplen = (r.reglas || []).filter(x => x.estado === 'incumple').length;
-    const sinVeredicto = (r.reglas || []).filter(x => x.estado === 'sin_veredicto').length;
-    const detalle = (r.reglas || []).map(regla => {
-      const ubicaciones = (regla.hallazgos || []).map(h => `${escHtml(h.desde)} → ${escHtml(h.hacia)} · ${escHtml(h.archivo || 'ubicación no disponible')}${h.linea ? `:${h.linea}` : ''}`).join('; ');
-      return `<li><b>${escHtml(regla.nombre)}</b>: ${escHtml(regla.estado)}${ubicaciones ? ` — ${ubicaciones}` : ''}</li>`;
-    }).join('');
-    salida.innerHTML = `${incumplen ? ICO_ERROR : sinVeredicto ? ICO_AVISO_CLON : ICO_OK}<div><b>${incumplen ? `${incumplen} reglas incumplidas` : sinVeredicto ? 'Verificación sin veredicto completo' : 'Arquitectura conforme'}</b><span>Corrida ${escHtml(r.run_id)} · ${(r.reglas || []).length} reglas registradas.</span><ul>${detalle}</ul><button type="button" class="ini-btn" onclick="exportarInformeArquitectura('${escHtml(r.run_id)}')">Exportar PDF</button></div>`;
+    renderResultadoArquitectura(r);
   } catch (err) {
     salida.innerHTML = `${ICO_ERROR}<div><b>No se completó la verificación</b><span>${escHtml(String(err.message || err))}</span></div>`;
   } finally { boton.disabled = false; boton.textContent = 'Verificar arquitectura'; }
+}
+function renderResultadoArquitectura(r){
+  const salida = $('prepArqResultado');
+  const incumplen = (r.reglas || []).filter(x => x.estado === 'incumple').length;
+  const sinVeredicto = (r.reglas || []).filter(x => x.estado === 'sin_veredicto').length;
+  const detalle = (r.reglas || []).map(regla => {
+    const ubicaciones = (regla.hallazgos || []).map(h => `${escHtml(h.desde)} → ${escHtml(h.hacia)} · ${escHtml(h.archivo || 'ubicación no disponible')}${h.linea ? `:${h.linea}` : ''}`).join('; ');
+    return `<li><b>${escHtml(regla.nombre)}</b>: ${escHtml(regla.estado)}${ubicaciones ? ` — ${ubicaciones}` : ''}</li>`;
+  }).join('');
+  salida.classList.remove('hide');
+  salida.innerHTML = `${incumplen ? ICO_ERROR : sinVeredicto ? ICO_AVISO_CLON : ICO_OK}<div><b>${incumplen ? `${incumplen} reglas incumplidas` : sinVeredicto ? 'Verificación sin veredicto completo' : 'Arquitectura conforme'}</b><span>Corrida ${escHtml(r.run_id)} · ${(r.reglas || []).length} reglas registradas.</span><ul>${detalle}</ul><button type="button" class="ini-btn" onclick="exportarInformeArquitectura('${escHtml(r.run_id)}')">Exportar PDF</button></div>`;
+}
+async function abrirResultadoArquitectura(runId){
+  const api = window.pywebview && window.pywebview.api;
+  if (!api || !api.obtener_resultado_arquitectura) return;
+  const r = await api.obtener_resultado_arquitectura(projectPath, runId);
+  if (!r || !r.ok) { toastError(escHtml((r && r.motivo) || 'No se pudo abrir la verificación.')); return; }
+  go('config');
+  renderResultadoArquitectura(r);
 }
 async function exportarInformeArquitectura(runId){
   const api = window.pywebview && window.pywebview.api;

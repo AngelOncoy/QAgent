@@ -44,3 +44,16 @@ def test_api_rechaza_documento_invalido(tmp_path: Path) -> None:
 
     assert resultado["ok"] is False
     assert not (tmp_path / ".qagent/reglas_arquitectura.json").exists()
+
+
+def test_frontend_abre_corrida_de_arquitectura_desde_historial() -> None:
+    raiz = Path(__file__).resolve().parents[2] / "src/qagent/frontend/componentes"
+    configuracion = (raiz / "config-pruebas/config-pruebas.js").read_text(
+        encoding="utf-8"
+    )
+    historial = (raiz / "historial/historial.js").read_text(encoding="utf-8")
+
+    assert "api.obtener_resultado_arquitectura(projectPath, runId)" in configuracion
+    assert "renderResultadoArquitectura(r)" in configuracion
+    assert "fila.es_arquitectura" in historial
+    assert "abrirResultadoArquitectura(histSel)" in historial

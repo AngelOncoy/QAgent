@@ -5,7 +5,9 @@ from pathlib import Path
 import pytest
 
 from qagent import contracts
+from qagent.almacenamiento.historial import construir_historial
 from qagent.almacenamiento.proyecto import AlmacenProyecto
+from qagent.app.desktop import DesktopAPI
 from qagent.arquitectura.ejecucion import (
     leer_resultado_arquitectura,
     verificar_arquitectura,
@@ -46,7 +48,16 @@ def test_ejecucion_mock_persiste_run_y_no_usa_llm(monkeypatch, tmp_path: Path) -
     assert leer_resultado_arquitectura(tmp_path, resultado["run_id"]) == resultado
     run = AlmacenProyecto(tmp_path).leer_run(resultado["run_id"])
     assert run["tipos_prueba"] == ["arquitectura"]
-    assert (tmp_path / ".qagent/runs" / resultado["run_id"] / "results.json").is_file()
+    assert not (
+        tmp_path / ".qagent/runs" / resultado["run_id"] / "results.json"
+    ).exists()
+    fila = construir_historial(tmp_path)["corridas"][0]
+    assert fila["es_arquitectura"] is True
+    assert fila["perfil_nombre"] == "Arquitectura"
+    assert fila["pasaron"] == 1
+    assert DesktopAPI().obtener_resultado_arquitectura(
+        str(tmp_path), resultado["run_id"]
+    ) == {"ok": True, **resultado}
 
 
 def test_sugerencia_no_confirmada_queda_registrada_sin_sandbox(

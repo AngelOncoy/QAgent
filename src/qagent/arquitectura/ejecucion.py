@@ -70,9 +70,6 @@ def verificar_arquitectura(
     contracts.validar_versionado(contracts.FAMILIA_ARCHITECTURE_RESULT, dato)
     carpeta = almacen.carpeta_run(run["run_id"])
     escribir_json_atomico(carpeta / ARCHIVO_RESULTADO_ARQUITECTURA, dato)
-    # `results.json` mantiene la corrida visible en el Historial. El lector específico
-    # de arquitectura usa architecture.json y no la confunde con resultados Reviewer.
-    escribir_json_atomico(carpeta / "results.json", dato)
     cumple = sum(r["estado"] == "cumple" for r in resultados)
     no_cumple = sum(r["estado"] in {"incumple", "sin_veredicto"} for r in resultados)
     almacen.finalizar_run(

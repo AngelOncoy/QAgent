@@ -533,6 +533,15 @@ class DesktopAPI:
 
         return {"ok": True, **construir_historial(ruta)}
 
+    def obtener_resultado_arquitectura(self, ruta: str, run_id: str) -> dict:
+        """Lee una corrida arquitectónica sin confundirla con `results.json`."""
+        from qagent.arquitectura.ejecucion import leer_resultado_arquitectura
+
+        try:
+            return {"ok": True, **leer_resultado_arquitectura(ruta, run_id)}
+        except (OSError, ValueError) as error:
+            return {"ok": False, "motivo": str(error)}
+
     def obtener_reglas_arquitectura(self, ruta: str) -> dict:
         """Reglas vigentes: la universal y las declaradas en `.qagent`."""
         try:
