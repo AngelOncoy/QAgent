@@ -15,6 +15,23 @@ pip install -e .[dev]           # en Linux, para la ventana: pip install "pywebv
 python test.py
 ```
 
+### Versión de Python del equipo
+
+El equipo desarrolla, construye y publica con **Python 3.13.17** (`.python-version` en la raíz; los workflows de CI usan la misma). Es la última 3.13 con instalador de Windows: no subas a la 3.13.18 sin comprobar que lo trae. Esto es solo el entorno del equipo: QAgent sigue admitiendo Python 3.10+ (`requires-python = ">=3.10"`), así que en el código no uses APIs que 3.10 no tiene (`tomllib`, `StrEnum`, `ExceptionGroup`…) y no agregues `target-version = "py313"` a Ruff.
+
+Un `.venv` no se actualiza en el lugar: se recrea.
+
+```bash
+deactivate                      # si está activo
+rmdir /s /q .venv               # Linux: rm -rf .venv
+py -3.13 -m venv .venv          # confirma con: .venv\Scripts\python --version  → 3.13.17
+.venv\Scripts\activate
+pip install -e .[dev]
+python test.py
+```
+
+`scripts/construir_windows.py` avisa si se ejecuta con otra versión.
+
 `pip install -e` deja el programa instalado apuntando a esta carpeta: los cambios en el código se ven sin reinstalar. Si vienes de una versión anterior a TA-06, desinstala antes el nombre viejo: `pip uninstall -y qagent`.
 
 ### Tus datos viven en `~/.qagent/`
