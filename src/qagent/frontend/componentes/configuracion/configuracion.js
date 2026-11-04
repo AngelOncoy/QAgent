@@ -24,7 +24,7 @@ registrarComponente('configuracion/configuracion', `<!-- ===== CONFIGURACIÓN ==
 
       <div class="np-rejilla cfg-rejilla">
         <div class="np-columna">
-          <section class="np-tarjeta" aria-labelledby="cfgEtapasTitulo">
+          <section class="np-tarjeta cfg-tarjeta-etapas" aria-labelledby="cfgEtapasTitulo">
             <h2 id="cfgEtapasTitulo">Conexión de IA por etapa</h2>
             <p class="np-texto">Cada etapa puede usar su propio proveedor y modelo. Al guardar se prueba la conexión; si falla, no se guarda nada.</p>
             <div class="cfg-etapas" id="cfgAgents"></div>
