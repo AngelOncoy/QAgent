@@ -34,11 +34,15 @@ from qagent.sandbox.cliente import obtener_cliente
 from qagent.sandbox.modelos import (
     IMAGEN_BASE,
     IMAGEN_JAVA,
+    IMAGEN_NAVEGADOR,
     IMAGEN_NODE,
     REPOSITORIO,
+    VERSION_PYTHON_DEFECTO,
     ConstruccionCancelada,
     ErrorConstruccionImagen,
     ImagenNoEncontrada,
+    es_imagen_base_python,
+    version_de_imagen_base,
 )
 
 registro = logging.getLogger(__name__)
@@ -50,6 +54,7 @@ _CARPETA = Path(__file__).parent
 DOCKERFILE_BASE = _CARPETA / "Dockerfile"
 DOCKERFILE_NODE = _CARPETA / "Dockerfile.node"
 DOCKERFILE_JAVA = _CARPETA / "Dockerfile.java"
+DOCKERFILE_NAVEGADOR = _CARPETA / "Dockerfile.navegador"
 #: Proyecto de calentamiento y script de Gradle que usa la imagen de Java.
 RECURSOS_JAVA = _CARPETA / "java"
 
@@ -125,8 +130,14 @@ class RecetaImagen:
 
 
 def _dockerfile_pip(base: str, archivos: list[str]) -> str:
-    """Dockerfile derivado de Python (el de siempre)."""
-    return DOCKERFILE_DERIVADO
+    """Dockerfile derivado de Python."""
+    return (
+        f"FROM {base}\n"
+        "USER root\n"
+        "COPY requirements.txt /tmp/requirements.txt\n"
+        "RUN pip install --no-cache-dir -r /tmp/requirements.txt && rm /tmp/requirements.txt\n"
+        "USER sandbox\n"
+    )
 
 
 def _copiar(archivos: list[str]) -> str:
@@ -156,13 +167,29 @@ def _dockerfile_npm(base: str, archivos: list[str]) -> str:
     )
 
 
+def _dockerfile_npm_navegador(base: str, archivos: list[str]) -> str:
+    """Dependencias web como la receta Node, conservando el usuario `pwuser`."""
+    return _dockerfile_npm(base, archivos).replace("USER sandbox\n", "USER pwuser\n")
+
+
 def _dockerfile_maven(base: str, archivos: list[str]) -> str:
-    """Dependencias y plugins de Maven en el repositorio local de la imagen."""
+    """Descarga dependencias, plugins y el lanzador JUnit del proyecto.
+
+    Surefire resuelve el launcher dinámicamente según el engine. Go-offline no
+    descarga ese artefacto si el POM no lo declara. Se obtiene su versión de las
+    dependencias resueltas (incluidos BOM), sin compilar ni ejecutar fuentes.
+    """
     return (
         f"FROM {base}\n"
         "USER root\n"
         f"{_copiar(archivos)}"
         f"RUN cd {_CARPETA_DEPENDENCIAS} && MAVEN_OPTS= mvn dependency:go-offline dependency:resolve \\\n"
+        "    && MAVEN_OPTS= mvn dependency:list -DincludeGroupIds=org.junit.platform \\\n"
+        "       -DincludeArtifactIds=junit-platform-engine -DoutputFile=/tmp/qagent-junit-platform.txt \\\n"
+        "    && for version in $(awk -F: '/org.junit.platform:junit-platform-engine:jar:/ {print $4}' /tmp/qagent-junit-platform.txt); do \\\n"
+        '         MAVEN_OPTS= mvn dependency:get "-Dartifact=org.junit.platform:junit-platform-launcher:$version" || exit 1; \\\n'
+        "       done \\\n"
+        "    && rm /tmp/qagent-junit-platform.txt \\\n"
         f"    && cd / && rm -rf {_CARPETA_DEPENDENCIAS}\n"
         "USER sandbox\n"
     )
@@ -235,7 +262,35 @@ RECETAS: dict[str, RecetaImagen] = {
             ),
         ),
     ),
+    IMAGEN_NAVEGADOR: RecetaImagen(
+        imagen=IMAGEN_NAVEGADOR,
+        dockerfile=DOCKERFILE_NAVEGADOR,
+        recursos=(_CARPETA / "navegador",),
+        prefijo="browser-",
+        dependencias=(
+            Dependencias(
+                "package.json",
+                ("package.json",),
+                ("package-lock.json",),
+                _dockerfile_npm_navegador,
+            ),
+        ),
+    ),
 }
+
+
+def _receta_base_python(imagen: str) -> RecetaImagen:
+    return RecetaImagen(
+        imagen=imagen,
+        dockerfile=DOCKERFILE_BASE,
+        recursos=(),
+        prefijo="req-",
+        dependencias=(
+            Dependencias(
+                "requirements.txt", ("requirements.txt",), (), _dockerfile_pip
+            ),
+        ),
+    )
 
 
 def receta_de(imagen: str) -> RecetaImagen:
@@ -244,13 +299,12 @@ def receta_de(imagen: str) -> RecetaImagen:
     Raises:
         ValueError: si la imagen no es una imagen base conocida.
     """
-    try:
+    if imagen in RECETAS:
         return RECETAS[imagen]
-    except KeyError:
-        conocidas = ", ".join(RECETAS)
-        raise ValueError(
-            f"'{imagen}' no es una imagen base del sandbox ({conocidas})."
-        ) from None
+    if es_imagen_base_python(imagen):
+        return _receta_base_python(imagen)
+    conocidas = ", ".join(RECETAS)
+    raise ValueError(f"'{imagen}' no es una imagen base del sandbox ({conocidas}).")
 
 
 def construir_imagen_base(
@@ -279,6 +333,10 @@ def construir_imagen_base(
     cliente = cliente or obtener_cliente()
     _avisar(avanzar, AVISO_BASE)
     contexto = Path(tempfile.mkdtemp(prefix="qagent-base-"))
+    buildargs = None
+    if es_imagen_base_python(receta.imagen):
+        version = version_de_imagen_base(receta.imagen)
+        buildargs = {"PYTHON_VERSION": version}
     try:
         shutil.copyfile(receta.dockerfile, contexto / "Dockerfile")
         for recurso in receta.recursos:
@@ -289,46 +347,64 @@ def construir_imagen_base(
             receta.imagen,
             "No se pudo construir la imagen base",
             avanzar,
+            buildargs=buildargs,
         )
     finally:
         shutil.rmtree(contexto, ignore_errors=True)
     return receta.imagen
 
 
-def etiqueta_para_requirements(contenido: bytes) -> str:
+def etiqueta_para_requirements(contenido: bytes, version: str | None = None) -> str:
     """Devuelve la etiqueta de la imagen derivada según el hash del requirements.txt.
 
     Args:
         contenido: bytes del archivo requirements.txt.
+        version: versión de Python (ej. "3.12"). Si es None o la versión por defecto
+            ("3.11"), conserva la etiqueta histórica sin prefijo de versión (ADR-013).
 
     Returns:
         Etiqueta con la forma `qagent-sandbox:req-<sha256[:12]>`.
     """
-    return f"{REPOSITORIO}:req-{hashlib.sha256(contenido).hexdigest()[:12]}"
+    huella = hashlib.sha256()
+    if version and version != VERSION_PYTHON_DEFECTO:
+        huella.update(f"py{version}\0".encode())
+    huella.update(contenido)
+    return f"{REPOSITORIO}:req-{huella.hexdigest()[:12]}"
 
 
-def etiqueta_para_dependencias(prefijo: str, archivos: Mapping[str, bytes]) -> str:
+def etiqueta_para_dependencias(
+    prefijo: str, archivos: Mapping[str, bytes], imagen_base: str = IMAGEN_BASE
+) -> str:
     """Etiqueta de una imagen derivada según sus archivos de dependencias.
 
     El hash cubre el nombre y el contenido de cada archivo: si cambia uno, cambia la
-    etiqueta y la imagen se vuelve a construir. Con solo un requirements.txt da la
-    misma etiqueta que `etiqueta_para_requirements` (las imágenes ya construidas
-    siguen sirviendo).
+    etiqueta y la imagen se vuelve a construir. Para Python (`prefijo == 'req-'`),
+    el hash incluye la versión de Python de `imagen_base` si difiere de la por defecto (ADR-013).
 
     Args:
         prefijo: prefijo de la receta (`req-`, `node-`, `java-`).
         archivos: ruta relativa → contenido de cada archivo copiado.
+        imagen_base: etiqueta de la imagen base de la receta (`qagent-sandbox:base`,
+            `qagent-sandbox:base-py3.12`, `qagent-sandbox:node`...).
 
     Returns:
         Etiqueta con la forma `qagent-sandbox:<prefijo><sha256[:12]>`.
     """
+    version_py = version_de_imagen_base(imagen_base) if prefijo == "req-" else None
     if prefijo == "req-" and list(archivos) == ["requirements.txt"]:
-        return etiqueta_para_requirements(archivos["requirements.txt"])
+        return etiqueta_para_requirements(
+            archivos["requirements.txt"], version=version_py
+        )
     huella = hashlib.sha256()
+    if prefijo == "req-" and version_py and version_py != VERSION_PYTHON_DEFECTO:
+        huella.update(f"py{version_py}\0".encode())
     if prefijo == "java-" and "pom.xml" in archivos:
-        # #183: go-offline por sí solo dejó versiones gestionadas por BOM sin
-        # descargar. No reutilizar una imagen anterior a dependency:resolve.
-        huella.update(b"maven-resolve-v2\0")
+        # #174: Surefire necesita el launcher de la versión del engine resuelto.
+        # No reutilizar derivadas anteriores que solo usaban go-offline/resolve.
+        huella.update(b"maven-junit-launcher-v3\0")
+    if prefijo == "browser-":
+        # Invalida la primera receta de #186, que heredaba por error USER sandbox.
+        huella.update(b"browser-runner-exit-v3\0")
     for nombre in sorted(archivos):
         huella.update(nombre.encode("utf-8") + b"\0" + archivos[nombre] + b"\0")
     return f"{REPOSITORIO}:{prefijo}{huella.hexdigest()[:12]}"
@@ -375,7 +451,9 @@ def preparar_imagen(
         return receta.imagen
     forma, archivos = encontrada
 
-    etiqueta = etiqueta_para_dependencias(receta.prefijo, archivos)
+    etiqueta = etiqueta_para_dependencias(
+        receta.prefijo, archivos, imagen_base=receta.imagen
+    )
     if _imagen_existe(cliente, etiqueta):
         return etiqueta
 
@@ -506,16 +584,22 @@ def _construir(
     etiqueta: str,
     mensaje: str,
     avanzar: Avance | None = None,
+    buildargs: dict[str, str] | None = None,
 ) -> None:
     """Construye una imagen y traduce los errores de Docker a `ErrorConstruccionImagen`.
 
     Con `avanzar`, lee el log en streaming (API de bajo nivel) para informar el avance.
     """
     if avanzar is not None:
-        _construir_con_avance(cliente, contexto, etiqueta, mensaje, avanzar)
+        _construir_con_avance(
+            cliente, contexto, etiqueta, mensaje, avanzar, buildargs=buildargs
+        )
         return
+    opciones = {"buildargs": buildargs} if buildargs else {}
     try:
-        cliente.images.build(path=str(contexto), tag=etiqueta, rm=True, forcerm=True)
+        cliente.images.build(
+            path=str(contexto), tag=etiqueta, rm=True, forcerm=True, **opciones
+        )
     except BuildError as exc:
         raise ErrorConstruccionImagen(
             f"{mensaje}: {exc.msg}", _texto_log(exc.build_log)
@@ -530,13 +614,20 @@ def _construir_con_avance(
     etiqueta: str,
     mensaje: str,
     avanzar: Avance,
+    buildargs: dict[str, str] | None = None,
 ) -> None:
     """`docker build` leyendo el log a medida que llega; cada paso útil va a `avanzar`."""
     log: list[str] = []
     partes = None
+    opciones = {"buildargs": buildargs} if buildargs else {}
     try:
         partes = cliente.api.build(
-            path=str(contexto), tag=etiqueta, rm=True, forcerm=True, decode=True
+            path=str(contexto),
+            tag=etiqueta,
+            rm=True,
+            forcerm=True,
+            decode=True,
+            **opciones,
         )
         for parte in partes:
             if parte.get("error"):

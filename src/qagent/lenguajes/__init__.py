@@ -25,6 +25,12 @@ from qagent.lenguajes.base import (
 from qagent.lenguajes.java import JavaAdapter
 from qagent.lenguajes.javascript import JavaScriptAdapter, TypeScriptAdapter
 from qagent.lenguajes.python import PythonAdapter
+from qagent.lenguajes.python_version import (
+    VersionPythonNoSoportada,
+    detectar_declaracion_version,
+    elegir_version_python,
+    resolver_version_python_proyecto,
+)
 from qagent.lenguajes.registro import LenguajeNoSoportado, Registro, listar_archivos
 from qagent.lenguajes.treesitter import cargar_gramatica
 
@@ -62,6 +68,11 @@ def adaptador_del_proyecto(raiz: str | os.PathLike[str]) -> LanguageAdapter:
     )
 
 
+def adaptador_e2e_del_proyecto(raiz: str | os.PathLike[str]) -> LanguageAdapter:
+    """Adaptador principal cuando el proyecto admite el humo E2E de #186."""
+    return REGISTRO.adaptador_e2e_del_proyecto(raiz)
+
+
 __all__ = [
     "REGISTRO",
     "AdaptadorEnDesarrollo",
@@ -77,10 +88,15 @@ __all__ = [
     "PythonAdapter",
     "Registro",
     "TypeScriptAdapter",
+    "VersionPythonNoSoportada",
     "adaptador_de_contrato",
     "adaptador_del_proyecto",
+    "adaptador_e2e_del_proyecto",
     "adaptador_para",
     "cargar_gramatica",
+    "detectar_declaracion_version",
     "detectar_lenguaje",
+    "elegir_version_python",
     "listar_archivos",
+    "resolver_version_python_proyecto",
 ]

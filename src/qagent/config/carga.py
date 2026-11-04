@@ -122,6 +122,13 @@ MODOS_EXPLICADOR = ("ia", "plantilla")
 #: Segundos que espera el Explicador cada respuesta del LLM si no se fija otro (#166).
 TIEMPO_EXPLICADOR_POR_DEFECTO_S = 60.0
 
+#: Modos del Recomendador de pruebas (ADR-011): reglas sin IA (#197) o un LLM que
+#: ordena y justifica esos tipos, con las reglas de respaldo (#200).
+MODOS_RECOMENDADOR = ("reglas", "ia")
+
+#: Segundos que espera el Recomendador la respuesta del LLM si no se fija otro (#200).
+TIEMPO_RECOMENDADOR_POR_DEFECTO_S = 30.0
+
 #: Memoria en formato Docker: un entero y una unidad (b, k, m o g), p. ej. "512m" o "3g".
 #: Secciones que solo define el equipo en `config.toml`: `config.local.toml` no las
 #: cambia. Los límites del sandbox no son un ajuste del usuario final (EN-03).
@@ -172,6 +179,30 @@ class Explicador:
 
 
 @dataclass(frozen=True)
+class Recomendador:
+    """Agente Recomendador (ADR-011): qué tipos de prueba conviene hacer antes de la corrida."""
+
+    modo: str = MODOS_RECOMENDADOR[0]
+    #: Proveedor, modelo y precios con `modo = "ia"` (#200); None con reglas.
+    precio: PrecioAgente | None = None
+    #: Segundos máximos por recomendación pedida al LLM; al vencer se usan las reglas.
+    tiempo_maximo_s: float = TIEMPO_RECOMENDADOR_POR_DEFECTO_S
+
+
+@dataclass(frozen=True)
+class SandboxPython:
+    """Configuración del sandbox de Python (ADR-013).
+
+    Atributos:
+        versiones_soportadas: versiones de Python disponibles (ej. ("3.10", ..., "3.14")).
+        version_por_defecto: versión a usar si el proyecto no declara una ("3.11").
+    """
+
+    versiones_soportadas: tuple[str, ...] = ("3.10", "3.11", "3.12", "3.13", "3.14")
+    version_por_defecto: str = "3.11"
+
+
+@dataclass(frozen=True)
 class Configuracion:
     """Contenido validado de `config.toml`."""
 
@@ -186,6 +217,8 @@ class Configuracion:
     sandbox_lenguajes: dict[str, LimitesSandbox] = field(
         default_factory=dict, hash=False
     )
+    sandbox_python: SandboxPython = field(default_factory=SandboxPython)
+    recomendador: Recomendador = Recomendador()
 
     def limites_sandbox(self, lenguaje: str | None = None) -> LimitesSandbox:
         """Límites del sandbox para `lenguaje`; los de `[sandbox]` si no tiene propios.
@@ -565,6 +598,7 @@ def _leer_config(
     umbrales = _leer_umbrales(datos.get("umbrales", {}), avisos)
     mutacion = _leer_mutacion(datos.get("mutacion", {}), avisos)
     sandbox = _leer_sandbox(datos.get("sandbox", {}), avisos)
+    sandbox_python = _leer_sandbox_python(datos.get("sandbox", {}), avisos)
     sandbox_lenguajes = _leer_sandbox_lenguajes(
         datos.get("sandbox", {}), sandbox, avisos
     )
@@ -575,6 +609,9 @@ def _leer_config(
     )
     explicador = _leer_explicador(
         (datos.get("agentes") or {}).get("explicador", {}), avisos
+    )
+    recomendador = _leer_recomendador(
+        (datos.get("agentes") or {}).get("recomendador", {}), avisos
     )
     if len(avisos) > antes:
         return None
@@ -587,6 +624,8 @@ def _leer_config(
         sandbox,
         explicador,
         sandbox_lenguajes,
+        sandbox_python,
+        recomendador,
     )  # type: ignore[arg-type]
 
 
@@ -725,6 +764,34 @@ def _leer_explicador(tabla: Mapping[str, Any], avisos: list[str]) -> Explicador 
     return Explicador(activo, modo, tiempo_maximo_s=tiempo)
 
 
+def _leer_recomendador(
+    tabla: Mapping[str, Any], avisos: list[str]
+) -> Recomendador | None:
+    """`[agentes.recomendador]` es opcional: sin él, el Recomendador usa reglas (#197).
+
+    Con `modo = "ia"` (#200) la sección lleva además `proveedor`, `modelo` y precios,
+    como los demás agentes (ADR-001), y `tiempo_maximo_s` opcional. No entra en
+    `Configuracion.agentes`: si falta su clave, la Vista previa usa las reglas.
+    """
+    if not isinstance(tabla, Mapping):
+        avisos.append("[agentes.recomendador] de config.toml debe ser una sección.")
+        return None
+    modo = tabla.get("modo", MODOS_RECOMENDADOR[0])
+    if modo not in MODOS_RECOMENDADOR:
+        validos = ", ".join(f'"{m}"' for m in MODOS_RECOMENDADOR)
+        avisos.append(f"modo en [agentes.recomendador] debe ser {validos}.")
+        return None
+    if modo != "ia":
+        return Recomendador(modo)
+    precio = _leer_agente("recomendador", tabla, avisos)
+    tiempo = TIEMPO_RECOMENDADOR_POR_DEFECTO_S
+    if "tiempo_maximo_s" in tabla:
+        tiempo = _numero(tabla, "tiempo_maximo_s", "agentes.recomendador", avisos)
+    if precio is None or tiempo is None:
+        return None
+    return Recomendador(modo, precio, tiempo)
+
+
 def _leer_sandbox(tabla: Mapping[str, Any], avisos: list[str]) -> LimitesSandbox | None:
     """`[sandbox]` es opcional: cada valor que falte toma el de `LIMITES_POR_DEFECTO`.
 
@@ -742,6 +809,53 @@ def _leer_sandbox(tabla: Mapping[str, Any], avisos: list[str]) -> LimitesSandbox
     if len(avisos) > antes:
         return None
     return LimitesSandbox(cpus=cpus, memoria=memoria, timeout_s=timeout)
+
+
+def _leer_sandbox_python(tabla: Mapping[str, Any], avisos: list[str]) -> SandboxPython:
+    """Lee la configuración de versiones de Python del sandbox en config.toml (ADR-013).
+
+    Admite tanto claves en [sandbox] (versiones_python, version_python_por_defecto)
+    como en la subsección [sandbox.python] (versiones_soportadas, version_por_defecto).
+    """
+    if not isinstance(tabla, Mapping):
+        return SandboxPython()
+    subtabla = tabla.get("python")
+    fuente: Mapping[str, Any] = subtabla if isinstance(subtabla, Mapping) else tabla
+    if subtabla is not None and not isinstance(subtabla, Mapping):
+        avisos.append("[sandbox.python] de config.toml debe ser una sección.")
+        fuente = tabla
+    versiones = fuente.get("versiones_python") or fuente.get("versiones_soportadas")
+    defecto = fuente.get("version_python_por_defecto") or fuente.get(
+        "version_por_defecto", "3.11"
+    )
+    if not isinstance(defecto, str) or not defecto.strip():
+        avisos.append("version_python_por_defecto debe ser un texto como '3.11'.")
+        defecto = "3.11"
+    if versiones is None:
+        return SandboxPython(version_por_defecto=defecto)
+    if not isinstance(versiones, list) or not all(
+        isinstance(v, str) and v.strip() for v in versiones
+    ):
+        avisos.append(
+            "versiones_python debe ser una lista de textos (ej. ['3.10', '3.11'])."
+        )
+        return SandboxPython(version_por_defecto=defecto)
+    return SandboxPython(
+        versiones_soportadas=tuple(str(v).strip() for v in versiones),
+        version_por_defecto=defecto,
+    )
+
+
+def cargar_sandbox_python(ruta_config: Path | None = None) -> SandboxPython:
+    """Carga solo la sección [sandbox.python] de config.toml sin validar claves de API."""
+    ruta = ruta_config or RUTA_CONFIG
+    try:
+        texto = ruta.read_text(encoding="utf-8")
+        datos = tomllib.loads(texto)
+    except Exception:  # noqa: BLE001
+        return SandboxPython()
+    avisos: list[str] = []
+    return _leer_sandbox_python(datos.get("sandbox", {}), avisos)
 
 
 def _leer_sandbox_lenguajes(
@@ -766,7 +880,10 @@ def _leer_sandbox_lenguajes(
                 f"({', '.join(LENGUAJES)})."
             )
             continue
-        desconocidas = sorted(set(subtabla) - {"memoria", "timeout_s"})
+        permitidas = {"memoria", "timeout_s"}
+        if nombre == "python":
+            permitidas |= {"versiones_soportadas", "version_por_defecto"}
+        desconocidas = sorted(set(subtabla) - permitidas)
         if desconocidas:
             avisos.append(
                 f"[{seccion}] solo admite memoria y timeout_s "

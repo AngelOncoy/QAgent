@@ -295,3 +295,21 @@ def test_carpeta_invalida_retorna_ok_false(tmp_path: Path) -> None:
     assert vista["ok"] is False
     assert "no es una carpeta" in vista["error"].lower()
     assert vista["resumen"]["total_modulos"] == 0
+
+
+def test_vista_previa_javascript_permite_acceder_al_flujo_e2e(
+    tmp_path: Path,
+) -> None:
+    _crear_archivo(tmp_path, "package.json", '{"scripts":{"start":"node server.js"}}')
+    _crear_archivo(
+        tmp_path,
+        "server.js",
+        "export function iniciar() { return 'ok'; }\n",
+    )
+
+    vista = generar_vista_previa(tmp_path)
+
+    assert vista["ok"] is True
+    assert vista["lenguaje"] == "javascript"
+    assert vista["solo_e2e"] is True
+    assert vista["resumen"]["total_modulos"] == 1

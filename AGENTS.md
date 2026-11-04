@@ -22,7 +22,7 @@ Aplicación de escritorio local (pywebview + backend Python + Docker). No hay se
 - **Implementado hoy:** **unitarias de funciones Python** y **endpoints FastAPI** con pytest/`TestClient` (EP-09); **unitarias Java en proyectos Maven de un módulo** con JUnit 5 y JaCoCo (#181, #184, #182), y **endpoints Spring MVC** con `@WebMvcTest`, MockMvc y servicios simulados mediante `@MockBean` (#183). La ejecución ocurre dentro del sandbox sin red. Spring usa una plantilla verificable y estados/binding declarados; sus límites están en `docs/java/spring-mockmvc.md`. Gradle, POM heredados, multimódulo, `@SpringBootTest` completo y servicios reales quedan fuera del ejecutor Java.
 - **Ampliación aprobada para el Sprint 2** (ADR-010; cada punto entra al alcance cuando su ítem se implementa): unitarias de JavaScript/TypeScript con Vitest (EP-11a) y de Java con JUnit 5 (EP-12a); componentes React (EP-11b) y servicios y componentes Angular (EP-11d); mutación en funciones críticas con Stryker y PIT (EP-11c, EP-12b); pruebas de arquitectura con reglas universales o declaradas por el usuario (EP-13a); E2E **de humo** con Playwright (EP-13b); Agente Explicador (EP-10).
 - **Fuera de alcance:** integración contra servicios reales, E2E de flujos completos que el usuario no declaró, carga y estrés, Astro (solo investigación) y pruebas de propiedades. (Las pruebas de interfaz se refieren al código del usuario; no confundir con `src/qagent/frontend/`, la interfaz de QAgent.)
-- El análisis estático del código del usuario usa tree-sitter en todos los lenguajes (ADR-009; Python desde TA-16, que reemplaza a ADR-002). `ast` solo se usa para revisar las pruebas que genera QAgent. No se integra Graphify.
+- El análisis estático del código del usuario usa tree-sitter en todos los lenguajes (ADR-009; Python desde TA-16, que reemplaza a ADR-002), incluyendo el grafo de dependencias entre archivos con tree-sitter (ADR-012). `ast` solo se usa para revisar las pruebas que genera QAgent. No se integra Graphify.
 - La mutación (mutmut, Stryker o PIT) corre solo sobre funciones marcadas `critical: true`, nunca sobre el repositorio completo.
 
 ## Comandos
@@ -46,7 +46,7 @@ La interfaz, los contratos y `config.toml` viajan dentro del paquete (`src/qagen
 |---|---|
 | `src/qagent/agents/` | Planner, Generator, Reviewer, Explicador y Recomendador (reglas sin IA que sugieren en Vista previa qué tipos de prueba hacer, #197, ADR-011) |
 | `src/qagent/orchestrator/` | Máquina de estados de la corrida |
-| `src/qagent/analysis/` | Analizador estático con tree-sitter (TA-16): funciones, rutas FastAPI y mapa de llamadas `llama_a`. Interfaz única `analizar(ruta) -> Estructura`. `arbol_ts.py` es la base (parser, nodos, errores de sintaxis) y `texto_ts.py` escribe tipos y firmas como `ast.unparse` |
+| `src/qagent/analysis/` | Analizador estático con tree-sitter (TA-16): funciones, rutas FastAPI, mapa de llamadas `llama_a` y grafo de dependencias inter-archivo (`grafo_imports.py`, ADR-012). Interfaz única `analizar(ruta) -> Estructura`. `arbol_ts.py` es la base (parser, nodos, errores de sintaxis) y `texto_ts.py` escribe tipos y firmas como `ast.unparse` |
 | `src/qagent/sandbox/` | Ejecución en Docker |
 | `src/qagent/llm/` | Cliente LLM real y simulado; registro de tokens |
 | `src/qagent/app/` | Puente pywebview (`desktop.py`): recibe acciones de la interfaz y le envía eventos, y bitácora de la corrida en la consola (`bitacora.py`). Sin lógica de negocio |
@@ -62,7 +62,7 @@ La interfaz, los contratos y `config.toml` viajan dentro del paquete (`src/qagen
 | `pyproject.toml` | Dependencias, extra `dev`, configuración de pytest y ruff, script `qagent` |
 | `CLAUDE.md` | Guía específica para Claude Code (importa este archivo) |
 | `docs/arquitectura.md` | Arquitectura del sistema y modelo GAIA, actualizada al Sprint 2 (EN-20): lo propuesto está marcado y la sección 13 lista lo que no cambia y las decisiones abiertas |
-| `docs/decisiones/` | ADR (decisiones técnicas): ADR-001 modelos por agente, ADR-002 análisis con `ast` (reemplazado por ADR-009), ADR-003 frontend modular, ADR-004 nombre único QAgent, ADR-005 distribución (instalador y PyPI), ADR-006 rediseño y tema claro, ADR-007 adaptadores por lenguaje (EN-17), ADR-008 orquestador determinista y Agente Explicador (SPK-03), ADR-009 parser por lenguaje: tree-sitter (SPK-04), ADR-010 arquitectura y alcance del Sprint 2 (EN-20), ADR-011 Agente Recomendador de pruebas (EP-15) |
+| `docs/decisiones/` | ADR (decisiones técnicas): ADR-001 modelos por agente, ADR-002 análisis con `ast` (reemplazado por ADR-009), ADR-003 frontend modular, ADR-004 nombre único QAgent, ADR-005 distribución (instalador y PyPI), ADR-006 rediseño y tema claro, ADR-007 adaptadores por lenguaje (EN-17), ADR-008 orquestador determinista y Agente Explicador (SPK-03), ADR-009 parser por lenguaje: tree-sitter (SPK-04), ADR-010 arquitectura y alcance del Sprint 2 (EN-20), ADR-011 Agente Recomendador de pruebas (EP-15), ADR-012 grafo de dependencias inter-archivo con tree-sitter (SPK-196, descarte de Graphify), ADR-013 versión de Python del sandbox |
 | `packaging/windows/` | Ejecutable e instalador de Windows: receta de PyInstaller (`qagent.spec`), instalador de Inno Setup (`qagent.iss`), ícono, imágenes del asistente (`asistente/`) y requisitos que ve quien instala. Se construye con `scripts/construir_windows.py` |
 | `scripts/` | Herramientas del equipo: verificar el paquete instalado y construir el ejecutable de Windows |
 | `docs/desarrollo.md` | Guía del equipo: entorno, pruebas, sandbox, distribución y estructura del repositorio (el README es la portada para usuarios) |
@@ -72,7 +72,7 @@ La interfaz, los contratos y `config.toml` viajan dentro del paquete (`src/qagen
 
 ## Reglas que no se rompen
 
-- **Nunca ejecutar código del usuario ni tests generados fuera del sandbox.** El análisis del código del usuario es solo estático (árbol de sintaxis de tree-sitter).
+- **Nunca ejecutar código del usuario ni tests generados fuera del sandbox.** El análisis del código del usuario es solo estático (árbol de sintaxis y grafo de dependencias con tree-sitter, ADR-012).
 - **Los agentes no se llaman entre sí:** todo pasa por el orquestador y los contratos de `src/qagent/contracts/`. Si cambia un contrato, se actualiza su schema y su test.
 - **El valor esperado de una aserción sale del contrato del Planner**: firma, tipos y docstring de una función, o la declaración de la ruta (`response_model`, `status_code`, modelos Pydantic) de un endpoint. Nunca de ejecutar el código.
 - **Nunca relajar ni borrar aserciones para que un test pase.**

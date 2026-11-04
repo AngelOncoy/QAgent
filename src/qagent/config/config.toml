@@ -32,6 +32,10 @@ timeout_s = 120                  # segundos por ejecución; el paso del orquesta
 
 # Límites por lenguaje (#169): solo `memoria` y `timeout_s`; lo que falte (y los CPU) se
 # toma de [sandbox], que es también el de Python. Medidos en docs/arquitectura.md (sección 7).
+# Rango soportado por QAgent (ADR-013): 3.10–3.14. Fuera del rango la corrida se detiene.
+versiones_python = ["3.10", "3.11", "3.12", "3.13", "3.14"]
+version_python_por_defecto = "3.11"
+
 [sandbox.javascript]
 memoria = "2g"
 timeout_s = 120
@@ -92,3 +96,18 @@ modelo = "gpt-6-luna"
 precio_entrada_usd_m = 0.10
 precio_salida_usd_m = 0.50
 tiempo_maximo_s = 60             # segundos por explicación; al vencer, plantilla
+
+# Agente Recomendador (EP-15, ADR-011): en Vista previa sugiere qué tipos de prueba hacer.
+# Con modo = "reglas" usa reglas sin IA (0 tokens) y es el valor predeterminado. Con
+# modo = "ia" (#200) un LLM ordena y explica esos mismos tipos, nunca agrega otros, y las
+# reglas quedan de respaldo. Sigue apagado hasta medir utilidad, costo y latencia (#201).
+# Para probarlo, copia la sección a config.local.toml con modo = "ia" y descomenta
+# proveedor, modelo y precios (clave: OPENAI_API_KEY_RECOMENDADOR u OPENAI_API_KEY en
+# .env). Sin clave, con error o pasado el tiempo máximo se usan las reglas.
+[agentes.recomendador]
+modo = "reglas"
+# proveedor = "openai"
+# modelo = "gpt-6-luna"
+# precio_entrada_usd_m = 0.10
+# precio_salida_usd_m = 0.50
+# tiempo_maximo_s = 30           # segundos por recomendación; al vencer, reglas

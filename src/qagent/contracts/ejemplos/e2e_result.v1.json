@@ -1,0 +1,48 @@
+{
+  "version": "1",
+  "run_id": "20261103-103110-537f",
+  "status": "cumple",
+  "language": "javascript",
+  "framework": "express",
+  "image": "qagent-sandbox:browser-ejemplo",
+  "limits": {
+    "cpus": 2.0,
+    "memory": "2g",
+    "startup_timeout_s": 30,
+    "route_timeout_s": 10,
+    "total_timeout_s": 120,
+    "max_routes": 25,
+    "network": "none"
+  },
+  "startup": {
+    "ready": true,
+    "exit_code": null,
+    "port": 4173,
+    "timeout_ms": 30000,
+    "log": "Servidor listo.",
+    "reason": null
+  },
+  "routes": [
+    {
+      "path": "/",
+      "status": "cumple",
+      "http_status": 200,
+      "final_url": "http://127.0.0.1:4173/",
+      "console_errors": [],
+      "page_errors": [],
+      "request_errors": [],
+      "visible_content": true,
+      "screenshot": null,
+      "duration_ms": 325,
+      "reason": null
+    }
+  ],
+  "summary": {
+    "total": 1,
+    "passed": 1,
+    "failed": 0,
+    "no_verdict": 0
+  },
+  "duration_s": 1.25,
+  "tokens": 0
+}

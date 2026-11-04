@@ -28,7 +28,11 @@ from pathlib import Path
 from typing import Any
 
 from qagent.sandbox.imagen import Avance, _avisar, _construir, _imagen_existe
-from qagent.sandbox.modelos import IMAGEN_BASE, ErrorConstruccionImagen
+from qagent.sandbox.modelos import (
+    IMAGEN_BASE,
+    ErrorConstruccionImagen,
+    es_imagen_base_python,
+)
 
 registro = logging.getLogger(__name__)
 
@@ -142,6 +146,7 @@ def dockerfile_final(imagen_dependencias: str, paquetes: set[str]) -> str:
             "RUN apt-get update"
             f" && for p in {lista}; do"
             ' apt-get install -y --no-install-recommends "$p"'
+            ' || apt-get install -y --no-install-recommends "${p%t64}"'
             ' || echo "QAgent: no se pudo instalar $p"; done'
             " && rm -rf /var/lib/apt/lists/*"
         )
@@ -169,7 +174,7 @@ def asegurar_librerias_sistema(
     Nunca impide la corrida: si no se puede construir o leer, devuelve la imagen de
     dependencias sin faltantes y deja un aviso en el registro.
     """
-    if imagen_dependencias == IMAGEN_BASE:
+    if imagen_dependencias == IMAGEN_BASE or es_imagen_base_python(imagen_dependencias):
         return EntornoVerificado(imagen_dependencias)
     final = etiqueta_final(imagen_dependencias)
     try:

@@ -24,6 +24,9 @@ datos = (
     + collect_data_files("tree_sitter_typescript")
     + collect_data_files("tree_sitter_python")
     + copy_metadata("qagent-pytest")
+    # `sandbox/librerias.py` lee este script como archivo al importarse (#142): PyInstaller
+    # solo empaqueta los `.py` como módulos, así que hay que incluirlo como dato.
+    + [(str(AQUI.parents[1] / "src" / "qagent" / "sandbox" / "verificar_entorno.py"), "qagent/sandbox")]
 )
 
 a = Analysis(  # noqa: F821

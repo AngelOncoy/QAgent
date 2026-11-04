@@ -1,5 +1,9 @@
 # EN-19 (#132) — Prototipo Java con Tree-sitter y JUnit 5
 
+> La matriz de criterios y los comandos de validación de la épica #174 están en
+> [validacion-ep12.md](validacion-ep12.md). Esa página reúne banco original,
+> flujo integrado, regresión de Python, Spring y PIT.
+
 > Esta página conserva la evidencia del prototipo #132. La ampliación de análisis
 > y la planificación de #181 están en [analisis-planificacion.md](analisis-planificacion.md):
 > constructores, etiquetas Javadoc, decisiones, llama_a y contratos Java/JUnit 5.

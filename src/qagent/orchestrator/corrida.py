@@ -47,7 +47,11 @@ from qagent.almacenamiento import (
     nombre_prueba,
 )
 from qagent.config.carga import Mutacion
-from qagent.lenguajes import LenguajeNoSoportado, adaptador_del_proyecto
+from qagent.lenguajes import (
+    LenguajeNoSoportado,
+    VersionPythonNoSoportada,
+    adaptador_del_proyecto,
+)
 from qagent.llm import TokenTracker, crear_cliente
 from qagent.llm.fabrica import ConfiguracionLLMIncompleta, FuenteClaves
 from qagent.orchestrator.eventos import BusEventos, Evento
@@ -297,6 +301,20 @@ def ejecutar_corrida(
             adaptador = adaptador_del_proyecto(ruta)
         except LenguajeNoSoportado as error:
             raise ErrorCorrida(str(error)) from error
+        version_python = None
+        if adaptador.lenguaje == "python" and hasattr(
+            adaptador, "resolver_version_python"
+        ):
+            try:
+                version_python = adaptador.resolver_version_python(ruta)
+            except VersionPythonNoSoportada as error:
+                resumen.estado = FALLO
+                resumen.tipo_terminacion = "detenida_error"
+                resumen.motivo = str(error)
+                avisar(resumen.motivo, "fallo")
+                avisar_entorno(resumen.motivo, ENTORNO_FALLO, "fallo")
+                _cerrar_run(almacen, resumen, tipos)
+                return resumen
         analisis = adaptador.analizar(ruta)
         modulos = [
             _con_fuente(ruta, m)
@@ -337,7 +355,11 @@ def ejecutar_corrida(
             if agente != "explicador"
         }
         avisar_entorno(
-            "Preparando el entorno aislado (Docker) para ejecutar las pruebas",
+            (
+                f"Preparando el entorno aislado (Docker) con Python {version_python} para ejecutar las pruebas"
+                if version_python
+                else "Preparando el entorno aislado (Docker) para ejecutar las pruebas"
+            ),
             ENTORNO_PREPARANDO,
         )
         # #148: construir la imagen puede tardar minutos (APP-RF: 11 de 13). Se
@@ -350,7 +372,7 @@ def ejecutar_corrida(
             def preparar(ruta_imagen: Path) -> str:
                 return _preparar_imagen(
                     ruta_imagen,
-                    imagen_base=adaptador.entorno_sandbox().imagen,
+                    imagen_base=adaptador.entorno_sandbox(ruta).imagen,
                     comprobar_librerias=adaptador.comprobar_librerias_sistema,
                     avanzar=avance_limitado(
                         lambda texto: avisar_entorno(texto, ENTORNO_AVANCE),
@@ -540,7 +562,11 @@ def ejecutar_corrida(
                     planes_specs.append(spec)
         else:
             avisar_entorno(
-                "Entorno aislado listo: se escriben y verifican las pruebas",
+                (
+                    f"Entorno aislado listo con Python {version_python}: se escriben y verifican las pruebas"
+                    if version_python
+                    else "Entorno aislado listo: se escriben y verifican las pruebas"
+                ),
                 ENTORNO_LISTO,
             )
             orquestador.reviewer = ReviewerAgent(

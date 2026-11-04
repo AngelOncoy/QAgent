@@ -739,6 +739,6 @@ def _preparar_imagen(ruta: Path, adaptador: LanguageAdapter | None = None) -> st
         return preparar(ruta)
     return preparar(
         ruta,
-        imagen_base=adaptador.entorno_sandbox().imagen,
+        imagen_base=adaptador.entorno_sandbox(ruta).imagen,
         comprobar_librerias=adaptador.comprobar_librerias_sistema,
     )

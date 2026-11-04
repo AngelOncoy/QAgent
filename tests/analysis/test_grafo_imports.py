@@ -1,8 +1,10 @@
-"""Pruebas unitarias para el prototipo de grafo de imports tree-sitter (SPK #196)."""
+"""Pruebas unitarias para el grafo de imports tree-sitter (SPK #196, ADR-012)."""
 
 from __future__ import annotations
 
 from pathlib import Path
+
+import pytest
 
 from qagent.agents.generator import GeneratorAgent
 from qagent.analysis.grafo_imports import (
@@ -10,6 +12,7 @@ from qagent.analysis.grafo_imports import (
     formatear_contexto_grafo,
     parsear_archivo,
 )
+from qagent.lenguajes.python_generacion import prompt_generator
 from qagent.llm import TokenTracker
 from qagent.llm.modelos import RespuestaLLM
 
@@ -168,3 +171,103 @@ def test_generator_sin_grafo_no_incluye_bloque() -> None:
 
     prompt = cliente.prompts[0]
     assert "DEPENDENCIAS INTERNAS DEL PROYECTO" not in prompt
+
+
+def test_prompt_generator_con_dependencias_incluye_bloque() -> None:
+    """Verifica que prompt_generator enriquezca el prompt cuando hay ruta_proyecto y dependencias."""
+    raiz = Path(__file__).resolve().parent.parent.parent
+    contrato = {
+        "modulo": "bench/dependencias/procesador_pagos.py",
+        "objetivo": "procesar_transferencia",
+        "tipo": "funcion",
+        "lenguaje": "python",
+        "framework": "pytest",
+        "casos": [
+            {
+                "id": "c1",
+                "descripcion": "transferencia valida",
+                "entrada": {"origen": "A", "destino": "B", "monto": 50.0},
+                "valor_esperado": {"estado": "completada"},
+            }
+        ],
+    }
+
+    prompt = prompt_generator(contrato, intento=1, feedback=None, ruta_proyecto=raiz)
+    assert "DEPENDENCIAS INTERNAS DEL PROYECTO" in prompt
+    assert "unittest.mock.patch" in prompt
+
+
+def test_prompt_generator_sin_ruta_proyecto_no_incluye_bloque() -> None:
+    """Verifica que sin ruta_proyecto el prompt no incluya el bloque para ahorrar tokens."""
+    contrato = {
+        "modulo": "bench/dependencias/procesador_pagos.py",
+        "objetivo": "procesar_transferencia",
+        "tipo": "funcion",
+        "lenguaje": "python",
+        "framework": "pytest",
+        "casos": [],
+    }
+
+    prompt = prompt_generator(contrato, intento=1, feedback=None, ruta_proyecto=None)
+    assert "DEPENDENCIAS INTERNAS DEL PROYECTO" not in prompt
+
+
+def test_prompt_generator_endpoint_con_manejador() -> None:
+    """Verifica que un contrato de endpoint con manejador resuelva dependencias inter-archivo."""
+    raiz = Path(__file__).resolve().parent.parent.parent
+    contrato = {
+        "modulo": "bench/dependencias/api.py",
+        "tipo": "endpoint",
+        "objetivo": "POST /transferencias",
+        "manejador": "crear_transferencia",
+        "aplicacion": "app",
+        "lenguaje": "python",
+        "framework": "pytest",
+        "casos": [],
+    }
+    prompt = prompt_generator(contrato, intento=1, feedback=None, ruta_proyecto=raiz)
+    assert "DEPENDENCIAS INTERNAS DEL PROYECTO" in prompt
+    assert "procesar_transferencia" in prompt
+
+
+def test_graphify_exe_en_proyecto_no_se_ejecuta(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Confirma que un .venv/Scripts/graphify.exe dentro del proyecto analizado nunca se ejecuta."""
+    scripts_dir = tmp_path / ".venv" / "Scripts"
+    scripts_dir.mkdir(parents=True, exist_ok=True)
+    fake_exe = scripts_dir / "graphify.exe"
+    fake_exe.write_bytes(b"echo NO EJECUTAR")
+
+    # Módulo a analizar con dependencia
+    dep_file = tmp_path / "servicio.py"
+    dep_file.write_text("def consultar() -> str:\n    return 'ok'\n", encoding="utf-8")
+    mod_file = tmp_path / "modulo.py"
+    mod_file.write_text(
+        "from servicio import consultar\n\ndef tarea():\n    return consultar()\n",
+        encoding="utf-8",
+    )
+
+    import subprocess
+
+    def no_subproceso(*args, **kwargs):
+        raise AssertionError("Se intentó ejecutar un subproceso fuera del sandbox!")
+
+    monkeypatch.setattr(subprocess, "run", no_subproceso)
+    monkeypatch.setattr(subprocess, "Popen", no_subproceso)
+
+    contrato = {
+        "modulo": "modulo.py",
+        "objetivo": "tarea",
+        "tipo": "funcion",
+        "lenguaje": "python",
+        "framework": "pytest",
+        "casos": [],
+    }
+
+    # prompt_generator y construir_grafo_dependencias deben funcionar sin subprocesos
+    prompt = prompt_generator(
+        contrato, intento=1, feedback=None, ruta_proyecto=tmp_path
+    )
+    assert "DEPENDENCIAS INTERNAS DEL PROYECTO" in prompt
+    assert "consultar" in prompt

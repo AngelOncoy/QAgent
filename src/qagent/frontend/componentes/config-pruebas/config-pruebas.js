@@ -62,6 +62,15 @@ registrarComponente('config-pruebas/config-pruebas', `<!-- ===== 3. PREPARAR ===
           <ul class="np-meta prep-arq-lista" id="prepArqReglas"></ul>
           <div class="np-aviso np-aviso-info hide" id="prepArqResultado" aria-live="polite"></div>
         </section>
+        <section class="np-tarjeta prep-arquitectura" aria-labelledby="prepE2ETitulo">
+          <h2 id="prepE2ETitulo">E2E de humo con Playwright</h2>
+          <p class="np-meta">Detecta páginas Express o Vite y las visita en Chromium headless. Solo se ejecuta al pulsar el botón; no usa IA ni red externa.</p>
+          <div class="prep-arq-acciones">
+            <button type="button" class="ini-btn" onclick="detectarRutasE2E()">Ver rutas</button>
+            <button type="button" class="ini-btn ini-btn-principal" id="prepE2EEjecutar" onclick="ejecutarE2E()">Ejecutar E2E</button>
+          </div>
+          <div class="np-aviso np-aviso-info hide" id="prepE2EResultado" aria-live="polite"></div>
+        </section>
         <section class="np-tarjeta" id="prepComprobaciones" aria-live="polite"></section>
         <section class="np-tarjeta" id="prepLimites"></section>
         <p class="np-meta">Si una prueba revela un posible bug, conservaremos el criterio original. No la debilitamos para hacerla pasar.</p>
@@ -154,6 +163,58 @@ async function exportarInformeArquitectura(runId){
   const r = await api.exportar_informe_arquitectura(projectPath, runId, 'pdf');
   if (!r || !r.ok) { toastError(escHtml((r && r.motivo) || 'No se pudo exportar el informe.')); return; }
   toast(`Informe guardado en ${r.ruta}`);
+}
+
+async function detectarRutasE2E(){
+  const api = window.pywebview && window.pywebview.api;
+  const salida = $('prepE2EResultado');
+  if (!api || !api.detectar_e2e) return;
+  salida.classList.remove('hide');
+  salida.innerHTML = `${ICO_GIRANDO}<div><b>Detectando rutas estáticas</b><span>No se inicia la aplicación.</span></div>`;
+  const r = await api.detectar_e2e(projectPath);
+  if (!r || !r.ok) { salida.innerHTML = `${ICO_AVISO_CLON}<div><b>E2E no disponible</b><span>${escHtml((r && r.motivo) || 'No se detectaron rutas compatibles.')}</span></div>`; return; }
+  const items = (r.routes || []).map(route => `<li><code>${escHtml(route.path)}</code> · ${route.eligible ? 'lista' : escHtml(route.reason || 'sin veredicto')} · ${escHtml(route.source)}</li>`).join('');
+  salida.innerHTML = `${ICO_INFO}<div><b>${(r.routes || []).length} rutas detectadas</b><span>${escHtml(r.framework)} · comando estructurado: ${escHtml((r.start_command || []).join(' '))}</span><ul>${items}</ul></div>`;
+}
+
+async function ejecutarE2E(){
+  const api = window.pywebview && window.pywebview.api;
+  if (!api || !api.ejecutar_e2e) return;
+  const boton = $('prepE2EEjecutar'), salida = $('prepE2EResultado');
+  if (!window.confirm('Se preparará la imagen pesada de Playwright si aún no existe y se iniciará la aplicación dentro de Docker, sin red externa. ¿Continuar?')) return;
+  boton.disabled = true; boton.textContent = 'Ejecutando…';
+  salida.classList.remove('hide');
+  salida.innerHTML = `${ICO_GIRANDO}<div><b>Iniciando app y Chromium en Docker</b><span>La primera ejecución puede construir la imagen bajo demanda.</span></div>`;
+  try {
+    const r = await api.ejecutar_e2e(projectPath);
+    if (!r || !r.ok) throw new Error((r && r.motivo) || 'No se pudo ejecutar E2E.');
+    renderResultadoE2E(r);
+  } catch (error) {
+    salida.innerHTML = `${ICO_ERROR}<div><b>No se completó el humo E2E</b><span>${escHtml(String(error.message || error))}</span></div>`;
+  } finally { boton.disabled = false; boton.textContent = 'Ejecutar E2E'; }
+}
+
+function renderResultadoE2E(r){
+  const salida = $('prepE2EResultado');
+  const rows = (r.routes || []).map(route => `<li><code>${escHtml(route.path)}</code> · ${escHtml(route.status)} · HTTP ${route.http_status === null ? '—' : route.http_status}${route.reason ? ` · ${escHtml(route.reason)}` : ''}${route.screenshot ? ` · captura ${escHtml(route.screenshot)}` : ''}</li>`).join('');
+  salida.classList.remove('hide');
+  salida.innerHTML = `${r.status === 'cumple' ? ICO_OK : r.status === 'falla' ? ICO_ERROR : ICO_AVISO_CLON}<div><b>Humo E2E: ${escHtml(r.status)}</b><span>Corrida ${escHtml(r.run_id)} · ${(r.summary || {}).passed || 0} pasan · ${(r.summary || {}).failed || 0} fallan · ${(r.summary || {}).no_verdict || 0} sin veredicto · 0 tokens.</span><ul>${rows}</ul><button type="button" class="ini-btn" onclick="exportarInformeE2E('${escHtml(r.run_id)}')">Exportar HTML</button></div>`;
+}
+
+async function abrirResultadoE2E(runId){
+  const api = window.pywebview && window.pywebview.api;
+  if (!api || !api.obtener_resultado_e2e) return;
+  const r = await api.obtener_resultado_e2e(projectPath, runId);
+  if (!r || !r.ok) { toastError(escHtml((r && r.motivo) || 'No se pudo abrir la corrida E2E.')); return; }
+  go('config'); renderResultadoE2E(r);
+}
+
+async function exportarInformeE2E(runId){
+  const api = window.pywebview && window.pywebview.api;
+  if (!api || !api.exportar_informe_e2e) return;
+  const r = await api.exportar_informe_e2e(projectPath, runId, 'html');
+  if (!r || !r.ok) { toastError(escHtml((r && r.motivo) || 'No se pudo exportar el informe E2E.')); return; }
+  toast(`Informe E2E guardado en ${escHtml(r.path)}`);
 }
 
 // #69: la elección de la pantalla se traduce al perfil que recibe start_run (humo, std, deep o reg, #70).

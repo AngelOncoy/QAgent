@@ -8,10 +8,47 @@ from typing import Any
 
 REPOSITORIO = "qagent-sandbox"
 IMAGEN_BASE = f"{REPOSITORIO}:base"
+#: Prefijo de etiquetas base de Python versionadas (ej. `qagent-sandbox:base-py3.12`, ADR-013).
+PREFIJO_BASE_PYTHON = f"{REPOSITORIO}:base-py"
+VERSION_PYTHON_DEFECTO = "3.11"
+
+
+def etiqueta_base_python(
+    version: str, version_por_defecto: str = VERSION_PYTHON_DEFECTO
+) -> str:
+    """Etiqueta de la imagen base de Python según la versión solicitada (ADR-013).
+
+    La versión por defecto conserva `qagent-sandbox:base` para no romper lo que ya
+    existe. Las demás versiones usan `qagent-sandbox:base-py<versión>`.
+    """
+    version_limpia = str(version).strip()
+    if version_limpia == version_por_defecto:
+        return IMAGEN_BASE
+    return f"{PREFIJO_BASE_PYTHON}{version_limpia}"
+
+
+def version_de_imagen_base(
+    imagen: str, version_por_defecto: str = VERSION_PYTHON_DEFECTO
+) -> str | None:
+    """Extrae la versión de Python de una imagen base (ej. 'qagent-sandbox:base-py3.12' -> '3.12')."""
+    if imagen == IMAGEN_BASE:
+        return version_por_defecto
+    if imagen.startswith(PREFIJO_BASE_PYTHON):
+        return imagen[len(PREFIJO_BASE_PYTHON) :]
+    return None
+
+
+def es_imagen_base_python(imagen: str) -> bool:
+    """Indica si una etiqueta corresponde a una imagen base de Python (por defecto o versionada)."""
+    return imagen == IMAGEN_BASE or imagen.startswith(PREFIJO_BASE_PYTHON)
+
+
 #: Imagen de JavaScript y TypeScript: Node LTS, Vitest, coverage-v8 y Stryker (#169).
 IMAGEN_NODE = f"{REPOSITORIO}:node"
 #: Imagen de Java: JDK, Maven, Gradle, JUnit 5, JaCoCo y PIT (#169).
 IMAGEN_JAVA = f"{REPOSITORIO}:java"
+#: Navegador aislado para humo E2E; solo se aprovisiona al pedir ese flujo (#186).
+IMAGEN_NAVEGADOR = f"{REPOSITORIO}:navegador"
 #: Etiqueta Docker de los contenedores del sandbox (para encontrarlos y limpiarlos).
 ETIQUETA_CONTENEDOR = {"qagent": "sandbox"}
 

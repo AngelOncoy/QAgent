@@ -266,6 +266,15 @@ def test_maven_usa_dependency_go_offline(proyecto_maven):
     assert construccion["dockerfile"].startswith(f"FROM {IMAGEN_JAVA}\n")
     assert "mvn dependency:go-offline" in construccion["dockerfile"]
     assert "dependency:resolve" in construccion["dockerfile"]
+    # JUnit puede declararse mediante BOM: usar el engine resuelto, no una
+    # versión fija ni la versión del POM de calentamiento de QAgent.
+    assert "-DincludeArtifactIds=junit-platform-engine" in construccion["dockerfile"]
+    assert (
+        "org.junit.platform:junit-platform-launcher:$version"
+        in construccion["dockerfile"]
+    )
+    assert "mvn test" not in construccion["dockerfile"]
+    assert "mvn verify" not in construccion["dockerfile"]
 
 
 def test_maven_reutiliza_la_derivada_si_no_cambia_el_pom(proyecto_maven):

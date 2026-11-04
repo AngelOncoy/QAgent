@@ -29,6 +29,7 @@ MARCA_MODULO = "MODULO:"
 MARCA_OBJETIVOS = "OBJETIVOS_JSON:"
 MARCA_CONTRATO = "CONTRATO_JSON:"
 MARCA_EXPLICACION = "EXPLICACION_JSON:"
+MARCA_RECOMENDACION = "RECOMENDACION_JSON:"
 
 # Viaja dentro del paquete para que el modo de demostración funcione instalado.
 RUTA_GRABACIONES = Path(__file__).resolve().with_name("ia_simulada.json")
@@ -127,6 +128,8 @@ class FakeLLMClient:
             contenido = self._generar_test(prompt)
         elif rol == "explicador":
             contenido = self._explicar(prompt)
+        elif rol == "recomendador":
+            contenido = self._recomendar(prompt)
         if contenido is None:
             contenido = self.RESPUESTAS_GRABADAS.get(
                 rol, f"Respuesta simulada para prompt: {prompt[:30]}..."
@@ -186,6 +189,27 @@ class FakeLLMClient:
         if isinstance(grabada, dict):
             explicacion.update(grabada)
         return json.dumps(explicacion, ensure_ascii=False)
+
+    # --- Recomendador -----------------------------------------------------------------
+
+    @staticmethod
+    def _recomendar(prompt: str) -> str | None:
+        """Mismos tipos que propusieron las reglas, en el mismo orden (#200)."""
+        entrada = _json_marcado(prompt, MARCA_RECOMENDACION)
+        if not isinstance(entrada, dict):
+            return None
+        reglas = entrada.get("reglas")
+        if not isinstance(reglas, list):
+            return None
+        recomendaciones = [
+            {
+                "tipo_prueba": regla["tipo_prueba"],
+                "motivo": f"Recomendación simulada: {regla.get('motivo') or ''}".strip(),
+            }
+            for regla in reglas
+            if isinstance(regla, dict) and "tipo_prueba" in regla
+        ]
+        return json.dumps({"recomendaciones": recomendaciones}, ensure_ascii=False)
 
     # --- Generator --------------------------------------------------------------------
 

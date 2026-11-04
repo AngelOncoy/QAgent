@@ -539,7 +539,7 @@ class DesktopAPI:
 
         try:
             return {"ok": True, **leer_resultado_arquitectura(ruta, run_id)}
-        except (OSError, ValueError) as error:
+        except (OSError, TypeError, ValueError) as error:
             return {"ok": False, "motivo": str(error)}
 
     def obtener_reglas_arquitectura(self, ruta: str) -> dict:
@@ -549,7 +549,7 @@ class DesktopAPI:
                 "ok": True,
                 **AlmacenProyecto(ruta).leer_reglas_arquitectura(),
             }
-        except (OSError, ValueError) as error:
+        except (OSError, TypeError, ValueError) as error:
             return {"ok": False, "motivo": str(error)}
 
     def guardar_reglas_arquitectura(self, ruta: str, documento: dict) -> dict:
@@ -557,7 +557,7 @@ class DesktopAPI:
         try:
             guardado = AlmacenProyecto(ruta).guardar_reglas_arquitectura(documento)
             return {"ok": True, **guardado}
-        except (OSError, ValueError) as error:
+        except (OSError, TypeError, ValueError) as error:
             return {"ok": False, "motivo": str(error)}
 
     def verificar_arquitectura(self, ruta: str) -> dict:
@@ -571,7 +571,7 @@ class DesktopAPI:
             carga = cargar_configuracion()
             limites = carga.config.limites_sandbox(lenguaje) if carga.config else None
             return {"ok": True, **verificar_arquitectura(ruta, limites=limites)}
-        except (OSError, ValueError) as error:
+        except (OSError, TypeError, ValueError) as error:
             return {"ok": False, "motivo": str(error)}
 
     def exportar_informe_arquitectura(
@@ -579,6 +579,44 @@ class DesktopAPI:
     ) -> dict:
         """Exporta una corrida arquitectónica como JSON, MD, HTML o PDF."""
         from qagent.arquitectura.informe import exportar
+
+        try:
+            return exportar(ruta, run_id, formato, destino)
+        except (OSError, ValueError) as error:
+            return {"ok": False, "motivo": str(error)}
+
+    def detectar_e2e(self, ruta: str) -> dict:
+        """Presenta las rutas antes de que la persona decida ejecutar Playwright."""
+        from qagent.e2e.deteccion import detectar_plan_e2e
+
+        try:
+            return {"ok": True, **detectar_plan_e2e(ruta)}
+        except (OSError, TypeError, ValueError) as error:
+            return {"ok": False, "motivo": str(error)}
+
+    def ejecutar_e2e(self, ruta: str) -> dict:
+        """Ejecuta voluntariamente el humo E2E determinista, nunca al abrir el proyecto."""
+        from qagent.e2e.ejecucion import ejecutar_humo_e2e
+
+        try:
+            return {"ok": True, **ejecutar_humo_e2e(ruta)}
+        except (OSError, TypeError, ValueError) as error:
+            return {"ok": False, "motivo": str(error)}
+
+    def obtener_resultado_e2e(self, ruta: str, run_id: str) -> dict:
+        """Lee una corrida E2E separada de los resultados de agentes."""
+        from qagent.e2e.ejecucion import leer_resultado_e2e
+
+        try:
+            return {"ok": True, **leer_resultado_e2e(ruta, run_id)}
+        except (OSError, ValueError) as error:
+            return {"ok": False, "motivo": str(error)}
+
+    def exportar_informe_e2e(
+        self, ruta: str, run_id: str, formato: str = "html", destino: str | None = None
+    ) -> dict:
+        """Exporta un resultado E2E con sus referencias de evidencia."""
+        from qagent.e2e.informe import exportar
 
         try:
             return exportar(ruta, run_id, formato, destino)

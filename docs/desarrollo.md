@@ -15,6 +15,23 @@ pip install -e .[dev]           # en Linux, para la ventana: pip install "pywebv
 python test.py
 ```
 
+### Versión de Python del equipo
+
+El equipo desarrolla, construye y publica con **Python 3.13.17** (`.python-version` en la raíz; los workflows de CI usan la misma). Es la última 3.13 con instalador de Windows: no subas a la 3.13.18 sin comprobar que lo trae. Esto es solo el entorno del equipo: QAgent sigue admitiendo Python 3.10+ (`requires-python = ">=3.10"`), así que en el código no uses APIs que 3.10 no tiene (`tomllib`, `StrEnum`, `ExceptionGroup`…) y no agregues `target-version = "py313"` a Ruff.
+
+Un `.venv` no se actualiza en el lugar: se recrea.
+
+```bash
+deactivate                      # si está activo
+rmdir /s /q .venv               # Linux: rm -rf .venv
+py -3.13 -m venv .venv          # confirma con: .venv\Scripts\python --version  → 3.13.17
+.venv\Scripts\activate
+pip install -e .[dev]
+python test.py
+```
+
+`scripts/construir_windows.py` avisa si se ejecuta con otra versión.
+
 `pip install -e` deja el programa instalado apuntando a esta carpeta: los cambios en el código se ven sin reinstalar. Si vienes de una versión anterior a TA-06, desinstala antes el nombre viejo: `pip uninstall -y qagent`.
 
 ### Tus datos viven en `~/.qagent/`
@@ -102,6 +119,20 @@ Las pruebas generadas se ejecutan solo dentro de un contenedor efímero: sin red
 ```bash
 python -c "from qagent.sandbox import construir_imagen_base; construir_imagen_base()"
 ```
+
+## Versiones de Python soportadas en el sandbox (ADR-013)
+
+El sandbox de Docker de QAgent ejecuta pruebas para proyectos en el rango **Python 3.10–3.14** (3.10, 3.11, 3.12, 3.13 y 3.14), con **3.11** como versión por defecto.
+
+### Detección y reglas de elección
+1. **Detección estática:** La versión se detecta en este orden de precedencia:
+   - `.python-version`
+   - `requires-python` de `pyproject.toml`
+   - `python_requires` de `setup.cfg`
+   - Si no hay declaración, se usa la versión por defecto (3.11).
+2. **Rangos:** Si la especificación es un rango (ej. `>=3.10` o `>=3.10, <3.13`), se elige la versión más alta de la lista soportada que lo cumpla (ej. 3.14 y 3.12 respectivamente).
+3. **Fuera del rango:** Si el proyecto pide una versión incompatible (ej. `<3.10` o `>=3.15`), la corrida se detiene de inmediato antes de construir imágenes o gastar tokens, y el Monitor muestra qué versión pidió el proyecto y qué rango soporta QAgent.
+4. **Imágenes base:** Cada versión tiene su imagen base etiquetada (`qagent-sandbox:base-py<versión>`), manteniendo `qagent-sandbox:base` como la versión por defecto (3.11). El hash de la imagen derivada con dependencias incluye la versión de Python para aislar la caché de dependencias entre versiones.
 
 ## Ejecutar la aplicación
 

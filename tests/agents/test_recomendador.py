@@ -245,12 +245,14 @@ def test_lenguaje_en_desarrollo_aparece_como_proximamente(tmp_path: Path) -> Non
     assert "Se detectó 1 archivo de TypeScript" in vista["proximamente"][0]["motivo"]
 
 
-def test_proyecto_solo_en_lenguaje_en_desarrollo(tmp_path: Path) -> None:
+def test_proyecto_e2e_only_conserva_tipos_proximos(tmp_path: Path) -> None:
     vista = generar_vista_previa(_crear(tmp_path, {"web/a.ts": "export const x = 1;"}))
 
-    assert vista["ok"] is False
+    assert vista["ok"] is True
+    assert vista["solo_e2e"] is True
     assert vista["recomendacion"]["recomendaciones"] == []
     assert [p["lenguaje"] for p in vista["proximamente"]] == ["typescript"]
+    assert vista["proximamente"][0]["tipos_prueba"] == ["funcion", "mutacion"]
 
 
 def test_solo_cuenta_el_lenguaje_analizado() -> None:

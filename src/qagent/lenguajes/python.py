@@ -34,6 +34,9 @@ from qagent.lenguajes.python_revision import (
     REGLAS_REVISION_PYTHON,
     ReglasRevisionPython,
 )
+from qagent.lenguajes.python_version import (
+    resolver_version_python_proyecto,
+)
 from qagent.sandbox.ejecucion import (
     ARCHIVO_JUNIT,
     ARCHIVO_TEST_GENERADO,
@@ -43,7 +46,11 @@ from qagent.sandbox.ejecucion import (
     leer_coverage,
 )
 from qagent.sandbox.informe_pytest import parsear_junit
-from qagent.sandbox.modelos import IMAGEN_BASE
+from qagent.sandbox.modelos import (
+    IMAGEN_BASE,
+    VERSION_PYTHON_DEFECTO,
+    etiqueta_base_python,
+)
 from qagent.sandbox.mutacion import (
     ResultadoMutacion,
     comando_mutacion,
@@ -87,9 +94,25 @@ class PythonAdapter(LanguageAdapter):
         """El ``.coverage`` de pytest-cov va a ``/out`` (el resto es de solo lectura)."""
         return {"COVERAGE_FILE": f"{DIR_SALIDA}/.coverage"}
 
-    def entorno_sandbox(self) -> EntornoSandbox:
+    version_por_defecto: str = VERSION_PYTHON_DEFECTO
+
+    def resolver_version_python(
+        self, raiz: str | os.PathLike[str], config_sandbox: Any = None
+    ) -> str:
+        """Detecta y resuelve la versión de Python del proyecto según ADR-013."""
+        return resolver_version_python_proyecto(raiz, config_sandbox)
+
+    def entorno_sandbox(
+        self, raiz: str | os.PathLike[str] | None = None
+    ) -> EntornoSandbox:
         return EntornoSandbox(
-            imagen=IMAGEN_BASE,
+            imagen=(
+                etiqueta_base_python(
+                    self.resolver_version_python(raiz), self.version_por_defecto
+                )
+                if raiz is not None
+                else IMAGEN_BASE
+            ),
             paquetes_base=PAQUETES_BASE,
             dir_tests=DIR_TESTS,
             dir_salida=DIR_SALIDA,
