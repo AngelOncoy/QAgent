@@ -4,7 +4,6 @@
 docs/evidencias/
 config.local.toml
 .qagent/
-graphify-out/
 .pyagent/
 __pycache__/
 *.pyc

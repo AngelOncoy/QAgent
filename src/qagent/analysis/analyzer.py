@@ -76,7 +76,6 @@ DIRECTORIOS_IGNORADOS = frozenset(
         "mutants",
         "multilenguaje",
         "dependencias",
-        "graphify-out",
     }
 )
 #: Scripts de medición empírica versionados en bench/ que no forman parte del código a probar.
