@@ -1,6 +1,6 @@
 # Bancos de Pruebas y Scripts de Medición de QAgent (`bench/`)
 
-Este directorio contiene los bancos de pruebas empíricos y los scripts de medición que sustentan las decisiones arquitecturales de QAgent registradas en los ADRs del proyecto (**ADR-008**, **ADR-009** y **GitHub #196**).
+Este directorio contiene los bancos de pruebas empíricos y los scripts de medición que sustentan las decisiones arquitecturales de QAgent registradas en los ADRs del proyecto (**ADR-008**, **ADR-009**, **ADR-012** y **GitHub #196**).
 
 ---
 
@@ -72,13 +72,20 @@ python bench/multilenguaje/medir_parsers_spk04.py
 
 ---
 
-### 3. Medición del Grafo de Dependencias (GitHub #196)
+### 3. Medición del Grafo de Dependencias (SPK-196 / GitHub #196 / ADR-012)
 
-Evalúa el impacto del análisis estático de dependencias entre módulos sobre el contexto del Generator:
+Evalúa el impacto del análisis estático de dependencias entre módulos sobre el contexto del Generator mediante tree-sitter (`grafo_imports.py`) frente a Graphify:
 
 ```bash
 python bench/dependencias/medir_dependencias_spk196.py
 ```
+
+**Cifras del ADR-012 que reproduce:**
+- **Tasa de aprobación:** 100 % (5 de 5) con `grafo_imports` frente a 60 % (3 de 5) sin grafo inter-archivo.
+- **Dependencias sin simular:** 0 con `grafo_imports` frente a 2 sin grafo.
+- **Tiempo de análisis:** ~27–36 ms (tree-sitter puro, sin subprocesos ni binarios en la máquina del usuario).
+- **Consumo de tokens en análisis:** 0 tokens.
+- **Salida estructurada:** guarda los datos en `docs/evidencias/spk-196/resultados-benchmark.json`.
 
 ---
 
