@@ -39,14 +39,9 @@ import os
 from pathlib import Path
 from typing import Any
 
-from qagent.agents.recomendador import (
-    AGENTE as AGENTE_RECOMENDADOR,
-)
-from qagent.agents.recomendador import (
-    RecomendadorIA,
-    crear_recomendador_ia,
-    recomendar_para_vista,
-)
+from qagent.agents.recomendador import AGENTE as AGENTE_RECOMENDADOR
+from qagent.agents.recomendador import RecomendadorConIA, recomendar_para_vista
+from qagent.agents.recomendador_ia import crear_recomendador_ia
 from qagent.lenguajes import (
     LenguajeNoSoportado,
     adaptador_del_proyecto,
@@ -87,7 +82,7 @@ def priorizar_modulos(modulos: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return sorted(modulos, key=clave_orden)
 
 
-def _recomendador_configurado() -> RecomendadorIA | None:
+def _recomendador_configurado() -> RecomendadorConIA | None:
     """El Recomendador con IA si `[agentes.recomendador]` tiene `modo = "ia"` (#200).
 
     None (reglas) con `modo = "reglas"`, sin configuración válida o sin clave: la Vista
@@ -119,7 +114,7 @@ def _recomendador_configurado() -> RecomendadorIA | None:
 def _recomendar(
     vista: dict[str, Any],
     carpeta: Path,
-    recomendador: RecomendadorIA | None,
+    recomendador: RecomendadorConIA | None,
 ) -> dict[str, Any]:
     """Recomendación de la Vista previa y, si hubo IA, lo que consumió (#200)."""
     if recomendador is None:
@@ -136,7 +131,7 @@ def _recomendar(
 
 
 def generar_vista_previa(
-    raiz: str | os.PathLike[str], *, recomendador: RecomendadorIA | None = None
+    raiz: str | os.PathLike[str], *, recomendador: RecomendadorConIA | None = None
 ) -> dict[str, Any]:
     """Genera los datos de la Vista previa para un proyecto dado (HU-04).
 

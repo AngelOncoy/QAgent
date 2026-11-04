@@ -28,14 +28,16 @@ import pytest
 from qagent import contracts
 from qagent.agents.recomendador import (
     AGENTE,
-    RecomendadorIA,
     SinRecomendacionIA,
-    crear_recomendador_ia,
-    entrada_ia,
     proyectar,
     recomendar,
     recomendar_con_ia,
     recomendar_para_vista,
+)
+from qagent.agents.recomendador_ia import (
+    RecomendadorIA,
+    crear_recomendador_ia,
+    entrada_ia,
 )
 from qagent.config import cargar_configuracion
 from qagent.config.carga import RUTA_CONFIG, Recomendador
@@ -92,6 +94,7 @@ class ClienteDePrueba:
             contenido=self.contenido or "",
             tokens_entrada=1_000,
             tokens_salida=200,
+            costo_usd=0.0,
             modelo="modelo-recomendador",
         )
 
@@ -381,7 +384,7 @@ def test_pasado_el_tiempo_maximo_usa_las_reglas(mixto, caplog):
     class Lento:
         def generar(self, prompt: str, rol: str = "generator") -> RespuestaLLM:
             liberar.wait(5)
-            return RespuestaLLM(_json("funcion"), 1, 1)
+            return RespuestaLLM(_json("funcion"), 1, 1, 0.0)
 
     try:
         recomendacion = recomendar_con_ia(mixto, _recomendador(Lento(), tiempo=0.05))
