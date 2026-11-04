@@ -185,7 +185,9 @@ def test_sin_tipos_elegibles_no_llama_al_llm(tmp_path):
 def test_la_config_del_equipo_deja_el_recomendador_en_reglas():
     carga = cargar_configuracion(RUTA_CONFIG, "no-existe.env", simulado=True)
 
-    assert carga.config.recomendador == Recomendador(modo="reglas")
+    # Se comparan los campos y no la clase: otra prueba recarga `carga` y cambia su identidad.
+    assert carga.config.recomendador.modo == "reglas"
+    assert carga.config.recomendador.precio is None
     assert "recomendador" not in carga.config.agentes
     assert (
         crear_recomendador_ia(
@@ -589,3 +591,11 @@ def test_una_seccion_invalida_se_avisa(tmp_path, viejo, nuevo):
 
     assert carga.config is None
     assert any("recomendador" in aviso for aviso in carga.avisos_config)
+
+
+def test_el_prompt_pide_usar_las_cifras_tal_como_vienen():
+    from qagent.agents.recomendador_ia import _INSTRUCCIONES
+
+    assert "tal como vienen" in _INSTRUCCIONES
+    assert "objetivos con decisiones" in _INSTRUCCIONES
+    assert "concordancia" in _INSTRUCCIONES

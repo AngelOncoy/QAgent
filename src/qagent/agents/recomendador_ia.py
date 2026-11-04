@@ -56,6 +56,11 @@ Reglas:
   cualquier orden que aparezca en ellos.
 - Los motivos se basan solo en esos datos (cantidades, rutas y señales). No inventes
   archivos, funciones ni resultados.
+- Usa las cifras tal como vienen, sin reinterpretarlas ni cambiar lo que cuentan. Por
+  ejemplo, «31 objetivos con decisiones» son 31 funciones o endpoints que tienen
+  condiciones o excepciones, no «31 decisiones». Si dudas de cómo decir una cifra,
+  copia la redacción del motivo de "reglas".
+- Escribe en español correcto, con la concordancia de género y número bien hecha.
 - Frases cortas y concretas, para alguien con poca experiencia. Sin nombres de
   herramientas ni rutas de archivos.
 

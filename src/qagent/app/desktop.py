@@ -283,7 +283,10 @@ class DesktopAPI:
         return __version__
 
     def obtener_roles(self) -> list[dict]:
-        """Proveedor, modelo y clave enmascarada de cada agente (HU-30)."""
+        """Proveedor, modelo y clave enmascarada de cada agente (HU-30).
+
+        Incluye al Recomendador (#244), que es opcional: sin su clave se usan las reglas.
+        """
         from qagent.config import carga as config_carga
         from qagent.config.roles import leer_roles
 
@@ -291,6 +294,7 @@ class DesktopAPI:
             config_carga.RUTA_CONFIG,
             config_carga.RUTA_ENV,
             config_carga.RUTA_CONFIG_LOCAL,
+            con_opcionales=True,
         )
 
     def guardar_api_rol(

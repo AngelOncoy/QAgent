@@ -102,6 +102,7 @@ NOMBRE_AGENTE = {
     "planner": "Planner",
     "generator": "Generator",
     "reviewer": "Reviewer",
+    "recomendador": "Recomendador",
     "explicador": "Explicador",
 }
 

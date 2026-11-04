@@ -48,6 +48,13 @@ if sys.version_info >= (3, 11):
 else:  # Python 3.10
     import tomli as tomllib
 
+#: Agentes que se eligen en Configuración pero no son etapas de la corrida (#244).
+#: Su sección `[agentes.<agente>]` lleva `modo = "ia"` y no entra en
+#: `Configuracion.agentes`: sin su clave la aplicación abre igual y se usan las reglas.
+AGENTES_OPCIONALES = ("recomendador",)
+#: Todos los agentes que la pantalla Configuración puede configurar.
+AGENTES_ROL = AGENTES + AGENTES_OPCIONALES
+
 #: Caracteres visibles al inicio y al final de una clave enmascarada.
 VISIBLES_MASCARA = 4
 #: Una clave más corta que esto se oculta entera: mostrar 8 caracteres sería casi toda.
@@ -93,7 +100,7 @@ def listar_proveedores() -> list[dict[str, Any]]:
             "tipo": p.tipo,
             "tipo_nombre": TIPOS[p.tipo],
             "genera_texto": p.genera_texto,
-            "variables": {a: variable_de_agente(a, p.id) for a in AGENTES},
+            "variables": {a: variable_de_agente(a, p.id) for a in AGENTES_ROL},
             "modelos": [
                 {
                     "id": m.id,
@@ -114,6 +121,7 @@ def leer_roles(
     ruta_config: str | Path | None = None,
     ruta_env: str | Path | None = None,
     ruta_local: str | Path | None = None,
+    con_opcionales: bool = False,
 ) -> list[dict[str, Any]]:
     """Estado de cada agente para la pantalla Configuración.
 
@@ -123,9 +131,13 @@ def leer_roles(
         ruta_local: `config.local.toml` del usuario, donde la pantalla guarda proveedor
             y modelo; si define un agente, ese agente usa lo de ese archivo y
             `desde_local` es True.
+        con_opcionales: si es True, agrega al final los agentes opcionales
+            (`AGENTES_OPCIONALES`, #244), con `opcional` en True; sin clave quedan
+            «sin configurar» y la aplicación usa las reglas.
 
     Returns:
-        Un dict por agente (en orden Planner, Generator, Reviewer, Explicador) con `agente`,
+        Un dict por agente (en orden Planner, Generator, Reviewer, Explicador y, si se
+        pide, el Recomendador) con `agente`,
         `nombre`, `configurado`, `proveedor`, `proveedor_nombre`, `modelo`,
         `modelo_nombre`, `tipo`, `tipo_nombre`, `genera_texto`, `en_catalogo`,
         `precio_confirmado`, `entrada_usd_m`, `salida_usd_m`, `variable` (la que se
@@ -140,7 +152,7 @@ def leer_roles(
     actuales = _claves_actuales(tablas, env)
     return [
         _estado_rol(agente, tablas.get(agente), actuales, agente in locales)
-        for agente in AGENTES
+        for agente in (AGENTES_ROL if con_opcionales else AGENTES)
     ]
 
 
@@ -155,6 +167,7 @@ def _estado_rol(
         "nombre": NOMBRE_AGENTE[agente],
         "configurado": False,
         "desde_local": desde_local,
+        "opcional": agente in AGENTES_OPCIONALES,
     }
     if tabla is None:
         return estado
@@ -197,9 +210,13 @@ def _tablas_agentes(
     tablas = {
         a: t
         for a, t in agentes.items()
-        if a in AGENTES and isinstance(t, dict) and t.get("proveedor")
+        if a in AGENTES_ROL
+        and isinstance(t, dict)
+        and t.get("proveedor")
+        # Un agente opcional solo cuenta si está activo: con `modo = "reglas"` se ignora.
+        and (a in AGENTES or t.get("modo") == "ia")
     }
-    return tablas, set(locales) & set(AGENTES)
+    return tablas, set(locales) & set(AGENTES_ROL)
 
 
 def _claves_actuales(
@@ -207,7 +224,7 @@ def _claves_actuales(
 ) -> dict[str, tuple[str | None, str | None]]:
     """`{agente: (variable en uso, clave)}`; `(None, None)` si no tiene clave."""
     actuales: dict[str, tuple[str | None, str | None]] = {}
-    for agente in AGENTES:
+    for agente in AGENTES_ROL:
         tabla = tablas.get(agente)
         variable = (
             variable_en_uso(agente, str(tabla["proveedor"]), env.get) if tabla else None
@@ -267,7 +284,8 @@ def configurar_rol(
     """Prueba la conexión y, si responde bien, guarda el proveedor y modelo del agente.
 
     Args:
-        agente: "planner", "generator", "reviewer" o "explicador".
+        agente: "planner", "generator", "reviewer", "explicador" o, opcional,
+            "recomendador".
         proveedor: id del catálogo (ej. "gemini"); puede repetirse en otros agentes.
         modelo: id de un modelo de ese proveedor en el catálogo.
         clave: API key nueva; vacía o None mantiene la que el agente ya tiene, solo si
@@ -371,7 +389,7 @@ def eliminar_rol(
     Returns:
         `{"ok": bool, "mensaje": str}`.
     """
-    if agente not in AGENTES:
+    if agente not in AGENTES_ROL:
         return {"ok": False, "mensaje": f"Agente desconocido: {agente}."}
     ruta_config_res = RUTA_CONFIG if ruta_config is None else Path(ruta_config)
     ruta_env_res = config_carga.RUTA_ENV if ruta_env is None else Path(ruta_env)
@@ -380,7 +398,7 @@ def eliminar_rol(
             local = Path(ruta_local)
             tabla = _tablas_agentes(ruta_config_res, local)[0].get(agente)
             texto = _texto_o_encabezado(local)
-            nuevo = reemplazar_seccion_agente(texto, agente, [MARCA_SIN_CONFIGURAR])
+            nuevo = reemplazar_seccion_agente(texto, agente, [_marca_sin_ia(agente)])
             _comprobar_toml(nuevo)
             local.parent.mkdir(parents=True, exist_ok=True)
             escribir_texto_atomico(local, nuevo)
@@ -409,8 +427,13 @@ def eliminar_rol(
     return {"ok": True, "mensaje": f"{NOMBRE_AGENTE[agente]}: sin configurar."}
 
 
+def _marca_sin_ia(agente: str) -> str:
+    """Línea que deja al agente sin IA en `config.local.toml`: tapa la sección del equipo."""
+    return 'modo = "reglas"' if agente in AGENTES_OPCIONALES else MARCA_SIN_CONFIGURAR
+
+
 def _validar_eleccion(agente: str, proveedor: str, modelo: str) -> Proveedor:
-    if agente not in AGENTES:
+    if agente not in AGENTES_ROL:
         raise ErrorRol(f"Agente desconocido: {agente}.")
     datos = catalogo().get(proveedor)
     if datos is None or not datos.visible:
@@ -440,7 +463,9 @@ def _guardar(
     texto_config = _texto_o_encabezado(ruta_config)
     ruta_config.parent.mkdir(parents=True, exist_ok=True)
     nuevo_config = reemplazar_seccion_agente(
-        texto_config, agente, [*_tabla_agente(proveedor, modelo), *(ajustes or [])]
+        texto_config,
+        agente,
+        [*_tabla_agente(agente, proveedor, modelo), *(ajustes or [])],
     )
     _comprobar_toml(nuevo_config)
 
@@ -463,13 +488,18 @@ def _guardar(
         raise
 
 
-def _tabla_agente(proveedor: Proveedor, modelo_id: str) -> list[str]:
-    """Líneas de `[agentes.<agente>]`: proveedor, modelo y precios. Nunca la clave."""
+def _tabla_agente(agente: str, proveedor: Proveedor, modelo_id: str) -> list[str]:
+    """Líneas de `[agentes.<agente>]`: proveedor, modelo y precios. Nunca la clave.
+
+    Un agente opcional (#244) lleva además `modo = "ia"`, que lo activa.
+    """
     modelo = proveedor.modelo(modelo_id)
     assert modelo is not None  # ya validado
     nota = "" if modelo.precio_confirmado else "   # precio sin confirmar"
+    modo = ['modo = "ia"'] if agente in AGENTES_OPCIONALES else []
     return [
         "# Elegido desde la aplicación (HU-30). La clave está en .env.",
+        *modo,
         f"proveedor = {_cadena_toml(proveedor.id)}",
         f"modelo = {_cadena_toml(modelo.id)}",
         f"precio_entrada_usd_m = {modelo.entrada_usd_m:g}{nota}",
@@ -565,6 +595,8 @@ def _indice_encabezado(filas: list[str], agente: str) -> int | None:
 
 
 def _posicion_nueva_seccion(filas: list[str], agente: str) -> int:
+    if agente not in AGENTES:  # un agente opcional va al final (#244)
+        return len(filas)
     for siguiente in AGENTES[AGENTES.index(agente) + 1 :]:
         indice = _indice_encabezado(filas, siguiente)
         if indice is not None:
