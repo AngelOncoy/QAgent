@@ -166,6 +166,19 @@ class Explicador:
 
 
 @dataclass(frozen=True)
+class SandboxPython:
+    """Configuración del sandbox de Python (ADR-013).
+
+    Atributos:
+        versiones_soportadas: versiones de Python disponibles (ej. ("3.10", ..., "3.14")).
+        version_por_defecto: versión a usar si el proyecto no declara una ("3.11").
+    """
+
+    versiones_soportadas: tuple[str, ...] = ("3.10", "3.11", "3.12", "3.13", "3.14")
+    version_por_defecto: str = "3.11"
+
+
+@dataclass(frozen=True)
 class Configuracion:
     """Contenido validado de `config.toml`."""
 
@@ -180,6 +193,7 @@ class Configuracion:
     sandbox_lenguajes: dict[str, LimitesSandbox] = field(
         default_factory=dict, hash=False
     )
+    sandbox_python: SandboxPython = field(default_factory=SandboxPython)
 
     def limites_sandbox(self, lenguaje: str | None = None) -> LimitesSandbox:
         """Límites del sandbox para `lenguaje`; los de `[sandbox]` si no tiene propios.
@@ -543,6 +557,7 @@ def _leer_config(
     umbrales = _leer_umbrales(datos.get("umbrales", {}), avisos)
     mutacion = _leer_mutacion(datos.get("mutacion", {}), avisos)
     sandbox = _leer_sandbox(datos.get("sandbox", {}), avisos)
+    sandbox_python = _leer_sandbox_python(datos.get("sandbox", {}), avisos)
     sandbox_lenguajes = _leer_sandbox_lenguajes(
         datos.get("sandbox", {}), sandbox, avisos
     )
@@ -565,6 +580,7 @@ def _leer_config(
         sandbox,
         explicador,
         sandbox_lenguajes,
+        sandbox_python,
     )  # type: ignore[arg-type]
 
 
@@ -727,6 +743,53 @@ def _leer_sandbox(tabla: Mapping[str, Any], avisos: list[str]) -> LimitesSandbox
     return LimitesSandbox(cpus=cpus, memoria=memoria, timeout_s=timeout)
 
 
+def _leer_sandbox_python(tabla: Mapping[str, Any], avisos: list[str]) -> SandboxPython:
+    """Lee la configuración de versiones de Python del sandbox en config.toml (ADR-013).
+
+    Admite tanto claves en [sandbox] (versiones_python, version_python_por_defecto)
+    como en la subsección [sandbox.python] (versiones_soportadas, version_por_defecto).
+    """
+    if not isinstance(tabla, Mapping):
+        return SandboxPython()
+    subtabla = tabla.get("python")
+    fuente: Mapping[str, Any] = subtabla if isinstance(subtabla, Mapping) else tabla
+    if subtabla is not None and not isinstance(subtabla, Mapping):
+        avisos.append("[sandbox.python] de config.toml debe ser una sección.")
+        fuente = tabla
+    versiones = fuente.get("versiones_python") or fuente.get("versiones_soportadas")
+    defecto = fuente.get("version_python_por_defecto") or fuente.get(
+        "version_por_defecto", "3.11"
+    )
+    if not isinstance(defecto, str) or not defecto.strip():
+        avisos.append("version_python_por_defecto debe ser un texto como '3.11'.")
+        defecto = "3.11"
+    if versiones is None:
+        return SandboxPython(version_por_defecto=defecto)
+    if not isinstance(versiones, list) or not all(
+        isinstance(v, str) and v.strip() for v in versiones
+    ):
+        avisos.append(
+            "versiones_python debe ser una lista de textos (ej. ['3.10', '3.11'])."
+        )
+        return SandboxPython(version_por_defecto=defecto)
+    return SandboxPython(
+        versiones_soportadas=tuple(str(v).strip() for v in versiones),
+        version_por_defecto=defecto,
+    )
+
+
+def cargar_sandbox_python(ruta_config: Path | None = None) -> SandboxPython:
+    """Carga solo la sección [sandbox.python] de config.toml sin validar claves de API."""
+    ruta = ruta_config or RUTA_CONFIG
+    try:
+        texto = ruta.read_text(encoding="utf-8")
+        datos = tomllib.loads(texto)
+    except Exception:  # noqa: BLE001
+        return SandboxPython()
+    avisos: list[str] = []
+    return _leer_sandbox_python(datos.get("sandbox", {}), avisos)
+
+
 def _leer_sandbox_lenguajes(
     tabla: Any, respaldo: LimitesSandbox | None, avisos: list[str]
 ) -> dict[str, LimitesSandbox]:
@@ -749,7 +812,10 @@ def _leer_sandbox_lenguajes(
                 f"({', '.join(LENGUAJES)})."
             )
             continue
-        desconocidas = sorted(set(subtabla) - {"memoria", "timeout_s"})
+        permitidas = {"memoria", "timeout_s"}
+        if nombre == "python":
+            permitidas |= {"versiones_soportadas", "version_por_defecto"}
+        desconocidas = sorted(set(subtabla) - permitidas)
         if desconocidas:
             avisos.append(
                 f"[{seccion}] solo admite memoria y timeout_s "

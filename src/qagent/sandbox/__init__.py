@@ -20,6 +20,7 @@ from qagent.sandbox.imagen import (
     asegurar_imagen,
     construir_imagen_base,
     preparar_imagen,
+    receta_de,
 )
 from qagent.sandbox.informe_pytest import (
     CasoPrueba,
@@ -35,6 +36,8 @@ from qagent.sandbox.modelos import (
     IMAGEN_NODE,
     LIMITES_POR_DEFECTO,
     MENSAJE_DOCKER_CERRADO,
+    PREFIJO_BASE_PYTHON,
+    VERSION_PYTHON_DEFECTO,
     ConstruccionCancelada,
     DockerNoDisponible,
     ErrorConstruccionImagen,
@@ -42,6 +45,9 @@ from qagent.sandbox.modelos import (
     ImagenNoEncontrada,
     LimitesSandbox,
     ResultadoSandbox,
+    es_imagen_base_python,
+    etiqueta_base_python,
+    version_de_imagen_base,
 )
 from qagent.sandbox.mutacion import (
     MutacionFuncion,
@@ -57,6 +63,8 @@ __all__ = [
     "IMAGEN_NODE",
     "LIMITES_POR_DEFECTO",
     "MENSAJE_DOCKER_CERRADO",
+    "PREFIJO_BASE_PYTHON",
+    "VERSION_PYTHON_DEFECTO",
     "CasoPrueba",
     "ConstruccionCancelada",
     "DockerNoDisponible",
@@ -78,11 +86,15 @@ __all__ = [
     "ejecutar_en_sandbox",
     "ejecutar_mutacion",
     "ejecutar_pruebas",
+    "es_imagen_base_python",
     "estado_docker",
+    "etiqueta_base_python",
     "obtener_cliente",
     "parsear_junit",
     "preparar_imagen",
+    "receta_de",
     "recortar_salida",
     "resumir_ejecucion",
     "verificar_docker",
+    "version_de_imagen_base",
 ]

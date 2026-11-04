@@ -31,6 +31,7 @@ dependencies = [
     "docker>=7.1.0",
     "requests>=2.31",  # se usa directamente en sandbox/ejecucion.py
     "jsonschema>=4.18",
+    "packaging>=21.0",  # Detección y rangos de versiones PEP 440 (ADR-013).
     "tomli>=2.0; python_version < '3.11'",
     # Análisis estático y validación de sintaxis multilenguaje (ADR-009, SPK-04).
     "tree-sitter>=0.22.0,<0.25.0",

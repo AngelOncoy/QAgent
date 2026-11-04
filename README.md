@@ -157,7 +157,7 @@ Tus claves, tu configuración y la lista de proyectos recientes se guardan en es
 
 ## Alcance
 
-QAgent genera pruebas **unitarias** para código **Python 3.10+** y pruebas de **endpoints FastAPI**. Integración contra servicios reales, extremo a extremo, carga y estrés quedan fuera de esta versión.
+QAgent genera pruebas **unitarias** para código **Python** y pruebas de **endpoints FastAPI**. En el sandbox aislado de Docker, soporta proyectos en el rango **Python 3.10–3.14** (3.10, 3.11, 3.12, 3.13 y 3.14, con 3.11 por defecto; ADR-013). La versión se detecta automáticamente a partir de `.python-version`, `pyproject.toml` (`requires-python`) o `setup.cfg` (`python_requires`), deteniendo la corrida antes de construir si el proyecto requiere una versión fuera del rango soportado. Integración contra servicios reales, extremo a extremo, carga y estrés quedan fuera de esta versión.
 
 ## Para el equipo de desarrollo
 

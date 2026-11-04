@@ -32,6 +32,10 @@ timeout_s = 120                  # segundos por ejecución; el paso del orquesta
 
 # Límites por lenguaje (#169): solo `memoria` y `timeout_s`; lo que falte (y los CPU) se
 # toma de [sandbox], que es también el de Python. Medidos en docs/arquitectura.md (sección 7).
+# Rango soportado por QAgent (ADR-013): 3.10–3.14. Fuera del rango la corrida se detiene.
+versiones_python = ["3.10", "3.11", "3.12", "3.13", "3.14"]
+version_python_por_defecto = "3.11"
+
 [sandbox.javascript]
 memoria = "2g"
 timeout_s = 120

@@ -419,7 +419,9 @@ class LanguageAdapter(ABC):
         return None
 
     @abstractmethod
-    def entorno_sandbox(self) -> EntornoSandbox:
+    def entorno_sandbox(
+        self, raiz: str | os.PathLike[str] | None = None
+    ) -> EntornoSandbox:
         """Imagen, herramientas y carpetas del sandbox para este lenguaje."""
 
     @abstractmethod
@@ -560,7 +562,9 @@ class AdaptadorEnDesarrollo(LanguageAdapter):
     def comando_pruebas(self, modulo: str, framework: str | None = None) -> list[str]:
         raise NoImplementado(self.lenguaje, "comando_pruebas")
 
-    def entorno_sandbox(self) -> EntornoSandbox:
+    def entorno_sandbox(
+        self, raiz: str | os.PathLike[str] | None = None
+    ) -> EntornoSandbox:
         raise NoImplementado(self.lenguaje, "entorno_sandbox")
 
     def interpretar_resultados(self, informe: str) -> dict[str, Any]:
