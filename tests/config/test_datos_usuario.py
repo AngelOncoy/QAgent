@@ -36,6 +36,11 @@ proveedor = "openai"
 modelo = "gpt-6-luna"
 precio_entrada_usd_m = 0.10
 precio_salida_usd_m = 0.50
+[agentes.explicador]
+proveedor = "openai"
+modelo = "gpt-6-luna"
+precio_entrada_usd_m = 0.10
+precio_salida_usd_m = 0.50
 """
 
 

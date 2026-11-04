@@ -36,7 +36,10 @@ def proyecto(tmp_path: Path) -> AlmacenProyecto:
 
 @pytest.fixture
 def config():
-    return cargar_configuracion(RUTA_CONFIG, "no-existe.env", simulado=True).config
+    # HU-32 cubre el modo con plantillas; el modo "ia", el de por defecto desde EP-10
+    # (#172), lo cubre test_166_explicador_ia_corrida.
+    cargada = cargar_configuracion(RUTA_CONFIG, "no-existe.env", simulado=True).config
+    return dataclasses.replace(cargada, explicador=Explicador(modo="plantilla"))
 
 
 def correr(almacen, config, perfil="deep", **opciones):

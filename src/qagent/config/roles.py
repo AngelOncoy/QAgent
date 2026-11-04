@@ -136,8 +136,8 @@ def leer_roles(
             «sin configurar» y la aplicación usa las reglas.
 
     Returns:
-        Un dict por agente (en orden Planner, Generator, Reviewer y, si se pide, el
-        Recomendador) con `agente`,
+        Un dict por agente (en orden Planner, Generator, Reviewer, Explicador y, si se
+        pide, el Recomendador) con `agente`,
         `nombre`, `configurado`, `proveedor`, `proveedor_nombre`, `modelo`,
         `modelo_nombre`, `tipo`, `tipo_nombre`, `genera_texto`, `en_catalogo`,
         `precio_confirmado`, `entrada_usd_m`, `salida_usd_m`, `variable` (la que se
@@ -284,7 +284,8 @@ def configurar_rol(
     """Prueba la conexión y, si responde bien, guarda el proveedor y modelo del agente.
 
     Args:
-        agente: "planner", "generator", "reviewer" o, opcional, "recomendador".
+        agente: "planner", "generator", "reviewer", "explicador" o, opcional,
+            "recomendador".
         proveedor: id del catálogo (ej. "gemini"); puede repetirse en otros agentes.
         modelo: id de un modelo de ese proveedor en el catálogo.
         clave: API key nueva; vacía o None mantiene la que el agente ya tiene, solo si
@@ -345,6 +346,7 @@ def configurar_rol(
             modelo,
             destino,
             ruta_env,
+            ajustes=_ajustes_propios(agente, anterior),
             fijar={propia: clave_a_usar} if env.get(propia) != clave_a_usar else {},
             quitar=[previa] if previa and previa != propia else [],
         )
@@ -450,6 +452,7 @@ def _guardar(
     *,
     fijar: Mapping[str, str],
     quitar: list[str],
+    ajustes: list[str] | None = None,
 ) -> None:
     """Escribe `.env` (si cambia) y luego la configuración (`ruta_config`: el
     `config.local.toml` del usuario, que se crea si falta); si esta falla, deshace `.env`.
@@ -460,7 +463,9 @@ def _guardar(
     texto_config = _texto_o_encabezado(ruta_config)
     ruta_config.parent.mkdir(parents=True, exist_ok=True)
     nuevo_config = reemplazar_seccion_agente(
-        texto_config, agente, _tabla_agente(agente, proveedor, modelo)
+        texto_config,
+        agente,
+        [*_tabla_agente(agente, proveedor, modelo), *(ajustes or [])],
     )
     _comprobar_toml(nuevo_config)
 
@@ -500,6 +505,33 @@ def _tabla_agente(agente: str, proveedor: Proveedor, modelo_id: str) -> list[str
         f"precio_entrada_usd_m = {modelo.entrada_usd_m:g}{nota}",
         f"precio_salida_usd_m = {modelo.salida_usd_m:g}{nota}",
     ]
+
+
+#: Ajustes que no son el modelo y se conservan al cambiar la API del agente (EP-10 #172).
+AJUSTES_PROPIOS = {"explicador": ("activo", "modo", "tiempo_maximo_s")}
+
+
+def _ajustes_propios(agente: str, tabla: Mapping[str, Any] | None) -> list[str]:
+    """Líneas de los ajustes propios del agente que ya tenía su sección vigente.
+
+    Una sección del `config.local.toml` reemplaza entera a la del equipo, así que el
+    `modo` o el `tiempo_maximo_s` del Explicador se copian para no perderlos.
+    """
+    if not tabla:
+        return []
+    return [
+        f"{clave} = {_valor_toml(tabla[clave])}"
+        for clave in AJUSTES_PROPIOS.get(agente, ())
+        if isinstance(tabla.get(clave), (bool, int, float, str))
+    ]
+
+
+def _valor_toml(valor: bool | float | str) -> str:
+    if isinstance(valor, bool):
+        return "true" if valor else "false"
+    if isinstance(valor, str):
+        return _cadena_toml(valor)
+    return repr(valor)
 
 
 def _cadena_toml(valor: str) -> str:

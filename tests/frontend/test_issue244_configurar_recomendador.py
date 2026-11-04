@@ -36,7 +36,7 @@ def test_sin_clave_el_recomendador_no_es_un_problema() -> None:
 def test_la_demostracion_incluye_al_recomendador() -> None:
     js = _leer("configuracion/configuracion.js")
 
-    assert "['planner','generator','reviewer','recomendador']" in js
+    assert "[...['planner','generator','reviewer','explicador'], 'recomendador']" in js
 
 
 def test_el_modal_usa_el_nombre_de_la_etapa() -> None:

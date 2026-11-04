@@ -1,0 +1,90 @@
+{
+  "fecha": "2026-11-04 09:35",
+  "simulado": false,
+  "repeticiones": 3,
+  "tiempo_maximo_s": 30.0,
+  "proyectos": {
+    "fastapi": {
+      "reglas": [
+        "endpoint",
+        "mutacion"
+      ]
+    },
+    "mixto": {
+      "reglas": [
+        "endpoint",
+        "funcion",
+        "mutacion"
+      ]
+    },
+    "solo_funciones": {
+      "reglas": [
+        "funcion",
+        "mutacion"
+      ]
+    }
+  },
+  "modelos": {
+    "deepseek/deepseek-flash": {
+      "estimado": false,
+      "total": {
+        "llamadas": 9,
+        "usadas": 9,
+        "descartes": {},
+        "tokens_entrada": 5445,
+        "tokens_salida": 3943,
+        "costo_usd": 0.0063651,
+        "costo_por_llamada_usd": 0.00070723,
+        "latencia_p50_s": 3.056,
+        "latencia_p95_s": 5.249,
+        "cambia_orden": 0,
+        "omite_tipos": 0,
+        "cambia_motivo": 9
+      },
+      "por_proyecto": {
+        "fastapi": {
+          "llamadas": 3,
+          "usadas": 3,
+          "descartes": {},
+          "tokens_entrada": 1833,
+          "tokens_salida": 1053,
+          "costo_usd": 0.0018135,
+          "costo_por_llamada_usd": 0.0006045,
+          "latencia_p50_s": 3.056,
+          "latencia_p95_s": 4.141,
+          "cambia_orden": 0,
+          "omite_tipos": 0,
+          "cambia_motivo": 3
+        },
+        "mixto": {
+          "llamadas": 3,
+          "usadas": 3,
+          "descartes": {},
+          "tokens_entrada": 1929,
+          "tokens_salida": 1904,
+          "costo_usd": 0.0028635,
+          "costo_por_llamada_usd": 0.0009545,
+          "latencia_p50_s": 4.458,
+          "latencia_p95_s": 5.644,
+          "cambia_orden": 0,
+          "omite_tipos": 0,
+          "cambia_motivo": 3
+        },
+        "solo_funciones": {
+          "llamadas": 3,
+          "usadas": 3,
+          "descartes": {},
+          "tokens_entrada": 1683,
+          "tokens_salida": 986,
+          "costo_usd": 0.0016881,
+          "costo_por_llamada_usd": 0.0005627,
+          "latencia_p50_s": 2.771,
+          "latencia_p95_s": 3.026,
+          "cambia_orden": 0,
+          "omite_tipos": 0,
+          "cambia_motivo": 3
+        }
+      }
+    }
+  }
+}

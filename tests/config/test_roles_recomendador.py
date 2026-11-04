@@ -73,14 +73,25 @@ def _roles(rutas, opcionales=True) -> dict[str, dict]:
     }
 
 
-def test_sin_pedirlo_solo_salen_las_tres_etapas(rutas):
-    assert list(_roles(rutas, opcionales=False)) == ["planner", "generator", "reviewer"]
+def test_sin_pedirlo_solo_salen_las_etapas(rutas):
+    assert list(_roles(rutas, opcionales=False)) == [
+        "planner",
+        "generator",
+        "reviewer",
+        "explicador",
+    ]
 
 
 def test_el_recomendador_sale_opcional_y_sin_configurar(rutas):
     roles = _roles(rutas)
 
-    assert list(roles) == ["planner", "generator", "reviewer", "recomendador"]
+    assert list(roles) == [
+        "planner",
+        "generator",
+        "reviewer",
+        "explicador",
+        "recomendador",
+    ]
     assert roles["recomendador"]["opcional"] is True
     assert roles["recomendador"]["configurado"] is False
     assert not roles["planner"]["opcional"]

@@ -66,7 +66,7 @@ def test_config_del_equipo_es_valida_con_todas_las_claves(env_completo):
         config.presupuesto.tope_semestre_usd >= config.presupuesto.tope_por_corrida_usd
     )
     assert config.max_intentos == 3
-    assert set(config.agentes) == {"planner", "generator", "reviewer"}
+    assert set(config.agentes) == {"planner", "generator", "reviewer", "explicador"}
     assert config.agentes["reviewer"].modelo
     assert config.umbrales.cobertura_lineas_min > 0
 
@@ -339,9 +339,11 @@ def test_falta_una_clave_avisa_cual_y_quien_la_usa(tmp_path):
     )
     carga = cargar_configuracion(RUTA_CONFIG, env, simulado=False)
     assert not carga.ok
-    assert len(carga.avisos_claves) == 1
-    assert "OPENAI_API_KEY" in carga.avisos_claves[0]
+    # Reviewer y Explicador usan OpenAI: cada uno avisa su propia clave (EP-10 #172).
+    assert len(carga.avisos_claves) == 2
+    assert all("OPENAI_API_KEY" in a for a in carga.avisos_claves)
     assert "reviewer" in carga.avisos_claves[0]
+    assert "explicador" in carga.avisos_claves[1]
 
 
 def test_clave_vacia_cuenta_como_faltante(tmp_path):
@@ -372,6 +374,7 @@ def test_si_falta_env_lo_crea_con_las_claves_vacias(tmp_path):
         "XIAOMI_API_KEY_PLANNER": "",
         "XIAOMI_API_KEY_GENERATOR": "",
         "OPENAI_API_KEY_REVIEWER": "",
+        "OPENAI_API_KEY_EXPLICADOR": "",
     }
     assert not carga.ok  # creado pero vacío: sigue bloqueado
     assert "Se creó el archivo .env" in carga.avisos_claves[0]
@@ -684,43 +687,66 @@ def test_el_ejemplo_de_capa_gratuita_es_valido(env_completo):
         "planner": "gemini",
         "generator": "groq",
         "reviewer": "openrouter",
+        "explicador": "gemini",
     }
     assert all(p.costo(1000, 1000) == 0 for p in carga.config.agentes.values())
 
 
-# ---------- [agentes.explicador] (HU-32) ----------
+# ---------- [agentes.explicador] obligatorio (HU-32, EP-10 #172) ----------
 
 
-def test_config_del_equipo_activa_el_explicador_con_plantillas():
+def test_config_del_equipo_usa_el_explicador_con_ia():
     config = cargar_configuracion(RUTA_CONFIG, "no-existe.env", simulado=True).config
-    assert config.explicador == Explicador(activo=True, modo="plantilla")
-    # No es un agente con modelo ni precio: no pide clave ni entra al tracker.
-    assert "explicador" not in config.agentes
+    assert config.explicador.activo is True
+    assert config.explicador.modo == "ia"
+    # Es un agente más: su modelo y su precio están en `agentes`, como los otros.
+    assert config.explicador.precio == config.agentes["explicador"]
 
 
-def test_sin_seccion_explicador_queda_activo(tmp_path):
-    ruta = _config_con(
-        tmp_path, {'[agentes.explicador]\nactivo = true\nmodo = "plantilla"': ""}
+def test_sin_proveedor_el_explicador_queda_sin_configurar_y_bloquea(
+    tmp_path, env_completo
+):
+    local = tmp_path / "config.local.toml"
+    local.write_text("[agentes.explicador]\nactivo = true\n", encoding="utf-8")
+    carga = cargar_configuracion(
+        RUTA_CONFIG, env_completo, simulado=False, ruta_local=local
     )
-    config = cargar_configuracion(ruta, "no-existe.env", simulado=True).config
-    assert config.explicador == Explicador()
+    assert carga.sin_configurar == ["explicador"]
+    assert not carga.ok
+    assert any("Falta configurar el Explicador" in a for a in carga.avisos_config)
+    assert "explicador" not in carga.config.agentes
+    assert carga.config.explicador.precio is None
+
+
+def test_sin_configurar_con_ia_simulada_redacta_con_la_simulada(tmp_path):
+    local = tmp_path / "config.local.toml"
+    local.write_text("[agentes.explicador]\nconfigurado = false\n", encoding="utf-8")
+    carga = cargar_configuracion(
+        RUTA_CONFIG, "no-existe.env", simulado=True, ruta_local=local
+    )
+    assert carga.ok, carga.avisos
+    assert carga.sin_configurar == ["explicador"]
+    assert carga.config.explicador.precio == carga.config.agentes["explicador"]
+    assert carga.config.explicador.precio.proveedor == carga_mod.PROVEEDOR_SIMULADO
 
 
 def test_config_local_puede_desactivar_el_explicador(tmp_path, env_completo):
     local = tmp_path / "config.local.toml"
-    local.write_text("[agentes.explicador]\nactivo = false\n", encoding="utf-8")
+    local.write_text(
+        _EXPLICADOR_IA.replace("activo = true", "activo = false"), encoding="utf-8"
+    )
     carga = cargar_configuracion(
         RUTA_CONFIG, env_completo, simulado=False, ruta_local=local
     )
-    assert carga.config.explicador == Explicador(activo=False, modo="plantilla")
+    assert carga.config.explicador.activo is False
     assert carga.avisos_config == []
 
 
 @pytest.mark.parametrize(
-    "seccion", ['activo = 1\nmodo = "plantilla"', 'activo = true\nmodo = "magia"']
+    "seccion", ['activo = 1\nmodo = "ia"', 'activo = true\nmodo = "magia"']
 )
 def test_explicador_invalido_se_avisa(tmp_path, seccion):
-    viejo = '[agentes.explicador]\nactivo = true\nmodo = "plantilla"'
+    viejo = '[agentes.explicador]\nactivo = true\nmodo = "ia"'
     ruta = _config_con(tmp_path, {viejo: f"[agentes.explicador]\n{seccion}"})
     carga = cargar_configuracion(ruta, "no-existe.env", simulado=True)
     assert carga.config is None
@@ -752,8 +778,7 @@ def test_modo_ia_lee_proveedor_modelo_y_precios(tmp_path, env_completo):
     assert explicador.precio.proveedor == "openai"
     assert explicador.precio.modelo == "modelo-explicador"
     assert explicador.precio.costo(1_000_000, 1_000_000) == pytest.approx(0.60)
-    # Sigue fuera de los agentes de la corrida: su clave no se exige al cargar.
-    assert "explicador" not in carga.config.agentes
+    assert carga.config.agentes["explicador"] == explicador.precio
     assert carga.avisos_config == []
 
 
@@ -778,6 +803,8 @@ def test_modo_plantilla_no_lee_modelo(tmp_path):
         RUTA_CONFIG, "no-existe.env", simulado=True, ruta_local=local
     )
     assert carga.config.explicador == Explicador(activo=True, modo="plantilla")
+    # Su API sigue siendo obligatoria aunque solo use plantillas.
+    assert carga.config.agentes["explicador"].modelo == "modelo-explicador"
 
 
 @pytest.mark.parametrize(

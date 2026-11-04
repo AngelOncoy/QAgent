@@ -185,7 +185,9 @@ def test_sin_tipos_elegibles_no_llama_al_llm(tmp_path):
 def test_la_config_del_equipo_deja_el_recomendador_en_reglas():
     carga = cargar_configuracion(RUTA_CONFIG, "no-existe.env", simulado=True)
 
-    assert carga.config.recomendador == Recomendador(modo="reglas")
+    # Se comparan los campos y no la clase: otra prueba recarga `carga` y cambia su identidad.
+    assert carga.config.recomendador.modo == "reglas"
+    assert carga.config.recomendador.precio is None
     assert "recomendador" not in carga.config.agentes
     assert (
         crear_recomendador_ia(
