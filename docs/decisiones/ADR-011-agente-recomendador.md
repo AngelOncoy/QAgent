@@ -148,6 +148,14 @@ El schema prueba forma y vocabulario, no capacidades dinámicas. El consumidor d
 | Fallar y volver a reglas o lista vacía | Crear oráculos, aserciones, código de prueba o valores esperados |
 | Declarar `origen` para trazabilidad | Modificar veredictos, resultados, cobertura o decisiones del Reviewer |
 
+### 5.5 Implementación del paso 2 (#200)
+
+- **Configuración:** `[agentes.recomendador]` en `config.toml` con `modo = "reglas"` (predeterminado) o `"ia"`. Con `"ia"` lleva `proveedor`, `modelo`, precios (ADR-001) y `tiempo_maximo_s` opcional (30 s). No entra en `Configuracion.agentes`: si falta la clave, se usan las reglas. La clave se busca en `<PROVEEDOR>_API_KEY_RECOMENDADOR` o en la del proveedor.
+- **Entrada:** `entrada_ia()` arma campo por campo la proyección del §5.1 más la lista del paso 1 (`reglas` y `tipos_permitidos`); cada texto se acota y pasa por `sanitizar_secretos`.
+- **Salida:** el LLM solo devuelve `recomendaciones`; `version` y `origen: "ia"` los pone QAgent. Se valida con `recommendation.v1` y con la misma validación dinámica que las reglas, y debe ser un subconjunto de la lista del paso 1 (puede omitir tipos, no agregarlos). Cualquier incumplimiento descarta toda la salida y se usa la de las reglas.
+- **Fallos:** error del cliente, tiempo agotado, falta de clave o error inesperado usan las reglas y dejan el motivo en el log. Los tokens y el costo se registran como agente `recomendador` en un `TokenTracker`; la Vista previa los devuelve en `consumo_recomendador` cuando hubo una llamada.
+- **Interfaz:** la Vista previa muestra «Recomendación generada por IA» cuando `origen` es `ia`. La persona sigue confirmando o cambiando la selección.
+
 ## 6. Consecuencias
 
 ### Positivas

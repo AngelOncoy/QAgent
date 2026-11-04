@@ -24,22 +24,37 @@ Criterios de aceptación (HU-04):
 
 #197: además recomienda qué tipos de prueba conviene hacer y en qué orden
 (``recomendacion``, contrato ``recommendation.v1``) y lista como ``proximamente`` los
-lenguajes detectados que QAgent todavía no prueba. Son reglas sin IA; la interfaz
-solo las muestra y el usuario decide si las aplica.
+lenguajes detectados que QAgent todavía no prueba. La interfaz solo las muestra y el
+usuario decide si las aplica.
+
+#200: con ``modo = "ia"`` en ``[agentes.recomendador]`` un LLM ordena y justifica esos
+tipos (``recomendacion.origen == "ia"``); sin clave, con error o fuera de tiempo se
+usan las reglas. Su consumo de tokens y costo sale en ``consumo_recomendador``.
 """
 
 from __future__ import annotations
 
+import logging
 import os
 from pathlib import Path
 from typing import Any
 
-from qagent.agents.recomendador import recomendar_para_vista
+from qagent.agents.recomendador import (
+    AGENTE as AGENTE_RECOMENDADOR,
+)
+from qagent.agents.recomendador import (
+    RecomendadorIA,
+    crear_recomendador_ia,
+    recomendar_para_vista,
+)
 from qagent.lenguajes import (
     LenguajeNoSoportado,
     adaptador_del_proyecto,
     adaptador_e2e_del_proyecto,
 )
+from qagent.llm.tracker import TokenTracker
+
+_log = logging.getLogger(__name__)
 
 AVISO_ORACULO_DEBIL = "el valor esperado no tendrá fuente (oráculo débil)"
 ETIQUETA_FALTA_DOCSTRING = "⚠ falta"
@@ -72,12 +87,67 @@ def priorizar_modulos(modulos: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return sorted(modulos, key=clave_orden)
 
 
-def generar_vista_previa(raiz: str | os.PathLike[str]) -> dict[str, Any]:
+def _recomendador_configurado() -> RecomendadorIA | None:
+    """El Recomendador con IA si `[agentes.recomendador]` tiene `modo = "ia"` (#200).
+
+    None (reglas) con `modo = "reglas"`, sin configuración válida o sin clave: la Vista
+    previa nunca depende de que el LLM esté disponible.
+    """
+    from qagent.config import carga as config_carga
+    from qagent.config import cargar_configuracion
+
+    try:
+        # Primero solo la configuración (sin tocar `.env`): con `modo = "reglas"`, el
+        # valor predeterminado, la Vista previa no necesita nada más.
+        previa = cargar_configuracion(
+            simulado=True, ruta_local=config_carga.RUTA_CONFIG_LOCAL
+        )
+        if previa.config is None or previa.config.recomendador.modo != "ia":
+            return None
+        carga = cargar_configuracion(ruta_local=config_carga.RUTA_CONFIG_LOCAL)
+        return crear_recomendador_ia(
+            previa.config.recomendador,
+            TokenTracker(),
+            carga.claves,
+            simulado=carga.simulado,
+        )
+    except Exception as error:  # noqa: BLE001 — la IA es opcional
+        _log.warning("Recomendación con reglas, sin IA: %s", error)
+        return None
+
+
+def _recomendar(
+    vista: dict[str, Any],
+    carpeta: Path,
+    recomendador: RecomendadorIA | None,
+) -> dict[str, Any]:
+    """Recomendación de la Vista previa y, si hubo IA, lo que consumió (#200)."""
+    if recomendador is None:
+        recomendador = _recomendador_configurado()
+    resultado = recomendar_para_vista(vista, carpeta, recomendador=recomendador)
+    consumo = (
+        recomendador.tracker.totales_por_agente().get(AGENTE_RECOMENDADOR)
+        if recomendador is not None
+        else None
+    )
+    if consumo is not None:
+        resultado["consumo_recomendador"] = consumo
+    return resultado
+
+
+def generar_vista_previa(
+    raiz: str | os.PathLike[str], *, recomendador: RecomendadorIA | None = None
+) -> dict[str, Any]:
     """Genera los datos de la Vista previa para un proyecto dado (HU-04).
 
     Utiliza el análisis estático del adaptador elegido por el registro,
     prioriza los módulos por funciones con ramas, enriquece las funciones con
     avisos de documentación y conserva el resumen exacto de EN-02.
+
+    Args:
+        raiz: carpeta del proyecto.
+        recomendador: Recomendador con IA (#200); si es None se crea el de
+            ``[agentes.recomendador]`` cuando su modo es ``ia``.
 
     Returns:
         dict con ``ok``, ``ruta``, ``nombre``, ``modulos`` (priorizados),
@@ -195,5 +265,5 @@ def generar_vista_previa(raiz: str | os.PathLike[str]) -> dict[str, Any]:
             "no_analizable": ETIQUETA_NO_ANALIZABLE,
         },
     }
-    # #197: recomendación por reglas (sin IA). Solo informa; no cambia la selección.
-    return {**vista, **recomendar_para_vista(vista, carpeta)}
+    # #197/#200: recomendación (reglas o IA). Solo informa; no cambia la selección.
+    return {**vista, **_recomendar(vista, carpeta, recomendador)}

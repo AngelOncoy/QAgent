@@ -117,6 +117,13 @@ MODOS_EXPLICADOR = ("plantilla", "ia")
 #: Segundos que espera el Explicador cada respuesta del LLM si no se fija otro (#166).
 TIEMPO_EXPLICADOR_POR_DEFECTO_S = 60.0
 
+#: Modos del Recomendador de pruebas (ADR-011): reglas sin IA (#197) o un LLM que
+#: ordena y justifica esos tipos, con las reglas de respaldo (#200).
+MODOS_RECOMENDADOR = ("reglas", "ia")
+
+#: Segundos que espera el Recomendador la respuesta del LLM si no se fija otro (#200).
+TIEMPO_RECOMENDADOR_POR_DEFECTO_S = 30.0
+
 #: Memoria en formato Docker: un entero y una unidad (b, k, m o g), p. ej. "512m" o "3g".
 #: Secciones que solo define el equipo en `config.toml`: `config.local.toml` no las
 #: cambia. Los límites del sandbox no son un ajuste del usuario final (EN-03).
@@ -166,6 +173,17 @@ class Explicador:
 
 
 @dataclass(frozen=True)
+class Recomendador:
+    """Agente Recomendador (ADR-011): qué tipos de prueba conviene hacer antes de la corrida."""
+
+    modo: str = MODOS_RECOMENDADOR[0]
+    #: Proveedor, modelo y precios con `modo = "ia"` (#200); None con reglas.
+    precio: PrecioAgente | None = None
+    #: Segundos máximos por recomendación pedida al LLM; al vencer se usan las reglas.
+    tiempo_maximo_s: float = TIEMPO_RECOMENDADOR_POR_DEFECTO_S
+
+
+@dataclass(frozen=True)
 class SandboxPython:
     """Configuración del sandbox de Python (ADR-013).
 
@@ -194,6 +212,7 @@ class Configuracion:
         default_factory=dict, hash=False
     )
     sandbox_python: SandboxPython = field(default_factory=SandboxPython)
+    recomendador: Recomendador = Recomendador()
 
     def limites_sandbox(self, lenguaje: str | None = None) -> LimitesSandbox:
         """Límites del sandbox para `lenguaje`; los de `[sandbox]` si no tiene propios.
@@ -569,6 +588,9 @@ def _leer_config(
     explicador = _leer_explicador(
         (datos.get("agentes") or {}).get("explicador", {}), avisos
     )
+    recomendador = _leer_recomendador(
+        (datos.get("agentes") or {}).get("recomendador", {}), avisos
+    )
     if len(avisos) > antes:
         return None
     return Configuracion(
@@ -581,6 +603,7 @@ def _leer_config(
         explicador,
         sandbox_lenguajes,
         sandbox_python,
+        recomendador,
     )  # type: ignore[arg-type]
 
 
@@ -722,6 +745,34 @@ def _leer_explicador(tabla: Mapping[str, Any], avisos: list[str]) -> Explicador 
     if precio is None or tiempo is None:
         return None
     return Explicador(activo, modo, precio, tiempo)
+
+
+def _leer_recomendador(
+    tabla: Mapping[str, Any], avisos: list[str]
+) -> Recomendador | None:
+    """`[agentes.recomendador]` es opcional: sin él, el Recomendador usa reglas (#197).
+
+    Con `modo = "ia"` (#200) la sección lleva además `proveedor`, `modelo` y precios,
+    como los demás agentes (ADR-001), y `tiempo_maximo_s` opcional. No entra en
+    `Configuracion.agentes`: si falta su clave, la Vista previa usa las reglas.
+    """
+    if not isinstance(tabla, Mapping):
+        avisos.append("[agentes.recomendador] de config.toml debe ser una sección.")
+        return None
+    modo = tabla.get("modo", MODOS_RECOMENDADOR[0])
+    if modo not in MODOS_RECOMENDADOR:
+        validos = ", ".join(f'"{m}"' for m in MODOS_RECOMENDADOR)
+        avisos.append(f"modo en [agentes.recomendador] debe ser {validos}.")
+        return None
+    if modo != "ia":
+        return Recomendador(modo)
+    precio = _leer_agente("recomendador", tabla, avisos)
+    tiempo = TIEMPO_RECOMENDADOR_POR_DEFECTO_S
+    if "tiempo_maximo_s" in tabla:
+        tiempo = _numero(tabla, "tiempo_maximo_s", "agentes.recomendador", avisos)
+    if precio is None or tiempo is None:
+        return None
+    return Recomendador(modo, precio, tiempo)
 
 
 def _leer_sandbox(tabla: Mapping[str, Any], avisos: list[str]) -> LimitesSandbox | None:
