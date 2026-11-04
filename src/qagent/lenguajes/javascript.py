@@ -157,7 +157,9 @@ class _AdaptadorNode(AdaptadorEnDesarrollo):
             return reglas.REGLAS_PLANIFICACION_TYPESCRIPT
         return reglas.REGLAS_PLANIFICACION_JAVASCRIPT
 
-    def entorno_sandbox(self) -> EntornoSandbox:
+    def entorno_sandbox(
+        self, raiz: str | os.PathLike[str] | None = None
+    ) -> EntornoSandbox:
         return entorno_node()
 
 

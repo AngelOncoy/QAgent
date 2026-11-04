@@ -467,7 +467,9 @@ class JavaAdapter(AdaptadorEnDesarrollo):
         """Selecciona la clase concreta incluso con varios controladores en un archivo."""
         return endpoint["clase"]
 
-    def entorno_sandbox(self) -> EntornoSandbox:
+    def entorno_sandbox(
+        self, raiz: str | os.PathLike[str] | None = None
+    ) -> EntornoSandbox:
         """Imagen ``qagent-sandbox:java`` (#169) y las carpetas comunes del sandbox."""
         return EntornoSandbox(
             imagen=IMAGEN_JAVA,
