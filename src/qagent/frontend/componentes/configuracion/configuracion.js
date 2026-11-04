@@ -128,7 +128,7 @@ function filaRol(r){
   const avisos = [];
   let modelo, estado, eliminar = '';
   if(conectada){
-    if(r.opcional) avisos.push('<span class="cfg-aviso">La IA solo ordena y explica lo que ya proponen las reglas; si falla, se usan las reglas.</span>');
+    if(r.opcional) avisos.push('<span class="cfg-aviso">La IA solo te recomienda las pruebas que tenemos configuradas.</span>');
     if(!r.genera_texto) avisos.push(`<span class="cfg-aviso">Este modelo es de tipo «${escHtml(r.tipo_nombre)}» y no genera texto: la etapa fallará durante la corrida.</span>`);
     if((r.clave_repetida_con || []).length) avisos.push(`<span class="cfg-aviso">Comparte la clave con ${(r.clave_repetida_con).map(n => escHtml((ETAPA[String(n).toLowerCase()] || {t:n}).t)).join(' y ')}: comparten su límite de uso.</span>`);
     modelo = `<div class="cfg-modelo">${insigniaProveedor(r.proveedor, r.proveedor_nombre)}<div><b>${escHtml(r.modelo)}</b><span class="np-meta">${escHtml(r.proveedor_nombre)} · <span class="np-mono">${escHtml(r.clave_enmascarada)}</span></span></div></div>`;
