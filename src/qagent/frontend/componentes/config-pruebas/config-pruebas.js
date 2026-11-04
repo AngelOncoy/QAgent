@@ -26,7 +26,13 @@ registrarComponente('config-pruebas/config-pruebas', `<!-- ===== 3. PREPARAR ===
 
     <div class="np-aviso np-aviso-info prep-estado" id="prepBloqueo" aria-live="polite">${ICO_AVISO_CLON}<div><b id="prepBloqueoTitulo">Configuración lista</b><span id="prepBloqueoTxt"></span></div></div>
 
-    <div class="prep-rejilla">
+    <div class="prep-cajas-barra">
+      <div class="obj-switch" id="prepCajas" role="tablist" aria-label="Tipo de caja de las pruebas" onkeydown="teclasCajas(event)"></div>
+      <p class="np-meta" id="prepCajaAyuda" aria-live="polite"></p>
+    </div>
+    <div class="np-aviso np-aviso-info hide" id="prepCajaVacia" aria-live="polite">${ICO_INFO}<div><b>Todavía no hay pruebas de este tipo</b><span>La caja gris reunirá las pruebas que conocen parte de la estructura, como la integración entre funciones, que está en camino. Mientras tanto, mira «Todas».</span></div></div>
+
+    <div class="prep-rejilla" id="prepContenidoCajas" role="tabpanel">
       <div class="np-columna">
         <section class="np-tarjeta prep-modo-tarjeta" aria-labelledby="prepModoTitulo">
           <h2 id="prepModoTitulo">¿Qué quieres hacer?</h2>
@@ -34,21 +40,21 @@ registrarComponente('config-pruebas/config-pruebas', `<!-- ===== 3. PREPARAR ===
         </section>
 
         <div class="prep-fila">
-          <section class="np-tarjeta" aria-labelledby="prepTiposTitulo">
+          <section class="np-tarjeta" data-caja-grupo aria-labelledby="prepTiposTitulo">
             <h2 id="prepTiposTitulo">Tipos de prueba</h2>
             <div class="prep-lista" id="prepTipos"></div>
           </section>
-          <section class="np-tarjeta" aria-labelledby="prepCritTitulo">
+          <section class="np-tarjeta" data-caja="blanca" aria-labelledby="prepCritTitulo">
             <h2 id="prepCritTitulo">Funciones críticas</h2>
             <div class="prep-lista" id="prepCriticas"></div>
           </section>
         </div>
 
-        <div class="np-aviso np-aviso-info" id="prepFortaleza">${ICO_INFO}<div><b>Fortaleza de las pruebas</b><span id="prepFortalezaTxt"></span></div></div>
+        <div class="np-aviso np-aviso-info" id="prepFortaleza" data-caja="blanca">${ICO_INFO}<div><b>Fortaleza de las pruebas</b><span id="prepFortalezaTxt"></span></div></div>
       </div>
 
       <div class="np-columna">
-        <section class="np-tarjeta prep-arquitectura" aria-labelledby="prepArquitecturaTitulo">
+        <section class="np-tarjeta prep-arquitectura" data-caja="blanca" aria-labelledby="prepArquitecturaTitulo">
           <h2 id="prepArquitecturaTitulo">Reglas de arquitectura</h2>
           <p class="np-meta">La detección de ciclos está activa siempre. Puedes declarar una dependencia prohibida; se analiza en Docker, sin IA ni red.</p>
           <div class="prep-arq-campos">
@@ -62,7 +68,7 @@ registrarComponente('config-pruebas/config-pruebas', `<!-- ===== 3. PREPARAR ===
           <ul class="np-meta prep-arq-lista" id="prepArqReglas"></ul>
           <div class="np-aviso np-aviso-info hide" id="prepArqResultado" aria-live="polite"></div>
         </section>
-        <section class="np-tarjeta prep-arquitectura" aria-labelledby="prepE2ETitulo">
+        <section class="np-tarjeta prep-arquitectura" data-caja="negra" aria-labelledby="prepE2ETitulo">
           <h2 id="prepE2ETitulo">E2E de humo con Playwright</h2>
           <p class="np-meta">Detecta páginas Express o Vite y las visita en Chromium headless. Solo se ejecuta al pulsar el botón; no usa IA ni red externa.</p>
           <div class="prep-arq-acciones">
@@ -322,12 +328,13 @@ function renderTiposPrueba(){
   const mods = MODULES.filter(m=>m.sel && !m.error && moduloTieneObjetivos(m));
   const nFns = mods.flatMap(m=>m.fns).filter(f=>f.inc).length;
   const nEps = mods.flatMap(m=>(m.endpoints || []).filter(e=>endpointElegible(e) && e.inc)).length;
-  const fila = (clave, titulo, n, singular, plural) => `<label class="prep-casilla ${n ? '' : 'dis'}">
+  // #246: cada tipo declara su caja (data-caja) para las pestañas de Preparar.
+  const fila = (clave, titulo, n, singular, plural, caja) => `<label class="prep-casilla ${n ? '' : 'dis'}" data-caja="${caja}">
       <input type="checkbox" class="exp-caja" ${eleccionPruebas[clave] === true && n ? 'checked' : ''} ${n ? '' : 'disabled'} onchange="elegirPruebas({${clave}:this.checked})">
       <span><b>${titulo}</b><span class="prep-desc">${n} ${n === 1 ? singular : plural}</span></span>
     </label>`;
-  $('prepTipos').innerHTML = fila('unitarias', 'Unitarias', nFns, 'función seleccionada', 'funciones seleccionadas')
-    + fila('endpoints', 'Endpoints API', nEps, 'endpoint seleccionado', 'endpoints seleccionados');
+  $('prepTipos').innerHTML = fila('unitarias', 'Unitarias', nFns, 'función seleccionada', 'funciones seleccionadas', 'blanca')
+    + fila('endpoints', 'Endpoints API', nEps, 'endpoint seleccionado', 'endpoints seleccionados', 'negra');
 }
 // Críticas: funciones y endpoints incluidos y marcados en Profundizar. Se muestran tres; el resto
 // se ve y se edita en la columna Profundizar de Explorar (visible con «Análisis a fondo»).
@@ -364,6 +371,64 @@ function renderCriticas(){
 function irACriticas(){
   if (eleccionPruebas.modo !== 'fondo') elegirPruebas({modo:'fondo'});
   go('preview');
+}
+
+/* ---------- Pestañas por tipo de caja (#246) ----------
+   Agrupa lo que se puede probar según cuánto se mira por dentro: caja negra (solo el comportamiento
+   visible), caja blanca (el código y su estructura) y caja gris (una mezcla). Es solo una vista: cambiar
+   de pestaña oculta o muestra tarjetas (las marcadas con data-caja) y nunca cambia lo elegido. */
+const CAJAS = [
+  {k:'todas',  t:'Todas',       d:'Todos los tipos de prueba juntos.'},
+  {k:'negra',  t:'Caja negra',  d:'Prueban lo que el proyecto hace por fuera, sin mirar cómo está escrito por dentro.'},
+  {k:'blanca', t:'Caja blanca', d:'Prueban sabiendo cómo está escrito el código: sus funciones, sus decisiones y su estructura.'},
+  {k:'gris',   t:'Caja gris',   d:'Mezcla: conocen parte de la estructura, pero prueban el comportamiento.'},
+];
+let cajaActiva = 'todas';
+
+// Cuántos tipos hay elegidos en cada caja. Unitarias y la mutación (análisis a fondo) son de caja blanca;
+// los endpoints, de caja negra. Las reglas de arquitectura y el E2E se ejecutan con su propio botón.
+function tiposElegidosPorCaja(){
+  const e = eleccionPruebas;
+  const fondo = e.modo === 'fondo' || (e.modo === 'repetir' && e.profundizarRepetir === true);
+  const negra = e.endpoints === true ? 1 : 0;
+  const blanca = (e.unitarias === true ? 1 : 0) + (fondo ? 1 : 0);
+  return {negra, blanca, gris: 0, todas: negra + blanca};
+}
+function renderCajas(){
+  const barra = $('prepCajas');
+  if (!barra) return;
+  const n = tiposElegidosPorCaja();
+  barra.innerHTML = CAJAS.map(c => {
+    const on = c.k === cajaActiva;
+    return `<button type="button" id="prepCaja-${c.k}" class="obj-tab ${on ? 'on' : ''}" role="tab" aria-selected="${on}"
+      aria-controls="prepContenidoCajas" tabindex="${on ? 0 : -1}" title="${escHtml(c.d)}"
+      aria-label="${c.t}, ${n[c.k]} ${n[c.k] === 1 ? 'tipo elegido' : 'tipos elegidos'}" onclick="elegirCaja('${c.k}')">${c.t} (${n[c.k]})</button>`;
+  }).join('');
+  $('prepContenidoCajas').setAttribute('aria-labelledby', 'prepCaja-' + cajaActiva);
+  $('prepCajaAyuda').textContent = (CAJAS.find(c => c.k === cajaActiva) || CAJAS[0]).d;
+}
+function aplicarCaja(){
+  const panel = $('prepContenidoCajas');
+  if (!panel) return;
+  panel.querySelectorAll('[data-caja]').forEach(el => el.classList.toggle('hide', cajaActiva !== 'todas' && el.dataset.caja !== cajaActiva));
+  // Una tarjeta que agrupa varios tipos (Tipos de prueba) se oculta si ninguno se ve.
+  panel.querySelectorAll('[data-caja-grupo]').forEach(g => g.classList.toggle('hide', !g.querySelector('[data-caja]:not(.hide)')));
+  $('prepCajaVacia').classList.toggle('hide', !!panel.querySelector('[data-caja]:not(.hide)'));
+  renderCajas();
+}
+function elegirCaja(k, enfocar = false){
+  if (!CAJAS.some(c => c.k === k)) return;
+  cajaActiva = k;
+  aplicarCaja();
+  if (enfocar && $('prepCaja-' + k)) $('prepCaja-' + k).focus();
+}
+// Teclado de las pestañas: flechas, Inicio y Fin.
+function teclasCajas(ev){
+  const i = CAJAS.findIndex(c => c.k === cajaActiva);
+  const destino = {ArrowRight:(i + 1) % CAJAS.length, ArrowLeft:(i + CAJAS.length - 1) % CAJAS.length, Home:0, End:CAJAS.length - 1}[ev.key];
+  if (destino === undefined) return;
+  ev.preventDefault();
+  elegirCaja(CAJAS[destino].k, true);
 }
 
 /* ---------- Comprobaciones previas ----------
@@ -487,6 +552,7 @@ function calc(){
   renderModosPreparar(repetibles);
   renderTiposPrueba();
   renderCriticas();
+  aplicarCaja();   // #246: las pestañas por tipo de caja solo muestran u ocultan
   const lista = comprobacionesPrevias(total, reused);
   const pendientes = renderComprobaciones(lista);
   const verificando = lista.some(c => c.ok === null);
