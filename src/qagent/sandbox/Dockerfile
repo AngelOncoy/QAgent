@@ -1,7 +1,8 @@
 # Imagen base del sandbox de QAgent: qagent-sandbox:base (EN-03).
 # Solo trae las herramientas de prueba. Las dependencias del proyecto del usuario
 # se instalan en una imagen derivada (paso 1, con red) y las pruebas corren sin red (paso 2).
-FROM python:3.11-slim
+ARG PYTHON_VERSION=3.11
+FROM python:${PYTHON_VERSION}-slim
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
