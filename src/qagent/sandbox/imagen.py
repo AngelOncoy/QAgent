@@ -173,12 +173,23 @@ def _dockerfile_npm_navegador(base: str, archivos: list[str]) -> str:
 
 
 def _dockerfile_maven(base: str, archivos: list[str]) -> str:
-    """Dependencias y plugins de Maven en el repositorio local de la imagen."""
+    """Descarga dependencias, plugins y el lanzador JUnit del proyecto.
+
+    Surefire resuelve el launcher dinámicamente según el engine. Go-offline no
+    descarga ese artefacto si el POM no lo declara. Se obtiene su versión de las
+    dependencias resueltas (incluidos BOM), sin compilar ni ejecutar fuentes.
+    """
     return (
         f"FROM {base}\n"
         "USER root\n"
         f"{_copiar(archivos)}"
         f"RUN cd {_CARPETA_DEPENDENCIAS} && MAVEN_OPTS= mvn dependency:go-offline dependency:resolve \\\n"
+        "    && MAVEN_OPTS= mvn dependency:list -DincludeGroupIds=org.junit.platform \\\n"
+        "       -DincludeArtifactIds=junit-platform-engine -DoutputFile=/tmp/qagent-junit-platform.txt \\\n"
+        "    && for version in $(awk -F: '/org.junit.platform:junit-platform-engine:jar:/ {print $4}' /tmp/qagent-junit-platform.txt); do \\\n"
+        '         MAVEN_OPTS= mvn dependency:get "-Dartifact=org.junit.platform:junit-platform-launcher:$version" || exit 1; \\\n'
+        "       done \\\n"
+        "    && rm /tmp/qagent-junit-platform.txt \\\n"
         f"    && cd / && rm -rf {_CARPETA_DEPENDENCIAS}\n"
         "USER sandbox\n"
     )
@@ -388,9 +399,9 @@ def etiqueta_para_dependencias(
     if prefijo == "req-" and version_py and version_py != VERSION_PYTHON_DEFECTO:
         huella.update(f"py{version_py}\0".encode())
     if prefijo == "java-" and "pom.xml" in archivos:
-        # #183: go-offline por sí solo dejó versiones gestionadas por BOM sin
-        # descargar. No reutilizar una imagen anterior a dependency:resolve.
-        huella.update(b"maven-resolve-v2\0")
+        # #174: Surefire necesita el launcher de la versión del engine resuelto.
+        # No reutilizar derivadas anteriores que solo usaban go-offline/resolve.
+        huella.update(b"maven-junit-launcher-v3\0")
     if prefijo == "browser-":
         # Invalida la primera receta de #186, que heredaba por error USER sandbox.
         huella.update(b"browser-runner-exit-v3\0")
