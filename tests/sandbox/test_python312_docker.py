@@ -25,6 +25,7 @@ from qagent.sandbox import (
     preparar_imagen,
 )
 from qagent.sandbox.imagen import _imagen_existe
+from qagent.sandbox.informe_pytest import parsear_junit
 
 pytestmark = pytest.mark.docker
 
@@ -50,17 +51,15 @@ def test_imagen_base_py312_reporta_version_real_python(
     cliente_docker, imagen_base_py312: str
 ) -> None:
     """Verifica que el contenedor de la imagen base ejecuta realmente Python 3.12."""
-    salida = cliente_docker.containers.run(
+    cont = cliente_docker.containers.create(
         imagen_base_py312,
         ["python", "--version"],
-        remove=True,
     )
-    texto = (
-        salida.decode("utf-8").strip()
-        if isinstance(salida, bytes)
-        else str(salida).strip()
-    )
-    assert texto.startswith("Python 3.12")
+    cont.start()
+    cont.wait()
+    logs = cont.logs().decode("utf-8").strip()
+    cont.remove()
+    assert logs.startswith("Python 3.12")
 
 
 def test_hash_y_construccion_real_de_dependencias_en_docker(
@@ -158,14 +157,18 @@ def test_proyecto_sintaxis_python312_en_sandbox_docker(
     )
 
     resultado = ejecutar_pruebas(
-        proyecto,
-        tests,
         imagen=imagen_preparada,
+        ruta_proyecto=proyecto,
+        ruta_tests=tests,
+        modulo_cov="generico",
         cliente=cliente_docker,
     )
 
-    assert resultado.exitoso is True
-    assert resultado.codigo_salida == 0
-    assert resultado.informe is not None
-    assert resultado.informe.pasaron == 1
-    assert resultado.informe.fallaron == 0
+    assert resultado.exit_code == 0, (
+        f"Salida: {resultado.stdout}\nError: {resultado.stderr}"
+    )
+    assert "1 passed" in resultado.stdout
+    if resultado.junit_xml:
+        informe = parsear_junit(resultado.junit_xml)
+        assert informe.pasaron == 1
+        assert informe.fallaron == 0
