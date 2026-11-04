@@ -1,0 +1,332 @@
+[
+  {
+    "proyecto": "fastapi",
+    "modelo": "deepseek/deepseek-flash",
+    "repeticion": 1,
+    "simulado": false,
+    "estimado": false,
+    "usada": true,
+    "descarte": null,
+    "tokens_entrada": 611,
+    "tokens_salida": 194,
+    "costo_usd": 0.0004161,
+    "latencia_s": 2.217512800001714,
+    "orden_cambia": false,
+    "tipos_omitidos": [],
+    "motivo_cambia": true,
+    "tipos": [
+      "endpoint",
+      "mutacion"
+    ],
+    "recomendacion": {
+      "version": "1",
+      "origen": "ia",
+      "recomendaciones": [
+        {
+          "tipo_prueba": "endpoint",
+          "motivo": "Hay 3 endpoints con ruta resuelta y conviene probarlos primero en el sandbox sin red."
+        },
+        {
+          "tipo_prueba": "mutacion",
+          "motivo": "Hay 1 objetivo crítico con decisiones y la mutación va después porque necesita las pruebas anteriores."
+        }
+      ]
+    },
+    "respuesta_descartada": null
+  },
+  {
+    "proyecto": "mixto",
+    "modelo": "deepseek/deepseek-flash",
+    "repeticion": 1,
+    "simulado": false,
+    "estimado": false,
+    "usada": true,
+    "descarte": null,
+    "tokens_entrada": 643,
+    "tokens_salida": 532,
+    "costo_usd": 0.0008313,
+    "latencia_s": 4.411251899997296,
+    "orden_cambia": false,
+    "tipos_omitidos": [],
+    "motivo_cambia": true,
+    "tipos": [
+      "endpoint",
+      "funcion",
+      "mutacion"
+    ],
+    "recomendacion": {
+      "version": "1",
+      "origen": "ia",
+      "recomendaciones": [
+        {
+          "tipo_prueba": "endpoint",
+          "motivo": "Hay 2 endpoints con ruta resuelta y objetivos críticos, así que conviene comprobar primero sus respuestas esperadas."
+        },
+        {
+          "tipo_prueba": "funcion",
+          "motivo": "Las 2 funciones públicas están documentadas, lo que permite definir valores esperados con claridad."
+        },
+        {
+          "tipo_prueba": "mutacion",
+          "motivo": "Hay objetivos críticos y la mutación va al final porque necesita que existan antes las pruebas de endpoint y función."
+        }
+      ]
+    },
+    "respuesta_descartada": null
+  },
+  {
+    "proyecto": "solo_funciones",
+    "modelo": "deepseek/deepseek-flash",
+    "repeticion": 1,
+    "simulado": false,
+    "estimado": false,
+    "usada": true,
+    "descarte": null,
+    "tokens_entrada": 561,
+    "tokens_salida": 340,
+    "costo_usd": 0.0005763,
+    "latencia_s": 2.7712453000058304,
+    "orden_cambia": false,
+    "tipos_omitidos": [],
+    "motivo_cambia": true,
+    "tipos": [
+      "funcion",
+      "mutacion"
+    ],
+    "recomendacion": {
+      "version": "1",
+      "origen": "ia",
+      "recomendaciones": [
+        {
+          "tipo_prueba": "funcion",
+          "motivo": "Hay 4 funciones y 3 documentadas, así que conviene empezar por probarlas para cubrir la base con un oráculo razonable."
+        },
+        {
+          "tipo_prueba": "mutacion",
+          "motivo": "Hay objetivos críticos con decisiones; después de las pruebas de función, la mutación comprueba si detectan errores."
+        }
+      ]
+    },
+    "respuesta_descartada": null
+  },
+  {
+    "proyecto": "fastapi",
+    "modelo": "deepseek/deepseek-flash",
+    "repeticion": 2,
+    "simulado": false,
+    "estimado": false,
+    "usada": true,
+    "descarte": null,
+    "tokens_entrada": 611,
+    "tokens_salida": 354,
+    "costo_usd": 0.0006081,
+    "latencia_s": 3.0555652000039117,
+    "orden_cambia": false,
+    "tipos_omitidos": [],
+    "motivo_cambia": true,
+    "tipos": [
+      "endpoint",
+      "mutacion"
+    ],
+    "recomendacion": {
+      "version": "1",
+      "origen": "ia",
+      "recomendaciones": [
+        {
+          "tipo_prueba": "endpoint",
+          "motivo": "Hay 3 endpoints con ruta resuelta, así que conviene probarlos primero en el sandbox."
+        },
+        {
+          "tipo_prueba": "mutacion",
+          "motivo": "Hay 1 objetivo crítico con decisiones; va después porque necesita que existan pruebas previas."
+        }
+      ]
+    },
+    "respuesta_descartada": null
+  },
+  {
+    "proyecto": "mixto",
+    "modelo": "deepseek/deepseek-flash",
+    "repeticion": 2,
+    "simulado": false,
+    "estimado": false,
+    "usada": true,
+    "descarte": null,
+    "tokens_entrada": 643,
+    "tokens_salida": 603,
+    "costo_usd": 0.0009165,
+    "latencia_s": 4.458315999996557,
+    "orden_cambia": false,
+    "tipos_omitidos": [],
+    "motivo_cambia": true,
+    "tipos": [
+      "endpoint",
+      "funcion",
+      "mutacion"
+    ],
+    "recomendacion": {
+      "version": "1",
+      "origen": "ia",
+      "recomendaciones": [
+        {
+          "tipo_prueba": "endpoint",
+          "motivo": "Hay 2 endpoints con ruta resuelta; conviene probarlos primero porque son puntos de entrada externos y se validan sin red."
+        },
+        {
+          "tipo_prueba": "funcion",
+          "motivo": "Las 2 funciones públicas tienen documentación y tipos, así que es fácil definir valores esperados y cubrirlas después."
+        },
+        {
+          "tipo_prueba": "mutacion",
+          "motivo": "Hay 1 objetivo crítico con decisiones; la mutación comprueba si las pruebas anteriores detectan errores, por eso va al final."
+        }
+      ]
+    },
+    "respuesta_descartada": null
+  },
+  {
+    "proyecto": "solo_funciones",
+    "modelo": "deepseek/deepseek-flash",
+    "repeticion": 2,
+    "simulado": false,
+    "estimado": false,
+    "usada": true,
+    "descarte": null,
+    "tokens_entrada": 561,
+    "tokens_salida": 248,
+    "costo_usd": 0.0004659,
+    "latencia_s": 2.5124727000002167,
+    "orden_cambia": false,
+    "tipos_omitidos": [],
+    "motivo_cambia": true,
+    "tipos": [
+      "funcion",
+      "mutacion"
+    ],
+    "recomendacion": {
+      "version": "1",
+      "origen": "ia",
+      "recomendaciones": [
+        {
+          "tipo_prueba": "funcion",
+          "motivo": "Hay 4 funciones y 3 están documentadas, así que conviene empezar probando su comportamiento esperado."
+        },
+        {
+          "tipo_prueba": "mutacion",
+          "motivo": "Hay objetivos críticos con decisiones; se hace después para comprobar si las pruebas detectan errores."
+        }
+      ]
+    },
+    "respuesta_descartada": null
+  },
+  {
+    "proyecto": "fastapi",
+    "modelo": "deepseek/deepseek-flash",
+    "repeticion": 3,
+    "simulado": false,
+    "estimado": false,
+    "usada": true,
+    "descarte": null,
+    "tokens_entrada": 611,
+    "tokens_salida": 505,
+    "costo_usd": 0.0007893,
+    "latencia_s": 4.261461400004919,
+    "orden_cambia": false,
+    "tipos_omitidos": [],
+    "motivo_cambia": true,
+    "tipos": [
+      "endpoint",
+      "mutacion"
+    ],
+    "recomendacion": {
+      "version": "1",
+      "origen": "ia",
+      "recomendaciones": [
+        {
+          "tipo_prueba": "endpoint",
+          "motivo": "Hay 3 endpoints con ruta resuelta y ninguno sin resolver, así que conviene empezar comprobando sus respuestas."
+        },
+        {
+          "tipo_prueba": "mutacion",
+          "motivo": "Hay 1 objetivo crítico con decisiones y va después porque comprobar si las pruebas detectan errores depende de las pruebas anteriores."
+        }
+      ]
+    },
+    "respuesta_descartada": null
+  },
+  {
+    "proyecto": "mixto",
+    "modelo": "deepseek/deepseek-flash",
+    "repeticion": 3,
+    "simulado": false,
+    "estimado": false,
+    "usada": true,
+    "descarte": null,
+    "tokens_entrada": 643,
+    "tokens_salida": 769,
+    "costo_usd": 0.0011157,
+    "latencia_s": 5.775547500001267,
+    "orden_cambia": false,
+    "tipos_omitidos": [],
+    "motivo_cambia": true,
+    "tipos": [
+      "endpoint",
+      "funcion",
+      "mutacion"
+    ],
+    "recomendacion": {
+      "version": "1",
+      "origen": "ia",
+      "recomendaciones": [
+        {
+          "tipo_prueba": "endpoint",
+          "motivo": "Hay 2 endpoints con ruta resuelta, así que se puede comprobar su respuesta frente a lo que declara cada ruta."
+        },
+        {
+          "tipo_prueba": "funcion",
+          "motivo": "Las 2 funciones públicas están documentadas y tipadas, lo que da información clara para definir valores esperados."
+        },
+        {
+          "tipo_prueba": "mutacion",
+          "motivo": "Hay objetivos críticos con decisiones; conviene al final porque necesita que las pruebas anteriores detecten errores."
+        }
+      ]
+    },
+    "respuesta_descartada": null
+  },
+  {
+    "proyecto": "solo_funciones",
+    "modelo": "deepseek/deepseek-flash",
+    "repeticion": 3,
+    "simulado": false,
+    "estimado": false,
+    "usada": true,
+    "descarte": null,
+    "tokens_entrada": 561,
+    "tokens_salida": 398,
+    "costo_usd": 0.0006459,
+    "latencia_s": 3.0541013999973075,
+    "orden_cambia": false,
+    "tipos_omitidos": [],
+    "motivo_cambia": true,
+    "tipos": [
+      "funcion",
+      "mutacion"
+    ],
+    "recomendacion": {
+      "version": "1",
+      "origen": "ia",
+      "recomendaciones": [
+        {
+          "tipo_prueba": "funcion",
+          "motivo": "Hay 4 funciones y 3 están documentadas, así que conviene empezar por pruebas de función para cubrir la mayoría con un oráculo claro."
+        },
+        {
+          "tipo_prueba": "mutacion",
+          "motivo": "Hay objetivos críticos y la mutación comprueba si las pruebas detectan errores, pero va después porque necesita las pruebas anteriores."
+        }
+      ]
+    },
+    "respuesta_descartada": null
+  }
+]
