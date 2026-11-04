@@ -122,6 +122,7 @@ def test_cada_rol_usa_su_proveedor_sin_afectar_a_los_otros(rutas):
     _guardar(rutas, "planner", "gemini", "gemini-2.5-flash", CLAVE_GEMINI)
     _guardar(rutas, "generator", "xiaomi", "mimo-v2.6-pro", CLAVE_XIAOMI)
     _guardar(rutas, "reviewer", "openai", "gpt-6.1-terra", CLAVE_OPENAI)
+    _guardar(rutas, "explicador", "openai", "gpt-6-luna", CLAVE_OPENAI)
     _guardar(rutas, "generator", "xiaomi", "mimo-v2.6-flash")  # cambiar solo uno
 
     roles = _roles(rutas)
@@ -129,6 +130,7 @@ def test_cada_rol_usa_su_proveedor_sin_afectar_a_los_otros(rutas):
         "planner": ("gemini", "gemini-2.5-flash"),
         "generator": ("xiaomi", "mimo-v2.6-flash"),
         "reviewer": ("openai", "gpt-6.1-terra"),
+        "explicador": ("openai", "gpt-6-luna"),
     }
     carga = cargar_configuracion(*rutas, simulado=False)
     assert carga.ok, carga.avisos
@@ -580,3 +582,56 @@ def test_deepseek_con_key_invalida_muestra_el_aviso_existente(rutas):
         config.read_text(encoding="utf-8"),
         env.read_text(encoding="utf-8"),
     ) == antes
+
+
+# --- Explicador obligatorio (EP-10 #172) ----------------------------------------------
+
+
+def test_el_explicador_se_lista_como_cuarto_rol(rutas):
+    config, env = rutas
+    assert [r["agente"] for r in leer_roles(config, env)] == [
+        "planner",
+        "generator",
+        "reviewer",
+        "explicador",
+    ]
+    explicador = _roles(rutas)["explicador"]
+    assert explicador["nombre"] == "Explicador"
+    assert explicador["configurado"] and not explicador["tiene_clave"]
+    assert explicador["variable"] == "OPENAI_API_KEY_EXPLICADOR"
+
+
+def test_guardar_la_api_del_explicador_conserva_sus_ajustes(rutas):
+    config, env = rutas
+    r = _guardar(rutas, "explicador", "gemini", "gemini-2.5-flash", CLAVE_GEMINI)
+
+    assert r["ok"], r
+    seccion = tomllib.loads(config.read_text(encoding="utf-8"))["agentes"]["explicador"]
+    assert seccion["proveedor"] == "gemini"
+    assert (seccion["activo"], seccion["modo"], seccion["tiempo_maximo_s"]) == (
+        True,
+        "ia",
+        60,
+    )
+    assert leer_env(env)["GEMINI_API_KEY_EXPLICADOR"] == CLAVE_GEMINI
+    carga = cargar_configuracion(config, env, simulado=True)
+    assert carga.config.explicador.precio.modelo == "gemini-2.5-flash"
+
+
+def test_los_otros_agentes_no_copian_ajustes_del_explicador(rutas):
+    config, _ = rutas
+    _guardar(rutas, "planner", "gemini", "gemini-2.5-flash", CLAVE_GEMINI)
+    planner = tomllib.loads(config.read_text(encoding="utf-8"))["agentes"]["planner"]
+    assert not {"activo", "modo", "tiempo_maximo_s"} & set(planner)
+
+
+def test_quitar_la_api_del_explicador_bloquea_las_corridas(rutas):
+    config, env = rutas
+    _guardar(rutas, "explicador", "gemini", "gemini-2.5-flash", CLAVE_GEMINI)
+    assert _eliminar(rutas, "explicador")["ok"]
+
+    assert not _roles(rutas)["explicador"]["configurado"]
+    assert "GEMINI_API_KEY_EXPLICADOR" not in leer_env(env)
+    carga = cargar_configuracion(config, env, simulado=False)
+    assert "explicador" in carga.sin_configurar
+    assert any("Falta configurar el Explicador" in a for a in carga.avisos)

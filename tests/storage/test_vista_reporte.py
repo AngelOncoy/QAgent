@@ -44,7 +44,7 @@ def test_cabecera_con_numero_fecha_perfil_rama_y_modelos(corrida) -> None:
     assert v["fecha"] == results["fecha"]
     assert (v["perfil"], v["rama"]) == ("deep", "develop")
     assert v["total_funciones"] == results["resumen"]["total_funciones"]
-    assert set(v["modelos"]) == {"planner", "generator", "reviewer"}
+    assert set(v["modelos"]) == {"planner", "generator", "reviewer", "explicador"}
     assert (
         v["modelos"]["reviewer"]["modelo"] == results["modelos"]["reviewer"]["modelo"]
     )

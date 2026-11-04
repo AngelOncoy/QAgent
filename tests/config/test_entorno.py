@@ -101,11 +101,11 @@ def test_varios_problemas_se_listan_todos(tmp_path):
         tmp_path / ".env", docker=lambda: DOCKER_APAGADO, git=lambda: GIT_AUSENTE
     )
     assert r["listo"] is False
-    # .env creado + 3 claves vacías (una por agente, HU-30) + Docker + Git
-    assert len(r["problemas"]) == 6
+    # .env creado + 4 claves vacías (una por agente, HU-30 y EP-10) + Docker + Git
+    assert len(r["problemas"]) == 7
     assert DOCKER_APAGADO["mensaje"] in r["problemas"]
     assert GIT_AUSENTE["mensaje"] in r["problemas"]
-    assert "(y 5 problema(s) más)" in r["mensaje"]
+    assert "(y 6 problema(s) más)" in r["mensaje"]
 
 
 def test_ia_simulada_se_informa_y_no_dice_que_cargo_claves(tmp_path):

@@ -38,7 +38,7 @@ python test.py
 
 | Archivo | Para qué sirve |
 |---|---|
-| `.env` | Claves de API (una variable por agente, p. ej. `GEMINI_API_KEY_PLANNER`). Se crea solo, vacío, la primera vez. `.env.example`, en la raíz del repositorio, lista las variables de cada proveedor sin valores. |
+| `.env` | Claves de API (una variable por agente, p. ej. `GEMINI_API_KEY_PLANNER` u `OPENAI_API_KEY_EXPLICADOR`; las cuatro son obligatorias con la IA real). Se crea solo, vacío, la primera vez. `.env.example`, en la raíz del repositorio, lista las variables de cada proveedor sin valores. |
 | `config.local.toml` | Modelos que eligió cada uno en la pantalla Configuración; reemplazan a los del `config.toml` del equipo. |
 | `recientes.json` | Proyectos recientes de la pantalla de inicio. |
 | `registro.log` | Bitácora de la corrida cuando la app se abre sin consola (el ejecutable de Windows). |
@@ -186,7 +186,7 @@ QAgent/
 ├── packaging/windows/      Receta de PyInstaller, instalador de Inno Setup, ícono, imágenes del asistente y requisitos
 ├── scripts/                verificar_paquete.py y construir_windows.py
 ├── src/qagent/
-│   ├── agents/             Planner, Generator y Reviewer (EN-04)
+│   ├── agents/             Planner, Generator, Reviewer (EN-04), Explicador (EP-10) y Recomendador (#197)
 │   ├── almacenamiento/     .qagent/ del proyecto y ~/.qagent/recientes.json (EN-07)
 │   ├── analysis/           Analizador estático con tree-sitter (EN-02, EN-14, TA-16)
 │   ├── app/                Puente pywebview y bitácora (EN-08); sin lógica de negocio

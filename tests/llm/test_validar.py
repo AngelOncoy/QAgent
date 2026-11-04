@@ -34,7 +34,7 @@ def test_todos_responden_devuelve_cero(monkeypatch, capsys) -> None:
 
     assert modulo.validar() == 0
     salida = capsys.readouterr().out
-    assert salida.count("OK ") == 3
+    assert salida.count("OK ") == 4  # Planner, Generator, Reviewer y Explicador
     assert "7+1 tokens" in salida
     assert all(c.prompts == [modulo.PROMPT_PRUEBA] for c in clientes)
 

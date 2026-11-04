@@ -1,6 +1,6 @@
 // configuracion.js — pantalla «Configuración»: conexión de IA por etapa (HU-30), motor, límites y apariencia
 // HTML del componente (se monta en el marcador data-componente="configuracion/configuracion" de index.html)
-// Cada etapa (analizar, escribir pruebas, verificar) tiene su propio proveedor, modelo y clave: así lo guarda
+// Cada etapa (analizar, escribir pruebas, verificar, explicar) tiene su propio proveedor, modelo y clave: así lo guarda
 // el backend. Los íconos compartidos (ICO_*) vienen de inicio/modal-abrir.js y modal-clonar.js.
 const ICO_FLECHA_ABAJO = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>';
 registrarComponente('configuracion/configuracion', `<!-- ===== CONFIGURACIÓN ===== -->
@@ -24,7 +24,7 @@ registrarComponente('configuracion/configuracion', `<!-- ===== CONFIGURACIÓN ==
 
       <div class="np-rejilla cfg-rejilla">
         <div class="np-columna">
-          <section class="np-tarjeta" aria-labelledby="cfgEtapasTitulo">
+          <section class="np-tarjeta cfg-tarjeta-etapas" aria-labelledby="cfgEtapasTitulo">
             <h2 id="cfgEtapasTitulo">Conexión de IA por etapa</h2>
             <p class="np-texto">Cada etapa puede usar su propio proveedor y modelo. Al guardar se prueba la conexión; si falla, no se guarda nada.</p>
             <div class="cfg-etapas" id="cfgAgents"></div>
@@ -97,6 +97,7 @@ const ETAPA = {
   planner:   {t:'Analizando',          d:'Lee el código y decide qué casos probar.'},
   generator: {t:'Escribiendo pruebas', d:'Escribe la prueba de cada función o endpoint.'},
   reviewer:  {t:'Verificando',         d:'Revisa los resultados en el entorno aislado.'},
+  explicador:{t:'Explicando resultados', d:'Explica en palabras simples por qué una función no pasó.'},
 };
 let rolesApi = [];          // estado de cada etapa (DesktopAPI.obtener_roles)
 let eliminarPendiente = null;
@@ -155,7 +156,7 @@ function pintarRoles(){
 async function cargarRoles(){
   if(!hayApiDeRoles()){
     // Demostración en el navegador: el catálogo y las claves solo existen en la app de escritorio.
-    rolesApi = ['planner','generator','reviewer'].map(a => ({agente:a, nombre:a[0].toUpperCase() + a.slice(1), configurado:false}));
+    rolesApi = ['planner','generator','reviewer','explicador'].map(a => ({agente:a, nombre:a[0].toUpperCase() + a.slice(1), configurado:false}));
     pintarRoles();
     return;
   }
