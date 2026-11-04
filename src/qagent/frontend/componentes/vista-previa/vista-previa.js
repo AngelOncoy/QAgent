@@ -28,12 +28,13 @@ registrarComponente('vista-previa/vista-previa', `<!-- ===== 2. EXPLORAR ===== -
       <div class="exp-cifra"><span class="exp-cifra-etq">Endpoints API</span><b id="resumenEndpoints">0</b><span class="exp-cifra-sub" id="resumenEndpointsSub"></span></div>
     </div>
 
-    <!-- Pruebas recomendadas (issue 197): reglas sin IA. Solo se aplican si la persona lo pide. -->
+    <!-- Pruebas recomendadas (issues 197 y 200): reglas o IA. Solo se aplican si la persona lo pide. -->
     <section class="np-tarjeta exp-reco hide" id="expReco" aria-labelledby="expRecoTitulo">
       <div class="exp-reco-cab">
         <div>
           <h2 id="expRecoTitulo">Pruebas recomendadas</h2>
-          <p class="exp-nota">Según el análisis del código, sin IA. Tú decides: puedes aplicarla o elegir otra cosa en Preparar.</p>
+          <span class="np-chip exp-reco-ia hide" id="expRecoIA">Recomendación generada por IA</span>
+          <p class="exp-nota" id="expRecoNota">Según el análisis del código, sin IA. Tú decides: puedes aplicarla o elegir otra cosa en Preparar.</p>
         </div>
         <button type="button" class="ini-btn" id="expRecoAplicar" onclick="aplicarRecomendacion()">Aplicar recomendación</button>
       </div>
@@ -367,7 +368,7 @@ function vaciarVistaPrevia() {
 }
 
 /* ---------------- Pruebas recomendadas (issue 197) ----------------
-   La lista viene ordenada y validada del backend (recommendation.v1, reglas sin IA). Mostrarla no
+   La lista viene ordenada y validada del backend (recommendation.v1, de las reglas o de la IA, origen). Mostrarla no
    cambia nada; «Aplicar recomendación» solo precarga los tipos y el modo de Preparar, que la
    persona puede cambiar. Nunca inicia una corrida. */
 function recomendacionesActuales(){
@@ -379,6 +380,12 @@ function renderRecomendacion(){
   caja.classList.toggle('hide', !RECOMENDACION);
   $('expRecoEstado').textContent = '';
   if(!RECOMENDACION){ $('expRecoLista').innerHTML = ''; $('expRecoProx').innerHTML = ''; return; }
+  // issue 200: con origen "ia" un modelo ordenó y explicó los tipos; con "reglas", el análisis sin IA.
+  const porIA = RECOMENDACION.recomendacion && RECOMENDACION.recomendacion.origen === 'ia';
+  $('expRecoIA').classList.toggle('hide', !porIA);
+  $('expRecoNota').textContent = porIA
+    ? 'Un modelo de IA ordenó y explicó estos tipos a partir de un resumen del análisis (sin tu código). Tú decides: puedes aplicarla o elegir otra cosa en Preparar.'
+    : 'Según el análisis del código, sin IA. Tú decides: puedes aplicarla o elegir otra cosa en Preparar.';
   const recs = recomendacionesActuales();
   $('expRecoLista').innerHTML = recs.length
     ? recs.map((r, i) => `<li><span class="exp-reco-n" aria-hidden="true">${i + 1}</span><div><b>${escHtml(TIPOS_RECOMENDADOS[r.tipo_prueba] || r.tipo_prueba)}</b><span>${escHtml(r.motivo)}</span></div></li>`).join('')

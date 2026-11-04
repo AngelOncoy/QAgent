@@ -6,8 +6,9 @@ en el contrato ``recommendation.v1``.
 
 Reglas que no se rompen (ADR-008 y ADR-011):
 
-* Es determinista y no usa ningún LLM (0 tokens). Si más adelante se agrega un modo
-  con IA (#200), estas reglas siguen siendo la autoridad y el respaldo.
+* Las reglas son deterministas y no usan ningún LLM (0 tokens). Con el modo de IA
+  (#200, ``recomendador_ia``) estas reglas siguen siendo la autoridad y el respaldo:
+  el LLM solo ordena y justifica los tipos que ellas ya propusieron.
 * Solo recomienda lo que declara en ``tipos_prueba`` el adaptador con el que se
   analizó el proyecto (el de la Vista previa) y que además tiene objetivos. Lo que
   un lenguaje detectado aún no ejecuta va aparte, como «próximamente».
@@ -17,6 +18,13 @@ Reglas que no se rompen (ADR-008 y ADR-011):
   entra en la máquina de estados del orquestador.
 * Trabaja sobre una proyección hecha por lista permitida (cantidades, rutas HTTP y
   capacidades), nunca sobre el objeto completo de la Vista previa ni el código.
+
+Paso 2 (#200, ADR-011 §5.3): con un recomendador con IA (``recomendador_ia``, un módulo
+aparte para que este no importe ningún cliente de LLM) un LLM reordena y redacta los
+motivos de la lista del paso 1. Si no responde, tarda demasiado, no hay clave, devuelve
+algo que no cumple ``recommendation.v1`` o recomienda un tipo que las reglas no
+propusieron, ``recomendar_con_ia`` descarta toda su salida y usa la lista de las reglas;
+el motivo va al log. La IA no concede privilegios: pasa por la misma validación.
 """
 
 from __future__ import annotations
@@ -24,7 +32,7 @@ from __future__ import annotations
 import logging
 import os
 from collections.abc import Sequence
-from typing import Any
+from typing import Any, Protocol
 
 from qagent import contracts
 from qagent.lenguajes import REGISTRO, Deteccion, Registro
@@ -35,6 +43,11 @@ _log = logging.getLogger(__name__)
 MAX_RUTAS_EJEMPLO = 3
 #: Largo máximo de una ruta HTTP de ejemplo (es un dato del proyecto, no confiable).
 MAX_LARGO_RUTA = 80
+
+#: Nombre del agente en el ``TokenTracker`` y en el ``rol`` del cliente LLM (#200).
+AGENTE = "recomendador"
+ORIGEN_REGLAS = "reglas"
+ORIGEN_IA = "ia"
 
 Proyeccion = dict[str, Any]
 
@@ -248,7 +261,7 @@ def recomendar(proyeccion: Proyeccion) -> dict[str, Any]:
             }
         )
     return validar_recomendacion(
-        {"version": "1", "origen": "reglas", "recomendaciones": recomendaciones},
+        {"version": "1", "origen": ORIGEN_REGLAS, "recomendaciones": recomendaciones},
         proyeccion,
     )
 
@@ -260,7 +273,7 @@ def validar_recomendacion(dato: Any, proyeccion: Proyeccion) -> dict[str, Any]:
     debe estar entre los elegibles del proyecto. Una salida inválida nunca se
     muestra a medias.
     """
-    vacia = {"version": "1", "origen": "reglas", "recomendaciones": []}
+    vacia = {"version": "1", "origen": ORIGEN_REGLAS, "recomendaciones": []}
     try:
         contracts.validar_versionado(contracts.FAMILIA_RECOMMENDATION, dato)
     except (contracts.ContratoInvalido, ValueError) as exc:
@@ -308,18 +321,63 @@ def proximamente(proyeccion: Proyeccion) -> list[dict[str, Any]]:
     return pendientes
 
 
+# --- Paso 2 (#200): respaldo de las reglas cuando se usa un LLM ----------------------
+
+
+class SinRecomendacionIA(Exception):
+    """El LLM no dio una recomendación usable; el motivo va al log y se usan las reglas."""
+
+
+class RecomendadorConIA(Protocol):
+    """Lo único que este módulo necesita de un recomendador con IA (``recomendador_ia``)."""
+
+    def recomendar(
+        self, proyeccion: Proyeccion, reglas: dict[str, Any]
+    ) -> dict[str, Any]:
+        """Recomendación ``origen: "ia"`` ya validada; ``SinRecomendacionIA`` si no sirve."""
+        ...
+
+
+def recomendar_con_ia(
+    proyeccion: Proyeccion, recomendador: RecomendadorConIA | None
+) -> dict[str, Any]:
+    """Recomendación con IA si se puede; si no, la de las reglas (ADR-011 §5.3).
+
+    Sin ``recomendador``, sin tipos elegibles o ante cualquier fallo del LLM devuelve
+    exactamente lo que dan las reglas y deja el motivo en el log.
+    """
+    reglas = recomendar(proyeccion)
+    if recomendador is None or not reglas["recomendaciones"]:
+        return reglas
+    try:
+        return recomendador.recomendar(proyeccion, reglas)
+    except SinRecomendacionIA as motivo:
+        _log.warning("Recomendación con reglas, sin IA: %s", motivo)
+    except Exception as error:  # noqa: BLE001 — la IA nunca debe tumbar la Vista previa
+        _log.warning(
+            "Recomendación con reglas, sin IA: error inesperado (%s: %s)",
+            type(error).__name__,
+            error,
+        )
+    return reglas
+
+
 def recomendar_para_vista(
     vista: dict[str, Any],
     raiz: str | os.PathLike[str],
     registro: Registro = REGISTRO,
+    recomendador: RecomendadorConIA | None = None,
 ) -> dict[str, Any]:
     """Recomendación y «próximamente» para la Vista previa del proyecto en ``raiz``.
+
+    Con ``recomendador`` (modo ``ia``, #200) un LLM ordena y justifica los tipos que
+    proponen las reglas; si no sirve, se devuelve la recomendación de las reglas.
 
     Returns:
         ``{"recomendacion": <recommendation.v1>, "proximamente": [...]}``.
     """
     proyeccion = proyectar(vista, registro.detectar(raiz), registro)
     return {
-        "recomendacion": recomendar(proyeccion),
+        "recomendacion": recomendar_con_ia(proyeccion, recomendador),
         "proximamente": proximamente(proyeccion),
     }
