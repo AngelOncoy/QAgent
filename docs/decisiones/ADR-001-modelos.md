@@ -120,6 +120,13 @@ El margen sigue siendo ajustado. Por eso:
 - **Tres proveedores implican tres claves en `.env` y tres formatos de `usage` en EN-05.** Alternativa: los tres modelos están disponibles en **OpenRouter** con los mismos precios de lista. Eso da una sola clave, un solo cliente compatible con OpenAI y un solo formato de `usage`. Antes de decidir, revisar la comisión de OpenRouter por compra de créditos.
 - **Los precios y los ID pueden cambiar.** Se leen de `config.toml` y los modelos usados quedan registrados en cada `log.json` (EN-05). Este ADR se actualiza si cambian.
 
+## Actualización: proveedores y modelos por persona
+
+Los modelos por defecto del equipo no cambian: siguen siendo los de `src/qagent/config/config.toml`. Desde esta decisión se agregó lo siguiente:
+
+- **DeepSeek es un proveedor seleccionable** (HU-36). Se elige igual que los demás, con `proveedor = "deepseek"` en la sección de un agente y su clave en `~/.qagent/.env`. No es el modelo por defecto de ningún agente.
+- **Cada persona puede cambiar los modelos** desde la pantalla Configuración (HU-30). La elección se guarda en `~/.qagent/config.local.toml`, que reemplaza la sección del agente en `config.toml` sin modificarla ni versionarse. Los precios que se usan para el costo son los de la sección elegida.
+
 ## Fuentes
 
 - [Anthropic — Pricing](https://platform.claude.com/docs/en/about-claude/pricing)

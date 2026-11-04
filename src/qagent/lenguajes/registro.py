@@ -162,7 +162,8 @@ class Registro:
 
         Raises:
             LenguajeNoSoportado: si el proyecto solo tiene lenguajes cuyo adaptador
-                todavía no permite corridas (hoy JS/TS y Java).
+                todavía no permite corridas (hoy JavaScript y TypeScript; Java ya
+                las permite desde ``JavaAdapter.completo = True``).
         """
         detecciones = [d for d in self.detectar(raiz) if d.archivos]
         for deteccion in detecciones:

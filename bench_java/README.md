@@ -43,4 +43,12 @@ Los errores técnicos inesperados hacen fallar la ejecución.
 - [Defectos intencionales](bugs.md).
 - [Informe técnico](../docs/ta-01-banco-java.md).
 
-Este banco todavía no incorpora soporte Java a la aplicación QAgent.
+## Ejecutarlo desde QAgent
+
+El soporte Java está en la rama `develop` (unitarias Maven/JUnit 5 de un módulo y controladores Spring con MockMvc) y saldrá en la próxima versión; la versión publicada todavía no lo incluye. Con QAgent instalado desde `develop` (`pip install -e .[dev]`) y Docker Desktop abierto:
+
+1. Abre `qagent` y, en **Inicio**, elige **Abrir carpeta** con `bench_java`.
+2. En **Explorar** aparecen los métodos Java del banco; elige cuáles probar.
+3. En **Preparar** elige el tipo de prueba y pulsa **Iniciar prueba**.
+
+Maven, JUnit 5 y JaCoCo corren dentro del sandbox Docker, sin red: no hace falta JDK ni Maven en tu equipo para esto. La imagen `qagent-sandbox:java` y las dependencias del proyecto se preparan en la primera corrida y necesitan internet solo entonces. Los límites del soporte Java están en [`docs/java/spring-mockmvc.md`](../docs/java/spring-mockmvc.md) y en «Alcance» de [AGENTS.md](../AGENTS.md).
