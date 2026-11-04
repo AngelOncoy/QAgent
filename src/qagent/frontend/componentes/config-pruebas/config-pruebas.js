@@ -328,7 +328,7 @@ function renderTiposPrueba(){
   const mods = MODULES.filter(m=>m.sel && !m.error && moduloTieneObjetivos(m));
   const nFns = mods.flatMap(m=>m.fns).filter(f=>f.inc).length;
   const nEps = mods.flatMap(m=>(m.endpoints || []).filter(e=>endpointElegible(e) && e.inc)).length;
-  // #246: cada tipo declara su caja (data-caja) para las pestañas de Preparar.
+  // issue 246: cada tipo declara su caja (data-caja) para las pestañas de Preparar.
   const fila = (clave, titulo, n, singular, plural, caja) => `<label class="prep-casilla ${n ? '' : 'dis'}" data-caja="${caja}">
       <input type="checkbox" class="exp-caja" ${eleccionPruebas[clave] === true && n ? 'checked' : ''} ${n ? '' : 'disabled'} onchange="elegirPruebas({${clave}:this.checked})">
       <span><b>${titulo}</b><span class="prep-desc">${n} ${n === 1 ? singular : plural}</span></span>
@@ -373,7 +373,7 @@ function irACriticas(){
   go('preview');
 }
 
-/* ---------- Pestañas por tipo de caja (#246) ----------
+/* ---------- Pestañas por tipo de caja (issue 246) ----------
    Agrupa lo que se puede probar según cuánto se mira por dentro: caja negra (solo el comportamiento
    visible), caja blanca (el código y su estructura) y caja gris (una mezcla). Es solo una vista: cambiar
    de pestaña oculta o muestra tarjetas (las marcadas con data-caja) y nunca cambia lo elegido. */
@@ -552,7 +552,7 @@ function calc(){
   renderModosPreparar(repetibles);
   renderTiposPrueba();
   renderCriticas();
-  aplicarCaja();   // #246: las pestañas por tipo de caja solo muestran u ocultan
+  aplicarCaja();   // issue 246: las pestañas por tipo de caja solo muestran u ocultan
   const lista = comprobacionesPrevias(total, reused);
   const pendientes = renderComprobaciones(lista);
   const verificando = lista.some(c => c.ok === null);

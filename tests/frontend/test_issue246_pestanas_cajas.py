@@ -143,3 +143,38 @@ def test_los_estilos_nuevos_usan_solo_tokens() -> None:
     assert len(reglas) == 4
     for regla in reglas:
         assert "#" not in regla.split("{", 1)[1]
+
+
+# --- Tres niveles de complejidad (#246) ---------------------------------------------
+
+
+def _vista_js() -> str:
+    ruta = RAIZ / "src" / "qagent" / "frontend" / "componentes" / "vista-previa"
+    return (ruta / "vista-previa.js").read_text(encoding="utf-8")
+
+
+def test_complejidad_tiene_tres_niveles_en_orden() -> None:
+    js = _vista_js()
+    cuerpo = js[
+        js.index("function textoComplejidad(") : js.index(
+            "\n}\n", js.index("function textoComplejidad(")
+        )
+    ]
+
+    sin, pocas, muchas = (
+        cuerpo.index(t) for t in ("Sin ramas", "Pocas ramas", "Muchas ramas")
+    )
+    assert sin < pocas < muchas
+    assert "if(n === 0)" in cuerpo and "if(n < 3)" in cuerpo
+    assert "Simple" not in cuerpo
+
+
+def test_profundizar_se_propone_desde_la_primera_rama() -> None:
+    """«Pocas ramas» y «Muchas ramas» vienen marcadas para profundizar; «Sin ramas», no."""
+    from qagent.proyectos.vista_previa import generar_vista_previa  # noqa: F401
+
+    fuente = (RAIZ / "src" / "qagent" / "proyectos" / "vista_previa.py").read_text(
+        encoding="utf-8"
+    )
+    assert '"critica_propuesta": f.get("ramas", 0) > 0' in fuente
+    assert "critica_propuesta ?? ((f.ramas || 0) > 0)" in _vista_js()
