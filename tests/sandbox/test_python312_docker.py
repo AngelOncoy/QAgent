@@ -1,10 +1,12 @@
-"""Prueba de integración en Docker para Python 3.12 (ADR-013).
+"""Pruebas de integración en Docker para Python 3.12 y sandbox versionado (ADR-013).
 
-Verifica que un proyecto que declara Python 3.12 y utiliza sintaxis exclusiva de 3.12
-(PEP 695: type parameter syntax `type MiTipo = ...` y funciones genéricas `def f[T](x: T)`)
-se ejecuta y aprueba sus pruebas dentro del sandbox Docker etiquetado `qagent-sandbox:base-py3.12`.
+Verifica contra el daemon Docker real:
+1. Construcción y etiquetado de la imagen base `qagent-sandbox:base-py3.12`.
+2. Verificación de que la versión interna del contenedor es efectivamente Python 3.12.
+3. Construcción y etiquetado con hash de la imagen derivada con `requirements.txt`.
+4. Ejecución de pruebas pytest dentro del contenedor sobre código con sintaxis PEP 695 de Python 3.12.
 
-Se omite automáticamente si Docker no está disponible.
+Se omite automáticamente si Docker Desktop no está disponible/iniciado.
 """
 
 from __future__ import annotations
@@ -18,6 +20,7 @@ from qagent.sandbox import (
     asegurar_imagen,
     construir_imagen_base,
     ejecutar_pruebas,
+    preparar_imagen,
 )
 from qagent.sandbox.imagen import _imagen_existe
 
@@ -41,8 +44,46 @@ def imagen_base_py312(cliente_docker) -> str:
     return etiqueta
 
 
+def test_imagen_base_py312_reporta_version_real_python(
+    cliente_docker, imagen_base_py312: str
+) -> None:
+    """Verifica que el contenedor de la imagen base ejecuta realmente Python 3.12."""
+    salida = cliente_docker.containers.run(
+        imagen_base_py312,
+        ["python", "--version"],
+        remove=True,
+    )
+    texto = (
+        salida.decode("utf-8").strip()
+        if isinstance(salida, bytes)
+        else str(salida).strip()
+    )
+    assert texto.startswith("Python 3.12")
+
+
+def test_hash_y_construccion_real_de_dependencias_en_docker(
+    cliente_docker, imagen_base_py312: str, tmp_path: Path
+) -> None:
+    """Verifica que la imagen derivada con requirements.txt se construye y etiqueta en Docker real."""
+    proyecto = _escribir(
+        tmp_path / "proyecto_deps",
+        {
+            "requirements.txt": "packaging\n",
+        },
+    )
+    tag_derivada = preparar_imagen(
+        proyecto,
+        cliente=cliente_docker,
+        imagen=imagen_base_py312,
+    )
+    assert tag_derivada.startswith("qagent-sandbox:req-")
+    # La imagen existe físicamente en el Docker local
+    img = cliente_docker.images.get(tag_derivada)
+    assert tag_derivada in img.tags
+
+
 def test_proyecto_sintaxis_python312_en_sandbox_docker(
-    cliente_docker, imagen_base_py312, tmp_path: Path
+    cliente_docker, imagen_base_py312: str, tmp_path: Path
 ) -> None:
     # Proyecto con sintaxis PEP 695 (Python 3.12+)
     proyecto = _escribir(
