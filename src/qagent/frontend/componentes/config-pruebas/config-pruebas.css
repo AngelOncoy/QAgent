@@ -7,6 +7,11 @@
 .prep-rejilla{display:grid;grid-template-columns:minmax(0,1fr) minmax(280px,340px);gap:var(--esp-5);align-items:start}
 .prep-estado{align-items:flex-start}
 .prep-fila{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--esp-5);align-items:start}
+/* issue 246: pestañas por tipo de caja; si una tarjeta de la fila se oculta, la otra ocupa todo el ancho */
+.prep-fila:has(> .hide){grid-template-columns:minmax(0,1fr)}
+.prep-cajas-barra{display:flex;flex-wrap:wrap;align-items:center;gap:var(--esp-3) var(--esp-4)}
+.prep-cajas-barra .np-meta{margin:0;flex:1 1 260px}
+.prep-cajas-barra .obj-switch{max-width:100%;overflow-x:auto}
 .prep-desc{display:block;color:var(--texto-2);font-size:var(--texto-meta);font-weight:var(--peso-normal);margin-top:2px}
 
 /* ¿Qué quieres hacer?: cuatro opciones tipo radio, la elegida resaltada */
@@ -53,7 +58,8 @@
 .prep-limites b{color:var(--texto);font-weight:var(--peso-medio)}
 .prep-arquitectura{gap:var(--esp-3)}
 .prep-arq-campos{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--esp-3)}
-.prep-arq-campos label{display:flex;flex-direction:column;gap:var(--esp-2);font-size:var(--texto-meta);color:var(--texto-2)}
+.prep-arq-campo{display:flex;flex-direction:column;gap:var(--esp-2);min-width:0}
+.prep-arq-campo .np-etiqueta{margin-top:0}
 .prep-arq-acciones{display:flex;flex-wrap:wrap;gap:var(--esp-3)}
 .prep-arq-acciones .ini-btn{flex:1}
 .prep-arquitectura .np-aviso{align-items:flex-start}

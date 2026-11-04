@@ -67,8 +67,12 @@ def test_complejidad_se_calcula_solo_en_el_frontend() -> None:
     assert "function normalizarDecisiones" in VISTA_JS
 
 
-def test_complejidad_simple_cuando_pocas_decisiones() -> None:
-    assert 'if(n < 3) return `<span title="${tip}">Simple</span>`;' in VISTA_JS
+def test_complejidad_sin_ramas_sin_decisiones() -> None:
+    assert 'if(n === 0) return `<span title="${tip}">Sin ramas</span>`;' in VISTA_JS
+
+
+def test_complejidad_pocas_ramas_con_una_o_dos_decisiones() -> None:
+    assert 'if(n < 3) return `<span title="${tip}">Pocas ramas</span>`;' in VISTA_JS
 
 
 def test_complejidad_muchas_ramas() -> None:

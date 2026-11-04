@@ -605,13 +605,16 @@ function buscarObjetivos(texto){
 }
 const coincide = (...campos) => !BUSQUEDA || campos.some(c => String(c || '').toLowerCase().includes(BUSQUEDA));
 
-// Complejidad: según las decisiones (if, bucles, excepciones) que encontró el análisis.
+// Complejidad: según las decisiones (if, bucles, excepciones) que encontró el análisis (issue 246).
+// Tres niveles: «Sin ramas» (0), «Pocas ramas» (1 o 2) y «Muchas ramas» (3 o más). Desde 1 decisión,
+// Profundizar viene marcado por defecto (critica_propuesta), así que «Pocas» y «Muchas» se proponen.
 function textoComplejidad(br){
   const n = normalizarDecisiones(br);
   if(n === null) return '<span class="exp-sub">—</span>';
-  const tip = n === 1 ? '1 decisión (if, bucle o excepción)' : `${n} decisiones (if, bucles o excepciones)`;
-  // Como la maqueta, dos valores: hasta 2 decisiones es «Simple»; desde 3, «Muchas ramas».
-  if(n < 3) return `<span title="${tip}">Simple</span>`;
+  const tip = n === 0 ? 'Sin decisiones (if, bucles ni excepciones)'
+    : n === 1 ? '1 decisión (if, bucle o excepción)' : `${n} decisiones (if, bucles o excepciones)`;
+  if(n === 0) return `<span title="${tip}">Sin ramas</span>`;
+  if(n < 3) return `<span title="${tip}">Pocas ramas</span>`;
   return `<span class="exp-aviso" title="${tip}">Muchas ramas</span>`;
 }
 // Desde la última vez: sale del estado del plan de pruebas guardado de cada archivo.

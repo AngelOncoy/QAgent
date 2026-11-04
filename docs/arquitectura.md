@@ -881,6 +881,8 @@ El análisis estático (EN-02, con tree-sitter desde TA-16) no convierte las pru
 
 ### 10.3 Lo que elige el usuario
 
+Preparar agrupa lo que se puede elegir en pestañas **Todas · Caja negra · Caja blanca · Caja gris**, con la clasificación de la sección 10.2 (issue 246). Las pestañas solo filtran qué se ve y nunca cambian lo elegido: **negra** muestra Unitarias (funciones) y el E2E de humo; **gris**, los endpoints; **blanca**, las funciones críticas y su fortaleza (mutación) y las reglas de arquitectura. «¿Qué quieres hacer?» muestra en cada pestaña solo las opciones que tocan ese tipo de caja: Estándar y Humo en negra y gris, Regresión en las tres (puede medir la fortaleza) y el análisis a fondo solo en blanca. Si lo elegido está en otra pestaña, se avisa.
+
 La pantalla Preparar hace dos preguntas. «¿Qué quieres hacer?» elige la estrategia y se traduce al perfil que recibe `start_run` (`perfilDeEleccion` en `config-pruebas.js`). «Tipos de prueba» elige el nivel (Unitarias, Endpoints API o ambos) y se combina con cualquier estrategia:
 
 | ¿Qué quieres hacer? | Condición | Perfil |
