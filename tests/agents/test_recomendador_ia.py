@@ -589,3 +589,11 @@ def test_una_seccion_invalida_se_avisa(tmp_path, viejo, nuevo):
 
     assert carga.config is None
     assert any("recomendador" in aviso for aviso in carga.avisos_config)
+
+
+def test_el_prompt_pide_usar_las_cifras_tal_como_vienen():
+    from qagent.agents.recomendador_ia import _INSTRUCCIONES
+
+    assert "tal como vienen" in _INSTRUCCIONES
+    assert "objetivos con decisiones" in _INSTRUCCIONES
+    assert "concordancia" in _INSTRUCCIONES

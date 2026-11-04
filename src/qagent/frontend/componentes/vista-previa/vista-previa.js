@@ -386,9 +386,8 @@ function renderRecomendacion(){
   // issue 200: con origen "ia" un modelo ordenó y explicó los tipos; con "reglas", el análisis sin IA.
   const porIA = RECOMENDACION.recomendacion && RECOMENDACION.recomendacion.origen === 'ia';
   $('expRecoIA').classList.toggle('hide', !porIA);
-  $('expRecoNota').textContent = porIA
-    ? 'Un modelo de IA ordenó y explicó estos tipos a partir de un resumen del análisis (sin tu código). Tú decides: puedes aplicarla o elegir otra cosa en Preparar.'
-    : 'Según el análisis del código, sin IA. Tú decides: puedes aplicarla o elegir otra cosa en Preparar.';
+  // Con IA solo se ve el rótulo; la nota «sin IA» es de las reglas.
+  $('expRecoNota').classList.toggle('hide', !!porIA);
   const recs = recomendacionesActuales();
   $('expRecoLista').innerHTML = recs.length
     ? recs.map((r, i) => `<li><span class="exp-reco-n" aria-hidden="true">${i + 1}</span><div><b>${escHtml(TIPOS_RECOMENDADOS[r.tipo_prueba] || r.tipo_prueba)}</b><span>${escHtml(r.motivo)}</span></div></li>`).join('')
