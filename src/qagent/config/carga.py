@@ -98,7 +98,12 @@ CLAVE_POR_PROVEEDOR = variable_por_proveedor()
 LectorClaves = Callable[[str], "str | None"]
 
 #: Nombre visible de cada agente.
-NOMBRE_AGENTE = {"planner": "Planner", "generator": "Generator", "reviewer": "Reviewer"}
+NOMBRE_AGENTE = {
+    "planner": "Planner",
+    "generator": "Generator",
+    "reviewer": "Reviewer",
+    "recomendador": "Recomendador",
+}
 
 #: Proveedor y modelo que ocupan el lugar de un agente sin configurar con la IA simulada.
 PROVEEDOR_SIMULADO = "simulado"

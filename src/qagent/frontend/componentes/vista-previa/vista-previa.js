@@ -36,7 +36,10 @@ registrarComponente('vista-previa/vista-previa', `<!-- ===== 2. EXPLORAR ===== -
           <span class="np-chip exp-reco-ia hide" id="expRecoIA">Recomendación generada por IA</span>
           <p class="exp-nota" id="expRecoNota">Según el análisis del código, sin IA. Tú decides: puedes aplicarla o elegir otra cosa en Preparar.</p>
         </div>
-        <button type="button" class="ini-btn" id="expRecoAplicar" onclick="aplicarRecomendacion()">Aplicar recomendación</button>
+        <div class="exp-reco-acciones">
+          <button type="button" class="ini-btn" id="expRecoConfigurar" onclick="go('config')" title="Elige el proveedor, el modelo y la API key de la recomendación con IA">Configurar IA</button>
+          <button type="button" class="ini-btn" id="expRecoAplicar" onclick="aplicarRecomendacion()">Aplicar recomendación</button>
+        </div>
       </div>
       <ol class="exp-reco-lista" id="expRecoLista"></ol>
       <div class="exp-reco-prox" id="expRecoProx"></div>
