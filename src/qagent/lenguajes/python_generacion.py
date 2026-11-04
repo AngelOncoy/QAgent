@@ -43,13 +43,13 @@ def prompt_generator(
 
 
 def _contexto_dependencias(contrato: dict[str, Any], ruta_proyecto: Path | None) -> str:
-    """Contexto de dependencias inter-archivo con Graphify + Tree-sitter (0 tokens)."""
+    """Contexto de dependencias inter-archivo con tree-sitter (0 tokens, ADR-012)."""
     if ruta_proyecto is None:
         return ""
     try:
-        from qagent.analysis.graphify_dependencias import (
-            analizar_dependencias_con_graphify,
-            formatear_contexto_graphify,
+        from qagent.analysis.grafo_imports import (
+            construir_grafo_dependencias,
+            formatear_contexto_grafo,
         )
 
         nombre_simbolo = (
@@ -57,13 +57,13 @@ def _contexto_dependencias(contrato: dict[str, Any], ruta_proyecto: Path | None)
             if contrato.get("tipo") == "endpoint" and contrato.get("manejador")
             else contrato["objetivo"]
         )
-        deps = analizar_dependencias_con_graphify(
+        grafo = construir_grafo_dependencias(
             ruta_proyecto,
             contrato["modulo"],
             nombre_simbolo,
             tipo_objetivo=contrato.get("tipo", "funcion"),
         )
-        return formatear_contexto_graphify(deps, modulo_importable(contrato["modulo"]))
+        return formatear_contexto_grafo(grafo, modulo_importable(contrato["modulo"]))
     except (ImportError, OSError, ValueError, KeyError, TypeError, AttributeError):
         return ""
 

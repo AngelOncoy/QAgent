@@ -1,4 +1,4 @@
-"""Grafo de dependencias e imports internos con tree-sitter (SPK #196).
+"""Grafo de dependencias e imports internos con tree-sitter (SPK #196, ADR-012).
 
 Analiza estáticamente los imports internos de un proyecto, siguiendo referencias
 entre archivos sin ejecutar código del usuario (0 tokens, 100 % determinista).
@@ -375,7 +375,7 @@ def construir_grafo_dependencias(
 
 def formatear_contexto_grafo(grafo: GrafoDependencias, modulo_importador: str) -> str:
     """Genera el bloque textual de contexto de dependencias para el prompt del Generator."""
-    if not grafo.simbolos_directos and not grafo.modulos:
+    if not grafo.simbolos_directos:
         return ""
 
     lineas = [
@@ -414,6 +414,6 @@ def formatear_contexto_grafo(grafo: GrafoDependencias, modulo_importador: str) -
         "REGLA: Usa las firmas y tipos anteriores para configurar retornos de mocks coherentes con el negocio."
     )
     lineas.append(
-        "Nunca dejes dependencias de I/O, red o servicios externos sin simular."
+        "Simula servicios externos y efectos (red, base de datos, servicios como el core bancario); no simules funciones puras internas."
     )
     return "\n".join(lineas)

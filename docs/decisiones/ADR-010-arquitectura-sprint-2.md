@@ -4,7 +4,7 @@
 - **Fecha:** 2026-10-27
 - **Ítem:** EN-20 — Definir la arquitectura del sistema para el Sprint 2 (multilenguaje y Agente Explicador)
 - **Responsable:** Oncoy Patricio, Angel
-- **Relacionado:** ADR-001 (modelos y costos), ADR-002 (análisis con `ast`), ADR-005 (distribución), ADR-007 (adaptadores por lenguaje, EN-17), ADR-008 (orquestador y Explicador, SPK-03), ADR-009 (parser por lenguaje, SPK-04), `docs/arquitectura.md`
+- **Relacionado:** ADR-001 (modelos y costos), ADR-002 (análisis con `ast`), ADR-005 (distribución), ADR-007 (adaptadores por lenguaje, EN-17), ADR-008 (orquestador y Explicador, SPK-03), ADR-009 (parser por lenguaje, SPK-04), ADR-012 (grafo de dependencias inter-archivo con tree-sitter), `docs/arquitectura.md`
 
 ---
 
@@ -40,7 +40,7 @@ Varias piezas ya avanzaban por separado (EN-17, SPK-03 y SPK-04), pero `docs/arq
 | Estilo | Sigue siendo un monolito modular de escritorio con un pipeline multiagente orquestado. | `docs/arquitectura.md`, sección 1 |
 | Lenguajes | Capa de adaptadores (`LanguageAdapter` y registro). Lo específico de cada lenguaje vive solo en su adaptador; los agentes y el orquestador no conocen lenguajes. | ADR-007 |
 | Contratos | Versiones nuevas (`planner_contract.v3`, `generated_test.v2`) con lenguaje y framework, al lado de las actuales. Los contratos existentes y la persistencia de `.qagent/` no cambian. | ADR-007 |
-| Análisis | `ast` para Python; tree-sitter para JavaScript, TypeScript y Java; sin Graphify. | ADR-002, ADR-009 |
+| Análisis | Tree-sitter para todos los lenguajes (Python incluido desde TA-16); sin Graphify. | ADR-002, ADR-009, ADR-012 |
 | Coordinación | El orquestador sigue siendo determinista. El único punto híbrido es `_clasificar_con_llm` del Reviewer. | ADR-008 |
 | Explicador | Etapa posterior al veredicto, fuera de la máquina de estados, de solo lectura, con plantillas deterministas y un LLM opcional. Pensado sobre todo para usuarios con poca experiencia en desarrollo. | ADR-008 |
 | Sandbox | Una imagen por lenguaje (`qagent-sandbox:base` para Python; `node`, `java` y `navegador` propuestas), con las mismas reglas: efímera, sin red al ejecutar y con límites de recursos. Los runtimes de Node y Java solo viven en las imágenes, nunca en la PC del usuario. | `docs/arquitectura.md`, sección 7 |

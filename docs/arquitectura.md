@@ -202,7 +202,7 @@ El Sprint 2 agrega tres piezas, todas fuera de la máquina de estados:
 | Planner | `src/qagent/agents/` | Diseña casos de prueba y valores esperados por función o endpoint. | HU-11, HU-27 |
 | Generator | `src/qagent/agents/` | Escribe el test pytest de una función o endpoint. | HU-11, EN-15 |
 | Reviewer / Executor | `src/qagent/agents/` | Ejecuta en el sandbox, detecta laundering y decide. | HU-14, HU-16 |
-| Analizador | `src/qagent/analysis/` | Análisis estático con tree-sitter: firmas, tipos, docstrings, ramas, rutas FastAPI, `llama_a`, SHA-256. | EN-02, EN-14, TA-16 |
+| Analizador | `src/qagent/analysis/` | Análisis estático con tree-sitter: firmas, tipos, docstrings, ramas, rutas FastAPI, `llama_a`, grafo de dependencias inter-archivo (`grafo_imports.py`, ADR-012), SHA-256. | EN-02, EN-14, TA-16, ADR-012 |
 | Cliente LLM | `src/qagent/llm/` | Llama a la API del modelo de cada agente (o a la IA simulada) y registra el `usage`. | EN-05, EN-11 |
 | Sandbox | `src/qagent/sandbox/` | Prepara la imagen, copia el proyecto y ejecuta pytest, coverage y mutmut. | EN-03, EN-09 |
 | Almacenamiento | `src/qagent/almacenamiento/` | `AlmacenProyecto`: crea `.qagent/` y lee y escribe `runs/<run_id>/run.json`, `specs/`, `tests/` (solo pruebas aprobadas), `evidencias_bugs/<run_id>/` (#193), `comparaciones/<run_verificacion>/` (#193) y `mutacion/` (último Mutation Score por función, #70); `recientes.py`: `~/.qagent/recientes.json`. Escritura atómica en UTF-8. | EN-07, HU-01, HU-03, #193 |
@@ -1037,7 +1037,8 @@ de alcance hasta que exista una declaración y un contrato seguro específico.
 | Sandbox Docker sin red | Las pruebas generadas son código desconocido; se aíslan de archivos, dependencias y red | Sección 7 |
 | Orquestador determinista, sin LLM; el único punto híbrido es `_clasificar_con_llm` del Reviewer | Reglas fijas (reintentos, topes); métricas reproducibles; 0 tokens; un LLM coordinador no tendría nada que decidir que las reglas no decidan | Sección 8 · ADR-008 |
 | Un modelo por agente | Inteligencia solo donde hay ambigüedad; el Planner concentra el gasto | ADR-001 |
-| Análisis con tree-sitter para Python, JS/TS y Java; sin Graphify | 0 tokens, determinista, ~3 ms por archivo y sin Node ni JDK en la PC del usuario | ADR-002 · ADR-009 |
+| Análisis con tree-sitter para Python, JS/TS y Java; sin Graphify | 0 tokens, determinista, ~3 ms por archivo y sin Node ni JDK en la PC del usuario | ADR-002 · ADR-009 · ADR-012 |
+| Grafo de dependencias inter-archivo con tree-sitter (`grafo_imports`); sin Graphify | 0 tokens de análisis, ~27–36 ms, eleva aprobación del 60 % al 100 % en proyectos modulares; sin subprocesos ni binarios en la PC del usuario | SPK-196 · ADR-012 |
 | Frontend separado, un componente por pantalla, sin bundler ni módulos ES | Cambios por pantalla en lugar de un archivo de 2000 líneas; funciona con `file://` y pywebview sin servidor propio; sin Node ni compilación | ADR-003 |
 | Pruebas de endpoints FastAPI con `TestClient` | Reutiliza el sandbox, pytest y las 5 métricas; integración contra servicios reales y carga siguen fuera; E2E solo de humo, en el Sprint 2 | Backlog EP-09 · ADR-010 |
 | Reintentos solo Generator → Reviewer; bug detectado no se reintenta; orden topológico por `llama_a` | Evita rehacer el plan (el agente más caro) y la cascada de fallos entre funciones | Sección 6.4 |

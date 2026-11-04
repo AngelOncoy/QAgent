@@ -13,10 +13,14 @@ import time
 from pathlib import Path
 from typing import Any
 
-from qagent.agents.generator import GeneratorAgent
 from qagent.analysis.grafo_imports import (
     construir_grafo_dependencias,
     formatear_contexto_grafo,
+)
+from qagent.lenguajes.python_generacion import (
+    _contexto,
+    _contexto_dependencias,
+    crear_prompt,
 )
 from qagent.llm import FakeLLMClient, TokenTracker
 
@@ -147,34 +151,19 @@ def main() -> dict[str, Any]:
     print(f"Tiempo medio de análisis tree-sitter (grafo): {tiempo_ts_ms} ms")
 
     # --- 2. Prompts con y sin grafo para la función ---
-    gen_actual = GeneratorAgent(
-        cliente, tracker, ruta_proyecto=RAIZ, usar_grafo_dependencias=False
-    )
-    gen_proto = GeneratorAgent(
-        cliente, tracker, ruta_proyecto=RAIZ, usar_grafo_dependencias=True
-    )
-
-    p_fn_act = gen_actual._crear_prompt(
-        CONTRATO_FUNCION, 1, None, gen_actual._contexto(CONTRATO_FUNCION)
-    )
-    p_fn_pro = gen_proto._crear_prompt(
-        CONTRATO_FUNCION,
-        1,
-        None,
-        gen_proto._contexto(CONTRATO_FUNCION),
-        texto_grafo=gen_proto._contexto_grafo(CONTRATO_FUNCION),
+    ctx_fn = _contexto(CONTRATO_FUNCION, RAIZ)
+    deps_fn_txt = _contexto_dependencias(CONTRATO_FUNCION, RAIZ)
+    p_fn_act = crear_prompt(CONTRATO_FUNCION, 1, None, ctx_fn, texto_dependencias="")
+    p_fn_pro = crear_prompt(
+        CONTRATO_FUNCION, 1, None, ctx_fn, texto_dependencias=deps_fn_txt
     )
 
     # --- 3. Prompts con y sin grafo para el endpoint ---
-    p_ep_act = gen_actual._crear_prompt(
-        CONTRATO_ENDPOINT, 1, None, gen_actual._contexto(CONTRATO_ENDPOINT)
-    )
-    p_ep_pro = gen_proto._crear_prompt(
-        CONTRATO_ENDPOINT,
-        1,
-        None,
-        gen_proto._contexto(CONTRATO_ENDPOINT),
-        texto_grafo=gen_proto._contexto_grafo(CONTRATO_ENDPOINT),
+    ctx_ep = _contexto(CONTRATO_ENDPOINT, RAIZ)
+    deps_ep_txt = _contexto_dependencias(CONTRATO_ENDPOINT, RAIZ)
+    p_ep_act = crear_prompt(CONTRATO_ENDPOINT, 1, None, ctx_ep, texto_dependencias="")
+    p_ep_pro = crear_prompt(
+        CONTRATO_ENDPOINT, 1, None, ctx_ep, texto_dependencias=deps_ep_txt
     )
 
     tok_fn_act = estimar_tokens(p_fn_act)
