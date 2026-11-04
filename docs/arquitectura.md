@@ -2,9 +2,9 @@
 
 > **Ítems:** EN-01 — Arquitectura GAIA y contratos JSON (Sprint 1) · EN-20 — Arquitectura del Sprint 2 · **Responsable:** Oncoy Patricio, Angel · **Estado:** borrador para aprobación del equipo
 
-QAgent genera y valida pruebas para el código del usuario. Hoy cubre Python 3.10+ con pytest: **pruebas unitarias de funciones** y **pruebas de endpoints FastAPI**. Tres agentes basados en LLM (Planner, Generator y Reviewer) trabajan bajo un orquestador determinista, y todas las pruebas se ejecutan en un sandbox Docker aislado.
+QAgent genera y valida pruebas para el código del usuario. Hoy cubre Python 3.10+ con pytest (**pruebas unitarias de funciones** y **pruebas de endpoints FastAPI**) y Java con JUnit 5 (**unitarias en proyectos Maven de un módulo** y **controladores Spring MVC** con MockMvc y `@MockBean`; ver `docs/java/spring-mockmvc.md`). JavaScript y TypeScript se analizan y planifican, pero todavía no generan ni ejecutan pruebas. Tres agentes basados en LLM (Planner, Generator y Reviewer) trabajan bajo un orquestador determinista, y todas las pruebas se ejecutan en un sandbox Docker aislado.
 
-En el **Sprint 2** la arquitectura se amplía sin rehacerse (ADR-010): una capa de **adaptadores por lenguaje** para JavaScript/TypeScript y Java (ADR-007, ADR-009), un **Agente Explicador** que traduce los hallazgos a lenguaje simple (ADR-008, implementado en EP-10), un **Agente Recomendador** definido para orientar la selección antes de una corrida (ADR-011, todavía no implementado) y nuevos tipos de prueba por prioridad (sección 10.6). El orquestador sigue siendo determinista.
+En el **Sprint 2** la arquitectura se amplía sin rehacerse (ADR-010): una capa de **adaptadores por lenguaje** para JavaScript/TypeScript y Java (ADR-007, ADR-009), un **Agente Explicador** que traduce los hallazgos a lenguaje simple (ADR-008, implementado en EP-10), un **Agente Recomendador** definido para orientar la selección antes de una corrida (ADR-011; sus reglas ya orientan la selección en Vista previa, #197, y un LLM opcional, desactivado por defecto, las ordena y explica, #200) y nuevos tipos de prueba por prioridad (sección 10.6). El orquestador sigue siendo determinista.
 
 **Convención de los diagramas:** lo que todavía no está en `develop` lleva la etiqueta **«propuesto»** y se dibuja con línea punteada. Lo demás está implementado.
 

@@ -43,7 +43,7 @@ Varias piezas ya avanzaban por separado (EN-17, SPK-03 y SPK-04), pero `docs/arq
 | Análisis | Tree-sitter para todos los lenguajes (Python incluido desde TA-16); sin Graphify. | ADR-002, ADR-009, ADR-012 |
 | Coordinación | El orquestador sigue siendo determinista. El único punto híbrido es `_clasificar_con_llm` del Reviewer. | ADR-008 |
 | Explicador | Etapa posterior al veredicto, fuera de la máquina de estados, de solo lectura, con plantillas deterministas y un LLM opcional. Pensado sobre todo para usuarios con poca experiencia en desarrollo. | ADR-008 |
-| Sandbox | Una imagen por lenguaje (`qagent-sandbox:base` para Python; `node`, `java` y `navegador` propuestas), con las mismas reglas: efímera, sin red al ejecutar y con límites de recursos. Los runtimes de Node y Java solo viven en las imágenes, nunca en la PC del usuario. | `docs/arquitectura.md`, sección 7 |
+| Sandbox | Una imagen por lenguaje (`qagent-sandbox:base` para Python, `qagent-sandbox:node` para JavaScript y TypeScript y `qagent-sandbox:java` para Java, ya implementadas; `navegador` sigue propuesta), con las mismas reglas: efímera, sin red al ejecutar y con límites de recursos. Los runtimes de Node y Java solo viven en las imágenes, nunca en la PC del usuario. | `docs/arquitectura.md`, sección 7 |
 | Tipos de prueba | Por prioridad: TS/JS puro y Java (Must); React, servicios de Angular, mutación con Stryker y PIT, arquitectura y E2E de humo (Should); componentes de Angular (Could); Astro, E2E de flujos completos, carga y estrés quedan fuera. | `docs/arquitectura.md`, sección 10.6 |
 
 ### 4.1 Ampliación del alcance
