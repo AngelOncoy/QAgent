@@ -342,7 +342,7 @@ def test_el_monitor_recibe_la_falla_del_entorno(proyecto, config) -> None:
     assert estados_entorno(eventos)[-1] == "fallo"
 
 
-def _planner_que_falla_una_vez(monkeypatch, error):
+def _planner_que_falla_una_vez(monkeypatch, error, inicio=None):
     """El primer módulo falla en el Planner; los demás se planifican normal."""
     from qagent.agents import PlannerAgent
 
@@ -351,6 +351,8 @@ def _planner_que_falla_una_vez(monkeypatch, error):
 
     def planificar(self, modulo):
         llamadas.append(1)
+        if inicio is not None:
+            inicio.set()
         if len(llamadas) == 1:
             raise error
         return original(self, modulo)
@@ -388,17 +390,20 @@ def test_un_error_de_la_cuenta_frena_la_planificacion_adelantada(
 ) -> None:
     from qagent.llm.cliente import SinCredito
 
+    inicio = threading.Event()
     llamadas = _planner_que_falla_una_vez(
-        monkeypatch, SinCredito("sin crédito", codigo=402)
+        monkeypatch, SinCredito("sin crédito", codigo=402), inicio=inicio
     )
     al_liberar: list[int] = []
 
     def imagen_lenta(_ruta):
-        time.sleep(0.5)
+        # Esperar una señal real evita depender de la velocidad del disco/CPU.
+        assert inicio.wait(ESPERA_MAXIMA_S), "el Planner no llegó a comenzar"
         al_liberar.append(len(llamadas))
         return "imagen-prueba"
 
     resumen, *_ = correr(proyecto_dos, config, imagen_lenta)
 
     assert al_liberar == [1]
+    assert len(llamadas) == 1
     assert resumen.tipo_terminacion == "detenida_error"

@@ -4,10 +4,25 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
+
 from qagent.config.auditoria import PATRONES, buscar_claves, main
 
 # Valor falso armado en ejecución: así este archivo no contiene un patrón de clave.
 VALOR_FALSO = "abcd" * 5
+
+
+@pytest.fixture(autouse=True)
+def aislar_git_de_los_temporales(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Evita que Git trate los archivos ficticios como parte del repo padre.
+
+    También funciona con --basetemp dentro de .qagent/, que Git ignora. La
+    auditoría del repositorio real conserva su Git; solo los temporales quedan
+    fuera de su descubrimiento. Monkeypatch restaura el entorno tras cada caso.
+    """
+    monkeypatch.setenv("GIT_CEILING_DIRECTORIES", str(tmp_path.parent.resolve()))
 
 
 def test_el_repositorio_no_contiene_patrones_de_clave():
