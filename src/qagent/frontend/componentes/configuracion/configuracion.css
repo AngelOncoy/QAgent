@@ -3,9 +3,11 @@
    los chips y los avisos se comparten con Inicio (inicio.css). */
 .cfg-rejilla{grid-template-columns:minmax(0,1fr) minmax(300px,380px)}
 
-/* Conexión de IA por etapa: una fila por etapa */
-.cfg-etapas{display:flex;flex-direction:column;width:100%}
-.cfg-etapa{display:grid;grid-template-columns:minmax(150px,200px) minmax(0,1fr) auto auto;gap:var(--esp-4);align-items:center;padding:var(--esp-4) 0}
+/* Conexión de IA por etapa: una fila por etapa. Las filas comparten las columnas (subgrid): el logo, el
+   modelo, el estado y los botones quedan alineados aunque una etapa esté conectada y otra no. */
+.cfg-tarjeta-etapas{container:etapas/inline-size}
+.cfg-etapas{display:grid;grid-template-columns:minmax(150px,200px) minmax(0,1fr) max-content max-content;column-gap:var(--esp-4);width:100%}
+.cfg-etapa{grid-column:1/-1;display:grid;grid-template-columns:subgrid;row-gap:var(--esp-3);align-items:center;padding:var(--esp-4) 0}
 .cfg-etapa+.cfg-etapa{border-top:var(--borde-ancho) solid var(--borde)}
 .cfg-etapa-nombre{display:flex;flex-direction:column}
 .cfg-etapa-nombre b{font-weight:var(--peso-medio)}
@@ -44,9 +46,16 @@
 .cfg-tema:disabled{opacity:.5;cursor:not-allowed}
 
 @media(max-width:1100px){.cfg-rejilla{grid-template-columns:minmax(0,1fr)}}
+/* Tarjeta angosta: cada etapa en dos líneas (nombre y estado; modelo y botones), sin aplastar el modelo. */
+@container etapas (max-width:720px){
+  .cfg-etapas{grid-template-columns:minmax(0,1fr) max-content}
+  .cfg-etapa-nombre,.cfg-etapa-modelo{grid-column:1}
+  .cfg-etapa-estado,.cfg-etapa-acciones{grid-column:2}
+  .cfg-etapa-nombre,.cfg-etapa-estado{grid-row:1}
+  .cfg-etapa-modelo,.cfg-etapa-acciones{grid-row:2}
+  .cfg-etapa-estado{justify-self:end}
+}
 @media(max-width:760px){
-  .cfg-etapa{grid-template-columns:minmax(0,1fr)}
-  .cfg-etapa-acciones{justify-content:flex-start}
   .cfg-limites{grid-template-columns:minmax(0,1fr)}
 }
 

@@ -87,13 +87,14 @@ Abres un proyecto, eliges qué probar y QAgent hace el resto en cuatro pasos.
   </tr>
 </table>
 
-Detrás de cada corrida trabajan tres agentes coordinados, que solo se comunican por contratos JSON:
+Detrás de cada corrida trabajan cuatro agentes coordinados, que solo se comunican por contratos JSON:
 
 | Agente | Qué hace |
 |---|---|
 | **Planner** | Lee tu código (funciones, firmas, tipos, docstrings y rutas FastAPI) y decide qué casos hay que probar. |
 | **Generator** | Escribe la prueba pytest de cada caso. |
 | **Reviewer** | La ejecuta en el entorno aislado, revisa que las aserciones sean legítimas y pide hasta 3 intentos de corrección. |
+| **Explicador** | Cuando una función no pasa, explica en palabras simples qué prometía, qué hizo y qué revisar. Nunca cambia los resultados. |
 
 ## Qué incluye
 
@@ -149,7 +150,7 @@ Tus claves, tu configuración y la lista de proyectos recientes se guardan en es
 ## Primeros pasos
 
 1. Abre **QAgent** desde el menú Inicio (o con el comando `qagent`).
-2. En **Configuración**, agrega la API de cada etapa: *Analizando*, *Escribiendo pruebas* y *Verificando*.
+2. En **Configuración**, agrega la API de cada etapa: *Analizando*, *Escribiendo pruebas*, *Verificando* y *Explicando resultados*. Las cuatro son obligatorias para usar la IA real.
 3. En **Inicio**, elige **Abrir carpeta** (un proyecto Python en tu equipo) o **Clonar URL Git**.
 4. En **Explorar**, elige las funciones y endpoints a probar y pulsa **Preparar**.
 5. En **Preparar**, elige qué hacer y los tipos de prueba, y pulsa **Iniciar prueba**.

@@ -31,6 +31,12 @@ proveedor = "openai"
 modelo = "rev-x"
 precio_entrada_usd_m = 0.10
 precio_salida_usd_m = 0.50
+
+[agentes.explicador]
+proveedor = "openai"
+modelo = "exp-x"
+precio_entrada_usd_m = 0.10
+precio_salida_usd_m = 0.50
 """
 
 
@@ -41,17 +47,17 @@ def config(tmp_path: Path) -> Path:
     return ruta
 
 
-def test_lee_los_tres_agentes(config: Path) -> None:
+def test_lee_los_cuatro_agentes(config: Path) -> None:
     precios = cargar_precios(config)
 
-    assert set(precios) == {"planner", "generator", "reviewer"}
+    assert set(precios) == {"planner", "generator", "reviewer", "explicador"}
     assert precios["planner"] == PrecioAgente(
         "planner", "anthropic", "planner-x", 4.0, 20.0
     )
 
 
 def test_config_del_repositorio_es_valido() -> None:
-    assert set(cargar_precios()) == {"planner", "generator", "reviewer"}
+    assert set(cargar_precios()) == {"planner", "generator", "reviewer", "explicador"}
 
 
 def test_costo_es_tokens_por_precio_sobre_un_millon(config: Path) -> None:

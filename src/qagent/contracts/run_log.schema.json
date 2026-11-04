@@ -62,6 +62,10 @@
         },
         "reviewer": {
           "$ref": "#/$defs/modelo"
+        },
+        "explicador": {
+          "$ref": "#/$defs/modelo",
+          "description": "Modelo del Explicador, obligatorio desde EP-10 (#172). Opcional para leer corridas anteriores."
         }
       }
     },
@@ -242,7 +246,7 @@
   ],
   "$defs": {
     "agente": {
-      "description": "Agente que llamó a la IA. El explicador (#166) solo aparece en llamadas y totales, después del veredicto.",
+      "description": "Agente que llamó a la IA. El explicador (#166) llama después del veredicto.",
       "enum": [
         "planner",
         "generator",
