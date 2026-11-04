@@ -58,8 +58,8 @@ registrarComponente('config-pruebas/config-pruebas', `<!-- ===== 3. PREPARAR ===
           <h2 id="prepArquitecturaTitulo">Reglas de arquitectura</h2>
           <p class="np-meta">La detección de ciclos está activa siempre. Puedes declarar una dependencia prohibida; se analiza en Docker, sin IA ni red.</p>
           <div class="prep-arq-campos">
-            <label><span>Desde la capa o módulo</span><input class="ini-input" id="prepArqDesde" placeholder="dominio" autocomplete="off"></label>
-            <label><span>No puede depender de</span><input class="ini-input" id="prepArqHacia" placeholder="interfaz" autocomplete="off"></label>
+            <div class="prep-arq-campo"><label class="np-etiqueta" for="prepArqDesde">Desde la capa o módulo</label><div class="np-campo"><input class="np-input" id="prepArqDesde" placeholder="dominio" autocomplete="off"></div></div>
+            <div class="prep-arq-campo"><label class="np-etiqueta" for="prepArqHacia">No puede depender de</label><div class="np-campo"><input class="np-input" id="prepArqHacia" placeholder="interfaz" autocomplete="off"></div></div>
           </div>
           <div class="prep-arq-acciones">
             <button type="button" class="ini-btn" onclick="guardarReglaArquitectura()">Guardar regla</button>
@@ -385,24 +385,16 @@ const CAJAS = [
 ];
 let cajaActiva = 'todas';
 
-// Cuántos tipos hay elegidos en cada caja. Unitarias y la mutación (análisis a fondo) son de caja blanca;
-// los endpoints, de caja negra. Las reglas de arquitectura y el E2E se ejecutan con su propio botón.
-function tiposElegidosPorCaja(){
-  const e = eleccionPruebas;
-  const fondo = e.modo === 'fondo' || (e.modo === 'repetir' && e.profundizarRepetir === true);
-  const negra = e.endpoints === true ? 1 : 0;
-  const blanca = (e.unitarias === true ? 1 : 0) + (fondo ? 1 : 0);
-  return {negra, blanca, gris: 0, todas: negra + blanca};
-}
+// Cada tipo declara su caja con data-caja: unitarias, mutación (críticas) y arquitectura son de caja blanca;
+// endpoints y E2E de humo, de caja negra. Las pestañas solo filtran qué se ve: no cuentan ni eligen nada.
 function renderCajas(){
   const barra = $('prepCajas');
   if (!barra) return;
-  const n = tiposElegidosPorCaja();
   barra.innerHTML = CAJAS.map(c => {
     const on = c.k === cajaActiva;
     return `<button type="button" id="prepCaja-${c.k}" class="obj-tab ${on ? 'on' : ''}" role="tab" aria-selected="${on}"
       aria-controls="prepContenidoCajas" tabindex="${on ? 0 : -1}" title="${escHtml(c.d)}"
-      aria-label="${c.t}, ${n[c.k]} ${n[c.k] === 1 ? 'tipo elegido' : 'tipos elegidos'}" onclick="elegirCaja('${c.k}')">${c.t} (${n[c.k]})</button>`;
+      onclick="elegirCaja('${c.k}')">${c.t}</button>`;
   }).join('');
   $('prepContenidoCajas').setAttribute('aria-labelledby', 'prepCaja-' + cajaActiva);
   $('prepCajaAyuda').textContent = (CAJAS.find(c => c.k === cajaActiva) || CAJAS[0]).d;

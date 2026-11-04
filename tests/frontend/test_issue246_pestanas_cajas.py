@@ -55,7 +55,6 @@ def test_las_pestanas_siguen_el_patron_de_tablist() -> None:
         "aria-selected",
         "aria-controls",
         "tabindex",
-        "aria-label",
     ):
         assert atributo in render
     assert "aria-labelledby" in render  # el panel se nombra con la pestaña activa
@@ -112,13 +111,14 @@ def test_cambiar_de_pestana_no_cambia_lo_elegido() -> None:
     assert "classList.toggle('hide'" in aplicar  # solo muestra u oculta
 
 
-def test_los_contadores_cuentan_lo_elegido() -> None:
-    cuerpo = _funcion_js("tiposElegidosPorCaja")
+def test_las_pestanas_no_llevan_numeros() -> None:
+    """Solo filtran por tipo de prueba: no cuentan ni eligen nada."""
+    js = _js()
+    render = _funcion_js("renderCajas")
 
-    assert "e.endpoints === true" in cuerpo  # negra
-    assert "e.unitarias === true" in cuerpo  # blanca
-    assert "e.modo === 'fondo'" in cuerpo  # la mutación también es blanca
-    assert "gris: 0" in cuerpo
+    assert "tiposElegidosPorCaja" not in js
+    assert "${c.t}</button>" in render
+    assert "(${" not in render
 
 
 def test_calc_aplica_la_pestana_despues_de_dibujar_los_tipos() -> None:
@@ -178,3 +178,15 @@ def test_profundizar_se_propone_desde_la_primera_rama() -> None:
     )
     assert '"critica_propuesta": f.get("ramas", 0) > 0' in fuente
     assert "critica_propuesta ?? ((f.ramas || 0) > 0)" in _vista_js()
+
+
+def test_los_campos_de_arquitectura_usan_el_diseno_de_la_interfaz() -> None:
+    js = _js()
+
+    for campo in ("prepArqDesde", "prepArqHacia"):
+        etiqueta = _etiqueta_con(js, f'id="{campo}"')
+        assert 'class="np-input"' in etiqueta
+        assert f'<label class="np-etiqueta" for="{campo}">' in js
+    assert "ini-input" not in js  # esa clase no tiene estilos: dejaba cajas blancas
+    css = (PREP / "config-pruebas.css").read_text(encoding="utf-8")
+    assert ".prep-arq-campo{" in css
