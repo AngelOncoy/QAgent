@@ -103,6 +103,20 @@ Las pruebas generadas se ejecutan solo dentro de un contenedor efímero: sin red
 python -c "from qagent.sandbox import construir_imagen_base; construir_imagen_base()"
 ```
 
+## Versiones de Python soportadas en el sandbox (ADR-013)
+
+El sandbox de Docker de QAgent ejecuta pruebas para proyectos en el rango **Python 3.10–3.14** (3.10, 3.11, 3.12, 3.13 y 3.14), con **3.11** como versión por defecto.
+
+### Detección y reglas de elección
+1. **Detección estática:** La versión se detecta en este orden de precedencia:
+   - `.python-version`
+   - `requires-python` de `pyproject.toml`
+   - `python_requires` de `setup.cfg`
+   - Si no hay declaración, se usa la versión por defecto (3.11).
+2. **Rangos:** Si la especificación es un rango (ej. `>=3.10` o `>=3.10, <3.13`), se elige la versión más alta de la lista soportada que lo cumpla (ej. 3.14 y 3.12 respectivamente).
+3. **Fuera del rango:** Si el proyecto pide una versión incompatible (ej. `<3.10` o `>=3.15`), la corrida se detiene de inmediato antes de construir imágenes o gastar tokens, y el Monitor muestra qué versión pidió el proyecto y qué rango soporta QAgent.
+4. **Imágenes base:** Cada versión tiene su imagen base etiquetada (`qagent-sandbox:base-py<versión>`), manteniendo `qagent-sandbox:base` como la versión por defecto (3.11). El hash de la imagen derivada con dependencias incluye la versión de Python para aislar la caché de dependencias entre versiones.
+
 ## Ejecutar la aplicación
 
 ```bash
