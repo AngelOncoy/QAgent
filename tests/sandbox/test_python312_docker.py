@@ -4,7 +4,8 @@ Verifica contra el daemon Docker real:
 1. Construcción y etiquetado de la imagen base `qagent-sandbox:base-py3.12`.
 2. Verificación de que la versión interna del contenedor es efectivamente Python 3.12.
 3. Construcción y etiquetado con hash de la imagen derivada con `requirements.txt`.
-4. Ejecución de pruebas pytest dentro del contenedor sobre código con sintaxis PEP 695 de Python 3.12.
+4. Diferenciación de hashes entre Python 3.11 y Python 3.12 con dependencias idénticas.
+5. Ejecución de pruebas pytest dentro del contenedor sobre código con sintaxis PEP 695 de Python 3.12.
 
 Se omite automáticamente si Docker Desktop no está disponible/iniciado.
 """
@@ -17,6 +18,7 @@ import pytest
 
 from qagent.lenguajes import adaptador_para
 from qagent.sandbox import (
+    IMAGEN_BASE,
     asegurar_imagen,
     construir_imagen_base,
     ejecutar_pruebas,
@@ -80,6 +82,36 @@ def test_hash_y_construccion_real_de_dependencias_en_docker(
     # La imagen existe físicamente en el Docker local
     img = cliente_docker.images.get(tag_derivada)
     assert tag_derivada in img.tags
+
+
+def test_diferencia_de_hash_y_entornos_entre_versiones_en_docker(
+    cliente_docker, imagen_base_py312: str, tmp_path: Path
+) -> None:
+    """Verifica que el mismo requirements.txt genera tags distintos para Python 3.11 y 3.12 en Docker."""
+    proyecto = _escribir(
+        tmp_path / "proyecto_comparacion",
+        {
+            "requirements.txt": "packaging\n",
+        },
+    )
+    tag_312 = preparar_imagen(
+        proyecto,
+        cliente=cliente_docker,
+        imagen=imagen_base_py312,
+    )
+
+    if not _imagen_existe(cliente_docker, IMAGEN_BASE):
+        construir_imagen_base(cliente_docker, imagen=IMAGEN_BASE)
+
+    tag_311 = preparar_imagen(
+        proyecto,
+        cliente=cliente_docker,
+        imagen=IMAGEN_BASE,
+    )
+
+    assert tag_312.startswith("qagent-sandbox:req-")
+    assert tag_311.startswith("qagent-sandbox:req-")
+    assert tag_312 != tag_311
 
 
 def test_proyecto_sintaxis_python312_en_sandbox_docker(
