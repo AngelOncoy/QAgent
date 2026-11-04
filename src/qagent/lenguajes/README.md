@@ -182,9 +182,11 @@ no permiten inventar valores concretos. Se conservan los contratos v3 existentes
 La [documentación de #181](../../../docs/java/analisis-planificacion.md) explica
 el mapa de llamadas, las exclusiones, las reglas y la validación con IA simulada.
 
-La [propuesta del sandbox Java](../../../docs/java/sandbox-propuesto.md) registra
-versiones, tiempos locales, recursos propuestos y validaciones todavía no
-realizadas para ejecutar JUnit en Docker sin red (EN-19).
+La [propuesta del sandbox Java](../../../docs/java/sandbox-propuesto.md) (EN-19) registra
+las versiones, los tiempos locales y los recursos que se plantearon para ejecutar JUnit
+en Docker sin red. Es el punto de partida histórico: la imagen `qagent-sandbox:java`
+ya existe (#169) y la ejecución está validada en la
+[validación de EP-12](../../../docs/java/validacion-ep12.md) (#174).
 
 La [mutación PIT de métodos críticos](../../../docs/java/mutacion-pit.md) (#180)
 añade ejecución acotada en Docker, lectura de XML, huellas y conexión con la caché
