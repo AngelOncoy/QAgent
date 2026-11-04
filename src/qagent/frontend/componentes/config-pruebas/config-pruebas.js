@@ -30,7 +30,7 @@ registrarComponente('config-pruebas/config-pruebas', `<!-- ===== 3. PREPARAR ===
       <div class="obj-switch" id="prepCajas" role="tablist" aria-label="Tipo de caja de las pruebas" onkeydown="teclasCajas(event)"></div>
       <p class="np-meta" id="prepCajaAyuda" aria-live="polite"></p>
     </div>
-    <div class="np-aviso np-aviso-info hide" id="prepCajaVacia" aria-live="polite">${ICO_INFO}<div><b>Todavía no hay pruebas de este tipo</b><span>La caja gris reunirá las pruebas que conocen parte de la estructura, como la integración entre funciones, que está en camino. Mientras tanto, mira «Todas».</span></div></div>
+    <div class="np-aviso np-aviso-info hide" id="prepCajaVacia" aria-live="polite">${ICO_INFO}<div><b>Todavía no hay pruebas de este tipo</b><span>Aquí irán las que se agreguen a esta caja, como la integración entre funciones (caja gris), que está en camino. Mientras tanto, mira «Todas».</span></div></div>
 
     <div class="prep-rejilla" id="prepContenidoCajas" role="tabpanel">
       <div class="np-columna">
@@ -282,13 +282,16 @@ function usoIA(tok){
 }
 
 /* ---------- ¿Qué quieres hacer? ---------- */
+// `cajas`: en qué pestañas por tipo de caja se ofrece cada opción (issue 246, docs/arquitectura.md §10.2).
+// Estándar y Humo usan solo la especificación (caja negra en funciones, gris en endpoints); Regresión vuelve a
+// correr esas pruebas y puede medir su fortaleza (caja blanca); el análisis a fondo es la capa de caja blanca.
 const MODOS_PREPARAR = [
-  {k:'nuevas',  t:'Generar pruebas nuevas',     d:'Crear casos para lo que cambió y reutilizar lo que sigue igual.'},
-  {k:'humo',    t:'Revisión rápida (humo)',     d:'Un caso normal por función o endpoint para confirmar que responde. Útil como primera revisión.',
+  {k:'nuevas',  cajas:['negra','gris'],          t:'Generar pruebas nuevas',     d:'Crear casos para lo que cambió y reutilizar lo que sigue igual.'},
+  {k:'humo',    cajas:['negra','gris'],          t:'Revisión rápida (humo)',     d:'Un caso normal por función o endpoint para confirmar que responde. Útil como primera revisión.',
     tip:'Prueba de humo: un solo caso normal por objetivo. No busca valores límite ni errores y no exige cubrir las ramas.'},
-  {k:'repetir', t:'Volver a correr las guardadas', d:'Regresión: comprueba que los cambios no rompieron lo que antes funcionaba. No usa IA.',
+  {k:'repetir', cajas:['negra','gris','blanca'], t:'Volver a correr las guardadas', d:'Regresión: comprueba que los cambios no rompieron lo que antes funcionaba. No usa IA.',
     tip:'Regresión: volver a correr las pruebas guardadas para comprobar que los cambios no rompieron lo que antes funcionaba.'},
-  {k:'fondo',   t:'Análisis a fondo de críticas', d:'Busca casos límite y mide la fortaleza de las pruebas. Tarda más.'},
+  {k:'fondo',   cajas:['blanca'],         t:'Análisis a fondo de críticas', d:'Busca casos límite y mide la fortaleza de las pruebas. Tarda más.'},
 ];
 function renderRegresionProfunda(repetibles){
   const datosListos = PRUEBAS_REPETIBLES instanceof Set;
@@ -312,7 +315,12 @@ function renderRegresionProfunda(repetibles){
 
 function renderModosPreparar(repetibles = criticasRepetibles()){
   const {modo} = eleccionPruebas;
-  $('cfgModo').innerHTML = MODOS_PREPARAR.map(o => {
+  // issue 246: cada pestaña ofrece solo las opciones que tocan ese tipo de caja; lo elegido no cambia.
+  const ofrecidas = MODOS_PREPARAR.filter(o => cajaActiva === 'todas' || o.cajas.includes(cajaActiva));
+  const elegidaOculta = MODOS_PREPARAR.find(o => o.k === modo && !ofrecidas.includes(o));
+  const nota = elegidaOculta
+    ? `<p class="prep-desc prep-modo-oculto">Tienes elegida «${elegidaOculta.t}», que está en otra pestaña. Mira «Todas» para verla.</p>` : '';
+  $('cfgModo').innerHTML = ofrecidas.map(o => {
     const bloqueado = o.k === 'repetir' && !HAS_PRIOR_RUN;
     const opcion = `<button type="button" role="radio" class="prep-modo ${modo===o.k?'on':''}" aria-checked="${modo===o.k}"
       ${bloqueado ? 'disabled title="Requiere una corrida previa de este proyecto"' : (o.tip ? `title="${o.tip}"` : '')} onclick="elegirPruebas({modo:'${o.k}'})">
@@ -320,7 +328,7 @@ function renderModosPreparar(repetibles = criticasRepetibles()){
       <span><b>${o.t}</b><span class="prep-desc">${bloqueado ? 'Disponible cuando haya pruebas aprobadas y guardadas de este proyecto.' : o.d}</span></span>
     </button>`;
     return `<div class="prep-modo-grupo ${modo===o.k?'on':''}">${opcion}${o.k === 'repetir' ? renderRegresionProfunda(repetibles) : ''}</div>`;
-  }).join('');
+  }).join('') + nota;
 }
 
 /* ---------- Tipos de prueba y funciones críticas ---------- */
@@ -333,8 +341,8 @@ function renderTiposPrueba(){
       <input type="checkbox" class="exp-caja" ${eleccionPruebas[clave] === true && n ? 'checked' : ''} ${n ? '' : 'disabled'} onchange="elegirPruebas({${clave}:this.checked})">
       <span><b>${titulo}</b><span class="prep-desc">${n} ${n === 1 ? singular : plural}</span></span>
     </label>`;
-  $('prepTipos').innerHTML = fila('unitarias', 'Unitarias', nFns, 'función seleccionada', 'funciones seleccionadas', 'blanca')
-    + fila('endpoints', 'Endpoints API', nEps, 'endpoint seleccionado', 'endpoints seleccionados', 'negra');
+  $('prepTipos').innerHTML = fila('unitarias', 'Unitarias', nFns, 'función seleccionada', 'funciones seleccionadas', 'negra')
+    + fila('endpoints', 'Endpoints API', nEps, 'endpoint seleccionado', 'endpoints seleccionados', 'gris');
 }
 // Críticas: funciones y endpoints incluidos y marcados en Profundizar. Se muestran tres; el resto
 // se ve y se edita en la columna Profundizar de Explorar (visible con «Análisis a fondo»).
@@ -379,14 +387,17 @@ function irACriticas(){
    de pestaña oculta o muestra tarjetas (las marcadas con data-caja) y nunca cambia lo elegido. */
 const CAJAS = [
   {k:'todas',  t:'Todas',       d:'Todos los tipos de prueba juntos.'},
-  {k:'negra',  t:'Caja negra',  d:'Prueban lo que el proyecto hace por fuera, sin mirar cómo está escrito por dentro.'},
-  {k:'blanca', t:'Caja blanca', d:'Prueban sabiendo cómo está escrito el código: sus funciones, sus decisiones y su estructura.'},
-  {k:'gris',   t:'Caja gris',   d:'Mezcla: conocen parte de la estructura, pero prueban el comportamiento.'},
+  {k:'negra',  t:'Caja negra',  d:'Se diseñan solo con lo que el código promete (nombre, firma y documentación), sin mirar cómo está escrito.'},
+  {k:'blanca', t:'Caja blanca', d:'Se lee el código para medir si las pruebas detectan errores (mutación) o para revisar su estructura.'},
+  {k:'gris',   t:'Caja gris',   d:'Mezcla de ambas: el código guía qué casos probar, pero el resultado esperado sale de lo que se declara.'},
 ];
 let cajaActiva = 'todas';
 
-// Cada tipo declara su caja con data-caja: unitarias, mutación (críticas) y arquitectura son de caja blanca;
-// endpoints y E2E de humo, de caja negra. Las pestañas solo filtran qué se ve: no cuentan ni eligen nada.
+// Cada tipo declara su caja con data-caja, como define docs/arquitectura.md §10.2:
+//  · negra: funciones (solo nombre, firma y docstring) y E2E de humo (se prueba desde fuera);
+//  · gris: endpoints (el código del manejador guía los casos; el resultado esperado sale de la ruta declarada);
+//  · blanca: la mutación de las críticas y las reglas de arquitectura (leen el código).
+// Las pestañas solo filtran qué se ve: no cuentan ni eligen nada.
 function renderCajas(){
   const barra = $('prepCajas');
   if (!barra) return;
@@ -411,6 +422,7 @@ function aplicarCaja(){
 function elegirCaja(k, enfocar = false){
   if (!CAJAS.some(c => c.k === k)) return;
   cajaActiva = k;
+  renderModosPreparar();   // «¿Qué quieres hacer?» ofrece solo lo que toca esta caja
   aplicarCaja();
   if (enfocar && $('prepCaja-' + k)) $('prepCaja-' + k).focus();
 }

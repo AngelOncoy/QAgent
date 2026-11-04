@@ -70,19 +70,64 @@ def test_el_teclado_recorre_las_pestanas() -> None:
     assert 'onkeydown="teclasCajas(event)"' in _js()
 
 
-def test_cada_tipo_declara_su_caja() -> None:
+def test_cada_tipo_declara_su_caja_como_define_la_arquitectura() -> None:
+    """docs/arquitectura.md §10.2: funciones, negra; endpoints, gris; mutación, blanca."""
     js = _js()
 
-    # Caja blanca: unitarias, mutación (críticas y su fortaleza) y reglas de arquitectura.
-    assert "'funciones seleccionadas', 'blanca')" in js
+    # Caja negra: funciones (solo nombre, firma y docstring) y E2E de humo.
+    assert "'funciones seleccionadas', 'negra')" in js
+    assert 'data-caja="negra" aria-labelledby="prepE2ETitulo"' in js
+    # Caja gris: endpoints (el código del manejador guía los casos).
+    assert "'endpoints seleccionados', 'gris')" in js
+    # Caja blanca: críticas y su fortaleza (mutación) y reglas de arquitectura.
     assert 'data-caja="blanca" aria-labelledby="prepCritTitulo"' in js
     assert 'id="prepFortaleza" data-caja="blanca"' in js
     assert 'data-caja="blanca" aria-labelledby="prepArquitecturaTitulo"' in js
-    # Caja negra: endpoints y E2E de humo.
-    assert "'endpoints seleccionados', 'negra')" in js
-    assert 'data-caja="negra" aria-labelledby="prepE2ETitulo"' in js
     # La tarjeta de tipos se oculta si ninguna de sus filas se ve.
     assert "data-caja-grupo" in js
+
+
+def _modos() -> dict[str, list[str]]:
+    js = _js()
+    bloque = js[
+        js.index("const MODOS_PREPARAR = [") : js.index(
+            "];", js.index("const MODOS_PREPARAR = [")
+        )
+    ]
+    return {
+        clave: re.findall(r"'(\w+)'", cajas)
+        for clave, cajas in re.findall(r"\{k:'(\w+)',\s*cajas:\[([^\]]*)\]", bloque)
+    }
+
+
+def test_cada_opcion_de_que_quieres_hacer_declara_sus_cajas() -> None:
+    modos = _modos()
+
+    assert set(modos) == {"nuevas", "humo", "repetir", "fondo"}
+    # El análisis a fondo es la capa de caja blanca: no se ofrece en negra ni en gris.
+    assert modos["fondo"] == ["blanca"]
+    # Estándar y Humo usan solo la especificación: no son de caja blanca.
+    for clave in ("nuevas", "humo"):
+        assert "blanca" not in modos[clave]
+        assert {"negra", "gris"} <= set(modos[clave])
+    # Regresión vuelve a correr lo guardado y puede medir su fortaleza (blanca).
+    assert set(modos["repetir"]) == {"negra", "gris", "blanca"}
+
+
+def test_que_quieres_hacer_muestra_solo_lo_de_la_pestana() -> None:
+    cuerpo = _funcion_js("renderModosPreparar")
+
+    assert "cajaActiva === 'todas' || o.cajas.includes(cajaActiva)" in cuerpo
+    assert "ofrecidas.map(" in cuerpo
+    # Si lo elegido está en otra pestaña, se avisa y no se cambia.
+    assert "elegidaOculta" in cuerpo and "eleccionPruebas" in cuerpo
+    assert "eleccionPruebas =" not in cuerpo
+
+
+def test_cambiar_de_pestana_vuelve_a_dibujar_las_opciones() -> None:
+    cuerpo = _funcion_js("elegirCaja")
+
+    assert cuerpo.index("renderModosPreparar()") < cuerpo.index("aplicarCaja()")
 
 
 def test_el_modo_de_la_corrida_no_es_un_tipo() -> None:
@@ -94,11 +139,11 @@ def test_el_modo_de_la_corrida_no_es_un_tipo() -> None:
     assert "data-caja" not in _etiqueta_con(js, 'id="prepLimites"')
 
 
-def test_la_caja_gris_vacia_explica_que_esta_en_camino() -> None:
+def test_una_pestana_sin_nada_explica_que_no_hay_pruebas_de_ese_tipo() -> None:
     js = _js()
 
     assert 'id="prepCajaVacia"' in js
-    assert "integración entre funciones" in js
+    assert "integración entre funciones" in js  # lo que vendrá en la caja gris (#245)
     assert "prepCajaVacia" in _funcion_js("aplicarCaja")
 
 
