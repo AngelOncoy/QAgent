@@ -30,6 +30,9 @@ MARCA_OBJETIVOS = "OBJETIVOS_JSON:"
 MARCA_CONTRATO = "CONTRATO_JSON:"
 MARCA_EXPLICACION = "EXPLICACION_JSON:"
 MARCA_RECOMENDACION = "RECOMENDACION_JSON:"
+#: Plantilla verificada que el adaptador incluye en el prompt (Vitest, EP-11a).
+MARCA_PLANTILLA = "PLANTILLA DE REFERENCIA:"
+MARCA_FIN_PLANTILLA = "FEEDBACK DEL INTENTO ANTERIOR:"
 
 # Viaja dentro del paquete para que el modo de demostración funcione instalado.
 RUTA_GRABACIONES = Path(__file__).resolve().with_name("ia_simulada.json")
@@ -218,6 +221,8 @@ class FakeLLMClient:
         contrato = _json_marcado(prompt, MARCA_CONTRATO)
         if not isinstance(contrato, dict):
             return None
+        if contrato.get("lenguaje") in {"javascript", "typescript"}:
+            return _plantilla(prompt)
         return generar_test_desde_contrato(contrato)
 
 
@@ -231,6 +236,16 @@ def cargar_grabaciones(
         return {}
     grabadas = datos.get(seccion) if isinstance(datos, dict) else None
     return grabadas if isinstance(grabadas, dict) else {}
+
+
+def _plantilla(prompt: str) -> str | None:
+    """La prueba de referencia que el adaptador puso en el prompt (Vitest)."""
+    inicio = prompt.find(MARCA_PLANTILLA)
+    fin = prompt.find(MARCA_FIN_PLANTILLA, inicio)
+    if inicio < 0 or fin < 0:
+        return None
+    codigo = prompt[inicio + len(MARCA_PLANTILLA) : fin].strip()
+    return codigo + "\n" if codigo else None
 
 
 def generar_test_desde_contrato(contrato: dict[str, Any]) -> str:
