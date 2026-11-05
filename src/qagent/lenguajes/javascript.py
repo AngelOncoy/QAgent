@@ -20,6 +20,7 @@ from tree_sitter import Node
 from qagent.analysis.analyzer import _resumen, calcular_huella
 from qagent.lenguajes.base import (
     AdaptadorEnDesarrollo,
+    ComparacionAserciones,
     EntornoSandbox,
     Estructura,
     PlanArquitectura,
@@ -197,6 +198,20 @@ class _AdaptadorNode(AdaptadorEnDesarrollo):
     ) -> str:
         """El archivo de la prueba queda en ``generated_test.v2``."""
         return self.archivo_de_prueba(contrato["objetivo"])
+
+    def comparar_aserciones(
+        self, original: str, reparado: str
+    ) -> ComparacionAserciones:
+        """Assertion Laundering en ``expect`` entre intentos, con tree-sitter y sin IA."""
+        from qagent.lenguajes.javascript_laundering import comparar_vitest
+
+        return comparar_vitest(original, reparado, self.lenguaje)
+
+    def rutas_web(self, raiz: Path) -> tuple[list[Any], list[str], str]:
+        """Delega la detección web estática compartida por JavaScript y TypeScript."""
+        from qagent.lenguajes.javascript_rutas import detectar_rutas_web
+
+        return detectar_rutas_web(raiz, self.extensiones)
 
 
 def _error(relativa: str, causa: Exception) -> dict[str, Any]:
