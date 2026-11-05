@@ -2,9 +2,10 @@
 
 Análisis estático y validación de sintaxis con tree-sitter (SPK-04, ADR-009): las
 funciones exportadas, su JSDoc, sus tipos, sus ramas y ``llama_a`` (#176).
-El entorno del sandbox es la imagen ``qagent-sandbox:node`` (#169). El comando de Jest
-o Vitest y la lectura de resultados lanzan ``NoImplementado`` hasta que se implementen
-(ver ``README.md`` de este paquete).
+El Generator escribe pruebas Vitest y el guardrail detecta Assertion Laundering en
+``expect`` sin IA y antes de ejecutar (EP-11a, parte 2). El entorno del sandbox es la
+imagen ``qagent-sandbox:node`` (#169). El comando de Vitest y la lectura de resultados
+lanzan ``NoImplementado`` hasta la parte 3 (ver ``README.md`` de este paquete).
 """
 
 from __future__ import annotations
@@ -23,6 +24,7 @@ from qagent.lenguajes.base import (
     Estructura,
     PlanArquitectura,
     ReglasPlanificacion,
+    ReglasRevision,
 )
 from qagent.lenguajes.javascript_estructura import extraer_funciones, gramatica_de
 from qagent.lenguajes.javascript_llamadas import agregar_llamadas
@@ -164,11 +166,37 @@ class _AdaptadorNode(AdaptadorEnDesarrollo):
     ) -> EntornoSandbox:
         return entorno_node()
 
-    def rutas_web(self, raiz: Path) -> tuple[list[Any], list[str], str]:
-        """Delega la detección web estática compartida por JavaScript y TypeScript."""
-        from qagent.lenguajes.javascript_rutas import detectar_rutas_web
+    # --- Generación y guardrail Vitest (EP-11a, parte 2) -----------------------------
 
-        return detectar_rutas_web(raiz, self.extensiones)
+    def prompt_generator(
+        self,
+        contrato: dict[str, Any],
+        intento: int,
+        feedback: str | None,
+        ruta_proyecto: Path | None,
+    ) -> str:
+        """Prompt Vitest con el oráculo del contrato y el import del módulo."""
+        from qagent.lenguajes.javascript_generacion import prompt_vitest
+
+        return prompt_vitest(contrato, intento, feedback, ruta_proyecto)
+
+    def reglas_revision(self) -> ReglasRevision:
+        """Sintaxis y oráculo de la prueba Vitest para el Generator y el Reviewer."""
+        from qagent.lenguajes.javascript_generacion import ReglasRevisionVitest
+
+        return ReglasRevisionVitest(self.lenguaje)
+
+    def archivo_de_prueba(self, objetivo: str) -> str:
+        """``generado.test.ts`` o ``generado.test.js``: cada prueba corre aislada."""
+        from qagent.lenguajes.javascript_generacion import archivo_vitest
+
+        return archivo_vitest(self.lenguaje)
+
+    def archivo_para_contrato(
+        self, contrato: dict[str, Any], ruta_proyecto: Path | None
+    ) -> str:
+        """El archivo de la prueba queda en ``generated_test.v2``."""
+        return self.archivo_de_prueba(contrato["objetivo"])
 
 
 def _error(relativa: str, causa: Exception) -> dict[str, Any]:
