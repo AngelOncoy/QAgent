@@ -381,8 +381,8 @@ function renderComparacionVerificacionHistorial(corrida, caja){
       <button type="button" class="ini-btn ini-btn-secundario" onclick="cargarEjecucionReal('${escHtml(c.run_origen_id)}')">Abrir corrida original</button></div>
     <p class="np-meta">Corrida original: <span class="np-mono">${escHtml(c.run_origen_id)}</span></p>
     <div class="exp-cifras hst-comparacion-resumen">
-      ${cifra('Resultados originales', r.total_original, `${r.aprobadas_original} aprobadas`)}
-      ${cifra('Resultados actuales', r.total_actual, `${r.total_ejecutadas} ejecutadas`)}
+      ${cifra('Errores anteriores', r.fallidas_original, `${r.total_original} resultados originales`)}
+      ${cifra('Errores actuales', r.fallidas_actual, `${r.total_ejecutadas} ejecutados`)}
       ${cifra('Corregidos', r.corregidos, `${r.siguen_fallando} siguen fallando`)}
       ${cifra('Regresiones', r.regresiones, `${r.no_comparables} no comparables`)}
     </div><ul class="hst-comparacion-lista">${detalles}</ul>

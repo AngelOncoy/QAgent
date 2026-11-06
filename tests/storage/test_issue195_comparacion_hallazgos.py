@@ -27,6 +27,7 @@ from tests.storage.test_registro import correr, precios  # noqa: F401
 
 ORIGEN = "20261103-120000-a195"
 VERIFICACION = "20261103-121000-b195"
+OTRA_VERIFICACION = "20261103-122000-c195"
 
 
 def _ejemplo() -> dict:
@@ -203,6 +204,53 @@ def test_comparacion_corrupta_no_rompe_la_vista(proyecto_comparado: Path) -> Non
     vista = cargar_vista_comparacion(proyecto_comparado, VERIFICACION, "verify_fix")
     assert vista and vista["disponible"] is False
     assert "corruptos" in vista["motivo"]
+
+
+def test_corrida_original_ausente_se_informa_sin_excepcion(
+    proyecto_comparado: Path,
+) -> None:
+    (proyecto_comparado / ".qagent" / "runs" / ORIGEN / "results.json").unlink()
+
+    vista = cargar_vista_comparacion(proyecto_comparado, VERIFICACION, "verify_fix")
+    assert vista and vista["disponible"] is False
+    assert ORIGEN in vista["motivo"]
+
+
+def test_varias_verificaciones_del_mismo_origen_se_mantienen_separadas(
+    proyecto_comparado: Path,
+) -> None:
+    almacen = AlmacenProyecto(proyecto_comparado)
+    resultados = json.loads(
+        (almacen.carpeta_run(VERIFICACION) / "results.json").read_text(encoding="utf-8")
+    )
+    resultados["run_id"] = OTRA_VERIFICACION
+    almacen.guardar_run(
+        {
+            "run_id": OTRA_VERIFICACION,
+            "inicio": "2026-11-03T12:20:00+00:00",
+            "fin": "2026-11-03T12:20:01+00:00",
+            "tipos_prueba": ["funcion"],
+            "imagen_docker": "qagent-sandbox:base",
+            "estado": "fin",
+            "resumen": {"pasaron": 1, "fallaron": 0},
+        }
+    )
+    (almacen.carpeta_run(OTRA_VERIFICACION) / "results.json").write_text(
+        json.dumps(resultados), encoding="utf-8"
+    )
+    comparacion = _ejemplo()
+    comparacion["run_verificacion_id"] = OTRA_VERIFICACION
+    comparacion["comparaciones"][0]["estado_posterior"]["referencia_resultado"] = (
+        f"runs/{OTRA_VERIFICACION}/results.json"
+    )
+    almacen.guardar_comparacion(comparacion)
+
+    primera = cargar_vista_comparacion(proyecto_comparado, VERIFICACION, "verify_fix")
+    segunda = cargar_vista_comparacion(
+        proyecto_comparado, OTRA_VERIFICACION, "verify_fix"
+    )
+    assert primera and primera["run_verificacion_id"] == VERIFICACION
+    assert segunda and segunda["run_verificacion_id"] == OTRA_VERIFICACION
 
 
 def test_rechaza_objetivo_o_proyecto_ajeno(proyecto_comparado: Path) -> None:

@@ -12,7 +12,9 @@ def _leer(ruta: str) -> str:
 def test_resultados_muestra_resumen_estados_y_corrida_original() -> None:
     js = _leer("ejecucion/ejecucion.js")
     assert "Comparación con la corrida original" in js
-    assert "Aprobadas antes" in js
+    assert "Resultados originales" in js
+    assert "Errores anteriores" in js
+    assert "Errores actuales" in js
     assert "Siguen fallando" in js
     assert "Regresiones" in js
     assert "No comparables" in js

@@ -811,6 +811,7 @@ def _markdown_comparacion(datos: dict[str, Any]) -> list[str]:
         [
             f"- **Corrida original:** `{comparacion['run_origen_id']}`",
             f"- **Corrida de verificación:** `{comparacion['run_verificacion_id']}`",
+            f"- **Comparación registrada:** {comparacion['creado']}",
             (
                 f"- **Antes ({resumen['total_original']} resultados):** "
                 f"{resumen['aprobadas_original']} aprobadas y "
@@ -875,12 +876,15 @@ def _html_comparacion(datos: dict[str, Any], esc: Any) -> str:
     return (
         "<section class='comparison-card'><h2>Comparación con la corrida original</h2>"
         f"<p><b>Original:</b> <code>{esc(comparacion['run_origen_id'])}</code> · "
-        f"<b>Verificación:</b> <code>{esc(comparacion['run_verificacion_id'])}</code></p>"
+        f"<b>Verificación:</b> <code>{esc(comparacion['run_verificacion_id'])}</code> · "
+        f"<b>Fecha:</b> {esc(comparacion['creado'])}</p>"
         "<div class='comparison-summary'>"
         f"<div><b>{resumen['total_original']}</b><span>Resultados originales</span></div>"
         f"<div><b>{resumen['total_actual']}</b><span>Resultados actuales</span></div>"
         f"<div><b>{resumen['aprobadas_original']}</b><span>Aprobadas antes</span></div>"
         f"<div><b>{resumen['aprobadas_actual']}</b><span>Aprobadas ahora</span></div>"
+        f"<div><b>{resumen['fallidas_original']}</b><span>Errores anteriores</span></div>"
+        f"<div><b>{resumen['fallidas_actual']}</b><span>Errores actuales</span></div>"
         f"<div><b>{resumen['corregidos']}</b><span>Corregidos</span></div>"
         f"<div><b>{resumen['siguen_fallando']}</b><span>Siguen fallando</span></div>"
         f"<div><b>{resumen['regresiones']}</b><span>Regresiones</span></div>"

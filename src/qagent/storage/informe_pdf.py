@@ -887,7 +887,8 @@ def _comparacion_corridas(
     lz.parrafo(
         limpiar(
             f"Original: {comparacion['run_origen_id']} | "
-            f"Verificación: {comparacion['run_verificacion_id']}"
+            f"Verificación: {comparacion['run_verificacion_id']} | "
+            f"Fecha: {comparacion['creado']}"
         ),
         9,
         "F3",

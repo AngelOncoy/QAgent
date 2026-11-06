@@ -348,10 +348,12 @@ function renderComparacionCorridas(comparacion){
       <p class="np-meta">${escHtml(motivo)}</p>
     </article>`;
   }).join('');
+  const fechaComparacion = comparacion.creado && !Number.isNaN(new Date(comparacion.creado).getTime())
+    ? new Date(comparacion.creado).toLocaleString('es-PE') : '';
   caja.innerHTML = `<div class="bnj-comparacion-cab"><div><h2 id="bnjComparacionTitulo">Comparación con la corrida original</h2>
-      <p class="np-meta">Original <button type="button" class="ini-enlace np-mono" onclick="cargarEjecucionReal('${escHtml(comparacion.run_origen_id)}')">${escHtml(comparacion.run_origen_id)}</button> · Verificación <span class="np-mono">${escHtml(comparacion.run_verificacion_id)}</span></p></div></div>
+      <p class="np-meta">Original <button type="button" class="ini-enlace np-mono" onclick="cargarEjecucionReal('${escHtml(comparacion.run_origen_id)}')">${escHtml(comparacion.run_origen_id)}</button> · Verificación <span class="np-mono">${escHtml(comparacion.run_verificacion_id)}</span>${fechaComparacion ? ` · ${escHtml(fechaComparacion)}` : ''}</p></div></div>
     <div class="bnj-comparacion-resumen">
-      ${cifra(r.total_original, 'Resultados originales')}${cifra(r.total_actual, 'Resultados actuales')}${cifra(r.aprobadas_original, 'Aprobadas antes')}${cifra(r.aprobadas_actual, 'Aprobadas ahora')}${cifra(r.corregidos, 'Corregidos')}${cifra(r.siguen_fallando, 'Siguen fallando')}${cifra(r.regresiones, 'Regresiones')}${cifra(r.no_comparables, 'No comparables')}
+      ${cifra(r.total_original, 'Resultados originales')}${cifra(r.total_actual, 'Resultados actuales')}${cifra(r.fallidas_original, 'Errores anteriores')}${cifra(r.fallidas_actual, 'Errores actuales')}${cifra(r.corregidos, 'Corregidos')}${cifra(r.siguen_fallando, 'Siguen fallando')}${cifra(r.regresiones, 'Regresiones')}${cifra(r.no_comparables, 'No comparables')}
     </div><div class="bnj-comparacion-lista">${filas}</div>
     <p class="np-meta">${escHtml(comparacion.politica_agregacion || '')}</p>`;
 }
