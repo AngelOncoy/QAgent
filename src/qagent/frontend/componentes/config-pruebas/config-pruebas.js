@@ -160,7 +160,7 @@ async function abrirResultadoArquitectura(runId){
   if (!api || !api.obtener_resultado_arquitectura) return;
   const r = await api.obtener_resultado_arquitectura(projectPath, runId);
   if (!r || !r.ok) { toastError(escHtml((r && r.motivo) || 'No se pudo abrir la verificación.')); return; }
-  go('config');
+  go('tests');
   renderResultadoArquitectura(r);
 }
 async function exportarInformeArquitectura(runId){
@@ -212,7 +212,7 @@ async function abrirResultadoE2E(runId){
   if (!api || !api.obtener_resultado_e2e) return;
   const r = await api.obtener_resultado_e2e(projectPath, runId);
   if (!r || !r.ok) { toastError(escHtml((r && r.motivo) || 'No se pudo abrir la corrida E2E.')); return; }
-  go('config'); renderResultadoE2E(r);
+  go('tests'); renderResultadoE2E(r);
 }
 
 async function exportarInformeE2E(runId){
