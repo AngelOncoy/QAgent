@@ -792,6 +792,109 @@ def _markdown_categorias(datos: dict[str, Any]) -> list[str]:
     return lineas
 
 
+def _markdown_comparacion(datos: dict[str, Any]) -> list[str]:
+    """Comparación persistida de una verificación, sin recalcular resultados."""
+    comparacion = datos.get("comparacion")
+    if not comparacion:
+        return []
+    lineas = ["## Comparación con la corrida original", ""]
+    if not comparacion.get("disponible"):
+        lineas.extend(
+            [
+                f"_Comparación no disponible: {comparacion.get('motivo', 'sin datos almacenados')}._",
+                "",
+            ]
+        )
+        return lineas
+    resumen = comparacion["resumen"]
+    lineas.extend(
+        [
+            f"- **Corrida original:** `{comparacion['run_origen_id']}`",
+            f"- **Corrida de verificación:** `{comparacion['run_verificacion_id']}`",
+            f"- **Comparación registrada:** {comparacion['creado']}",
+            (
+                f"- **Antes ({resumen['total_original']} resultados):** "
+                f"{resumen['aprobadas_original']} aprobadas y "
+                f"{resumen['fallidas_original']} con bug reproducible."
+            ),
+            (
+                f"- **Ahora ({resumen['total_actual']} resultados):** "
+                f"{resumen['aprobadas_actual']} aprobadas y "
+                f"{resumen['fallidas_actual']} con bug reproducible "
+                f"({resumen['total_ejecutadas']} ejecutadas)."
+            ),
+            (
+                f"- **Cambio:** {resumen['corregidos']} corregidos · "
+                f"{resumen['siguen_fallando']} siguen fallando · "
+                f"{resumen['regresiones']} regresiones · "
+                f"{resumen['no_comparables']} no comparables."
+            ),
+            "",
+            "| Objetivo | Antes | Ahora | Resultado | Motivo |",
+            "|---|---|---|---|---|",
+        ]
+    )
+    for item in comparacion["comparaciones"]:
+        motivo = item.get("explicacion") or item.get("motivo") or "—"
+        valores = (
+            item["objetivo"],
+            item["estado_anterior"]["etiqueta"],
+            item["estado_posterior"]["etiqueta"],
+            item["etiqueta"],
+            motivo,
+        )
+        seguros = [
+            str(valor).replace("|", "\\|").replace("\n", " ") for valor in valores
+        ]
+        lineas.append("| " + " | ".join(seguros) + " |")
+    lineas.extend(["", comparacion["politica_agregacion"], ""])
+    return lineas
+
+
+def _html_comparacion(datos: dict[str, Any], esc: Any) -> str:
+    """Tarjeta HTML de comparación con todo texto externo escapado."""
+    comparacion = datos.get("comparacion")
+    if not comparacion:
+        return ""
+    if not comparacion.get("disponible"):
+        return (
+            "<section class='comparison-card'><h2>Comparación con la corrida original</h2>"
+            f"<p>Comparación no disponible: {esc(comparacion.get('motivo') or 'sin datos almacenados')}.</p></section>"
+        )
+    resumen = comparacion["resumen"]
+    filas = []
+    for item in comparacion["comparaciones"]:
+        motivo = item.get("explicacion") or item.get("motivo") or "—"
+        filas.append(
+            "<tr>"
+            f"<td><b>{esc(item['objetivo'])}</b><br><small>{esc(item['modulo'])}</small></td>"
+            f"<td>{esc(item['estado_anterior']['etiqueta'])}</td>"
+            f"<td>{esc(item['estado_posterior']['etiqueta'])}</td>"
+            f"<td><span class='pill'>{esc(item['etiqueta'])}</span></td>"
+            f"<td>{esc(motivo)}</td></tr>"
+        )
+    return (
+        "<section class='comparison-card'><h2>Comparación con la corrida original</h2>"
+        f"<p><b>Original:</b> <code>{esc(comparacion['run_origen_id'])}</code> · "
+        f"<b>Verificación:</b> <code>{esc(comparacion['run_verificacion_id'])}</code> · "
+        f"<b>Fecha:</b> {esc(comparacion['creado'])}</p>"
+        "<div class='comparison-summary'>"
+        f"<div><b>{resumen['total_original']}</b><span>Resultados originales</span></div>"
+        f"<div><b>{resumen['total_actual']}</b><span>Resultados actuales</span></div>"
+        f"<div><b>{resumen['aprobadas_original']}</b><span>Aprobadas antes</span></div>"
+        f"<div><b>{resumen['aprobadas_actual']}</b><span>Aprobadas ahora</span></div>"
+        f"<div><b>{resumen['fallidas_original']}</b><span>Errores anteriores</span></div>"
+        f"<div><b>{resumen['fallidas_actual']}</b><span>Errores actuales</span></div>"
+        f"<div><b>{resumen['corregidos']}</b><span>Corregidos</span></div>"
+        f"<div><b>{resumen['siguen_fallando']}</b><span>Siguen fallando</span></div>"
+        f"<div><b>{resumen['regresiones']}</b><span>Regresiones</span></div>"
+        f"<div><b>{resumen['no_comparables']}</b><span>No comparables</span></div>"
+        "</div><table><thead><tr><th>Objetivo</th><th>Antes</th><th>Ahora</th>"
+        f"<th>Resultado</th><th>Motivo</th></tr></thead><tbody>{''.join(filas)}</tbody></table>"
+        f"<p><small>{esc(comparacion['politica_agregacion'])}</small></p></section>"
+    )
+
+
 def _markdown_ejecucion(datos: dict[str, Any], con_traza: bool) -> list[str]:
     """Secciones 2.1 y 2.2 del Markdown: datos de la ejecución y casos por función."""
     lineas = ["## 2.1 Datos de la ejecución", ""]
@@ -1032,10 +1135,20 @@ def datos_informe(
         results = leer_results_demo(raiz_proyecto, run_id)
     else:
         results = leer_results(raiz_proyecto, run_id)
+    from qagent.storage.vista_comparacion import cargar_vista_comparacion
+
     run_actual = results["run_id"]
+    comparacion = cargar_vista_comparacion(
+        raiz_proyecto, run_actual, results.get("perfil")
+    )
     detalle = leer_detalle(raiz_proyecto, run_actual)
-    vista = vista_reporte(results, detalle, leer_explicaciones(raiz_proyecto, results))
-    ejec = vista_ejecucion(results)
+    vista = vista_reporte(
+        results,
+        detalle,
+        leer_explicaciones(raiz_proyecto, results),
+        comparacion,
+    )
+    ejec = vista_ejecucion(results, comparacion)
     metricas = construir_cinco_metricas(results)
     specs = resumen_specs_corrida(raiz_proyecto, run_actual)
     por_agente = ejec["indicadores"]["costo"]["por_agente"]
@@ -1095,6 +1208,7 @@ def datos_informe(
         "funciones": funciones_enriquecidas,
         "texto_categorias": vista.get("texto_categorias"),  # #76
         "results": copy.deepcopy(results),
+        "comparacion": copy.deepcopy(comparacion),
     }
     return _sanitizar_estructura(datos, claves)
 
@@ -1193,6 +1307,7 @@ def construir_markdown_informe(
         f"{datos.get('total_omitidos', 0)} omitidos · "
         f"{datos.get('total_pendientes', 0)} pendientes"
     )
+    lineas.extend(["", *_markdown_comparacion(datos)])
     lineas.extend(
         [
             "",
@@ -1567,6 +1682,8 @@ def construir_json_informe(
         },
     }
     base["agentes"] = base["etapas"]
+    if datos.get("comparacion") is not None:
+        base["comparacion_corridas"] = copy.deepcopy(datos["comparacion"])
 
     if opts["detalle"]:
         base["ejecucion"] = _json_ejecucion(datos, opts["trazas"])
@@ -2202,6 +2319,10 @@ th{{color:#8b949e;font-weight:600}}
 .caso pre.fallo,pre.fallo{{color:#ff7b72;background:#3a0e10;border:1px solid #da3633;padding:10px;border-radius:6px;white-space:pre-wrap}}
 pre{{background:#0e1117;border:1px solid #30363d;border-radius:6px;padding:12px;overflow-x:auto;font-size:12px}}
 code{{font-family:ui-monospace,SFMono-Regular,Consolas,monospace}}
+.comparison-card{{background:#161b22;border:1px solid #30363d;border-radius:12px;padding:20px;margin-bottom:18px}}
+.comparison-summary{{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin:14px 0}}
+.comparison-summary div{{background:#21262d;border:1px solid #30363d;border-radius:8px;padding:10px;display:flex;flex-direction:column}}
+.comparison-summary b{{font-size:20px}}.comparison-summary span{{font-size:11px;color:#8b949e}}
 </style>
 </head>
 <body>
@@ -2240,6 +2361,7 @@ code{{font-family:ui-monospace,SFMono-Regular,Consolas,monospace}}
       </div>
     </div>
   </div>
+  {_html_comparacion(datos, esc)}
   <div class="tabs">
     <button class="tab active" onclick="verTab('t1',this)">1. Resumen y Metas</button>
     <button class="tab" onclick="verTab('t2',this)">2. Detalle por Función</button>

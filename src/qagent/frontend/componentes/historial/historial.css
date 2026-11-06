@@ -37,6 +37,7 @@
 .hst-tabla tbody tr:focus-visible{outline:2px solid var(--foco-anillo);outline-offset:-2px}
 .hst-tabla .ini-enlace{padding:0}
 .hst-nota{display:block;margin-top:var(--esp-1)}
+.hst-origen{display:block;max-width:220px;overflow-wrap:anywhere}
 
 /* Comparación con la anterior y pruebas guardadas */
 .hst-rejilla{grid-template-columns:minmax(0,1fr) minmax(300px,360px)}
@@ -44,6 +45,11 @@
 .hst-comparar-cab{display:flex;align-items:center;justify-content:space-between;gap:var(--esp-3);flex-wrap:wrap}
 .hst-comparar-cab h2{font-size:var(--texto-cuerpo-l);font-weight:var(--peso-fuerte)}
 .hst-cambio{width:100%}
+.hst-comparacion-resumen{grid-template-columns:repeat(4,minmax(0,1fr))}
+.hst-comparacion-lista{list-style:none;display:flex;flex-direction:column;border:var(--borde-ancho) solid var(--borde);border-radius:var(--radio-control);overflow:hidden}
+.hst-comparacion-item{display:grid;grid-template-columns:minmax(150px,1fr) repeat(3,auto);gap:var(--esp-3);align-items:center;padding:var(--esp-3) var(--esp-4);overflow-wrap:anywhere}
+.hst-comparacion-item+.hst-comparacion-item{border-top:var(--borde-ancho) solid var(--borde)}
+.hst-comparacion-item>div{display:flex;flex-direction:column}.hst-comparacion-item p{grid-column:1 / -1;margin:0}
 .hst-reutilizado{color:var(--exito-t)}
 .hst-pruebas-total{display:flex;align-items:flex-start;gap:var(--esp-3)}
 .hst-pruebas-total b{display:block;font-size:22px;font-weight:var(--peso-fuerte);line-height:1.2}
@@ -53,6 +59,7 @@
 @media(max-width:1100px){.hst-rejilla{grid-template-columns:minmax(0,1fr)}}
 @media(max-width:760px){
   .hst-ayudas{grid-template-columns:minmax(0,1fr)}
+  .hst-comparacion-resumen,.hst-comparacion-item{grid-template-columns:minmax(0,1fr)}
   #s-history .page.hst{padding-left:var(--esp-4);padding-right:var(--esp-4)}
 }
 

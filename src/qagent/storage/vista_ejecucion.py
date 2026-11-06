@@ -114,7 +114,9 @@ def estado_de(objetivo: dict[str, Any]) -> str:
     return "sin_veredicto"
 
 
-def vista_ejecucion(results: dict[str, Any]) -> dict[str, Any]:
+def vista_ejecucion(
+    results: dict[str, Any], comparacion: dict[str, Any] | None = None
+) -> dict[str, Any]:
     """Indicadores, filtros y pruebas agrupadas por módulo, desde un results.json."""
     objetivos = results["objetivos"]
     resumen = results["resumen"]
@@ -228,6 +230,7 @@ def vista_ejecucion(results: dict[str, Any]) -> dict[str, Any]:
             ],
         ],
         "modulos": _por_modulo(objetivos, estados),
+        "comparacion": comparacion,
     }
 
 

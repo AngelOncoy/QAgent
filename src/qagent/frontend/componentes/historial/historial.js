@@ -153,6 +153,8 @@ function renderHistoryReal(datos){
   const visibles = corridas.filter(h => (!desde || new Date(h.fecha).getTime() >= desde)
     && (tipoActual === 'todos' || (h.perfil_nombre || h.perfil || '—') === tipoActual));
   if(!visibles.some(h => h.run_id === histSel)) histSel = visibles.length ? visibles[0].run_id : null;
+  const seleccionada = corridas.find(h => h.run_id === histSel);
+  $('histVerificar').classList.toggle('hide', Boolean(datos.demo) || !seleccionada || seleccionada.perfil === 'verify_fix');
 
   $('histSinFiltro').classList.toggle('hide', visibles.length > 0);
   $('histTable').innerHTML = visibles.map(h => {
@@ -179,7 +181,7 @@ function renderHistoryReal(datos){
 
     return `<tr class="${h.run_id === histSel ? 'on' : ''}" tabindex="0" aria-selected="${h.run_id === histSel}" onclick="seleccionarCorridaHistorial('${escHtml(h.run_id)}')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click()}">
       <td>${escHtml(fechaCorta(h.fecha))}</td>
-      <td>${escHtml(nomPerfil)}</td>
+      <td>${escHtml(nomPerfil)}${h.run_origen_id ? `<span class="np-meta hst-origen">Origen: ${escHtml(h.run_origen_id)}</span>` : ''}</td>
       <td>${chipResultadoHistorial(h)}</td>
       <td class="np-mono" title="${h.duracion_s === null || h.duracion_s === undefined ? 'Corrida anterior a la medición de duración' : 'Duración medida de la corrida'}">${duracionCorta(h.duracion_s)}</td>
       <td class="np-mono">${pasanCelda}</td>
@@ -304,6 +306,10 @@ function renderComparacionHistorial(corridas){
   const actual = corridas[i], previa = i >= 0 ? corridas[i + 1] : null;
   const caja = $('histComparar');
   if(!actual){ caja.innerHTML = ''; return; }
+  if(actual.perfil === 'verify_fix'){
+    renderComparacionVerificacionHistorial(actual, caja);
+    return;
+  }
   if(!previa){
     caja.innerHTML = `<div class="hst-comparar-cab"><h2>Primera corrida del proyecto</h2></div>
       <p class="np-meta">Cuando haya otra corrida, aquí verás si mejoraron los bugs, la cobertura y los tokens.</p>`;
@@ -352,6 +358,35 @@ function renderComparacionHistorial(corridas){
       ${reutilizados ? `<p class="hst-reutilizado">${reutilizados} ${reutilizados === 1 ? 'plan de prueba reutilizado' : 'planes de prueba reutilizados'} sin cambios desde la última vez.</p>` : ''}
       <p class="np-meta">Cobertura: porcentaje de líneas del código que ejecutaron las pruebas.</p>
     </div>`;
+}
+
+function renderComparacionVerificacionHistorial(corrida, caja){
+  const c = corrida.comparacion;
+  if(!c || !c.disponible){
+    caja.innerHTML = `<div class="hst-comparar-cab"><h2>Comparación con la corrida original</h2></div>
+      <div class="np-aviso np-aviso-info">${ICO_INFO}<div><b>Comparación no disponible</b><span>${escHtml((c && c.motivo) || 'Esta verificación histórica no tiene una comparación válida almacenada.')}</span></div></div>`;
+    return;
+  }
+  const r = c.resumen;
+  const cifra = (etq, valor, sub) => `<div class="exp-cifra"><span class="exp-cifra-etq">${etq}</span><b>${Number(valor || 0)}</b><span class="exp-cifra-sub">${sub}</span></div>`;
+  const detalles = (c.comparaciones || []).map(item => `<li class="hst-comparacion-item">
+    <div><b>${escHtml(item.objetivo)}</b><span class="np-meta">${escHtml(item.modulo)}</span></div>
+    <span>Antes: <b>${escHtml(item.estado_anterior.etiqueta)}</b></span>
+    <span>Ahora: <b>${escHtml(item.estado_posterior.etiqueta)}</b></span>
+    <span class="np-chip np-chip-${escHtml(item.clase)}">${escHtml(item.etiqueta)}</span>
+    <p class="np-meta">${escHtml(item.explicacion || item.motivo || 'Sin observaciones adicionales.')}</p>
+  </li>`).join('');
+  caja.innerHTML = `<div class="hst-comparar-cab"><div><h2>Comparación con la corrida original</h2>
+      <p class="np-meta">Verificación <span class="np-mono">${escHtml(c.run_verificacion_id)}</span></p></div>
+      <button type="button" class="ini-btn ini-btn-secundario" onclick="cargarEjecucionReal('${escHtml(c.run_origen_id)}')">Abrir corrida original</button></div>
+    <p class="np-meta">Corrida original: <span class="np-mono">${escHtml(c.run_origen_id)}</span></p>
+    <div class="exp-cifras hst-comparacion-resumen">
+      ${cifra('Errores anteriores', r.fallidas_original, `${r.total_original} resultados originales`)}
+      ${cifra('Errores actuales', r.fallidas_actual, `${r.total_ejecutadas} ejecutados`)}
+      ${cifra('Corregidos', r.corregidos, `${r.siguen_fallando} siguen fallando`)}
+      ${cifra('Regresiones', r.regresiones, `${r.no_comparables} no comparables`)}
+    </div><ul class="hst-comparacion-lista">${detalles}</ul>
+    <p class="np-meta">${escHtml(c.politica_agregacion || '')}</p>`;
 }
 
 function renderPruebasGuardadas(datos){

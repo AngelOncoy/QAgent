@@ -835,6 +835,7 @@ def construir_pdf(
     _metas(lz, datos)
     _prioridades(lz, funciones, limpiar)
     _datos_corrida(lz, datos, limpiar)
+    _comparacion_corridas(lz, datos, limpiar)
 
     if opts.get("detalle"):
         lz.titulo_seccion("Resultados por función y endpoint")
@@ -861,6 +862,75 @@ def construir_pdf(
             lz.espacio(2)
 
     return _ensamblar(lz.cerrar(), str(datos["run_id"]))
+
+
+def _comparacion_corridas(
+    lz: _Lienzo, datos: dict[str, Any], limpiar: Callable[[str], str]
+) -> None:
+    """Dibuja la comparación persistida sin inferir estados nuevos."""
+    comparacion = datos.get("comparacion")
+    if not comparacion:
+        return
+    lz.titulo_seccion("Comparación con la corrida original")
+    if not comparacion.get("disponible"):
+        lz.parrafo(
+            limpiar(
+                "Comparación no disponible: "
+                + str(comparacion.get("motivo") or "sin datos almacenados")
+            ),
+            9,
+            "F1",
+            TEXTO_2,
+        )
+        return
+    resumen = comparacion["resumen"]
+    lz.parrafo(
+        limpiar(
+            f"Original: {comparacion['run_origen_id']} | "
+            f"Verificación: {comparacion['run_verificacion_id']} | "
+            f"Fecha: {comparacion['creado']}"
+        ),
+        9,
+        "F3",
+        TEXTO_2,
+    )
+    lz.parrafo(
+        limpiar(
+            f"Antes ({resumen['total_original']} resultados): "
+            f"{resumen['aprobadas_original']} aprobadas y "
+            f"{resumen['fallidas_original']} fallidas. "
+            f"Ahora ({resumen['total_actual']} resultados): "
+            f"{resumen['aprobadas_actual']} aprobadas y "
+            f"{resumen['fallidas_actual']} fallidas. Cambio: "
+            f"{resumen['corregidos']} corregidos, "
+            f"{resumen['siguen_fallando']} siguen fallando, "
+            f"{resumen['regresiones']} regresiones y "
+            f"{resumen['no_comparables']} no comparables."
+        ),
+        9,
+        "F1",
+        TEXTO,
+    )
+    for item in comparacion["comparaciones"]:
+        lz.asegurar(48)
+        lz.parrafo(
+            limpiar(f"{item['objetivo']} ({item['modulo']}) — {item['etiqueta']}"),
+            9,
+            "F2",
+            TEXTO,
+        )
+        lz.parrafo(
+            limpiar(
+                f"Antes: {item['estado_anterior']['etiqueta']} | "
+                f"Ahora: {item['estado_posterior']['etiqueta']}"
+            ),
+            8,
+            "F1",
+            TEXTO_2,
+        )
+        motivo = item.get("explicacion") or item.get("motivo")
+        if motivo:
+            lz.parrafo(limpiar(str(motivo)), 8, "F1", TEXTO_3)
 
 
 def _ensamblar(paginas: list[list[str]], run_id: str) -> bytes:

@@ -8,7 +8,7 @@
 .bnj-cifra-bug{color:var(--bug-t)}
 #bnjResumen{margin-top:calc(var(--esp-3) * -1)}
 /* issue 139: sin resultados (en la app) solo queda el aviso; nada de cifras, filtros ni bandejas */
-#s-exec.bnj-sin-datos :is(.bnj-acciones,.bnj-cifras,#bnjResumen,.bnj-filtros,.bnj-rejilla,.bnj-prioridades,.bnj-definiciones){display:none}
+#s-exec.bnj-sin-datos :is(.bnj-acciones,.bnj-cifras,#bnjResumen,.bnj-comparacion,.bnj-filtros,.bnj-rejilla,.bnj-prioridades,.bnj-definiciones){display:none}
 #bnjVacio .ini-enlace{align-self:flex-start;padding:0;margin-top:var(--esp-2)}
 
 /* Filtros: buscador y dos selectores */
@@ -78,13 +78,27 @@
 .bnj-prioridad-n{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--enlace)}
 .bnj-definiciones{margin-top:calc(var(--esp-2) * -1)}
 
+/* Issue 195: comparación explícita de la verificación con su corrida origen. */
+.bnj-comparacion{gap:var(--esp-4);min-width:0}
+.bnj-comparacion-cab{display:flex;justify-content:space-between;gap:var(--esp-3);align-items:flex-start;flex-wrap:wrap}
+.bnj-comparacion-cab h2{font-size:var(--texto-cuerpo-l);font-weight:var(--peso-fuerte)}
+.bnj-comparacion-resumen{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:var(--esp-2)}
+.bnj-comparacion-resumen>div{display:flex;flex-direction:column;gap:var(--esp-1);padding:var(--esp-3);background:var(--superficie-2);border:var(--borde-ancho) solid var(--borde);border-radius:var(--radio-control)}
+.bnj-comparacion-resumen b{font-size:20px}.bnj-comparacion-resumen span{font-size:var(--texto-meta);color:var(--texto-2)}
+.bnj-comparacion-lista{display:flex;flex-direction:column;border:var(--borde-ancho) solid var(--borde);border-radius:var(--radio-control);overflow:hidden}
+.bnj-comparacion-fila{display:grid;grid-template-columns:minmax(170px,1fr) minmax(220px,1fr) auto;gap:var(--esp-3);align-items:center;padding:var(--esp-3) var(--esp-4);overflow-wrap:anywhere}
+.bnj-comparacion-fila+.bnj-comparacion-fila{border-top:var(--borde-ancho) solid var(--borde)}
+.bnj-comparacion-fila>div:first-child{display:flex;flex-direction:column;min-width:0}.bnj-comparacion-cambio{display:flex;gap:var(--esp-3);flex-wrap:wrap}
+.bnj-comparacion-fila p{grid-column:1 / -1;margin:0}
+
 @media(max-width:1280px){
   .bnj-rejilla{grid-template-columns:150px minmax(0,1fr)}
   .bnj-detalle{grid-column:1 / -1}
 }
 @media(max-width:900px){
-  .bnj-cifras,.bnj-prioridades{grid-template-columns:minmax(0,1fr)}
+  .bnj-cifras,.bnj-prioridades,.bnj-comparacion-resumen{grid-template-columns:minmax(0,1fr)}
   .bnj-rejilla{grid-template-columns:minmax(0,1fr)}
+  .bnj-comparacion-fila{grid-template-columns:minmax(0,1fr)}
   .bnj-acciones{align-items:flex-start}
   #s-exec .page.bnj{padding-left:var(--esp-4);padding-right:var(--esp-4)}
 }

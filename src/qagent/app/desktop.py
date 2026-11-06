@@ -426,6 +426,7 @@ class DesktopAPI:
             dict: ``{"ok": True, ...}`` con lo que arma `vista_ejecucion()`, o
             ``{"ok": False, "motivo": str}`` si no hay resultados que mostrar.
         """
+        from qagent.storage.vista_comparacion import cargar_vista_comparacion
         from qagent.storage.vista_ejecucion import (
             ResultadosNoDisponibles,
             leer_results,
@@ -433,7 +434,11 @@ class DesktopAPI:
         )
 
         try:
-            return {"ok": True, **vista_ejecucion(leer_results(ruta, run_id))}
+            results = leer_results(ruta, run_id)
+            comparacion = cargar_vista_comparacion(
+                ruta, results["run_id"], results.get("perfil")
+            )
+            return {"ok": True, **vista_ejecucion(results, comparacion)}
         except ResultadosNoDisponibles as error:
             return {"ok": False, "motivo": str(error)}
 
@@ -447,6 +452,7 @@ class DesktopAPI:
             dict: ``{"ok": True, ...}`` con lo que arma `vista_reporte()`, o
             ``{"ok": False, "motivo": str}`` si no hay resultados que mostrar.
         """
+        from qagent.storage.vista_comparacion import cargar_vista_comparacion
         from qagent.storage.vista_ejecucion import (
             ResultadosNoDisponibles,
             leer_results,
@@ -463,7 +469,13 @@ class DesktopAPI:
             return {"ok": False, "motivo": str(error)}
         detalle = leer_detalle(ruta, results["run_id"])
         explicaciones = leer_explicaciones(ruta, results)
-        return {"ok": True, **vista_reporte(results, detalle, explicaciones)}
+        comparacion = cargar_vista_comparacion(
+            ruta, results["run_id"], results.get("perfil")
+        )
+        return {
+            "ok": True,
+            **vista_reporte(results, detalle, explicaciones, comparacion),
+        }
 
     def carpeta_corrida(self, ruta: str, run_id: str | None = None) -> str:
         """Devuelve la carpeta por defecto `<proyecto>/.qagent/runs/<run_id>/` para exportar."""
