@@ -321,6 +321,7 @@ def _funcion(
         "lenguaje": objetivo.get("lenguaje", "python"),
         "framework_pruebas": (contrato or {}).get("framework_pruebas", "pytest"),
         "motivo_sin_veredicto": objetivo.get("motivo_sin_veredicto"),
+        "detalle_error_planner": objetivo.get("detalle_error_planner"),
         **identidad_de(objetivo),
         "firma": contrato.get("firma") if isinstance(contrato, dict) else None,
         "manejador": contrato.get("manejador") if isinstance(contrato, dict) else None,

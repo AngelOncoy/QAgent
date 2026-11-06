@@ -670,6 +670,10 @@
           "enum": ["python", "javascript", "typescript", "java"],
           "description": "#168. Lenguaje del objetivo, del contrato del Planner (un planner_contract.v2 es Python). Columna lenguaje de las 5 métricas (ADR-010). Opcional: las corridas anteriores y los objetivos sin contrato no lo tienen."
         },
+        "detalle_error_planner": {
+          "type": ["string", "null"],
+          "description": "#253. Motivo técnico saneado del rechazo del Planner; opcional para conservar corridas anteriores."
+        },
         "motivo_sin_veredicto": {
           "enum": [
             "tiempo_agotado",

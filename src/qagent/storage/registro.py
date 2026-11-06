@@ -490,6 +490,12 @@ def _objetivo(
         "motivo_estancado": objetivo.motivo_estancado,  # HU-14
         # Sin veredicto por tiempo o red, sin detener el módulo.
         "motivo_sin_veredicto": getattr(objetivo, "motivo_sin_veredicto", None),
+        "detalle_error_planner": _sanear(
+            getattr(objetivo, "detalle_error_planner", None)
+        ),
+        "lenguaje": getattr(
+            objetivo, "lenguaje", contracts.LENGUAJE_CONTRATOS_ANTERIORES
+        ),
         "reutilizada": objetivo.reutilizada,
         "motivo_regresion": objetivo.motivo_regresion,
         "laundering_detectado": objetivo.laundering_detectado,  # HU-16

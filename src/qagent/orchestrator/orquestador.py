@@ -122,12 +122,12 @@ def _resumen_error_contrato(error: BaseException) -> str:
     causa = getattr(error, "__cause__", None) or error
     if isinstance(causa, ContratoInvalido) and causa.errores:
         primer_error = causa.errores[0].strip()
-        if len(primer_error) > 120:
-            primer_error = primer_error[:117] + "…"
+        if len(primer_error) > 1000:
+            primer_error = primer_error[:997] + "…"
         return primer_error
     texto = str(causa).strip()
-    if len(texto) > 120:
-        texto = texto[:117] + "…"
+    if len(texto) > 1000:
+        texto = texto[:997] + "…"
     return texto or "formato no válido"
 
 
@@ -232,6 +232,10 @@ class ResultadoObjetivo:
     duracion_sandbox_s: float = 0.0
     duracion_pytest_s: float = 0.0
     tiempos_intentos: list[dict[str, Any]] = field(default_factory=list)
+    #: Identidad del adaptador, también cuando no se obtuvo un contrato (#253).
+    lenguaje: str = contracts.LENGUAJE_CONTRATOS_ANTERIORES
+    #: Diagnóstico de planificación persistido, independiente del veredicto.
+    detalle_error_planner: str | None = None
 
 
 @dataclass
@@ -588,6 +592,12 @@ class Orquestador:
                     objetivo=nombre,
                     critical=criticos.get(nombre, False),
                     motivo_sin_veredicto=ERROR_PLANNER,
+                    lenguaje=getattr(
+                        getattr(self.planner, "adaptador", None),
+                        "lenguaje",
+                        contracts.LENGUAJE_CONTRATOS_ANTERIORES,
+                    ),
+                    detalle_error_planner=motivo,
                     tipo=tipo,
                     inicio=ahora,
                     fin=ahora,
@@ -763,6 +773,9 @@ class Orquestador:
             if isinstance(contrato, dict)
             else False,
             contrato=copy.deepcopy(contrato) if isinstance(contrato, dict) else None,
+            lenguaje=contracts.lenguaje_de_contrato(contrato)
+            if isinstance(contrato, dict)
+            else contracts.LENGUAJE_CONTRATOS_ANTERIORES,
         )
         objetivos.append(resultado)
         tope = min(self.max_intentos, MAX_INTENTOS_CONTRATO)  # nunca más de 3
@@ -779,6 +792,7 @@ class Orquestador:
             except FalloControlado as error:
                 resultado.motivo_sin_veredicto = ERROR_CONTRATO_PLANNER
                 resumen_err = _resumen_error_contrato(error)
+                resultado.detalle_error_planner = resumen_err
                 self._emitir(
                     "planner",
                     objetivo,

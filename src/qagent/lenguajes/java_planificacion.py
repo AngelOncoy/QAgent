@@ -61,6 +61,8 @@ def prompt_funciones(modulo: dict[str, Any], humo: bool) -> str:
         "{objetivo, casos}. Cada caso lleva id, entrada, valor_esperado o excepcion, "
         "origen y categoria (normal, limite o error). entrada es un objeto por nombre "
         "de parámetro o una lista de argumentos posicionales; usa [] si no hay argumentos.\n"
+        "id usa solo minúsculas ASCII, números y guion bajo (^[a-z0-9_]+$), "
+        "por ejemplo esmayordeedad_normal_mayor; cada id debe ser único por método.\n"
         "El resultado debe salir del Javadoc funcional y ser compatible con los tipos Java. "
         "Usa origen docstring para Javadoc. Un tipo general (int, double, boolean, String, "
         "List...) o una firma no determinan un valor concreto. No inventes casos ni "
@@ -198,8 +200,12 @@ class ReglasPlanificacionJava:
 
     @staticmethod
     def preparar_caso(funcion: dict[str, Any], caso: dict[str, Any]) -> dict[str, Any]:
-        """Copia el caso sin corregir ni inventar entradas o valores esperados."""
-        return dict(caso)
+        """Normaliza solo la etiqueta del caso; conserva entradas y oráculo intactos."""
+        preparado = dict(caso)
+        identificador = preparado.get("id")
+        if isinstance(identificador, str):
+            preparado["id"] = re.sub(r"[^a-z0-9_]+", "_", identificador.lower())
+        return preparado
 
     @staticmethod
     def es_caso_trivial(funcion: dict[str, Any], caso: dict[str, Any]) -> bool:

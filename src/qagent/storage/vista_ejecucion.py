@@ -526,6 +526,11 @@ def _por_modulo(objetivos, estados) -> list[dict[str, Any]]:
                 "motivo_estancado": objetivo["motivo_estancado"],
                 # Por qué quedó sin veredicto; las corridas anteriores no lo tienen.
                 "motivo_sin_veredicto": objetivo.get("motivo_sin_veredicto"),
+                **(
+                    {"detalle_error_planner": objetivo["detalle_error_planner"]}
+                    if objetivo.get("detalle_error_planner")
+                    else {}
+                ),
                 "critical": objetivo["critical"],
                 "categorias": texto_categorias(categorias_de(objetivo)),  # #76
             }

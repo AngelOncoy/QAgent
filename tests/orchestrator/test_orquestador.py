@@ -191,6 +191,7 @@ def test_planner_que_rompe_el_contrato_deja_sin_veredicto_el_objetivo() -> None:
     assert len(resultado.objetivos) == 1
     assert resultado.objetivos[0].decision is None
     assert resultado.objetivos[0].motivo_sin_veredicto == "error_contrato_planner"
+    assert "origen" in resultado.objetivos[0].detalle_error_planner
     assert generator.feedbacks == []  # no se generaron pruebas para ocultar el error
 
 
