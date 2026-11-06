@@ -287,3 +287,42 @@ def test_endpoints_spring_no_reutilizan_prompts_fastapi() -> None:
     assert "MockMvc" in prompt
     assert "TestClient" not in prompt
     assert "FastAPI" not in prompt
+
+
+@pytest.mark.parametrize(
+    ("identificador", "normalizado"),
+    [
+        ("esMayorDeEdad_normal_mayor", "esmayordeedad_normal_mayor"),
+        ("sumarPrecios-lista-vacia", "sumarprecios_lista_vacia"),
+    ],
+)
+def test_ids_java_del_modelo_no_descartan_oraculos_validos(
+    tmp_path: Path, identificador: str, normalizado: str
+) -> None:
+    """Acepta identificadores representativos de IA real sin cambiar el oráculo (#253)."""
+    caso = {**_caso({"x": 18}, True), "id": identificador}
+    original = dict(caso)
+    _, plan = _planificar(
+        tmp_path,
+        "class Banco { /** Devuelve true si x es al menos 18. */ "
+        "public boolean f(int x) {return x >= 18;} }",
+        [caso],
+    )
+    assert plan[0]["casos"] == [{**original, "id": normalizado}]
+    assert caso == original
+
+
+def test_ids_java_que_colisionan_se_descartan_como_repetidos(tmp_path: Path) -> None:
+    """La normalización no permite dos casos con la misma identidad (#253)."""
+    casos = [
+        {**_caso({"x": 18}, True), "id": "Edad-Mayor"},
+        {**_caso({"x": 19}, True), "id": "edad_mayor"},
+    ]
+    planner, plan = _planificar(
+        tmp_path,
+        "class Banco { /** Devuelve true si x es al menos 18. */ "
+        "public boolean f(int x) {return x >= 18;} }",
+        casos,
+    )
+    assert len(plan[0]["casos"]) == 1
+    assert any("caso repetido" in motivo for motivo in planner.descartados)

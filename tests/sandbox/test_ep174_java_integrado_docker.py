@@ -37,7 +37,8 @@ class ProveedorJavaGrabado:
         grabaciones = {
             nombre.split(".")[0] + ".java::" + nombre: [
                 {
-                    "id": "contrato",
+                    # #253: la IA real devuelve mayúsculas y guiones en estas etiquetas.
+                    "id": nombre.split(".")[-1] + "-Normal",
                     "entrada": entrada,
                     "valor_esperado": esperado,
                     "origen": "docstring",
@@ -112,8 +113,15 @@ def test_banco_original_desde_escritorio_hasta_resultados_y_regresion(
     monkeypatch.setattr(ContainerCollection, "run", observar)
     config = cargar_configuracion(simulado=True).config
     assert config is not None
+    eventos = []
     resumen = ejecutar_corrida(
-        proyecto, "std", config, None, simulado=True, seleccion=seleccion
+        proyecto,
+        "std",
+        config,
+        None,
+        simulado=True,
+        seleccion=seleccion,
+        al_evento=eventos.append,
     )
     assert resumen.estado == FIN, resumen.motivo
     assert resumen.aceptadas == resumen.bugs_detectados == 3
@@ -121,11 +129,17 @@ def test_banco_original_desde_escritorio_hasta_resultados_y_regresion(
         resumen.sin_veredicto == resumen.estancadas == resumen.objetivos_omitidos == 0
     )
     assert resumen.tokens == 0
+    assert all(e["progreso"]["total"] == 6 for e in eventos)
+    veredictos = [e for e in eventos if e["tipo"] == "veredicto"]
+    assert [e["progreso"]["hechos"] for e in veredictos] == list(range(1, 7))
     results = json.loads((Path(resumen.carpeta) / "results.json").read_text("utf-8"))
     assert len(results["objetivos"]) == 6
     assert len(vista_reporte(results, None)["funciones"]) == 6
     detalle = json.loads((Path(resumen.carpeta) / "detalle.json").read_text("utf-8"))
     for funcion in detalle["funciones"]:
+        assert funcion["contrato"]["casos"][0]["id"] == (
+            funcion["funcion"].split(".")[-1].lower() + "_normal"
+        )
         assert len(funcion["intentos"]) == 1
         ejecucion = funcion["intentos"][0]["ejecucion"]
         assert ejecucion["totales"]["total"] == 1
