@@ -156,6 +156,7 @@ function elementosProbados(v){
       duracionPytest: p.duracion_pytest_s,
       cobLineas: p.cobertura_lineas, cobRamas: p.cobertura_ramas, estadoBackend: p.estado,
       motivoSinVeredicto: p.motivo_sin_veredicto || null,
+      errorPlanner: p.detalle_error_planner || null,
       ...detalleDeReporte(det),
     };
   }));
@@ -386,7 +387,10 @@ function renderCabeceraBandeja(todos, v){
   const bugs = todos.filter(e => e.bandeja === 'bug');
   $('bnjTitulo').textContent = estadoGeneral(todos, v).texto;
   const duracion = v && typeof v.duracion_total_s === 'number' ? v.duracion_total_s : null;
-  const partes = [document.querySelector('.ini-migas .repoName') ? document.querySelector('.ini-migas .repoName').textContent : '', 'Python'];
+  const nombresLenguaje = {python:'Python', java:'Java', javascript:'JavaScript', typescript:'TypeScript'};
+  const lenguajes = [...new Set(todos.map(e => e.lenguaje).filter(Boolean))];
+  const etiquetaLenguaje = lenguajes.map(l => nombresLenguaje[l] || l).join(' / ');
+  const partes = [document.querySelector('.ini-migas .repoName') ? document.querySelector('.ini-migas .repoName').textContent : '', etiquetaLenguaje];
   if (v && v.fecha) partes.push(new Date(v.fecha).toLocaleString('es-PE', {day:'numeric', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit'}));
   if (duracion !== null) partes.push('Duración total medida ' + (duracion >= 60 ? `${Math.floor(duracion / 60)} min ${Math.round(duracion % 60)} s` : tiempoReal(duracion)));
   if (v && v.es_simulado) partes.push('IA simulada');
@@ -462,6 +466,7 @@ function renderDetalleBandeja(e){
     </div>
     <span class="np-chip np-chip-${b.cls}">${b.ico()}${e.bandeja === 'bug' ? 'Posible bug en tu código' : b.chip}</span>
     ${explicacion ? `<p class="bnj-explicacion">${escHtml(explicacion)}</p>` : ''}
+    ${e.errorPlanner ? `<details class="np-detalle"><summary>Ver motivo del fallo de planificación</summary><pre class="np-log">${escHtml(e.errorPlanner)}</pre></details>` : ''}
     ${e.explicacionSimple ? explicacionSimple(e.explicacionSimple) : ''}
     ${e.omitido && e.tipo === 'funcion' ? '<p class="np-meta">Para probarla, describe en su docstring qué debe devolver o qué error lanza. QAgent no deduce el resultado esperado ejecutando el código.</p>' : ''}
     ${cargando}

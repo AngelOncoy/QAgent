@@ -32,6 +32,10 @@ WINDOWS = RAIZ / "packaging" / "windows"
 SALIDA = RAIZ / "dist" / "windows"
 TRABAJO = RAIZ / "build" / "pyinstaller"
 
+#: Python con el que el equipo desarrolla, construye y publica (TA #228). No es el mínimo
+#: que admite QAgent para los usuarios: ese sigue siendo `requires-python`.
+PYTHON_EQUIPO = (3, 13, 17)
+
 #: Dónde suele quedar el compilador de Inno Setup si no está en el PATH.
 RUTAS_ISCC = (
     Path(os.environ.get("ProgramFiles(x86)", r"C:\Program Files (x86)"))
@@ -56,6 +60,20 @@ def buscar_iscc() -> Path | None:
     return next((Path(c) for c in candidatos if c and Path(c).is_file()), None)
 
 
+def aviso_version_python(actual: tuple[int, ...] | None = None) -> str | None:
+    """Aviso si no se construye con el Python del equipo; `None` si coincide."""
+    actual = tuple(sys.version_info[:3]) if actual is None else tuple(actual[:3])
+    if actual == PYTHON_EQUIPO:
+        return None
+    esperada = ".".join(map(str, PYTHON_EQUIPO))
+    usada = ".".join(map(str, actual))
+    return (
+        f"Aviso: el equipo construye con Python {esperada} y este es {usada}. "
+        "El ejecutable saldría distinto al publicado; recrea el .venv "
+        "(docs/desarrollo.md, «Versión de Python del equipo»)."
+    )
+
+
 def _correr(comando: list[str]) -> None:
     print("$", " ".join(str(c) for c in comando), flush=True)
     subprocess.run(comando, check=True, cwd=RAIZ)
@@ -70,6 +88,9 @@ def main(argv: list[str] | None = None) -> int:
     )
     args = parser.parse_args(argv)
 
+    aviso = aviso_version_python()
+    if aviso:
+        print(aviso)
     if os.name != "nt":
         print(
             "Aviso: el ejecutable que se genere servirá solo para este sistema, no para Windows."

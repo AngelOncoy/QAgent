@@ -262,11 +262,11 @@ class PlannerAgent:
                 self._casos_invalidos += 1
                 self.descartados.append(f"{nombre}: un caso no es un objeto JSON")
                 continue
+            caso = self.reglas.preparar_caso(funcion or {}, caso)
             if any(caso.get("id") == previo["id"] for previo in validos):
                 self._casos_invalidos += 1
                 self.descartados.append(f"{nombre}: caso repetido {caso.get('id')!r}")
                 continue
-            caso = self.reglas.preparar_caso(funcion or {}, caso)
             try:
                 contracts.validar(
                     contracts.PLANNER_V3,

@@ -148,6 +148,40 @@ El schema prueba forma y vocabulario, no capacidades dinámicas. El consumidor d
 | Fallar y volver a reglas o lista vacía | Crear oráculos, aserciones, código de prueba o valores esperados |
 | Declarar `origen` para trazabilidad | Modificar veredictos, resultados, cobertura o decisiones del Reviewer |
 
+### 5.5 Implementación del paso 2 (#200)
+
+- **Configuración:** `[agentes.recomendador]` en `config.toml` con `modo = "reglas"` (predeterminado) o `"ia"`. Con `"ia"` lleva `proveedor`, `modelo`, precios (ADR-001) y `tiempo_maximo_s` opcional (30 s). No entra en `Configuracion.agentes`: si falta la clave, se usan las reglas. La clave se busca en `<PROVEEDOR>_API_KEY_RECOMENDADOR` o en la del proveedor.
+- **Entrada:** `entrada_ia()` arma campo por campo la proyección del §5.1 más la lista del paso 1 (`reglas` y `tipos_permitidos`); cada texto se acota y pasa por `sanitizar_secretos`.
+- **Salida:** el LLM solo devuelve `recomendaciones`; `version` y `origen: "ia"` los pone QAgent. Se valida con `recommendation.v1` y con la misma validación dinámica que las reglas, y debe ser un subconjunto de la lista del paso 1 (puede omitir tipos, no agregarlos). Cualquier incumplimiento descarta toda la salida y se usa la de las reglas.
+- **Fallos:** error del cliente, tiempo agotado, falta de clave o error inesperado usan las reglas y dejan el motivo en el log. Los tokens y el costo se registran como agente `recomendador` en un `TokenTracker`; la Vista previa los devuelve en `consumo_recomendador` cuando hubo una llamada.
+- **Interfaz:** la Vista previa muestra «Recomendación generada por IA» cuando `origen` es `ia`. La persona sigue confirmando o cambiando la selección.
+
+### 5.6 Medición con un LLM real y modo por defecto (#201)
+
+**Qué se midió.** El 2026-11-04 se corrió el Recomendador con `deepseek/deepseek-flash` (US$ 0,30 por millón de tokens de entrada y US$ 1,20 de salida) sobre tres proyectos de muestra (`bench_recomendador/proyectos/`: solo funciones, FastAPI y mixto), tres repeticiones cada uno. No hay un proyecto de Reflex porque QAgent todavía no tiene adaptador para él. Resultados completos en `bench_recomendador/resultados/20261104-0935/` (cifras [MEDIDO]).
+
+| Proyecto | Tokens (ent. / sal.) | Costo | Latencia p50 / p95 |
+|---|---|---|---|
+| fastapi | 1 833 / 1 053 | US$ 0,0018 | 3,1 s / 4,1 s |
+| mixto | 1 929 / 1 904 | US$ 0,0029 | 4,5 s / 5,6 s |
+| solo_funciones | 1 683 / 986 | US$ 0,0017 | 2,8 s / 3,0 s |
+
+- Las 9 respuestas cumplieron `recommendation.v1` y se usaron; no hubo descartes. El costo total fue de US$ 0,0064, unos US$ 0,0007 por llamada.
+- En las 9 el LLM **mantuvo el orden de las reglas y no omitió ningún tipo**. Lo que cambió fue el motivo, que reescribió siempre: a veces con matices útiles (por qué la mutación va al final) y a veces perdiendo datos concretos, como las rutas de ejemplo.
+- Cada recomendación con IA añade entre 3 y 5 segundos a la Vista previa, porque la llamada es síncrona.
+
+**Qué se concluyó.**
+
+1. **El paso con IA ayuda a tener una noción de qué pruebas usar.** Así lo comprobó el equipo al usarlo en la aplicación sobre `bench` y `bench_java`: la recomendación es coherente con el proyecto y sus motivos orientan a quien no lo conoce.
+2. **El detalle se verificará más adelante, cuando haya más tipos de prueba integrados** (componentes, E2E de humo, arquitectura, integración interna, #245). Con solo funciones y endpoints el orden de las reglas ya es el que el modelo elige, así que hoy la IA aporta sobre todo redacción; su valor para priorizar solo puede medirse cuando haya más opciones entre las que elegir.
+3. **Modo por defecto: `reglas`.** No necesita clave, cuesta 0 tokens, es inmediato y determinista. La IA queda disponible de forma opcional: cada persona la activa desde Configuración (#244) con su propia clave y su modelo, y puede quitarla en cualquier momento. Los demás criterios no cambian: si falla, se usan las reglas.
+
+**Alcance de la conclusión y límites de la medición.**
+
+- No se hizo la revisión a ciegas con planilla que preveía el SPK (`bench_recomendador/rubrica.md`, `--puntuar`). Quedó fuera por decisión del equipo; el script y la rúbrica siguen disponibles para repetirla.
+- Se midió un solo modelo (el de DeepSeek) y con el prompt del #200 original. Un ajuste posterior pide usar las cifras tal como vienen, porque el modelo llegó a decir «31 decisiones críticas» donde eran 31 objetivos con decisiones.
+- Conviene repetir la medición cuando se integren más tipos de prueba y, si se quiere activar la IA por defecto en algún perfil, con una revisión a ciegas.
+
 ## 6. Consecuencias
 
 ### Positivas

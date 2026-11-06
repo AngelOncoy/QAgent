@@ -199,8 +199,7 @@ def ejecutar_corrida(
     inicio_utc = ahora()
     ruta = Path(ruta_proyecto)
     progreso = {"hechos": 0, "total": 0}
-    estimados_por_modulo: dict[str, int] = {}
-    planificados_por_modulo: dict[str, int] = {}
+    objetivos_procesados: set[tuple[str | None, str | None]] = set()
 
     # #148: la construcción del entorno aislado avisa desde otro hilo.
     candado = threading.RLock()
@@ -210,16 +209,9 @@ def ejecutar_corrida(
             _emitir(evento)
 
     def _emitir(evento: Evento) -> None:
-        datos = evento.datos or {}
-        planificados = datos.get("objetivos_planificados")
-        if evento.archivo and isinstance(planificados, int):
-            anterior = planificados_por_modulo.get(
-                evento.archivo, estimados_por_modulo.get(evento.archivo, 0)
-            )
-            progreso["total"] += planificados - anterior
-            planificados_por_modulo[evento.archivo] = planificados
         if evento.tipo == "veredicto":
-            progreso["hechos"] += 1
+            objetivos_procesados.add((evento.archivo, evento.funcion))
+            progreso["hechos"] = len(objetivos_procesados)
         if al_evento is not None:
             datos_evento = dict(evento.datos or {})
             if "tracker" in locals():
@@ -322,12 +314,6 @@ def ejecutar_corrida(
         ]
         n_funciones = sum(len(m["funciones"]) for m in modulos)
         n_endpoints = sum(len(m.get("endpoints") or []) for m in modulos)
-        estimados_por_modulo.update(
-            {
-                m["ruta"]: len(m["funciones"]) + len(m.get("endpoints") or [])
-                for m in modulos
-            }
-        )
         resumen.total_seleccionados = n_funciones + n_endpoints
         progreso["total"] = resumen.total_funciones = resumen.total_seleccionados
         if n_endpoints:
@@ -347,9 +333,12 @@ def ejecutar_corrida(
             )
 
         tracker = TokenTracker(configuracion.agentes)
+        # El Explicador crea su cliente al final (`_redactor_ia`): sin su clave la
+        # corrida no se detiene, usa la plantilla (ADR-008).
         clientes = {
             agente: crear_cliente(precio, claves, simulado=simulado)
             for agente, precio in configuracion.agentes.items()
+            if agente != "explicador"
         }
         avisar_entorno(
             (

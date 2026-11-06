@@ -224,8 +224,15 @@ def actualizar_consumo(rutas: RutasCorrida, tracker: TokenTracker) -> None:
     )
     contracts.validar(contracts.RUN_LOG, log)
     contracts.validar(contracts.RUN_LOG, results)
+    # Los dos archivos cuentan lo mismo: si results.json no se puede escribir,
+    # log.json vuelve a como estaba (EP-10 #172).
+    log_anterior = rutas.log.read_bytes()
     _escribir_json(rutas.log, log)
-    _escribir_json(rutas.results, results)
+    try:
+        _escribir_json(rutas.results, results)
+    except BaseException:
+        rutas.log.write_bytes(log_anterior)
+        raise
 
 
 def escribir_explicaciones(carpeta: str | Path, datos: dict[str, Any]) -> Path:
@@ -483,6 +490,12 @@ def _objetivo(
         "motivo_estancado": objetivo.motivo_estancado,  # HU-14
         # Sin veredicto por tiempo o red, sin detener el módulo.
         "motivo_sin_veredicto": getattr(objetivo, "motivo_sin_veredicto", None),
+        "detalle_error_planner": _sanear(
+            getattr(objetivo, "detalle_error_planner", None)
+        ),
+        "lenguaje": getattr(
+            objetivo, "lenguaje", contracts.LENGUAJE_CONTRATOS_ANTERIORES
+        ),
         "reutilizada": objetivo.reutilizada,
         "motivo_regresion": objetivo.motivo_regresion,
         "laundering_detectado": objetivo.laundering_detectado,  # HU-16

@@ -187,7 +187,7 @@ function pintarProgreso(){
 
   // Lo omitido (sin resultado esperado verificable o ruta sin resolver) también está resuelto.
   const omitidos = PRG.fin ? (PRG.fin.omitidos || 0) : 0;
-  const pendientes = PRG.fin ? (PRG.fin.pendientes || 0) : 0;
+  const pendientes = PRG.fin ? (PRG.fin.pendientes || 0) : Math.max(0, (PRG.total || 0) - PRG.hechos - omitidos);
   const pct = PRG.total ? Math.min(100, Math.round((PRG.hechos + omitidos) / PRG.total * 100)) : (PRG.fin ? 100 : 0);
   const indeterminado = !!(PRG.preparandoEntorno && !PRG.fin && !PRG.etapa);
   $('prgAvanceTxt').textContent = indeterminado

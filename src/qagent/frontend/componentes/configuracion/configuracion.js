@@ -1,6 +1,6 @@
 // configuracion.js — pantalla «Configuración»: conexión de IA por etapa (HU-30), motor, límites y apariencia
 // HTML del componente (se monta en el marcador data-componente="configuracion/configuracion" de index.html)
-// Cada etapa (analizar, escribir pruebas, verificar) tiene su propio proveedor, modelo y clave: así lo guarda
+// Cada etapa (analizar, escribir pruebas, verificar, explicar) tiene su propio proveedor, modelo y clave: así lo guarda
 // el backend. Los íconos compartidos (ICO_*) vienen de inicio/modal-abrir.js y modal-clonar.js.
 const ICO_FLECHA_ABAJO = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>';
 registrarComponente('configuracion/configuracion', `<!-- ===== CONFIGURACIÓN ===== -->
@@ -24,11 +24,11 @@ registrarComponente('configuracion/configuracion', `<!-- ===== CONFIGURACIÓN ==
 
       <div class="np-rejilla cfg-rejilla">
         <div class="np-columna">
-          <section class="np-tarjeta" aria-labelledby="cfgEtapasTitulo">
+          <section class="np-tarjeta cfg-tarjeta-etapas" aria-labelledby="cfgEtapasTitulo">
             <h2 id="cfgEtapasTitulo">Conexión de IA por etapa</h2>
             <p class="np-texto">Cada etapa puede usar su propio proveedor y modelo. Al guardar se prueba la conexión; si falla, no se guarda nada.</p>
             <div class="cfg-etapas" id="cfgAgents"></div>
-            <p class="np-meta">Tus claves se guardan solo en tu equipo. Aquí se ven enmascaradas y nunca entran al entorno aislado ni a tu proyecto. Si dos etapas usan la misma clave, comparten su límite de uso.</p>
+            <p class="np-meta">Tus claves se guardan solo en tu equipo. Aquí se ven enmascaradas y nunca entran al entorno aislado ni a tu proyecto. Si dos etapas usan la misma clave, comparten su límite de uso. «Recomendando» es opcional: sin su clave, QAgent recomienda con reglas y sin IA.</p>
           </section>
 
           <section class="np-tarjeta" aria-labelledby="cfgLimitesTitulo">
@@ -97,6 +97,9 @@ const ETAPA = {
   planner:   {t:'Analizando',          d:'Lee el código y decide qué casos probar.'},
   generator: {t:'Escribiendo pruebas', d:'Escribe la prueba de cada función o endpoint.'},
   reviewer:  {t:'Verificando',         d:'Revisa los resultados en el entorno aislado.'},
+  explicador:{t:'Explicando resultados', d:'Explica en palabras simples por qué una función no pasó.'},
+  // issue 244: opcional, no es una etapa de la corrida. Sin clave, QAgent usa reglas (sin IA).
+  recomendador: {t:'Recomendando',    d:'Sugiere qué tipos de prueba hacer al abrir un proyecto (opcional).'},
 };
 let rolesApi = [];          // estado de cada etapa (DesktopAPI.obtener_roles)
 let eliminarPendiente = null;
@@ -126,6 +129,7 @@ function filaRol(r){
   const avisos = [];
   let modelo, estado, eliminar = '';
   if(conectada){
+    if(r.opcional) avisos.push('<span class="cfg-aviso">La IA solo te recomienda las pruebas que tenemos configuradas.</span>');
     if(!r.genera_texto) avisos.push(`<span class="cfg-aviso">Este modelo es de tipo «${escHtml(r.tipo_nombre)}» y no genera texto: la etapa fallará durante la corrida.</span>`);
     if((r.clave_repetida_con || []).length) avisos.push(`<span class="cfg-aviso">Comparte la clave con ${(r.clave_repetida_con).map(n => escHtml((ETAPA[String(n).toLowerCase()] || {t:n}).t)).join(' y ')}: comparten su límite de uso.</span>`);
     modelo = `<div class="cfg-modelo">${insigniaProveedor(r.proveedor, r.proveedor_nombre)}<div><b>${escHtml(r.modelo)}</b><span class="np-meta">${escHtml(r.proveedor_nombre)} · <span class="np-mono">${escHtml(r.clave_enmascarada)}</span></span></div></div>`;
@@ -137,7 +141,10 @@ function filaRol(r){
     modelo = sel
       ? `<div class="cfg-modelo">${insigniaProveedor(sel.proveedor, sel.proveedor_nombre)}<div><b>${escHtml(sel.modelo)}</b><span class="np-meta">${escHtml(sel.proveedor_nombre)}</span></div></div>`
       : '<span class="cfg-vacio">No seleccionado</span>';
-    estado = `<span class="np-chip np-chip-aviso">${ICO_AVISO_CLON}Falta la clave</span>`;
+    // Una etapa opcional sin clave no es un problema: se usan las reglas.
+    estado = r.opcional
+      ? '<span class="np-chip">Reglas (sin IA)</span>'
+      : `<span class="np-chip np-chip-aviso">${ICO_AVISO_CLON}Falta la clave</span>`;
   }
   const boton = `<button type="button" class="ini-btn" onclick="abrirModalApi('${r.agente}')">${r.configurado && r.tiene_clave ? 'Editar' : 'Agregar API'}</button>`;
   return `<div class="cfg-etapa">
@@ -155,7 +162,7 @@ function pintarRoles(){
 async function cargarRoles(){
   if(!hayApiDeRoles()){
     // Demostración en el navegador: el catálogo y las claves solo existen en la app de escritorio.
-    rolesApi = ['planner','generator','reviewer'].map(a => ({agente:a, nombre:a[0].toUpperCase() + a.slice(1), configurado:false}));
+    rolesApi = [...['planner','generator','reviewer','explicador'], 'recomendador'].map(a => ({agente:a, nombre:a[0].toUpperCase() + a.slice(1), configurado:false, opcional:a === 'recomendador'}));
     pintarRoles();
     return;
   }

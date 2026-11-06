@@ -62,6 +62,10 @@
         },
         "reviewer": {
           "$ref": "#/$defs/modelo"
+        },
+        "explicador": {
+          "$ref": "#/$defs/modelo",
+          "description": "Modelo del Explicador, obligatorio desde EP-10 (#172). Opcional para leer corridas anteriores."
         }
       }
     },
@@ -242,7 +246,7 @@
   ],
   "$defs": {
     "agente": {
-      "description": "Agente que llamó a la IA. El explicador (#166) solo aparece en llamadas y totales, después del veredicto.",
+      "description": "Agente que llamó a la IA. El explicador (#166) llama después del veredicto.",
       "enum": [
         "planner",
         "generator",
@@ -665,6 +669,10 @@
         "lenguaje": {
           "enum": ["python", "javascript", "typescript", "java"],
           "description": "#168. Lenguaje del objetivo, del contrato del Planner (un planner_contract.v2 es Python). Columna lenguaje de las 5 métricas (ADR-010). Opcional: las corridas anteriores y los objetivos sin contrato no lo tienen."
+        },
+        "detalle_error_planner": {
+          "type": ["string", "null"],
+          "description": "#253. Motivo técnico saneado del rechazo del Planner; opcional para conservar corridas anteriores."
         },
         "motivo_sin_veredicto": {
           "enum": [

@@ -33,6 +33,8 @@
 .exp-reco-lista li span:not(.exp-reco-n){display:block;color:var(--texto-2);font-size:var(--texto-meta);line-height:1.5}
 .exp-reco-n{display:inline-grid;place-items:center;flex-shrink:0;width:24px;height:24px;border-radius:50%;background:var(--accion-suave);color:var(--enlace);font-size:var(--texto-meta);font-weight:var(--peso-fuerte)}
 .exp-reco-lista .exp-reco-vacia{color:var(--texto-2)}
+.exp-reco-ia{align-self:flex-start;margin-top:var(--esp-1);background:var(--accion-suave);border-color:var(--enlace);color:var(--enlace)}
+.exp-reco-acciones{display:flex;flex-wrap:wrap;gap:var(--esp-2)}
 .exp-reco-prox{display:flex;flex-wrap:wrap;gap:var(--esp-2)}
 .exp-reco-prox:empty,.exp-reco-estado:empty{display:none}
 .exp-reco-estado{color:var(--exito-t);font-size:var(--texto-meta)}

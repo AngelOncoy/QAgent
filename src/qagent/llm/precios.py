@@ -17,7 +17,8 @@ else:  # Python 3.10
 
 #: Configuración del equipo (modelos y precios); se instala con el paquete: qagent/config/.
 RUTA_CONFIG = Path(__file__).resolve().parents[1] / "config" / "config.toml"
-AGENTES = ("planner", "generator", "reviewer")
+#: Agentes con modelo propio. El Explicador es obligatorio como los demás (EP-10 #172).
+AGENTES = ("planner", "generator", "reviewer", "explicador")
 TOKENS_POR_MILLON = 1_000_000
 DECIMALES_COSTO = 8
 
@@ -51,7 +52,7 @@ class PrecioAgente:
 
 
 def cargar_precios(ruta: str | Path = RUTA_CONFIG) -> dict[str, PrecioAgente]:
-    """Lee `[agentes.planner]`, `[agentes.generator]` y `[agentes.reviewer]`.
+    """Lee `[agentes.<agente>]` de cada agente de `AGENTES`.
 
     Raises:
         FileNotFoundError: si no existe el archivo.

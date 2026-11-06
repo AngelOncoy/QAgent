@@ -1,7 +1,7 @@
 # Ejemplo de config.local.toml: modelos de CAPA GRATUITA (US$ 0) para esta computadora.
 #
 # Normalmente no hace falta: la pantalla Configuración escribe ~/.qagent/config.local.toml.
-# Para preparar los tres agentes de una vez, copia este archivo como
+# Para preparar los cuatro agentes de una vez, copia este archivo como
 # ~/.qagent/config.local.toml (es personal, no se comparte). La aplicación lo pone
 # encima de config.toml: cada [agentes.*] de aquí reemplaza al del equipo; lo demás
 # (presupuesto, umbrales, reintentos) se toma de config.toml salvo que lo repitas aquí.
@@ -12,7 +12,8 @@
 #
 # Reparto: Planner en Gemini (más contexto, pocas llamadas), Generator en Groq (más
 # llamadas por día) y Reviewer en OpenRouter (casi no llama). Tres familias distintas:
-# el Reviewer no juzga a un modelo de su misma familia.
+# el Reviewer no juzga a un modelo de su misma familia. El Explicador (EP-10) no juzga
+# pruebas: comparte proveedor con el Planner y llama una vez por hallazgo.
 # Ojo: en la capa gratuita los proveedores pueden usar lo enviado para mejorar sus
 # modelos; úsala con el banco o con repositorios públicos, no con código privado.
 
@@ -31,5 +32,11 @@ precio_salida_usd_m = 0
 [agentes.reviewer]
 proveedor = "openrouter"
 modelo = "nvidia/nemotron-3-super-120b-a12b:free"   # el catálogo :free cambia: python -m qagent.llm.validar --gratis
+precio_entrada_usd_m = 0
+precio_salida_usd_m = 0
+
+[agentes.explicador]
+proveedor = "gemini"
+modelo = "gemini-3.8-flash"
 precio_entrada_usd_m = 0
 precio_salida_usd_m = 0

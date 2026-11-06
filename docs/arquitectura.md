@@ -2,9 +2,9 @@
 
 > **Ítems:** EN-01 — Arquitectura GAIA y contratos JSON (Sprint 1) · EN-20 — Arquitectura del Sprint 2 · **Responsable:** Oncoy Patricio, Angel · **Estado:** borrador para aprobación del equipo
 
-QAgent genera y valida pruebas para el código del usuario. Hoy cubre Python 3.10+ con pytest: **pruebas unitarias de funciones** y **pruebas de endpoints FastAPI**. Tres agentes basados en LLM (Planner, Generator y Reviewer) trabajan bajo un orquestador determinista, y todas las pruebas se ejecutan en un sandbox Docker aislado.
+QAgent genera y valida pruebas para el código del usuario. Hoy cubre Python 3.10+ con pytest (**pruebas unitarias de funciones** y **pruebas de endpoints FastAPI**) y Java con JUnit 5 (**unitarias en proyectos Maven de un módulo** y **controladores Spring MVC** con MockMvc y `@MockBean`; ver `docs/java/spring-mockmvc.md`). JavaScript y TypeScript se analizan y planifican, pero todavía no generan ni ejecutan pruebas. Tres agentes basados en LLM (Planner, Generator y Reviewer) trabajan bajo un orquestador determinista, y todas las pruebas se ejecutan en un sandbox Docker aislado.
 
-En el **Sprint 2** la arquitectura se amplía sin rehacerse (ADR-010): una capa de **adaptadores por lenguaje** para JavaScript/TypeScript y Java (ADR-007, ADR-009), un **Agente Explicador** que traduce los hallazgos a lenguaje simple (ADR-008), un **Agente Recomendador** definido para orientar la selección antes de una corrida (ADR-011, todavía no implementado) y nuevos tipos de prueba por prioridad (sección 10.6). El orquestador sigue siendo determinista.
+En el **Sprint 2** la arquitectura se amplía sin rehacerse (ADR-010): una capa de **adaptadores por lenguaje** para JavaScript/TypeScript y Java (ADR-007, ADR-009), un **Agente Explicador** que traduce los hallazgos a lenguaje simple (ADR-008, implementado en EP-10), un **Agente Recomendador** definido para orientar la selección antes de una corrida (ADR-011; sus reglas ya orientan la selección en Vista previa, #197, y un LLM opcional, desactivado por defecto, las ordena y explica, #200) y nuevos tipos de prueba por prioridad (sección 10.6). El orquestador sigue siendo determinista.
 
 **Convención de los diagramas:** lo que todavía no está en `develop` lleva la etiqueta **«propuesto»** y se dibuja con línea punteada. Lo demás está implementado.
 
@@ -72,7 +72,7 @@ flowchart TB
     DEV(["Desarrollador de software<br/>obtiene pruebas para su código"])
     QA(["Equipo de QA<br/>revisa y aprueba pruebas"])
     AUD(["Auditor<br/>obtiene un informe trazable y su costo"])
-    NT(["Usuario con poca experiencia en desarrollo<br/>entiende qué falló (Explicador, propuesto)"])
+    NT(["Usuario con poca experiencia en desarrollo<br/>entiende qué falló (Explicador)"])
 
     QAG["QAgent<br/>aplicación de escritorio que genera<br/>y valida pruebas"]
 
@@ -96,7 +96,7 @@ flowchart TB
 | Desarrollador de software | Abre su proyecto, lanza la corrida y obtiene pruebas listas para su repositorio. |
 | Equipo de QA | Revisa las pruebas, las alertas de laundering y los mutantes sobrevivientes. |
 | Auditor | Consulta el costo estimado y real, el historial y el informe exportable. |
-| Usuario con poca experiencia en desarrollo (propuesto) | Lee la explicación en lenguaje simple de cada hallazgo. Es el público principal del Explicador (ADR-008); a un usuario técnico le basta la traza actual. |
+| Usuario con poca experiencia en desarrollo | Lee la explicación en lenguaje simple de cada hallazgo. Es el público principal del Explicador (ADR-008); a un usuario técnico le basta la traza actual. |
 | Proyecto del usuario | Fuente del análisis estático. Nunca se ejecuta fuera del sandbox. Hoy Python; JS/TS y Java en el Sprint 2. |
 | APIs de LLM | Un modelo por agente (ADR-001). Única salida a internet con información del proyecto. |
 | Docker Desktop | Ejecuta las pruebas en contenedores sin red. |
@@ -167,7 +167,7 @@ flowchart TB
         PYA["PythonAdapter<br/>delega en analysis/ y sandbox/"]
         OTR["JS/TS · Java<br/>hoy solo detectan; tree-sitter (ADR-009)"]
     end
-    EXP["Explicador · propuesto<br/>etapa posterior al veredicto (ADR-008)"]
+    EXP["Explicador<br/>etapa posterior al veredicto (ADR-008)"]
     REC["Recomendador · definido<br/>Vista previa, antes de la corrida (ADR-011)"]
 
     BRIDGE --> ORQ
@@ -210,7 +210,7 @@ El Sprint 2 agrega tres piezas, todas fuera de la máquina de estados:
 | Configuración | `src/qagent/config/` | Carga `config.toml` y `.env`, audita las claves y verifica Docker y Git. | EN-06 |
 | Contratos | `src/qagent/contracts/` | JSON Schema de cada mensaje; se validan en cada paso. En el Sprint 2, versiones con lenguaje y framework (sección 9). | EN-01, EN-17 |
 | Adaptadores por lenguaje | `src/qagent/lenguajes/` | Interfaz `LanguageAdapter` y registro: detección del lenguaje, análisis estático, comando de pruebas, entorno del sandbox, lectura de resultados, guardrail de aserciones y, desde #168, los prompts, filtros y reglas de revisión que usan los agentes. La corrida elige el adaptador con `adaptador_del_proyecto()`. Python completo; JS/TS y Java todavía no son completos y la app avisa que su lenguaje aún no se soporta. | EN-17, #168, EP-11a, EP-12a · ADR-007, ADR-009 |
-| Explicador (propuesto) | por definir en EP-10 | Explica en lenguaje simple los objetivos que no terminaron en `accept`, con plantillas deterministas y un LLM opcional. | EP-10 · ADR-008 |
+| Explicador | el de `[agentes.explicador]`, obligatorio (EP-10) | Explica en lenguaje simple los objetivos que no terminaron en `accept` con un LLM; si falla, tarda o no hay presupuesto, usa las plantillas deterministas. | EP-10 · ADR-008 |
 | Recomendador (definido) | por implementar en EP-15 | Prioriza tipos de prueba soportados a partir del resumen de Vista previa; reglas deterministas con LLM opcional y respaldo, sin iniciar corridas. | #199, #197, #200 · ADR-011 |
 
 ### Reglas de dependencia
@@ -455,7 +455,7 @@ flowchart LR
     G -->|sí| M["Mutation testing<br/>mutmut · EN-09<br/>(0 tokens)"]
     G -->|no| R["7 · Reporte<br/>log.json + results.json"]
     M --> R
-    R -.->|"no cancelada, con presupuesto<br/>y Explicador activo"| X["8 · Explicador · propuesto<br/>explicaciones.json<br/>(0 tokens con plantilla,<br/>tokens bajos con LLM)"]
+    R -.->|"no cancelada, con presupuesto<br/>y Explicador activo"| X["8 · Explicador<br/>explicaciones.json<br/>(tokens bajos con LLM,<br/>0 con la plantilla de respaldo)"]
 ```
 
 Desde #168 el registro detecta el lenguaje del proyecto (`adaptador_del_proyecto()`) y el análisis, los prompts, el comando de pruebas, la lectura de resultados y de la cobertura y el guardrail salen del adaptador elegido. El resto del pipeline es el mismo para todos los lenguajes. Si el proyecto solo tiene lenguajes cuyo adaptador aún no es completo, la app lo avisa al iniciar, sin gastar tokens.
@@ -466,7 +466,7 @@ Desde #168 el registro detecta el lenguaje del proyecto (`adaptador_del_proyecto
 | Reviewer | `review_result` con n.º de intento | Iteraciones de autorreparación |
 | Cliente LLM | `usage` de cada llamada | Tokens por agente (`prompt_tokens` + `completion_tokens`) |
 | Mutation testing | mutantes muertos / totales | Mutation Score (solo funciones críticas) |
-| Explicador (propuesto) | `explicaciones.json` | Ninguna: no cambia resultados. Se registran sus tokens como agente `explicador` |
+| Explicador | `explicaciones.json` | Ninguna: no cambia resultados. Se registran sus tokens como agente `explicador` |
 
 ### 6.2 Flujo de información
 
@@ -508,7 +508,7 @@ sequenceDiagram
     end
     OR-)UI: eventos (agente, archivo, función, mensaje, hora)
     OR->>FS: log.json + results.json
-    opt Explicador activo (propuesto, sección 6.5)
+    opt Explicador activo (sección 6.5)
         OR->>FS: explicaciones.json
     end
     OR-->>UI: reporte final
@@ -586,9 +586,9 @@ flowchart LR
 | Reintentar C, D y E con Generator + Reviewer, 2 veces cada uno | ~US$ 0.04 |
 | Aplicando las reglas 2 y 4 (bug detectado o error repetido) | ~US$ 0 |
 
-### 6.5 Etapa del Explicador (propuesto)
+### 6.5 Etapa del Explicador
 
-Decidida en ADR-008 (SPK-03). Corre en `corrida.py` cuando los veredictos ya están escritos, así que un fallo del Explicador nunca pierde resultados.
+Decidida en ADR-008 (SPK-03) e implementada en EP-10 (#163, #164, #166, #167, #172). Corre en `corrida.py` cuando los veredictos ya están escritos, así que un fallo del Explicador nunca pierde resultados: sin `explicaciones.json`, o con uno inválido, los informes quedan como sin Explicador, y `log.json` y `results.json` nunca quedan desparejos.
 
 ```mermaid
 sequenceDiagram
@@ -613,11 +613,12 @@ sequenceDiagram
 | Aspecto | Regla |
 |---|---|
 | Qué explica | Solo los objetivos que no terminaron en `accept` (bug detectado, estancado, sin veredicto). |
-| Dos niveles | Plantillas deterministas con el esperado, el obtenido y el motivo (0 tokens, siempre disponibles) y, encima, un LLM opcional que lee **toda la traza de intentos**. |
+| Dos niveles | Un LLM que lee **toda la traza de intentos** (`modo = "ia"`, el de por defecto) y, debajo, plantillas deterministas con el esperado, el obtenido y el motivo (0 tokens, siempre disponibles) que se usan si el LLM falla, tarda más de `tiempo_maximo_s` o se agota el presupuesto. |
 | Entradas | Contrato del Planner, `review_result` de cada intento y `ResultadoObjetivo`, pasados por `sanitizar_secretos`. Nunca claves, rutas absolutas ni el proyecto completo. |
 | Salida | `.qagent/runs/<run_id>/explicaciones.json` (validado contra `explicaciones.schema.json`), nunca dentro de `results.json`. Cada elemento cumple `explanation.v1` (`objetivo`, `decision`, `resumen`, `que_se_esperaba`, `que_paso`, `que_hacer`, `origen`, `modelo`). La `decision` es un eco: si no coincide con `results.json`, la explicación se descarta. |
 | Cuándo se omite | Corrida cancelada, límite de tokens o tope en USD alcanzado, perfil Humo o Explicador desactivado. |
-| Público | Pensado sobre todo para usuarios con poca experiencia en desarrollo; se puede desactivar. |
+| Configuración | Su API es obligatoria como la de los otros agentes: se agrega en Configuración → «Explicando resultados» y sin ella no se inicia una corrida con la IA real. La corrida crea su cliente al final, así que una clave que falte en ese momento solo hace usar la plantilla. |
+| Público | Pensado sobre todo para usuarios con poca experiencia en desarrollo. `activo = false` lo apaga (pruebas y casos técnicos). |
 
 ---
 
@@ -691,7 +692,7 @@ Limitaciones conocidas: la derivada de Java copia solo el `pom.xml` o el `build.
 
 QAgent se modela con la metodología GAIA (Wooldridge, Jennings y Kinny): primero el **análisis** (modelo de roles y modelo de interacción) y luego el **diseño** (modelo de agentes, de servicios y de conocidos).
 
-Hay **cuatro roles** implementados: tres con LLM (Planner, Generator y Reviewer) y un **Coordinador** determinista, que implementa el orquestador. El Sprint 2 propone un quinto rol, **Explicador** (ADR-008), que actúa después de que el Coordinador cierra los veredictos.
+Hay **cinco roles** implementados: cuatro con LLM (Planner, Generator, Reviewer y **Explicador**) y un **Coordinador** determinista, que implementa el orquestador. El Explicador (ADR-008, EP-10) actúa después de que el Coordinador cierra los veredictos.
 
 **Notación de las expresiones de vida (liveness):** `x . y` = x seguido de y · `x | y` = x o y · `x*` = cero o más veces · `x+` = una o más veces · `[x]` = opcional. Las actividades internas van en *cursiva* y los protocolos en texto normal.
 
@@ -739,7 +740,7 @@ Hay **cuatro roles** implementados: tres con LLM (Planner, Generator y Reviewer)
 | **Liveness** | `COORDINADOR = AnalizarProyecto . OrdenarPorDependencias . (SolicitarPlan . (SolicitarTest . SolicitarRevisión)+)+ . RegistrarCorrida` |
 | **Safety** | • Gasto acumulado ≤ tope por corrida. • Todo mensaje entre roles pasa por él (sin broadcast). • Un error o timeout del sandbox termina en fallo controlado. • Un reintento nunca vuelve a solicitar el plan. • Solo solicita una explicación después de escribir `results.json`. |
 
-#### Rol: Explicador (propuesto, ADR-008)
+#### Rol: Explicador (ADR-008, EP-10)
 
 | Campo | Contenido |
 |---|---|
@@ -767,7 +768,7 @@ Hay **cuatro roles** implementados: tres con LLM (Planner, Generator y Reviewer)
 | SolicitarTest | Coordinador | Generator | contrato de 1 función o endpoint (+ feedback) | `generated_test` | Obtener o corregir un test |
 | SolicitarRevisión | Coordinador | Reviewer | contrato + test (+ test anterior) | `review_result` | Ejecutar y validar el test; decidir el siguiente paso |
 | NotificarEvento | Coordinador | Interfaz | — | evento (agente, archivo, función, mensaje, hora) | Mostrar el avance en el Monitor en vivo (HU-09) |
-| SolicitarExplicación (propuesto) | Coordinador (`corrida.py`) | Explicador | hallazgos de solo lectura | `explicaciones.json` | Explicar los objetivos que no se aceptaron (ADR-008) |
+| SolicitarExplicación | Coordinador (`corrida.py`) | Explicador | hallazgos de solo lectura | `explicaciones.json` | Explicar los objetivos que no se aceptaron (ADR-008) |
 | SolicitarRecomendación (definido) | Vista previa | Recomendador | resumen estático mínimo + capacidades de adaptadores | `recommendation.v1` | Orientar la selección que confirma el usuario antes de `start_run` (ADR-011) |
 
 Los tres primeros protocolos son de **petición-respuesta**: el Coordinador espera la salida antes de continuar. NotificarEvento es asíncrono y no espera respuesta. SolicitarExplicación también es de petición-respuesta, pero tiene su propio tiempo máximo y su fallo no afecta la corrida. SolicitarRecomendación ocurre antes de la corrida: su fallo deja disponible la selección manual y no llama al Coordinador.
@@ -780,7 +781,7 @@ Los tres primeros protocolos son de **petición-respuesta**: el Coordinador espe
 | GeneratorAgent | Generator | 1 | MiMo-V2.6-Pro |
 | ReviewerAgent | Reviewer / Executor | 1 | GPT-6 Luna + guardrail determinista |
 | Orquestador | Coordinador | 1 | Sin LLM |
-| ExplicadorAgent (propuesto) | Explicador | 0 o 1 | Plantillas sin LLM; LLM opcional, modelo económico definido en `[agentes.explicador]` (ADR-001) |
+| ExplicadorAgent | Explicador | 0 o 1 | LLM con el modelo de `[agentes.explicador]` (ADR-001), obligatorio; plantillas sin LLM de respaldo |
 | RecomendadorAgent (definido) | Recomendador | 0 o 1 por Vista previa | Reglas sin LLM; LLM opcional futuro, desactivado por defecto hasta #201 (ADR-011) |
 
 Cada rol lo cumple un solo tipo de agente. Las funciones y endpoints se procesan uno tras otro, así que una instancia de cada agente es suficiente en la Fase 1.
@@ -793,7 +794,7 @@ Cada rol lo cumple un solo tipo de agente. Las funciones y endpoints se procesan
 | Generar test | GeneratorAgent | contrato de 1 función o endpoint, feedback opcional | `generated_test` | contrato válido; intento ≤ 3 | el código pasa `ast.parse` |
 | Revisar test | ReviewerAgent | contrato, test, test anterior opcional | `review_result` | el sandbox está disponible | decisión en {accept, retry, bug_detectado, stalled}; métricas del intento registradas |
 | Coordinar corrida | Orquestador | ruta del proyecto, perfil | `log.json`, `results.json` | configuración válida y entorno listo (EN-06) | ambos archivos validan contra `run_log.schema.json` |
-| Explicar hallazgos (propuesto) | ExplicadorAgent | hallazgos de solo lectura | `explicaciones.json` | `results.json` escrito; corrida no cancelada; presupuesto disponible | cada explicación valida contra su schema y su `decision` coincide con `results.json` |
+| Explicar hallazgos | ExplicadorAgent | hallazgos de solo lectura | `explicaciones.json` | `results.json` escrito; corrida no cancelada; presupuesto disponible | cada explicación valida contra su schema y su `decision` coincide con `results.json` |
 | Recomendar tipos (definido) | RecomendadorAgent | resumen mínimo y capacidades | `recommendation.v1` | análisis estático disponible; todavía no se llamó a `start_run` | schema válido; cada tipo pertenece al conjunto elegible; el usuario conserva la confirmación |
 
 ### 8.5 Modelo de conocidos
@@ -806,7 +807,7 @@ flowchart LR
     PL["PlannerAgent"]
     GE["GeneratorAgent"]
     RE["ReviewerAgent"]
-    EX["ExplicadorAgent<br/>propuesto"]
+    EX["ExplicadorAgent"]
     RC["RecomendadorAgent<br/>definido"]
     VP["Vista previa"]
     ORQ <--> PL
@@ -835,7 +836,7 @@ Los schemas completos van en `src/qagent/contracts/` y los valida `tests/test_co
 | `review_result` | Reviewer → Orquestador | función o ruta, intento, estado del sandbox, cobertura, laundering detectado, `tipo_fallo` (`error_test` \| `bug_codigo`), hash del error, decisión (`accept` \| `retry` \| `bug_detectado` \| `stalled`), feedback, `ejecucion` opcional (EN-17: casos, salida y entorno del sandbox) | `review_result.schema.json` |
 | `detalle.json` | Orquestador → `.qagent/` | por función: contrato, último test y traza; por intento (EN-17): feedback, hash del error, cobertura y `ejecucion` (casos de pytest con archivo, línea, código, esperado y obtenido, salida recortada y entorno) | `detalle.schema.json` |
 | `log.json` / `results.json` | Orquestador → `.qagent/` | modelos usados, perfil, llamadas con tokens por agente, costo, 5 métricas por función o endpoint | `run_log.schema.json` |
-| `explanation.v1` (EN-18, alineado con ADR-008; Agente Explicador propuesto) | Explicador → validación determinista → `explicaciones.json` → Informes | `version`, `objetivo`, `decision` (eco estricto de `results.json`), `resumen`, `que_se_esperaba`, `que_paso`, `que_hacer`, `origen` y `modelo`. No contiene campos para modificar veredictos ni relajar aserciones | `explanation.v1.schema.json` |
+| `explanation.v1` (EN-18, alineado con ADR-008; Agente Explicador, EP-10) | Explicador → validación determinista → `explicaciones.json` → Informes | `version`, `objetivo`, `decision` (eco estricto de `results.json`), `resumen`, `que_se_esperaba`, `que_paso`, `que_hacer`, `origen` y `modelo`. No contiene campos para modificar veredictos ni relajar aserciones | `explanation.v1.schema.json` |
 | `explicaciones.json` (ADR-008) | Explicador → `.qagent/runs/<run_id>/explicaciones.json` | Contenedor de las explicaciones de la corrida (`explanation.v1`), persistido por separado de `results.json` | `explicaciones.schema.json` |
 | `bug_evidence.v1` (#193) | Orquestador → `.qagent/evidencias_bugs/<run_id>/<spec_id>.json` | Evidencia inmutable de una decisión `bug_detectado`: código exacto y su SHA-256, contrato Planner con `firma`, objetivo y corrida de origen. Se guarda separada de `tests/`, que sigue conteniendo solo pruebas aprobadas | `bug_evidence.v1.schema.json` |
 | `run_comparison.v1` (#193, #194, #195) | Comparador determinista → `.qagent/comparaciones/<run_verificacion>/<run_origen>.json` → Resultados, Historial e informes | Comparación por objetivo y prueba entre dos corridas: `corregido`, `sigue_fallando`, `regresion` o `no_comparable`. Un resultado concluyente exige la misma huella de prueba, la misma firma y veredictos confiables. `no_comparable` siempre conserva el motivo y admite metadatos de origen nulos únicamente para representar corridas históricas incompletas sin fabricar evidencia. La presentación comparte una sola proyección de lectura y nunca vuelve a ejecutar ni reclasifica hallazgos | `run_comparison.v1.schema.json` |
@@ -879,6 +880,8 @@ Lo que no cambia en ninguna parte es el **oráculo**: el valor esperado sale sie
 El análisis estático (EN-02, con tree-sitter desde TA-16) no convierte las pruebas de funciones en caja gris: solo **extrae** la especificación (firma, tipos, docstring) y cuenta las decisiones para proponer qué funciones profundizar (sección 10.4).
 
 ### 10.3 Lo que elige el usuario
+
+Preparar agrupa lo que se puede elegir en pestañas **Todas · Caja negra · Caja blanca · Caja gris**, con la clasificación de la sección 10.2 (issue 246). Las pestañas solo filtran qué se ve y nunca cambian lo elegido: **negra** muestra Unitarias (funciones) y el E2E de humo; **gris**, los endpoints; **blanca**, las funciones críticas y su fortaleza (mutación) y las reglas de arquitectura. «¿Qué quieres hacer?» muestra en cada pestaña solo las opciones que tocan ese tipo de caja: Estándar y Humo en negra y gris, Regresión en las tres (puede medir la fortaleza) y el análisis a fondo solo en blanca. Si lo elegido está en otra pestaña, se avisa.
 
 La pantalla Preparar hace dos preguntas. «¿Qué quieres hacer?» elige la estrategia y se traduce al perfil que recibe `start_run` (`perfilDeEleccion` en `config-pruebas.js`). «Tipos de prueba» elige el nivel (Unitarias, Endpoints API o ambos) y se combina con cualquier estrategia:
 
@@ -1075,9 +1078,9 @@ Responsables sugeridos en el plan del Sprint 2, a confirmar en el Sprint Plannin
 
 | Decisión o tarea abierta | Responsable sugerido | Referencia |
 |---|---|---|
-| Integrar `explanation.v1` con el futuro Agente Explicador y su persistencia separada (`explicaciones.json`); contrato y schema alineados con ADR-008 (**Resuelto**) | Rodríguez Malca, Rodrigo | ADR-008 · EN-18 · EP-10 |
+| Integrar `explanation.v1` con el Agente Explicador y su persistencia separada (`explicaciones.json`); contrato y schema alineados con ADR-008 (**Resuelto**) | Rodríguez Malca, Rodrigo | ADR-008 · EN-18 · EP-10 |
 | Si el Explicador propone parches y el orquestador los verifica en el sandbox (necesita su propia decisión) | Rodríguez Malca, Rodrigo, con el equipo | ADR-008 |
-| Medir el Explicador con un LLM real (tokens, costo, latencia y calidad) antes de activarlo por defecto | Rodríguez Malca, Rodrigo y Sanchez Vargas, Adrián | ADR-008, paso 5 |
+| Medir el Explicador con un LLM real (tokens, costo, latencia y calidad) antes de activarlo por defecto (**Resuelto**: #167 midió y EP-10 #172 lo dejó obligatorio con `modo = "ia"`) | Rodríguez Malca, Rodrigo y Sanchez Vargas, Adrián | ADR-008, paso 5 |
 | Conectar el registro de adaptadores a la corrida y usar `planner_contract.v3` en el flujo (**Resuelto**, #168) | Oncoy Patricio, Angel | ADR-007 |
 | Agregar tree-sitter y las gramáticas de JS/TS; analizador y guardrail de `expect` | Castillo Pezo, Mateo | ADR-009 · EP-11a |
 | Adaptador de Java completo y banco equivalente en los 3 lenguajes (brecha B5) | Nuevo integrante | ADR-009 · EP-12a |

@@ -14,11 +14,14 @@ concreto. Decisión completa en `docs/decisiones/ADR-007-adaptadores-por-lenguaj
 | `python_generacion.py` | Prompt del Generator: archivo pytest con el contexto del módulo (#168) | Completo |
 | `python_revision.py` | Sintaxis, oráculo y clasificación de la salida de pytest para el Reviewer (#168) | Completo |
 | `python_regresion.py` | Huellas de los objetivos y línea de cada función (#168) | Completo |
-| `javascript.py` | `JavaScriptAdapter`, `TypeScriptAdapter`: `analizar()`, `objetivos()` y reglas del Planner | Analiza y planifica (#176); generación y ejecución con Vitest pendientes |
+| `javascript.py` | `JavaScriptAdapter`, `TypeScriptAdapter`: `analizar()`, `objetivos()`, reglas del Planner, prompt del Generator, reglas del Reviewer, `archivo_de_prueba` y `comparar_aserciones` | Analiza, planifica (#176), genera Vitest y detecta laundering (#177); ejecución con Vitest pendiente (parte 3) |
 | `javascript_estructura.py` | Funciones exportadas (ESM, CommonJS y métodos de clase), parámetros y tipos de TS, JSDoc desglosado y conteo de ramas (#176) | Completo |
 | `javascript_llamadas.py` | `llama_a`: llamadas al mismo módulo, a imports ESM y a `require` relativos (#176) | Completo |
 | `javascript_oraculo.py` | Registro de evidencias desde JSDoc y tipos, y `oracle.v1` de cada caso validado con `validar_oraculo_js_ts` (#176) | Completo |
 | `javascript_planificacion.py` | Prompt de Vitest y filtros del Planner con oráculo estricto (#176) | Completo |
+| `javascript_generacion.py` | Prompt y plantilla Vitest (`describe`/`it`/`expect`) que importa la función desde su módulo, archivo `generado.test.ts`/`.js` y oráculo de la prueba generada (#177) | Completo |
+| `javascript_aserciones.py` | Lectura con tree-sitter de cada `expect(...)[.not].matcher(...)`, su prueba y las evasiones (`it.skip`, `try/catch` que traga el error, `expect` sobre un literal) (#177) | Completo |
+| `javascript_laundering.py` | Assertion Laundering entre intentos sin IA: aserción eliminada, esperado cambiado, matcher debilitado, `.not` agregado y evasiones (#177) | Completo |
 | `java.py` | `JavaAdapter` | Unitarias Maven/JUnit 5 y endpoints Spring MVC con MockMvc, guardrail y JaCoCo en sandbox (#181, #184, #182, #183); Gradle queda fuera. |
 
 ## Uso
@@ -182,9 +185,11 @@ no permiten inventar valores concretos. Se conservan los contratos v3 existentes
 La [documentación de #181](../../../docs/java/analisis-planificacion.md) explica
 el mapa de llamadas, las exclusiones, las reglas y la validación con IA simulada.
 
-La [propuesta del sandbox Java](../../../docs/java/sandbox-propuesto.md) registra
-versiones, tiempos locales, recursos propuestos y validaciones todavía no
-realizadas para ejecutar JUnit en Docker sin red (EN-19).
+La [propuesta del sandbox Java](../../../docs/java/sandbox-propuesto.md) (EN-19) registra
+las versiones, los tiempos locales y los recursos que se plantearon para ejecutar JUnit
+en Docker sin red. Es el punto de partida histórico: la imagen `qagent-sandbox:java`
+ya existe (#169) y la ejecución está validada en la
+[validación de EP-12](../../../docs/java/validacion-ep12.md) (#174).
 
 La [mutación PIT de métodos críticos](../../../docs/java/mutacion-pit.md) (#180)
 añade ejecución acotada en Docker, lectura de XML, huellas y conexión con la caché

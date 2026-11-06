@@ -46,16 +46,29 @@ def test_solo_profundizar_declara_tipo_de_caja_y_es_blanca() -> None:
 
 def test_las_opciones_se_generan_desde_los_datos() -> None:
     js = leer("componentes/config-pruebas/config-pruebas.js")
-    assert "MODOS_PREPARAR.map" in js
+    assert "MODOS_PREPARAR.filter" in js and "ofrecidas.map" in js
     assert "${o.t}" in js
 
 
 def test_no_queda_la_leyenda_ni_la_etiqueta_de_caja_negra() -> None:
+    """Los perfiles («¿Qué quieres hacer?») no se rotulan por tipo de caja (#69).
+
+    Desde el issue 246 Preparar sí agrupa los *tipos de prueba* (unitarias, endpoints,
+    arquitectura, E2E…) en pestañas Caja negra, blanca y gris. Eso clasifica tipos, no
+    perfiles: la leyenda y la etiqueta sobre cada perfil siguen sin existir.
+    """
     js = leer("componentes/config-pruebas/config-pruebas.js")
     css = leer("componentes/config-pruebas/config-pruebas.css")
     assert 'class="leyenda-caja"' not in js
-    assert "Caja negra" not in js and "caja-negra" not in js
+    assert "caja-negra" not in js
     assert ".leyenda-caja" not in css and ".caja-negra" not in css
+    modos = js[
+        js.index("const MODOS_PREPARAR = [") : js.index(
+            "];", js.index("const MODOS_PREPARAR = [")
+        )
+    ]
+    textos = re.findall(r"\b(?:t|d|tip):'([^']*)'", modos)  # lo que ve la persona
+    assert textos and not any("caja" in texto.lower() for texto in textos)
 
 
 def test_configuracion_de_pruebas_no_muestra_costo_ni_iso() -> None:
