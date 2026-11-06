@@ -139,6 +139,7 @@ def vista_reporte(
     results: dict[str, Any],
     detalle: dict[str, Any] | None,
     explicaciones: dict[tuple[str, str], dict[str, str]] | None = None,
+    comparacion: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Cabecera, 4 indicadores, filtros y una tarjeta por función.
 
@@ -292,6 +293,7 @@ def vista_reporte(
             },
         ],
         "funciones": funciones,
+        "comparacion": comparacion,
     }
 
 

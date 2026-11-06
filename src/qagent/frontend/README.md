@@ -41,10 +41,10 @@ src/qagent/frontend/
     ├── vista-previa/     Pantalla «Explorar»: cifras, carpetas incluidas, tabla compacta de funciones y endpoints con buscador y avisos
     ├── config-pruebas/   Pantalla «Preparar»: qué hacer (nuevas, revisión rápida o humo, volver a correr, análisis a fondo), tipos de prueba, críticas y comprobaciones previas
     ├── monitor/          Pantalla «En curso»: progreso en vivo (etapas, avance, función actual y actividad reciente)
-    ├── ejecucion/        Pantalla «Resultados»: bandeja de problemas con la evidencia de auditoría de cada función
+    ├── ejecucion/        Pantalla «Resultados»: bandeja de problemas y comparación persistida de verificaciones (#195)
     ├── exportar/         Pantalla «Exportar informe»: formato, qué incluir y dónde guardarlo (el archivo lo genera Python)
     ├── configuracion/    Pantalla «Configuración»: conexión de IA por etapa (modal-api), motor de ejecución, límites y apariencia
-    └── historial/        Pantalla «Historial»: corridas, pruebas guardadas y acción «Verificar corrección» sin IA (#194)
+    └── historial/        Pantalla «Historial»: corridas, pruebas guardadas, «Verificar corrección» (#194) y comparación con su origen (#195)
 ```
 
 ## Cómo arranca

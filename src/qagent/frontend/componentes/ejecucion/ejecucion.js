@@ -37,6 +37,7 @@ registrarComponente('ejecucion/ejecucion', `<!-- ===== 5. PRUEBAS: BANDEJA DE PR
 
     <div class="exp-cifras bnj-cifras" id="kpis"></div>
     <p class="np-meta" id="bnjResumen"></p>
+    <section class="np-tarjeta bnj-comparacion hide" id="bnjComparacion" aria-labelledby="bnjComparacionTitulo"></section>
 
     <div class="bnj-filtros">
       <label class="np-campo exp-buscar"><span class="exp-buscar-ico">${ICO_BUSCAR}</span><input class="np-input" id="execSearch" type="search" placeholder="Buscar función, endpoint o archivo" autocomplete="off" spellcheck="false" oninput="filtrarEjecucion(this.value)" aria-label="Buscar función, endpoint o archivo"></label>
@@ -278,7 +279,8 @@ function renderExec(){
   if (sinResultados) {
     $('bnjTitulo').textContent = 'Resultados';
     $('bnjSub').textContent = document.querySelector('.ini-migas .repoName') ? document.querySelector('.ini-migas .repoName').textContent : '';
-    ['kpis', 'bnjResumen', 'bnjBandejas', 'suites', 'bnjNotaLista', 'bnjDetalle', 'bnjPrioridades'].forEach(id => { $(id).innerHTML = ''; });
+    ['kpis', 'bnjResumen', 'bnjComparacion', 'bnjBandejas', 'suites', 'bnjNotaLista', 'bnjDetalle', 'bnjPrioridades'].forEach(id => { $(id).innerHTML = ''; });
+    $('bnjComparacion').classList.add('hide');
     ELEMENTOS_BANDEJA = [];
     return;
   }
@@ -288,6 +290,7 @@ function renderExec(){
   ELEMENTOS_BANDEJA = todos;
 
   renderCabeceraBandeja(todos, v);
+  renderComparacionCorridas(v && v.comparacion);
   renderFiltrosBandeja(todos);
 
   // Filtros: tipo y archivo, búsqueda y bandeja.
@@ -322,6 +325,35 @@ function renderExec(){
   renderPrioridades(todos);
 }
 function seleccionarBandeja(i){ const e = ELEMENTOS_BANDEJA[i]; if(e){ seleccionBandeja = e.id; renderExec(); } }
+
+// Issue 195: usa exclusivamente el contrato persistido por la verificación 194.
+function renderComparacionCorridas(comparacion){
+  const caja = $('bnjComparacion');
+  if(!comparacion){ caja.classList.add('hide'); caja.innerHTML = ''; return; }
+  caja.classList.remove('hide');
+  if(!comparacion.disponible){
+    caja.innerHTML = `<h2 id="bnjComparacionTitulo">Comparación con la corrida original</h2>
+      <div class="np-aviso np-aviso-info">${ICO_INFO}<div><b>Comparación no disponible</b><span>${escHtml(comparacion.motivo || 'Esta verificación no tiene datos comparables almacenados.')}</span></div></div>`;
+    return;
+  }
+  const r = comparacion.resumen;
+  const cifra = (valor, etiqueta) => `<div><b>${Number(valor || 0)}</b><span>${etiqueta}</span></div>`;
+  const filas = (comparacion.comparaciones || []).map(item => {
+    const motivo = item.explicacion || item.motivo || 'Sin observaciones adicionales.';
+    return `<article class="bnj-comparacion-fila">
+      <div><b>${escHtml(item.objetivo)}</b><span class="bnj-ruta">${escHtml(item.modulo)}</span></div>
+      <div class="bnj-comparacion-cambio"><span>Antes: <b>${escHtml(item.estado_anterior.etiqueta)}</b></span><span>Ahora: <b>${escHtml(item.estado_posterior.etiqueta)}</b></span></div>
+      <span class="np-chip np-chip-${escHtml(item.clase)}">${escHtml(item.etiqueta)}</span>
+      <p class="np-meta">${escHtml(motivo)}</p>
+    </article>`;
+  }).join('');
+  caja.innerHTML = `<div class="bnj-comparacion-cab"><div><h2 id="bnjComparacionTitulo">Comparación con la corrida original</h2>
+      <p class="np-meta">Original <button type="button" class="ini-enlace np-mono" onclick="cargarEjecucionReal('${escHtml(comparacion.run_origen_id)}')">${escHtml(comparacion.run_origen_id)}</button> · Verificación <span class="np-mono">${escHtml(comparacion.run_verificacion_id)}</span></p></div></div>
+    <div class="bnj-comparacion-resumen">
+      ${cifra(r.total_original, 'Resultados originales')}${cifra(r.total_actual, 'Resultados actuales')}${cifra(r.aprobadas_original, 'Aprobadas antes')}${cifra(r.aprobadas_actual, 'Aprobadas ahora')}${cifra(r.corregidos, 'Corregidos')}${cifra(r.siguen_fallando, 'Siguen fallando')}${cifra(r.regresiones, 'Regresiones')}${cifra(r.no_comparables, 'No comparables')}
+    </div><div class="bnj-comparacion-lista">${filas}</div>
+    <p class="np-meta">${escHtml(comparacion.politica_agregacion || '')}</p>`;
+}
 
 // Estado general de la corrida: lo usan el título de Resultados y el resumen de Exportar.
 // Mismo criterio que respuesta_principal() en storage/vista_ejecucion.py (informes):

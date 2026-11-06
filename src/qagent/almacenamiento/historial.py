@@ -68,6 +68,15 @@ def construir_historial(ruta_proyecto: str | Path) -> dict[str, Any]:
     """Construye la vista del Historial usando únicamente datos persistidos."""
     almacen = AlmacenProyecto(ruta_proyecto)
     corridas = [_fila_corrida(almacen, run) for run in reversed(almacen.listar_runs())]
+    from qagent.storage.vista_comparacion import cargar_vista_comparacion
+
+    for corrida in corridas:
+        comparacion = cargar_vista_comparacion(
+            ruta_proyecto, corrida["run_id"], corrida.get("perfil")
+        )
+        if comparacion is not None:
+            corrida["comparacion"] = comparacion
+            corrida["run_origen_id"] = comparacion.get("run_origen_id")
     specs = [_fila_spec(plan) for plan in almacen.listar_planes_modulo()]
     pruebas = [_fila_prueba(ruta) for ruta in almacen.listar_pruebas_aprobadas()]
 
