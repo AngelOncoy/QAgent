@@ -166,7 +166,7 @@ def vista_ejecucion(
 
     omitidos = [
         {**o, **identidad_de({"funcion": o["objetivo"], "tipo": o["tipo"]})}
-        for o in omitidos_crudos
+        for o in omitidos_con_lenguaje(omitidos_crudos)
     ]
 
     return {
@@ -291,6 +291,25 @@ def respuesta_principal(
         f"Todo pasó: {total} "
         f"{'función o endpoint verificado' if total == 1 else 'funciones y endpoints verificados'}."
     )
+
+
+def omitidos_con_lenguaje(omitidos: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Conserva el adaptador registrado; recupera metadatos antiguos sin ejecutar código.
+
+    El registro detecta únicamente sobre la ruta guardada, sin abrir el proyecto ni
+    asumir Python cuando el lenguaje es desconocido. No modifica las corridas.
+    """
+    from qagent.lenguajes import REGISTRO
+
+    resultado = []
+    for omitido in omitidos:
+        copia = dict(omitido)
+        if not copia.get("lenguaje"):
+            detecciones = REGISTRO.detectar_en([str(copia.get("modulo", ""))])
+            if len(detecciones) == 1:
+                copia["lenguaje"] = detecciones[0].lenguaje
+        resultado.append(copia)
+    return resultado
 
 
 def _numero(valor: Any) -> float | None:

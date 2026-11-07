@@ -70,9 +70,9 @@ registrarComponente('config-pruebas/config-pruebas', `<!-- ===== 3. PREPARAR ===
         </section>
         <section class="np-tarjeta prep-arquitectura" data-caja="negra" aria-labelledby="prepE2ETitulo">
           <h2 id="prepE2ETitulo">E2E de humo con Playwright</h2>
-          <p class="np-meta">Detecta páginas Express o Vite y las visita en Chromium headless. Solo se ejecuta al pulsar el botón; no usa IA ni red externa.</p>
+          <p class="np-meta" id="prepE2ECompatibilidad">Detecta páginas Express o Vite y las visita en Chromium headless. Solo se ejecuta al pulsar el botón; no usa IA ni red externa.</p>
           <div class="prep-arq-acciones">
-            <button type="button" class="ini-btn" onclick="detectarRutasE2E()">Ver rutas</button>
+            <button type="button" class="ini-btn" id="prepE2EDetectar" onclick="detectarRutasE2E()">Ver rutas</button>
             <button type="button" class="ini-btn ini-btn-principal" id="prepE2EEjecutar" onclick="ejecutarE2E()">Ejecutar E2E</button>
           </div>
           <div class="np-aviso np-aviso-info hide" id="prepE2EResultado" aria-live="polite"></div>
@@ -171,7 +171,24 @@ async function exportarInformeArquitectura(runId){
   toast(`Informe guardado en ${r.ruta}`);
 }
 
+function renderCompatibilidadPruebas(){
+  const noCompatible = typeof PROYECTO_E2E_DISPONIBLE !== 'undefined' && PROYECTO_E2E_DISPONIBLE === false;
+  for (const id of ['prepE2EDetectar', 'prepE2EEjecutar']) {
+    const boton = $(id);
+    if (boton) {
+      boton.disabled = noCompatible;
+      boton.title = noCompatible ? 'El adaptador de este proyecto no ofrece E2E con Playwright.' : '';
+    }
+  }
+  const texto = $('prepE2ECompatibilidad');
+  if (texto) texto.textContent = noCompatible
+    ? 'E2E con Playwright no está disponible para este proyecto. Actualmente admite aplicaciones JavaScript/TypeScript compatibles con Express o Vite. Las pruebas unitarias, de endpoints y de arquitectura se revisan por separado.'
+    : 'Detecta páginas Express o Vite y las visita en Chromium headless. Solo se ejecuta al pulsar el botón; no usa IA ni red externa.';
+  return !noCompatible;
+}
+
 async function detectarRutasE2E(){
+  if (!renderCompatibilidadPruebas()) return;
   const api = window.pywebview && window.pywebview.api;
   const salida = $('prepE2EResultado');
   if (!api || !api.detectar_e2e) return;
@@ -184,6 +201,7 @@ async function detectarRutasE2E(){
 }
 
 async function ejecutarE2E(){
+  if (!renderCompatibilidadPruebas()) return;
   const api = window.pywebview && window.pywebview.api;
   if (!api || !api.ejecutar_e2e) return;
   const boton = $('prepE2EEjecutar'), salida = $('prepE2EResultado');
@@ -537,6 +555,7 @@ function accionPrincipalPreparar(){
 }
 
 function calc(){
+  renderCompatibilidadPruebas();
   cargarReglasArquitectura();
   if (eleccionPruebas.modo === 'repetir' && !HAS_PRIOR_RUN) eleccionPruebas.modo = 'nuevas';
   // La columna Profundizar de Explorar solo se ve con «Análisis a fondo de críticas».

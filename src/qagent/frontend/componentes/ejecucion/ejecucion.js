@@ -138,6 +138,7 @@ function elementosOmitidos(v){
   return (v.omitidos || []).map(o => ({
     id: 'omitido::' + o.modulo + '::' + o.objetivo, modulo: o.modulo, tipo: o.tipo,
     nombre: o.identificador || o.objetivo, endpoint: o.tipo === 'endpoint',
+    lenguaje: o.lenguaje || null,
     bandeja: 'omitida', critica: false, omitido: true, explicacion: o.motivo || null,
     sinDocstring: o.tipo === 'funcion' && docstringDeObjetivo(o.modulo, o.objetivo) === false,
   }));
@@ -149,6 +150,7 @@ function elementosProbados(v){
     return {
       id: m.modulo + '::' + p.funcion, modulo: m.modulo, tipo: p.tipo,
       lenguaje: p.lenguaje || 'python',
+      perfil: v.perfil,
       nombre: p.identificador, endpoint: p.tipo === 'endpoint',
       bandeja, critica: !!p.critical, intento: p.intento_final, duracion: p.duracion_s,
       sinDocstring: docstringDeObjetivo(m.modulo, p.funcion) === false,
@@ -174,10 +176,10 @@ function detalleDeReporte(f){
   // HU-32: la explicación en palabras simples del Explicador, si la corrida la tiene.
   const simple = f.explicacion && f.explicacion.resumen ? f.explicacion : null;
   return {
-    explicacion: (simple && simple.resumen) || ultimo.feedback || null,
+    explicacion: (simple && simple.resumen) || f.resumen_ejecucion || null,
     explicacionSimple: simple,
     codigo: f.codigo || null,
-    traza: f.traza || null,
+    traza: f.traza || ultimo.feedback || null,
     esperado: esperado || null,
     debilitada: intentos.some(i => i.laundering_detectado),
     firma: f.firma || f.manejador || null,
@@ -315,7 +317,7 @@ function renderExec(){
     return `<div class="bnj-item ${e.id === seleccionBandeja ? 'on' : ''}" role="option" aria-selected="${e.id === seleccionBandeja}" tabindex="0"
         onclick="seleccionarBandeja(${ELEMENTOS_BANDEJA.indexOf(e)})" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click()}">
       <div class="bnj-item-cab"><span class="bnj-nombre">${escHtml(e.nombre)}</span>${e.sinDocstring ? etiquetaSinDocstring(e.tipo, {enfocable: false}) : ''}${e.critica ? '<span class="bnj-critica">Crítica</span>' : ''}</div>
-      <span class="bnj-ruta">${escHtml(e.modulo)} · Lenguaje: ${escHtml(e.lenguaje || 'python')}</span>
+      <span class="bnj-ruta">${escHtml(e.modulo)} · Lenguaje: ${escHtml(e.lenguaje || 'no registrado')}</span>
       <span class="np-chip np-chip-${b.cls}">${b.ico()}${b.chip}</span>${accion}
     </div>`;
   }).join('') || `<div class="bnj-vacio">${execSearchQuery ? 'Nada coincide con la búsqueda.' : 'No hay resultados en esta bandeja.'}
@@ -393,6 +395,7 @@ function renderCabeceraBandeja(todos, v){
   const lenguajes = [...new Set(todos.map(e => e.lenguaje).filter(Boolean))];
   const etiquetaLenguaje = lenguajes.map(l => nombresLenguaje[l] || l).join(' / ');
   const partes = [document.querySelector('.ini-migas .repoName') ? document.querySelector('.ini-migas .repoName').textContent : '', etiquetaLenguaje];
+  if (v && (v.perfil_nombre || v.perfil)) partes.push('Perfil: ' + (v.perfil_nombre || v.perfil));
   if (v && v.fecha) partes.push(new Date(v.fecha).toLocaleString('es-PE', {day:'numeric', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit'}));
   if (duracion !== null) partes.push('Duración total medida ' + (duracion >= 60 ? `${Math.floor(duracion / 60)} min ${Math.round(duracion % 60)} s` : tiempoReal(duracion)));
   if (v && v.es_simulado) partes.push('IA simulada');
@@ -463,10 +466,10 @@ function renderDetalleBandeja(e){
   const cargando = e.cargando ? '<p class="np-meta">Cargando la evidencia…</p>' : '';
   $('bnjDetalle').innerHTML = `
     <div class="bnj-det-cab">
-      <div><h2 class="bnj-det-nombre">${escHtml(e.nombre)}${e.sinDocstring ? etiquetaSinDocstring(e.tipo) : ''}</h2><span class="bnj-ruta">${escHtml(e.modulo)}${e.firma ? ' · ' + escHtml(e.firma) : ''}</span><p class="np-meta">Lenguaje: ${escHtml(e.lenguaje || 'python')}</p></div>
+      <div><h2 class="bnj-det-nombre">${escHtml(e.nombre)}${e.sinDocstring ? etiquetaSinDocstring(e.tipo) : ''}</h2><span class="bnj-ruta">${escHtml(e.modulo)}${e.firma ? ' · ' + escHtml(e.firma) : ''}</span><p class="np-meta">Lenguaje: ${escHtml(e.lenguaje || 'no registrado')}</p></div>
       ${e.critica ? '<span class="np-chip np-chip-progreso">Crítica</span>' : ''}
     </div>
-    <span class="np-chip np-chip-${b.cls}">${b.ico()}${e.bandeja === 'bug' ? 'Posible bug en tu código' : b.chip}</span>
+    <span class="np-chip np-chip-${b.cls}">${b.ico()}${e.bandeja === 'bug' ? 'Posible bug en tu código' : e.bandeja === 'paso' ? (e.perfil === 'humo' ? 'Pasó el caso probado' : 'Pasaron los casos probados') : b.chip}</span>
     ${explicacion ? `<p class="bnj-explicacion">${escHtml(explicacion)}</p>` : ''}
     ${e.errorPlanner ? `<details class="np-detalle"><summary>Ver motivo del fallo de planificación</summary><pre class="np-log">${escHtml(e.errorPlanner)}</pre></details>` : ''}
     ${e.explicacionSimple ? explicacionSimple(e.explicacionSimple) : ''}

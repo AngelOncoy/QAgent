@@ -196,6 +196,10 @@
           "motivo": {
             "type": "string",
             "minLength": 1
+          },
+          "lenguaje": {
+            "enum": ["python", "javascript", "typescript", "java"],
+            "description": "Lenguaje del adaptador para objetivos omitidos; opcional en corridas anteriores."
           }
         }
       }

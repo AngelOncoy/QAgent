@@ -84,7 +84,7 @@ async function actualizarSandbox() {
     const ui = SANDBOX_UI[clave] || SANDBOX_UI.no_iniciado;
     const anterior = ESTADO_MOTOR && ESTADO_MOTOR.clave;
     ESTADO_MOTOR = {clave: SANDBOX_UI[clave] ? clave : 'no_iniciado', mensaje: r && r.mensaje};
-    // #251: si el motor cambió (p. ej. se abrió Docker Desktop), Preparar vuelve a comprobar el
+    // issue 251: si el motor cambió (p. ej. se abrió Docker Desktop), Preparar vuelve a comprobar el
     // entorno. Solo ante un cambio: la comprobación consulta otra vez el motor y ve el mismo
     // estado, así que no hay bucle.
     if (anterior && anterior !== ESTADO_MOTOR.clave) alCambiarMotor();
@@ -104,7 +104,7 @@ async function actualizarSandbox() {
 function alCambiarMotor() {
   if (typeof verificarEntorno === 'function') verificarEntorno();
 }
-// #251: al volver a la ventana de QAgent se consulta el motor y el entorno al instante, sin
+// issue 251: al volver a la ventana de QAgent se consulta el motor y el entorno al instante, sin
 // esperar los 15 s. El foco y la visibilidad llegan juntos: se atienden una sola vez.
 const ESPERA_VUELTA_MS = 1500;
 let ultimaVueltaVentana = 0;

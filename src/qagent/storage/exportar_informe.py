@@ -1196,7 +1196,7 @@ def datos_informe(
         "tipo_terminacion": vista.get("tipo_terminacion"),
         "es_parcial": vista.get("es_parcial"),
         # Seleccionados que no se probaron, con su motivo.
-        "omitidos": copy.deepcopy(results.get("omitidos") or []),
+        "omitidos": copy.deepcopy(vista["omitidos"]),
         "criticas": sum(1 for o in results["objetivos"] if o.get("critical")),
         "modelos": copy.deepcopy(results["modelos"]),
         "costo_por_agente": por_agente,

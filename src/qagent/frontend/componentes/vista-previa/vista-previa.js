@@ -175,9 +175,11 @@ function actualizarResumenUI(resumen, errores = []) {
 }
 
 let PROYECTO_NOMBRE_LENGUAJE = 'Python';
+let PROYECTO_E2E_DISPONIBLE = null;
 
 function mostrarLenguajeProyecto(res = {}) {
   PROYECTO_NOMBRE_LENGUAJE = res.nombre_lenguaje || 'Python';
+  PROYECTO_E2E_DISPONIBLE = typeof res.e2e_humo_disponible === 'boolean' ? res.e2e_humo_disponible : null;
   const framework = res.framework_pruebas || 'pytest';
   const etiqueta = `${PROYECTO_NOMBRE_LENGUAJE} · ${{junit5:'JUnit 5'}[framework] || framework}`;
   $('projLenguaje').textContent = etiqueta;
@@ -292,7 +294,7 @@ function aplicarSeleccionObjetivos(seleccion){
   });
 }
 
-/* ---------------- Volver a analizar (#251) ----------------
+/* ---------------- Volver a analizar (issue 251) ----------------
    El análisis se hacía solo al abrir el proyecto: si se cambiaba el código había que reabrirlo
    desde Inicio. Aquí se analiza otra vez y se conserva lo que la persona eligió, la pestaña y la
    búsqueda. No se permite durante una corrida (sus objetivos ya están decididos). */
@@ -332,7 +334,7 @@ async function volverAAnalizar(){
   }
 }
 
-/* ---------------- Corridas previas (#251) ----------------
+/* ---------------- Corridas previas (issue 251) ----------------
    «Volver a correr las guardadas» depende de HAS_PRIOR_RUN y PRUEBAS_REPETIBLES, que se leían
    solo al abrir el proyecto. Al terminar una corrida se vuelven a consultar. */
 async function actualizarCorridasPrevias(){

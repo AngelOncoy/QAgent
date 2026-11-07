@@ -573,6 +573,13 @@ class Orquestador:
                 omitidos.append(
                     {"objetivo": nombre, "tipo": "componente", "motivo": _frase(motivo)}
                 )
+        lenguaje = getattr(
+            getattr(self.planner, "adaptador", None),
+            "lenguaje",
+            contracts.LENGUAJE_CONTRATOS_ANTERIORES,
+        )
+        for omitido in omitidos:
+            omitido["lenguaje"] = lenguaje
         return omitidos
 
     def _registrar_fallidos_planner(

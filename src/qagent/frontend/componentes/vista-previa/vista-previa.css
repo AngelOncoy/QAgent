@@ -127,7 +127,7 @@
   .exp-cifra{padding:var(--esp-3) var(--esp-4)}
 }
 
-/* Acciones de la cabecera (#251): «Volver a analizar» junto a «Preparar selección». */
+/* Acciones de la cabecera (issue 251): «Volver a analizar» junto a «Preparar selección». */
 .exp-acciones{display:flex;align-items:center;gap:var(--esp-2);flex-wrap:wrap}
 .exp-acciones .ini-btn{height:44px}
 .exp-acciones .ini-btn[aria-busy="true"]{cursor:progress;opacity:.7}

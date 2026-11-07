@@ -418,6 +418,8 @@ def _explicacion(f: dict[str, Any]) -> str | None:
         if etiqueta:
             lineas.append(f"{etiqueta}.")
         return "\n".join(lineas)
+    if f.get("resumen_ejecucion"):
+        return str(f["resumen_ejecucion"])
     intentos = f.get("intentos") or []
     if intentos and intentos[-1].get("feedback"):
         return str(intentos[-1]["feedback"])
