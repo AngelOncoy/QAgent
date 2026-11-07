@@ -120,6 +120,12 @@ Las pruebas generadas se ejecutan solo dentro de un contenedor efímero: sin red
 python -c "from qagent.sandbox import construir_imagen_base; construir_imagen_base()"
 ```
 
+Una imagen base que ya existe no se reconstruye sola al cambiar su Dockerfile. Tras #171 (componentes React), `qagent-sandbox:node` debe traer jsdom y Testing Library; si es anterior, se reconstruye con:
+
+```bash
+python -c "from qagent.sandbox import construir_imagen_base; from qagent.sandbox.modelos import IMAGEN_NODE; construir_imagen_base(imagen=IMAGEN_NODE)"
+```
+
 ## Versiones de Python soportadas en el sandbox (ADR-013)
 
 El sandbox de Docker de QAgent ejecuta pruebas para proyectos en el rango **Python 3.10–3.14** (3.10, 3.11, 3.12, 3.13 y 3.14), con **3.11** como versión por defecto.

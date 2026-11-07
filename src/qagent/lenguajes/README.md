@@ -22,6 +22,9 @@ concreto. Decisión completa en `docs/decisiones/ADR-007-adaptadores-por-lenguaj
 | `javascript_generacion.py` | Prompt y plantilla Vitest (`describe`/`it`/`expect`) que importa la función desde su módulo, archivo `generado.test.ts`/`.js` y oráculo de la prueba generada (#177) | Completo |
 | `javascript_aserciones.py` | Lectura con tree-sitter de cada `expect(...)[.not].matcher(...)`, su prueba y las evasiones (`it.skip`, `try/catch` que traga el error, `expect` sobre un literal) (#177) | Completo |
 | `javascript_laundering.py` | Assertion Laundering entre intentos sin IA: aserción eliminada, esperado cambiado, matcher debilitado, `.not` agregado y evasiones (#177) | Completo |
+| `javascript_componentes.py` | Framework de interfaz desde `package.json` y componentes React: funciones PascalCase que devuelven JSX, props tipadas (TS o JSDoc), opcionales, defectos y eventos (#171) | Completo |
+| `javascript_componentes_planificacion.py` | Prompt del Planner y oráculo de los casos de componentes: render, visibles, ausentes y llamadas respaldados por tipos o JSDoc (#171) | Completo |
+| `javascript_componentes_generacion.py` | Plantilla Testing Library con jsdom (`generado.test.tsx`/`.jsx`) y oráculo de la prueba: consultas por rol o texto, sin selectores CSS ni instantáneas (#171) | Completo |
 | `java.py` | `JavaAdapter` | Unitarias Maven/JUnit 5 y endpoints Spring MVC con MockMvc, guardrail y JaCoCo en sandbox (#181, #184, #182, #183); Gradle queda fuera. |
 
 ## Uso

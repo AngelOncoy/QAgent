@@ -23,8 +23,15 @@ def filtrar_modulos(
     ``"POST /pedidos"`` (#74). Deben estar entre sus ``funciones`` o ``endpoints``;
     cada objetivo seleccionado se copia con ``critical`` True o False según esa
     lista, sin modificar el análisis recibido. Sin ``criticas``, nada es crítico.
+
+    Los ``componentes`` React (#171) se seleccionan por nombre igual que las
+    funciones, pero nunca se profundizan: la mutación no corre sobre componentes.
     """
-    analizables = [m for m in modulos if m.get("funciones") or m.get("endpoints")]
+    analizables = [
+        m
+        for m in modulos
+        if m.get("funciones") or m.get("endpoints") or m.get("componentes")
+    ]
     if seleccion is None:
         return analizables
     if not isinstance(seleccion, list) or not seleccion:
@@ -40,12 +47,14 @@ def filtrar_modulos(
         ruta = entrada.get("ruta")
         funciones = entrada.get("funciones", [])
         endpoints = entrada.get("endpoints", [])
+        componentes = entrada.get("componentes", [])
         criticas = entrada.get("criticas", [])
         if (
             not isinstance(ruta, str)
             or not ruta
             or not _lista_unica_de_textos(funciones)
             or not _lista_unica_de_textos(endpoints)
+            or not _lista_unica_de_textos(componentes)
             or not _lista_unica_de_textos(criticas)
         ):
             raise SeleccionInvalida("La selección de objetivos no es válida.")
@@ -66,10 +75,14 @@ def filtrar_modulos(
         inexistentes_ep = [
             objetivo for objetivo in endpoints if objetivo not in endpoints_reales
         ]
-        if inexistentes_fn or inexistentes_ep:
-            inexistentes = ", ".join(inexistentes_fn + inexistentes_ep)
+        componentes_reales = {c.get("nombre"): c for c in modulo.get("componentes", [])}
+        inexistentes_co = [n for n in componentes if n not in componentes_reales]
+        if inexistentes_fn or inexistentes_ep or inexistentes_co:
+            inexistentes = ", ".join(
+                inexistentes_fn + inexistentes_ep + inexistentes_co
+            )
             raise SeleccionInvalida(f"Objetivos inexistentes en {ruta}: {inexistentes}")
-        if not funciones and not endpoints:
+        if not funciones and not endpoints and not componentes:
             raise SeleccionInvalida(
                 f"El módulo no tiene objetivos seleccionados: {ruta}"
             )
@@ -93,6 +106,10 @@ def filtrar_modulos(
             {**endpoints_reales[objetivo], "critical": objetivo in criticas}
             for objetivo in endpoints
         ]
+        if "componentes" in modulo:
+            filtrado["componentes"] = [
+                componentes_reales[nombre] for nombre in componentes
+            ]
         filtrados.append(filtrado)
 
     return filtrados

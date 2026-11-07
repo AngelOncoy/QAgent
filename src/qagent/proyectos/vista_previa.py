@@ -254,6 +254,9 @@ def generar_vista_previa(
         "modulos": modulos_priorizados,
         "errores": errores_procesados,
         "resumen": resultado_ast["resumen"],
+        # #171: React se prueba; otro framework de interfaz se avisa como
+        # «componentes no soportados» y solo se prueba la lógica.
+        "framework_ui": resultado_ast.get("framework_ui"),
         "avisos": {
             "oraculo_debil": AVISO_ORACULO_DEBIL,
             "falta_docstring": ETIQUETA_FALTA_DOCSTRING,
