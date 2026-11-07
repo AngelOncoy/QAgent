@@ -67,6 +67,11 @@ PAQUETES_NODE = (
     "@stryker-mutator/vitest-runner",
     "typescript",
     "dependency-cruiser",
+    # Componentes React con Testing Library y jsdom (#171).
+    "jsdom",
+    "@testing-library/react",
+    "@testing-library/dom",
+    "@testing-library/jest-dom",
 )
 
 
@@ -117,6 +122,11 @@ class _AdaptadorNode(AdaptadorEnDesarrollo):
             NotADirectoryError: si ``raiz`` no es una carpeta existente.
         """
         carpeta = Path(raiz)
+        framework_ui = detectar_framework_ui(carpeta)
+        # Solo React se prueba: los componentes JSX de otro framework (o sin React en
+        # package.json) quedan aparte y nunca llegan al Planner (#171, CA6).
+        con_react = (framework_ui or {}).get("framework") == FRAMEWORK_REACT
+        clave_componentes = "componentes" if con_react else "componentes_no_soportados"
         modulos: list[dict[str, Any]] = []
         errores: list[dict[str, Any]] = []
         arboles: dict[str, Node] = {}
@@ -157,7 +167,7 @@ class _AdaptadorNode(AdaptadorEnDesarrollo):
             if componentes:  # #171: solo aparece si el archivo exporta componentes
                 for componente in componentes:
                     componente["modulo"] = relativa
-                modulo["componentes"] = componentes
+                modulo[clave_componentes] = componentes
             modulos.append(modulo)
             arboles[relativa] = arbol.root_node
         agregar_llamadas(modulos, arboles)
@@ -167,7 +177,7 @@ class _AdaptadorNode(AdaptadorEnDesarrollo):
             "errores": errores,
             "resumen": _resumen(modulos, errores),
         }
-        framework_ui = _framework_ui(carpeta, modulos)
+        framework_ui = _framework_ui(framework_ui, modulos)
         if framework_ui is not None:
             estructura["framework_ui"] = framework_ui
         return estructura
@@ -185,7 +195,7 @@ class _AdaptadorNode(AdaptadorEnDesarrollo):
             for m in estructura.get("modulos", [])
             for f in m.get("funciones", [])
         ]
-        if (estructura.get("framework_ui") or {}).get("soportado"):
+        if (estructura.get("framework_ui") or {}).get("soportado"):  # React
             objetivos.extend(
                 {
                     "modulo": m["ruta"],
@@ -329,7 +339,7 @@ class _AdaptadorNode(AdaptadorEnDesarrollo):
 
 
 def _framework_ui(
-    carpeta: Path, modulos: list[dict[str, Any]]
+    framework: dict[str, Any] | None, modulos: list[dict[str, Any]]
 ) -> dict[str, Any] | None:
     """Framework de interfaz del proyecto y cuántos componentes tiene (#171).
 
@@ -337,8 +347,10 @@ def _framework_ui(
     sin React en ``package.json``, solo se prueban los archivos de lógica y el
     informe dice «componentes no soportados» (ADR-010, sección 10.6).
     """
-    total = sum(len(m.get("componentes", [])) for m in modulos)
-    framework = detectar_framework_ui(carpeta)
+    total = sum(
+        len(m.get("componentes", [])) + len(m.get("componentes_no_soportados", []))
+        for m in modulos
+    )
     if framework is None and total:
         framework = {
             "framework": None,
@@ -380,8 +392,8 @@ class JavaScriptAdapter(_AdaptadorNode):
     frameworks_pruebas = ("vitest", "jest")
     # Express (endpoints) y React (componentes, #171): el primero es el de endpoints.
     frameworks_app = ("express", "react")
-    # Vitest (EP-11a) y mutación con Stryker (EP-11c), ADR-010.
-    tipos_prueba_previstos = ("funcion", "mutacion")
+    # Vitest (EP-11a), mutación con Stryker (EP-11c) y componentes React (#171).
+    tipos_prueba_previstos = ("funcion", "mutacion", "componente")
 
     def validar_sintaxis(self, codigo: str) -> list[str]:
         """Errores de sintaxis del código JavaScript parseado con tree-sitter.
@@ -409,8 +421,8 @@ class TypeScriptAdapter(_AdaptadorNode):
     frameworks_pruebas = ("vitest", "jest")
     # Express (endpoints) y React (componentes, #171): el primero es el de endpoints.
     frameworks_app = ("express", "react")
-    # Vitest (EP-11a) y mutación con Stryker (EP-11c), ADR-010.
-    tipos_prueba_previstos = ("funcion", "mutacion")
+    # Vitest (EP-11a), mutación con Stryker (EP-11c) y componentes React (#171).
+    tipos_prueba_previstos = ("funcion", "mutacion", "componente")
 
     def es_fuente(self, archivo: str) -> bool:
         """Los ``.d.ts`` solo declaran tipos: no tienen código que probar."""

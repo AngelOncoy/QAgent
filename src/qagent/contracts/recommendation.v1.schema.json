@@ -25,7 +25,7 @@
         "properties": {
           "tipo_prueba": {
             "type": "string",
-            "enum": ["funcion", "endpoint", "mutacion"]
+            "enum": ["funcion", "endpoint", "mutacion", "componente"]
           },
           "motivo": {
             "type": "string",

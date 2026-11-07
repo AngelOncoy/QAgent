@@ -314,7 +314,11 @@ def ejecutar_corrida(
         ]
         n_funciones = sum(len(m["funciones"]) for m in modulos)
         n_endpoints = sum(len(m.get("endpoints") or []) for m in modulos)
-        resumen.total_seleccionados = n_funciones + n_endpoints
+        n_componentes = sum(len(m.get("componentes") or []) for m in modulos)
+        resumen.total_seleccionados = n_funciones + n_endpoints + n_componentes
+        no_soportados = omitidos_de_interfaz(analisis)
+        if no_soportados:
+            avisar(no_soportados[0]["motivo"])
         progreso["total"] = resumen.total_funciones = resumen.total_seleccionados
         if n_endpoints:
             tipos = ["funcion", "endpoint"] if n_funciones else ["endpoint"]
@@ -667,6 +671,7 @@ def ejecutar_corrida(
             planes_specs,
             tipos,
             ia=_ContextoIA(claves, simulado, cancelado, _docstrings(modulos)),
+            no_soportados=no_soportados,
         )
     except Exception as error:  # noqa: BLE001 — la corrida nunca debe tumbar la app
         if "tracker" in locals():
@@ -960,6 +965,45 @@ def avance_limitado(
     return avanzar
 
 
+#: Motivo de los componentes de un framework de interfaz sin soporte (#171, CA6).
+MOTIVO_COMPONENTES_NO_SOPORTADOS = (
+    "Componentes no soportados ({framework}): QAgent prueba solo los archivos de "
+    "lógica .ts/.js de este proyecto."
+)
+
+
+def omitidos_de_interfaz(analisis: dict[str, Any]) -> list[dict[str, str]]:
+    """Componentes que no se prueban porque su framework no tiene soporte (#171).
+
+    El adaptador deja en ``framework_ui`` el framework detectado en ``package.json``.
+    Si no es React, cada componente JSX analizado aparece como omitido; si no hay
+    ninguno (Vue, Astro… viven en archivos que no se analizan), una sola entrada
+    avisa para todo el proyecto. Así el informe dice «componentes no soportados».
+    """
+    framework = analisis.get("framework_ui") or {}
+    if framework.get("soportado", True):
+        return []
+    motivo = MOTIVO_COMPONENTES_NO_SOPORTADOS.format(framework=framework["nombre"])
+    omitidos = [
+        {
+            "modulo": modulo["ruta"],
+            "objetivo": componente["nombre"],
+            "tipo": "componente",
+            "motivo": motivo,
+        }
+        for modulo in analisis.get("modulos", [])
+        for componente in modulo.get("componentes_no_soportados") or []
+    ]
+    return omitidos or [
+        {
+            "modulo": "package.json",
+            "objetivo": f"Componentes de {framework['nombre']}",
+            "tipo": "componente",
+            "motivo": motivo,
+        }
+    ]
+
+
 def _contar(
     resumen: ResumenCorrida,
     resultados: list[ResultadoCorrida],
@@ -1010,8 +1054,13 @@ def _registrar(
     planes_specs: list[dict[str, Any]],
     tipos: list[str] | None = None,
     ia: _ContextoIA | None = None,
+    no_soportados: list[dict[str, str]] | None = None,
 ) -> None:
-    """log.json y results.json, specs y pruebas aprobadas, y cierre del run.json."""
+    """log.json y results.json, specs y pruebas aprobadas, y cierre del run.json.
+
+    ``no_soportados`` son los componentes de un framework sin soporte (#171): van a
+    ``omitidos`` para que el informe diga «componentes no soportados».
+    """
     if resultados:
         rutas = escribir_corrida(
             ruta,
@@ -1033,9 +1082,12 @@ def _registrar(
             tipo_terminacion=resumen.tipo_terminacion,
             objetivos_omitidos=resumen.objetivos_omitidos,
             omitidos=[
-                {"modulo": r.modulo, **omitido}
-                for r in resultados
-                for omitido in r.omitidos
+                *(
+                    {"modulo": r.modulo, **omitido}
+                    for r in resultados
+                    for omitido in r.omitidos
+                ),
+                *(no_soportados or []),
             ],
         )
         resumen.run_id = rutas.run_id

@@ -113,8 +113,11 @@ const TIPOS_RECOMENDADOS = {
   endpoint: 'Endpoints API',
   funcion: 'Unitarias',
   mutacion: 'Análisis a fondo de críticas (mutación)',
+  componente: 'Componentes React',
 };
-const TIPOS_PROXIMAMENTE = {funcion: 'unitarias', endpoint: 'endpoints', mutacion: 'mutación'};
+const TIPOS_PROXIMAMENTE = {
+  funcion: 'unitarias', endpoint: 'endpoints', mutacion: 'mutación', componente: 'componentes React',
+};
 // Vista de objetivos activa: 'funciones' (por defecto) o 'endpoints' (issue #66).
 let VISTA_OBJETIVOS = 'funciones';
 let BUSQUEDA = '';   // texto del buscador de la tabla, en minúsculas

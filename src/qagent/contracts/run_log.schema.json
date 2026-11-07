@@ -189,7 +189,8 @@
           "tipo": {
             "enum": [
               "funcion",
-              "endpoint"
+              "endpoint",
+              "componente"
             ]
           },
           "motivo": {
@@ -553,7 +554,8 @@
         "tipo": {
           "enum": [
             "funcion",
-            "endpoint"
+            "endpoint",
+              "componente"
           ],
           "description": "EN-16. Qué se probó; en un endpoint, funcion es \"MÉTODO /ruta\". Si falta, es una función."
         },
