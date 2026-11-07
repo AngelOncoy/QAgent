@@ -206,6 +206,14 @@ class _AdaptadorNode(AdaptadorEnDesarrollo):
             return reglas.REGLAS_PLANIFICACION_TYPESCRIPT
         return reglas.REGLAS_PLANIFICACION_JAVASCRIPT
 
+    def reglas_componentes(self) -> Any:
+        """Prompt Testing Library y oráculo de props y JSDoc para componentes (#171)."""
+        from qagent.lenguajes import javascript_componentes_planificacion as reglas
+
+        if self.lenguaje == "typescript":
+            return reglas.REGLAS_COMPONENTES_TYPESCRIPT
+        return reglas.REGLAS_COMPONENTES_JAVASCRIPT
+
     def entorno_sandbox(
         self, raiz: str | os.PathLike[str] | None = None
     ) -> EntornoSandbox:
