@@ -1,4 +1,4 @@
-"""Fixtures de las pruebas del sandbox (el marcador `docker` está registrado en pytest.ini)."""
+"""Fixtures de las pruebas del sandbox (el marcador `docker` está en pyproject.toml; solo corre con --docker, #250)."""
 
 from __future__ import annotations
 

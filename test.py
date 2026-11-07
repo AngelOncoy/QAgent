@@ -1,13 +1,15 @@
 """Ejecuta todas las pruebas de QAgent con un solo comando.
 
-    python test.py                 lint + formato + todas las pruebas
+    python test.py                 lint + formato + todas las pruebas, menos las de Docker real
+    python test.py --docker        también las de Docker real (varios minutos, crean imágenes)
     python test.py --rapido        sin lint y sin las pruebas de Docker ni de red
     python test.py --sin-lint      solo pytest
     python test.py -k clonador     cualquier otro argumento se pasa a pytest
     python test.py tests/proyectos -x
 
 Siempre usa la IA simulada (QAGENT_FAKE_LLM=1): ninguna prueba llama a una API real.
-Las pruebas que necesitan Docker se omiten solas si Docker Desktop no está iniciado.
+Las pruebas marcadas `docker` no corren sin `--docker`, aunque Docker Desktop esté abierto;
+al terminar borran las imágenes que crearon, salvo con `--conservar-imagenes` (#250).
 """
 
 from __future__ import annotations
@@ -55,7 +57,19 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="sin lint y sin las pruebas marcadas docker ni red",
     )
+    parser.add_argument(
+        "--docker",
+        action="store_true",
+        help="también las pruebas con Docker real (tardan varios minutos y crean imágenes)",
+    )
+    parser.add_argument(
+        "--conservar-imagenes",
+        action="store_true",
+        help="con --docker, no borra al terminar las imágenes que crearon las pruebas",
+    )
     args, extra_pytest = parser.parse_known_args(argv)
+    if args.docker and args.rapido:
+        parser.error("--docker y --rapido no se combinan: --rapido omite Docker")
 
     entorno = {**os.environ, "QAGENT_FAKE_LLM": "1"}
     entorno.pop("PYAGENT_FAKE_LLM", None)  # nombre anterior: que no interfiera
@@ -76,6 +90,10 @@ def main(argv: list[str] | None = None) -> int:
     comando_pytest = [python, "-m", "pytest", "-q"]
     if args.rapido:
         comando_pytest += ["-m", "not docker and not red"]
+    if args.docker:
+        comando_pytest.append("--docker")
+    if args.conservar_imagenes:
+        comando_pytest.append("--conservar-imagenes")
     pasos.append(("Pruebas (pytest)", comando_pytest + extra_pytest))
 
     resultados = [

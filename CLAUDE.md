@@ -8,7 +8,8 @@ Lo anterior (qué es el proyecto, alcance, reglas que no se rompen, estilo y flu
 
 ```bash
 pip install -e .[dev]          # instalación editable, una vez por máquina (pyproject.toml)
-python test.py                 # lint + formato + TODAS las pruebas, con la IA simulada
+python test.py                 # lint + formato + todas las pruebas (menos Docker real), con la IA simulada
+python test.py --docker        # también las de Docker real: ~15 min y varios GB de imágenes (#250)
 python test.py --rapido        # sin lint, sin pruebas de Docker ni de red
 python test.py -k clonador     # los demás argumentos van a pytest
 qagent                         # abre la app (también: python -m qagent; qagent --version)
@@ -46,7 +47,7 @@ Detalle completo en `src/qagent/frontend/README.md`. Lo esencial:
 ## Pruebas
 
 - Todas usan la IA simulada (`QAGENT_FAKE_LLM=1`, que `test.py` fija solo). Ninguna llama a una API real.
-- Las que necesitan Docker llevan `@pytest.mark.docker` y se omiten si Docker Desktop no está iniciado; las que necesitan internet, `@pytest.mark.red`. Cualquier otra prueba debe poder correr sin Docker ni red: simula `qagent.sandbox.estado.estado_docker`.
+- Las que necesitan Docker llevan `@pytest.mark.docker` y solo corren con `--docker` (o `-m docker`), aunque Docker Desktop esté abierto; al terminar borran las imágenes que crearon (#250, ver `docs/desarrollo.md`); las que necesitan internet, `@pytest.mark.red`. Cualquier otra prueba debe poder correr sin Docker ni red: simula `qagent.sandbox.estado.estado_docker`.
 - No relajar ni borrar aserciones para que una prueba pase.
 
 ## Trabajar con Git en este repositorio

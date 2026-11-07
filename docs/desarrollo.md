@@ -53,13 +53,42 @@ Los modelos y precios del equipo están en `src/qagent/config/config.toml` (se v
 `python test.py` ejecuta **todas** las pruebas, siempre con la IA simulada (no gasta tokens ni llama a ninguna API):
 
 ```bash
-python test.py                 # lint (ruff) + formato + todas las pruebas
+python test.py                 # lint (ruff) + formato + todas las pruebas, menos las de Docker real
+python test.py --docker        # también las de Docker real (ver abajo)
 python test.py --rapido        # sin lint y sin las pruebas de Docker ni de internet
 python test.py --sin-lint      # solo pytest
 python test.py -k clonador     # cualquier otro argumento se pasa a pytest
 ```
 
-Las pruebas que necesitan Docker (`-m docker`) se omiten solas si Docker Desktop no está iniciado. Las de `tests/frontend/` comprueban que la interfaz esté bien armada.
+Las de `tests/frontend/` comprueban que la interfaz esté bien armada.
+
+### Pruebas con Docker real (#250)
+
+Las pruebas marcadas `docker` son las únicas que comprueban el sandbox de verdad: aislamiento sin red, JUnit y JaCoCo, PIT y Stryker, Playwright y las librerías del sistema. Por eso son caras: con todas, la suite pasa de unos 100 segundos a unos **15 minutos** y construye cerca de **10 GB** de imágenes (`req-…`, `java-…`, `node-…`, `browser-…`, `qagent-sandbox:java`, `node`, `navegador`…). No corren solas aunque Docker Desktop esté abierto: se piden.
+
+```bash
+python test.py --docker                       # todo, incluidas las de Docker real
+python test.py --sin-lint --docker -m docker  # solo las de Docker real
+python test.py --docker --conservar-imagenes  # no borra las imágenes: la próxima corrida es más rápida
+pytest --docker tests/sandbox/test_pit_docker.py   # también con pytest; -m docker las activa igual
+```
+
+**Cuándo correrlas:** al tocar `src/qagent/sandbox/` (ejecución, imágenes, Dockerfiles, límites), los adaptadores de Java o JS/TS en lo que llega al contenedor, la mutación (mutmut, PIT, Stryker) o el E2E con Playwright. Para el resto de los cambios basta `python test.py`.
+
+Antes de empezar, pytest avisa cuántas son y cuánto tardan. Al terminar borra las imágenes de `qagent-sandbox` que **esa corrida creó** (compara las de antes y las de después) y lista cuáles borró. Nunca borra las que ya existían, ni `qagent-sandbox:base`, ni imágenes de otros repositorios (`node`, `eclipse-temurin`… que Docker descargó). Si Docker no responde, las pruebas se omiten y no se borra nada.
+
+El workflow **Pruebas con Docker real** (`.github/workflows/pruebas-docker.yml`) las corre cada lunes sobre `develop` y a mano desde Actions > Run workflow, en un runner que se descarta al terminar.
+
+**Limpiar Docker a mano.** Para ver qué ocupa espacio y borrar lo que sobra:
+
+```bash
+docker system df                              # imágenes, contenedores y caché de build
+docker images qagent-sandbox                  # imágenes del sandbox
+docker rmi qagent-sandbox:req-<hash>          # borra una imagen derivada (se reconstruye si hace falta)
+docker builder prune                          # caché de build
+```
+
+Borrar imágenes no achica el disco virtual de Docker Desktop (`docker_data.vhdx`, en `%LOCALAPPDATA%\Docker\wsl\disk\`): el espacio queda libre dentro, pero el archivo no se reduce solo. Para recuperarlo en Windows, cierra Docker Desktop, ejecuta `wsl --shutdown` y compáctalo con `Optimize-VHD -Path <ruta>\docker_data.vhdx -Mode Full` (PowerShell como administrador, requiere Hyper-V) o con `diskpart` (`select vdisk file="<ruta>\docker_data.vhdx"`, `attach vdisk readonly`, `compact vdisk`, `detach vdisk`).
 
 Para abrir la aplicación con la IA simulada (sin claves ni gasto), agrega `QAGENT_FAKE_LLM=1` a `~/.qagent/.env` o define `set QAGENT_FAKE_LLM=1` (Linux: `export QAGENT_FAKE_LLM=1`) antes de abrirla. El nombre anterior, `PYAGENT_FAKE_LLM`, se sigue aceptando.
 
