@@ -154,7 +154,8 @@ def desglosar_jsdoc(texto: str | None, linea: int = 1) -> dict[str, Any] | None:
             if not partes:
                 continue
             nombre, defecto = partes[0], None
-            if nombre.startswith("[") and nombre.endswith("]"):
+            opcional = nombre.startswith("[") and nombre.endswith("]")
+            if opcional:
                 nombre, _, defecto = nombre[1:-1].partition("=")
                 defecto = defecto or None
             resultado["parametros"][nombre] = {
@@ -164,6 +165,8 @@ def desglosar_jsdoc(texto: str | None, linea: int = 1) -> dict[str, Any] | None:
                 else "",
                 "por_defecto": defecto,
             }
+            if opcional and defecto is None:  # ``[props.titulo]`` sin defecto (#171)
+                resultado["parametros"][nombre]["opcional"] = True
         elif etiqueta in {"returns", "return"}:
             tipo, resto = _tipo_y_resto(contenido)
             resultado["retorno"] = {"tipo": tipo, "descripcion": resto, "linea": numero}

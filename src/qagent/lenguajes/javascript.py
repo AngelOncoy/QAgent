@@ -29,13 +29,23 @@ from qagent.lenguajes.base import (
     ReglasRevision,
 )
 from qagent.lenguajes.javascript_cobertura import leer_cobertura_v8
+from qagent.lenguajes.javascript_componentes import (
+    AVISO_NO_SOPORTADOS,
+    FRAMEWORK_REACT,
+    detectar_framework_ui,
+    separar_componentes,
+)
 from qagent.lenguajes.javascript_ejecucion import (
     comando_vitest,
     funciones_de_modulo_js,
     huellas_de_archivo_js,
     variables_node,
 )
-from qagent.lenguajes.javascript_estructura import extraer_funciones, gramatica_de
+from qagent.lenguajes.javascript_estructura import (
+    describir,
+    exportadas,
+    gramatica_de,
+)
 from qagent.lenguajes.javascript_junit import interpretar_resultados_vitest
 from qagent.lenguajes.javascript_llamadas import agregar_llamadas
 from qagent.lenguajes.javascript_oraculo import registro_de_evidencias
@@ -128,33 +138,44 @@ class _AdaptadorNode(AdaptadorEnDesarrollo):
                         "; ".join(extraer_errores_sintaxis(arbol.root_node))
                         or "error de sintaxis"
                     )
-                funciones = extraer_funciones(arbol.root_node)
+                logica, componentes = separar_componentes(
+                    arbol.root_node, exportadas(arbol.root_node)
+                )
+                funciones = [describir(e) for e in logica]
                 for funcion in funciones:
                     funcion["modulo"] = relativa
                     funcion["evidencias"] = registro_de_evidencias(funcion, relativa)
             except (OSError, UnicodeError, SyntaxError, RecursionError) as error:
                 errores.append(_error(relativa, error))
                 continue
-            modulos.append(
-                {
-                    "ruta": relativa,
-                    "huella": calcular_huella(fuente),
-                    "funciones": funciones,
-                    "endpoints": [],
-                }
-            )
+            modulo: dict[str, Any] = {
+                "ruta": relativa,
+                "huella": calcular_huella(fuente),
+                "funciones": funciones,
+                "endpoints": [],
+            }
+            if componentes:  # #171: solo aparece si el archivo exporta componentes
+                for componente in componentes:
+                    componente["modulo"] = relativa
+                modulo["componentes"] = componentes
+            modulos.append(modulo)
             arboles[relativa] = arbol.root_node
         agregar_llamadas(modulos, arboles)
-        return {
+        estructura: Estructura = {
             "lenguaje": self.lenguaje,
             "modulos": modulos,
             "errores": errores,
             "resumen": _resumen(modulos, errores),
         }
+        framework_ui = _framework_ui(carpeta, modulos)
+        if framework_ui is not None:
+            estructura["framework_ui"] = framework_ui
+        return estructura
 
     def objetivos(self, estructura: Estructura) -> list[dict[str, Any]]:
-        """Funciones exportadas con ``critical``: al menos una decisión, como en Java."""
-        return [
+        """Funciones exportadas con ``critical`` (al menos una decisión, como en Java)
+        y, si el proyecto usa React, sus componentes (#171), que nunca se mutan."""
+        objetivos = [
             {
                 "modulo": m["ruta"],
                 "tipo": "funcion",
@@ -164,6 +185,18 @@ class _AdaptadorNode(AdaptadorEnDesarrollo):
             for m in estructura.get("modulos", [])
             for f in m.get("funciones", [])
         ]
+        if (estructura.get("framework_ui") or {}).get("soportado"):
+            objetivos.extend(
+                {
+                    "modulo": m["ruta"],
+                    "tipo": "componente",
+                    "objetivo": c["nombre"],
+                    "critical": False,
+                }
+                for m in estructura.get("modulos", [])
+                for c in m.get("componentes", [])
+            )
+        return objetivos
 
     def reglas_planificacion(self) -> ReglasPlanificacion:
         """Prompt Vitest y oráculo estricto desde JSDoc y tipos para el Planner (#176)."""
@@ -267,6 +300,36 @@ class _AdaptadorNode(AdaptadorEnDesarrollo):
         from qagent.sandbox.stryker_ejecucion import ejecutar_stryker
 
         return ejecutar_stryker(*args, **opciones)
+
+
+def _framework_ui(
+    carpeta: Path, modulos: list[dict[str, Any]]
+) -> dict[str, Any] | None:
+    """Framework de interfaz del proyecto y cuántos componentes tiene (#171).
+
+    Con React los componentes se prueban. Con otro framework, o con componentes JSX
+    sin React en ``package.json``, solo se prueban los archivos de lógica y el
+    informe dice «componentes no soportados» (ADR-010, sección 10.6).
+    """
+    total = sum(len(m.get("componentes", [])) for m in modulos)
+    framework = detectar_framework_ui(carpeta)
+    if framework is None and total:
+        framework = {
+            "framework": None,
+            "nombre": "JSX sin React en package.json",
+            "soportado": False,
+            "aviso": AVISO_NO_SOPORTADOS,
+        }
+    if framework is None:
+        return None
+    framework["componentes"] = total
+    framework["verificables"] = sum(
+        1
+        for m in modulos
+        for c in m.get("componentes", [])
+        if c["verificable"] and framework["framework"] == FRAMEWORK_REACT
+    )
+    return framework
 
 
 def _error(relativa: str, causa: Exception) -> dict[str, Any]:
