@@ -285,6 +285,10 @@ class FiltroSecretos(logging.Filter):
         super().__init__()
         self._claves = claves
 
+    def actualizar(self, claves: Claves) -> None:
+        """Cambia las claves que se ocultan (por ejemplo, tras editar el `.env`, #251)."""
+        self._claves = claves
+
     def filter(self, record: logging.LogRecord) -> bool:
         """Reescribe el mensaje ya formateado, sin claves."""
         record.msg = self._claves.redactar(record.getMessage())
@@ -292,13 +296,25 @@ class FiltroSecretos(logging.Filter):
         return True
 
 
+#: Filtro que `instalar_filtro_logs` dejó en el logger raíz; se reutiliza al reinstalarlo.
+_FILTRO_RAIZ: FiltroSecretos | None = None
+
+
 def instalar_filtro_logs(claves: Claves) -> FiltroSecretos:
-    """Agrega `FiltroSecretos` a los handlers del logger raíz y lo devuelve."""
-    filtro = FiltroSecretos(claves)
-    raiz = logging.getLogger()
-    for handler in raiz.handlers:
-        handler.addFilter(filtro)
-    return filtro
+    """Agrega `FiltroSecretos` a los handlers del logger raíz y lo devuelve.
+
+    Se puede llamar otra vez con claves nuevas: actualiza el mismo filtro en lugar de
+    sumar uno por llamada (#251).
+    """
+    global _FILTRO_RAIZ
+    if _FILTRO_RAIZ is None:
+        _FILTRO_RAIZ = FiltroSecretos(claves)
+    else:
+        _FILTRO_RAIZ.actualizar(claves)
+    for handler in logging.getLogger().handlers:
+        if _FILTRO_RAIZ not in handler.filters:
+            handler.addFilter(_FILTRO_RAIZ)
+    return _FILTRO_RAIZ
 
 
 @dataclass
@@ -398,10 +414,42 @@ def aplicar_simulacion_desde_env(ruta_env: str | Path | None = None) -> bool:
     Returns:
         True si esta llamada activó la IA simulada.
     """
+    global _SIMULACION_COPIADA
     if valor_simulado(os.environ) is not None or not simulado_desde_env(ruta_env):
         return False
     os.environ[VARIABLE_SIMULADA] = "1"
+    _SIMULACION_COPIADA = True
     return True
+
+
+#: True si `QAGENT_FAKE_LLM` del proceso lo puso QAgent copiándolo del `.env` (y no el
+#: sistema). Solo en ese caso `refrescar_simulacion_desde_env` lo puede quitar.
+_SIMULACION_COPIADA = False
+
+
+def refrescar_simulacion_desde_env(ruta_env: str | Path | None = None) -> bool:
+    """Vuelve a leer `QAGENT_FAKE_LLM` del `.env` con la app abierta (#251).
+
+    Al iniciar, `aplicar_simulacion_desde_env` copia la bandera al entorno del proceso,
+    y desde entonces el entorno manda sobre el `.env`: cambiarla a `0` o quitarla no
+    tenía efecto hasta reiniciar. Aquí se sigue al `.env` mientras la bandera sea la
+    que copió QAgent; si la definió el sistema, no se toca (el sistema sigue mandando).
+
+    No debe llamarse durante una corrida: cambiaría la IA a mitad de camino.
+
+    Returns:
+        Si la IA simulada queda activa (`modo_simulado`).
+    """
+    global _SIMULACION_COPIADA
+    del_sistema = valor_simulado(os.environ) is not None and not _SIMULACION_COPIADA
+    if not del_sistema:
+        if simulado_desde_env(ruta_env):
+            os.environ[VARIABLE_SIMULADA] = "1"
+            _SIMULACION_COPIADA = True
+        elif _SIMULACION_COPIADA:
+            os.environ.pop(VARIABLE_SIMULADA, None)
+            _SIMULACION_COPIADA = False
+    return modo_simulado(ruta_env)
 
 
 def cargar_configuracion(

@@ -82,7 +82,12 @@ async function actualizarSandbox() {
     // IA simulada y Docker sin responder (o sin imagen): se muestra como opcional, no como error.
     const clave = r && r.simulado && r.estado !== 'ok' ? 'opcional' : r && r.estado;
     const ui = SANDBOX_UI[clave] || SANDBOX_UI.no_iniciado;
+    const anterior = ESTADO_MOTOR && ESTADO_MOTOR.clave;
     ESTADO_MOTOR = {clave: SANDBOX_UI[clave] ? clave : 'no_iniciado', mensaje: r && r.mensaje};
+    // #251: si el motor cambió (p. ej. se abrió Docker Desktop), Preparar vuelve a comprobar el
+    // entorno. Solo ante un cambio: verificarEntorno llama a esta función y ve el mismo estado,
+    // así que no hay bucle.
+    if (anterior && anterior !== ESTADO_MOTOR.clave) alCambiarMotor();
     if (typeof renderMotorConfig === 'function') renderMotorConfig();
     pintarMotor(ui);
     $('sbRow').title = ui.label + ' · ' + ((r && r.mensaje) || ui.detalle);
@@ -95,9 +100,27 @@ async function actualizarSandbox() {
     sandboxConsultando = false;
   }
 }
+// El entorno (Comprobaciones previas de Preparar) depende del motor: se vuelve a verificar.
+function alCambiarMotor() {
+  if (typeof verificarEntorno === 'function') verificarEntorno();
+}
+// #251: al volver a la ventana de QAgent se consulta el motor y el entorno al instante, sin
+// esperar los 15 s. El foco y la visibilidad llegan juntos: se atienden una sola vez.
+const ESPERA_VUELTA_MS = 1500;
+let ultimaVueltaVentana = 0;
+function alVolverALaVentana() {
+  if (document.visibilityState === 'hidden') return;
+  const ahora = Date.now();
+  if (ahora - ultimaVueltaVentana < ESPERA_VUELTA_MS) return;
+  ultimaVueltaVentana = ahora;
+  actualizarSandbox();
+  if (typeof verificarEntorno === 'function') verificarEntorno();
+}
 function iniciarEstadoSandbox() {
   actualizarSandbox();
   setInterval(actualizarSandbox, 15000);
+  window.addEventListener('focus', alVolverALaVentana);
+  document.addEventListener('visibilitychange', alVolverALaVentana);
 }
 
 /* Drawer: expandida o plegada. La preferencia es de cada persona y se recuerda en este equipo;

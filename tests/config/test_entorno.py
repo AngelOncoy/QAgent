@@ -179,7 +179,69 @@ def test_estado_git_ok_en_este_equipo():
 
 def test_estado_git_no_instalado(monkeypatch):
     monkeypatch.setattr(modulo_entorno.shutil, "which", lambda _: None)
+    # #251: tampoco está en las carpetas del instalador ni en el PATH del registro.
+    monkeypatch.setattr(modulo_entorno, "_carpetas_git", lambda _entorno: [])
+    monkeypatch.setattr(modulo_entorno, "_path_del_registro", list)
     assert estado_git()["estado"] == "no_instalado"
+
+
+# ---------- Git instalado con la app abierta (#251) ----------
+
+
+def _git_falso(carpeta: Path) -> Path:
+    carpeta.mkdir(parents=True)
+    ejecutable = carpeta / "git.exe"
+    ejecutable.write_text("", encoding="utf-8")
+    return ejecutable
+
+
+def test_buscar_git_usa_el_path_si_lo_encuentra(monkeypatch):
+    monkeypatch.setattr(modulo_entorno.shutil, "which", lambda _: "C:/git/git.exe")
+    entorno = {"PATH": "C:/otra"}
+    assert modulo_entorno.buscar_git(entorno, list, en_windows=True) == (
+        "C:/git/git.exe"
+    )
+    assert entorno == {"PATH": "C:/otra"}
+
+
+def test_buscar_git_en_la_carpeta_del_instalador_y_lo_agrega_al_path(
+    monkeypatch, tmp_path
+):
+    monkeypatch.setattr(modulo_entorno.shutil, "which", lambda _: None)
+    ejecutable = _git_falso(tmp_path / "Archivos" / "Git" / "cmd")
+    entorno = {"ProgramFiles": str(tmp_path / "Archivos"), "PATH": "C:/antes"}
+    assert modulo_entorno.buscar_git(entorno, list, en_windows=True) == str(ejecutable)
+    assert entorno["PATH"].split(modulo_entorno.os.pathsep) == [
+        str(ejecutable.parent),
+        "C:/antes",
+    ]
+
+
+def test_buscar_git_en_el_path_del_registro(monkeypatch, tmp_path):
+    monkeypatch.setattr(modulo_entorno.shutil, "which", lambda _: None)
+    ejecutable = _git_falso(tmp_path / "nuevo" / "bin")
+    entorno: dict[str, str] = {}
+    encontrado = modulo_entorno.buscar_git(
+        entorno, lambda: [str(tmp_path / "vacia"), str(ejecutable.parent)], True
+    )
+    assert encontrado == str(ejecutable)
+    assert entorno["PATH"] == str(ejecutable.parent)
+
+
+def test_buscar_git_fuera_de_windows_solo_mira_el_path(monkeypatch, tmp_path):
+    monkeypatch.setattr(modulo_entorno.shutil, "which", lambda _: None)
+    _git_falso(tmp_path / "Git" / "cmd")
+    entorno = {"ProgramFiles": str(tmp_path)}
+    assert modulo_entorno.buscar_git(entorno, list, en_windows=False) is None
+    assert "PATH" not in entorno
+
+
+def test_sin_git_el_mensaje_pide_comprobar_de_nuevo(monkeypatch):
+    monkeypatch.setattr(modulo_entorno, "buscar_git", lambda: None)
+    estado = estado_git()
+    assert estado["estado"] == "no_instalado"
+    assert "Comprobar de nuevo" in estado["mensaje"]
+    assert "reinicia QAgent" in estado["mensaje"]
 
 
 def test_estado_git_que_falla(monkeypatch):
