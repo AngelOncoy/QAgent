@@ -40,6 +40,7 @@ from qagent.lenguajes.treesitter import (
 from qagent.sandbox.ejecucion import ARCHIVO_JUNIT, DIR_SALIDA, DIR_TESTS
 from qagent.sandbox.modelos import IMAGEN_NODE
 from qagent.lenguajes.javascript_ejecucion import comando_vitest, variables_node
+from qagent.lenguajes.javascript_junit import interpretar_resultados_vitest
 
 #: Herramientas que trae ``qagent-sandbox:node`` (``sandbox/Dockerfile.node``).
 PAQUETES_NODE = (
@@ -176,6 +177,10 @@ class _AdaptadorNode(AdaptadorEnDesarrollo):
     def variables_pruebas(self) -> dict[str, str]:
         """Variables de entorno para el contenedor Node."""
         return variables_node()
+
+    def interpretar_resultados(self, informe: str) -> dict[str, Any]:
+        """Convierte el informe de Vitest (JUnit XML o JSON) a resultados comunes."""
+        return interpretar_resultados_vitest(informe)
 
     # --- Generación y guardrail Vitest (EP-11a, parte 2) -----------------------------
 
