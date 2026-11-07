@@ -1,0 +1,65 @@
+{
+  "schemaVersion": "2.0",
+  "thresholds": {
+    "high": 80,
+    "low": 60
+  },
+  "files": {
+    "src/precios.ts": {
+      "language": "typescript",
+      "source": "export function calcularDescuento(precio: number, tipo: string): number {\n  if (precio > 100) {\n    return precio * 0.9;\n  }\n  return precio;\n}\n\nexport function formatearMoneda(monto: number): string {\n  return '$' + monto.toFixed(2);\n}\n",
+      "mutants": [
+        {
+          "id": "1",
+          "mutatorName": "BinaryExpression",
+          "status": "Killed",
+          "location": {
+            "start": { "line": 2, "column": 14 },
+            "end": { "line": 2, "column": 15 }
+          },
+          "replacement": ">="
+        },
+        {
+          "id": "2",
+          "mutatorName": "BinaryExpression",
+          "status": "Survived",
+          "location": {
+            "start": { "line": 3, "column": 19 },
+            "end": { "line": 3, "column": 20 }
+          },
+          "replacement": "/"
+        },
+        {
+          "id": "3",
+          "mutatorName": "BlockStatement",
+          "status": "Killed",
+          "location": {
+            "start": { "line": 2, "column": 21 },
+            "end": { "line": 4, "column": 4 }
+          },
+          "replacement": "{}"
+        },
+        {
+          "id": "4",
+          "mutatorName": "StringLiteral",
+          "status": "Survived",
+          "location": {
+            "start": { "line": 9, "column": 10 },
+            "end": { "line": 9, "column": 13 }
+          },
+          "replacement": "\"\""
+        },
+        {
+          "id": "5",
+          "mutatorName": "Timeout",
+          "status": "Timeout",
+          "location": {
+            "start": { "line": 5, "column": 3 },
+            "end": { "line": 5, "column": 17 }
+          },
+          "replacement": "while(true){}"
+        }
+      ]
+    }
+  }
+}
