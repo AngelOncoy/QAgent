@@ -6,7 +6,8 @@ asegurando ejecución sin red en el sandbox y respetando la estructura de carpet
 
 from __future__ import annotations
 
-from pathlib import PurePosixPath
+from pathlib import Path, PurePosixPath
+from typing import Any
 
 from qagent.analysis.analyzer import calcular_huella
 from qagent.lenguajes.javascript_estructura import extraer_funciones, gramatica_de
@@ -68,3 +69,19 @@ def huellas_de_archivo_js(
         }
     except (ValueError, UnicodeError):
         return None
+
+
+def funciones_de_modulo_js(raiz: Path, modulo: str) -> list[dict[str, Any]]:
+    """Devuelve nombre y línea de las funciones exportadas de un archivo JS/TS."""
+    archivo = raiz / modulo
+    if archivo.is_symlink() or not archivo.resolve().is_relative_to(raiz.resolve()):
+        return []
+    try:
+        fuente = archivo.read_text(encoding="utf-8-sig")
+        arbol = obtener_parser(gramatica_de(modulo)).parse(fuente.encode("utf-8"))
+        if arbol.root_node.has_error:
+            return []
+        funciones = extraer_funciones(arbol.root_node)
+        return [{"nombre": f["nombre"], "linea": f["linea"]} for f in funciones]
+    except (OSError, UnicodeError, ValueError):
+        return []

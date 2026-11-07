@@ -20,6 +20,7 @@ from tree_sitter import Node
 from qagent.analysis.analyzer import _resumen, calcular_huella
 from qagent.lenguajes.base import (
     AdaptadorEnDesarrollo,
+    ComandoSandbox,
     ComparacionAserciones,
     EntornoSandbox,
     Estructura,
@@ -28,7 +29,12 @@ from qagent.lenguajes.base import (
     ReglasRevision,
 )
 from qagent.lenguajes.javascript_cobertura import leer_cobertura_v8
-from qagent.lenguajes.javascript_ejecucion import comando_vitest, variables_node
+from qagent.lenguajes.javascript_ejecucion import (
+    comando_vitest,
+    funciones_de_modulo_js,
+    huellas_de_archivo_js,
+    variables_node,
+)
 from qagent.lenguajes.javascript_estructura import extraer_funciones, gramatica_de
 from qagent.lenguajes.javascript_junit import interpretar_resultados_vitest
 from qagent.lenguajes.javascript_llamadas import agregar_llamadas
@@ -83,6 +89,8 @@ class _AdaptadorNode(AdaptadorEnDesarrollo):
     """Análisis compartido de JavaScript y TypeScript; cada uno con sus extensiones."""
 
     e2e_humo_disponible = True
+    huellas_disponibles = True
+    motor_mutacion = "Stryker"
 
     def analizar(self, raiz: str | os.PathLike[str]) -> Estructura:
         """Lee las fuentes del lenguaje y devuelve lenguaje, módulos, errores y resumen.
@@ -234,6 +242,31 @@ class _AdaptadorNode(AdaptadorEnDesarrollo):
         from qagent.lenguajes.javascript_rutas import detectar_rutas_web
 
         return detectar_rutas_web(raiz, self.extensiones)
+
+    def huellas_de_archivo(self, fuente: str, relativa: str) -> dict[str, str] | None:
+        """Huella tree-sitter de cada función exportada (HU-24, HU-25, #179)."""
+        return huellas_de_archivo_js(fuente, relativa, self.lenguaje)
+
+    def funciones_de_modulo(self, raiz: Path, modulo: str) -> list[dict[str, Any]]:
+        """Nombre y línea de las funciones exportadas del módulo (#179)."""
+        return funciones_de_modulo_js(raiz, modulo)
+
+    def comando_mutacion(
+        self,
+        modulo: str,
+        funciones: list[str],
+        rangos: dict[str, tuple[int, int]] | None = None,
+    ) -> ComandoSandbox:
+        """Comando de Stryker acotado a los rangos de líneas de funciones críticas (#179)."""
+        from qagent.sandbox.stryker_comando import comando_stryker
+
+        return comando_stryker(modulo, funciones, rangos=rangos)
+
+    def ejecutar_mutacion(self, *args: Any, **opciones: Any) -> Any:
+        """Muta las funciones críticas con Stryker en el sandbox Docker (#179)."""
+        from qagent.sandbox.stryker_ejecucion import ejecutar_stryker
+
+        return ejecutar_stryker(*args, **opciones)
 
 
 def _error(relativa: str, causa: Exception) -> dict[str, Any]:
