@@ -264,6 +264,7 @@ class DesktopAPI:
         from qagent.config import carga as config_carga
         from qagent.config import verificar_entorno
 
+        self._refrescar_estado_local()  # #251: IA simulada y claves del .env al día
         return verificar_entorno(
             config_carga.RUTA_CONFIG,
             config_carga.RUTA_ENV,
@@ -1096,7 +1097,38 @@ class DesktopAPI:
             }
         else:
             estado = estado_docker()
+        # La interfaz consulta esto cada 15 s y al volver a la ventana (#251).
+        self._refrescar_estado_local(
+            docker_responde=estado.get("estado") in DOCKER_RESPONDE
+        )
         return {**estado, "simulado": modo_simulado()}
+
+    def _corrida_en_curso(self) -> bool:
+        """True si hay una corrida real ejecutándose en su hilo."""
+        return self._corrida is not None and self._corrida.is_alive()
+
+    def _refrescar_estado_local(self, docker_responde: bool = False) -> None:
+        """Pone al día lo que el programa leyó una sola vez al abrir (#251).
+
+        - `QAGENT_FAKE_LLM` del `.env` (caso 6), salvo durante una corrida.
+        - Las claves que oculta la bitácora, si el `.env` cambió (caso 10).
+        - La limpieza del sandbox que no pudo hacerse al abrir porque Docker no
+          respondía (caso 11), solo si ahora responde y no hay una corrida.
+
+        Solo actúa con la app abierta (`main` activa el seguimiento): las pruebas no
+        tocan el entorno del proceso ni el Docker real.
+        """
+        if not SEGUIMIENTO.activo:
+            return
+        from qagent.config import carga as config_carga
+        from qagent.config import refrescar_simulacion_desde_env
+
+        corrida = self._corrida_en_curso()
+        if not corrida:
+            refrescar_simulacion_desde_env(config_carga.RUTA_ENV)
+        _refrescar_claves_si_cambio()
+        if docker_responde and not corrida:
+            _reintentar_limpieza()
 
     def registrar_evento(self, evento: dict) -> None:
         """Imprime en la consola de Python un paso de la corrida, con hora.
@@ -1253,15 +1285,83 @@ def _corridas_al_abrir(almacen: AlmacenProyecto) -> bool:
 
 
 def _ocultar_claves_en_bitacora() -> None:
-    """Vuelve a leer `.env` para que la bitácora oculte también una clave recién guardada."""
-    from qagent.config import Claves, leer_env
+    """Vuelve a leer `.env` para que la bitácora oculte también una clave recién guardada.
+
+    Actualiza los dos filtros: el de la bitácora de la corrida y el del logger raíz.
+    """
+    from qagent.config import Claves, instalar_filtro_logs, leer_env
     from qagent.config import carga as config_carga
 
+    SEGUIMIENTO.firma_env = _firma_env()
     try:
         claves = Claves(leer_env(config_carga.RUTA_ENV))
     except (OSError, UnicodeDecodeError):
         return
+    if SEGUIMIENTO.activo:  # el filtro raíz lo instaló main(); en las pruebas no existe
+        instalar_filtro_logs(claves)
     bitacora.configurar_registro(claves)
+
+
+#: Estados de Docker en los que el servicio responde (aunque falte la imagen).
+DOCKER_RESPONDE = ("ok", "sin_imagen")
+
+
+class _Seguimiento:
+    """Lo que la app abierta vigila para no quedarse con lo que leyó al iniciar (#251).
+
+    Atributos:
+        activo: lo enciende `main`; apagado en las pruebas.
+        firma_env: fecha y tamaño del `.env` la última vez que se leyeron sus claves.
+        limpieza: "sin_programar", "pendiente" (Docker no respondió), "en_curso" o "hecha".
+    """
+
+    def __init__(self) -> None:
+        self.activo = False
+        self.firma_env: tuple[int, int] | None = None
+        self.limpieza = "sin_programar"
+        self.candado = threading.Lock()
+
+
+SEGUIMIENTO = _Seguimiento()
+
+
+def _firma_env() -> tuple[int, int] | None:
+    """Fecha de modificación y tamaño del `.env`, o None si no existe."""
+    from qagent.config import carga as config_carga
+
+    try:
+        datos = Path(config_carga.RUTA_ENV).stat()
+    except OSError:
+        return None
+    return datos.st_mtime_ns, datos.st_size
+
+
+def _refrescar_claves_si_cambio() -> bool:
+    """Si el `.env` cambió (por ejemplo, editado a mano), la bitácora oculta sus claves nuevas.
+
+    Returns:
+        True si se volvieron a leer las claves.
+    """
+    if _firma_env() == SEGUIMIENTO.firma_env:
+        return False
+    _ocultar_claves_en_bitacora()
+    return True
+
+
+def _reintentar_limpieza() -> bool:
+    """Lanza la limpieza del sandbox si quedó pendiente porque Docker no respondía.
+
+    Returns:
+        True si se lanzó (una sola a la vez).
+    """
+    with SEGUIMIENTO.candado:
+        if SEGUIMIENTO.limpieza != "pendiente":
+            return False
+        SEGUIMIENTO.limpieza = "en_curso"
+    threading.Thread(
+        target=_limpiar_sandbox, name="limpieza-sandbox", daemon=True
+    ).start()
+    return True
 
 
 def _registrar_estado_configuracion() -> None:
@@ -1308,10 +1408,16 @@ def ejecutar(argv: list[str] | None = None) -> None:
 
 
 def _limpiar_sandbox() -> None:
-    """Borra contenedores huérfanos e imágenes viejas del sandbox (en segundo plano)."""
+    """Borra contenedores huérfanos e imágenes viejas del sandbox (en segundo plano).
+
+    Si Docker no respondió, la limpieza queda pendiente y se reintenta cuando el motor
+    pase a estar activo (#251).
+    """
     from qagent.sandbox.limpieza import limpiar_al_iniciar
 
     resultado = limpiar_al_iniciar()
+    with SEGUIMIENTO.candado:
+        SEGUIMIENTO.limpieza = "hecha" if resultado else "pendiente"
     if resultado.get("contenedores"):
         bitacora.registro.info(
             "Sandbox: se borraron %d contenedores de corridas interrumpidas.",
@@ -1339,9 +1445,11 @@ def main() -> None:
             "Se movió %s de la carpeta del código a ~/.qagent/.", nombre
         )
     _registrar_estado_configuracion()
-    threading.Thread(
-        target=_limpiar_sandbox, name="limpieza-sandbox", daemon=True
-    ).start()
+    # #251: desde aquí la app vigila el .env y reintenta la limpieza si Docker no estaba.
+    SEGUIMIENTO.activo = True
+    SEGUIMIENTO.firma_env = _firma_env()
+    SEGUIMIENTO.limpieza = "pendiente"
+    _reintentar_limpieza()
     # Se carga como file:// y no como ruta: con una ruta, pywebview sirve la carpeta con un servidor
     # HTTP interno cuya cola admite 5 conexiones, y al abrir la ventana (decenas de CSS, JS y fuentes
     # a la vez) rechaza algunas peticiones al azar y la interfaz queda sin estilos o sin scripts.

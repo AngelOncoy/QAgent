@@ -4,7 +4,8 @@
 // con buscador, y avisos.
 // Los íconos (ICO_*) vienen de inicio/modal-abrir.js, que se carga antes.
 const ICO_BUSCAR = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="11" cy="11" r="6"/><path d="m20 20-4.5-4.5"/></svg>';
-const ICO_AVISO_EXP = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M12 3 2 20h20z"/><path d="M12 10v4M12 17h.01"/></svg>';
+const ICO_REANALIZAR = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2.3 5.7"/><path d="M20 4v7h-7"/></svg>';
+const ICO_AVISO_EXP ='<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M12 3 2 20h20z"/><path d="M12 10v4M12 17h.01"/></svg>';
 registrarComponente('vista-previa/vista-previa', `<!-- ===== 2. EXPLORAR ===== -->
 <section id="s-preview" class="hide" style="display:flex;flex-direction:column;flex:1;min-height:0">
   <header class="ini-barra">
@@ -18,7 +19,10 @@ registrarComponente('vista-previa/vista-previa', `<!-- ===== 2. EXPLORAR ===== -
         <h1 class="ini-titulo">Elige qué quieres probar</h1>
         <p class="np-subtitulo"><span class="repoName"></span> · <span id="projLenguaje">Python · pytest</span><span class="hide" id="projRama"> · rama <span class="brLbl"></span></span> · Análisis sin ejecutar el proyecto</p>
       </div>
-      <button type="button" class="ini-btn ini-btn-principal" id="toTests" onclick="go('tests')">${ICO_FLECHA}<span id="toTestsTxt">Preparar selección</span></button>
+      <div class="exp-acciones">
+        <button type="button" class="ini-btn" id="expReanalizar" onclick="volverAAnalizar()" title="Lee otra vez el código del proyecto (por ejemplo, si lo cambiaste o agregaste archivos) y conserva tu selección">${ICO_REANALIZAR}<span>Volver a analizar</span></button>
+        <button type="button" class="ini-btn ini-btn-principal" id="toTests" onclick="go('tests')">${ICO_FLECHA}<span id="toTestsTxt">Preparar selección</span></button>
+      </div>
     </div>
 
     <!-- Cifras del proyecto -->
@@ -267,21 +271,75 @@ async function restaurarSeleccionExplorar(){
   if(!api || !api.obtener_seleccion_objetivos || !projectPath) return;
   try {
     const respuesta = await api.obtener_seleccion_objetivos(projectPath);
-    const seleccion = respuesta && respuesta.seleccion;
-    if(!seleccion || !Array.isArray(seleccion.modulos)) return;
-    const porRuta = new Map(seleccion.modulos.map(m => [m.ruta, m]));
-    MODULES.filter(m=>!m.error).forEach(m => {
-      const guardado = porRuta.get(m.path);
-      if(!guardado) return;
-      m.sel = !!guardado.incluido;
-      const funciones = new Map((guardado.funciones || []).map(f => [f.nombre, f]));
-      (m.fns || []).forEach(f => { const previo=funciones.get(f.n); if(previo){ f.inc=!!previo.incluido; f.crit=!!previo.critico; } });
-      const endpoints = new Map((guardado.endpoints || []).map(e => [e.objetivo, e]));
-      (m.endpoints || []).forEach(e => { const previo=endpoints.get(e.objetivo); if(previo){ e.inc=!!previo.incluido; e.crit=!!previo.critico; } });
-    });
+    aplicarSeleccionObjetivos(respuesta && respuesta.seleccion);
   } catch(err) {
     console.warn('No se pudo recuperar la selección:', err);
   }
+}
+// Aplica una selección (la guardada en .qagent/ o la instantánea de instantaneaSeleccionObjetivos)
+// sobre MODULES. Los objetivos nuevos conservan su valor por defecto.
+function aplicarSeleccionObjetivos(seleccion){
+  if(!seleccion || !Array.isArray(seleccion.modulos)) return;
+  const porRuta = new Map(seleccion.modulos.map(m => [m.ruta, m]));
+  MODULES.filter(m=>!m.error).forEach(m => {
+    const guardado = porRuta.get(m.path);
+    if(!guardado) return;
+    m.sel = !!guardado.incluido;
+    const funciones = new Map((guardado.funciones || []).map(f => [f.nombre, f]));
+    (m.fns || []).forEach(f => { const previo=funciones.get(f.n); if(previo){ f.inc=!!previo.incluido; f.crit=!!previo.critico; } });
+    const endpoints = new Map((guardado.endpoints || []).map(e => [e.objetivo, e]));
+    (m.endpoints || []).forEach(e => { const previo=endpoints.get(e.objetivo); if(previo){ e.inc=!!previo.incluido; e.crit=!!previo.critico; } });
+  });
+}
+
+/* ---------------- Volver a analizar (#251) ----------------
+   El análisis se hacía solo al abrir el proyecto: si se cambiaba el código había que reabrirlo
+   desde Inicio. Aquí se analiza otra vez y se conserva lo que la persona eligió, la pestaña y la
+   búsqueda. No se permite durante una corrida (sus objetivos ya están decididos). */
+let reanalizando = false;
+async function volverAAnalizar(){
+  const api = window.pywebview && window.pywebview.api;
+  const analizar = api && (api.obtener_vista_previa || api.analizar_proyecto);
+  if(!analizar || !projectPath || reanalizando) return;
+  if(typeof monitorStarted !== 'undefined' && monitorStarted && typeof runDone !== 'undefined' && !runDone){
+    toast('Espera a que termine la corrida para volver a analizar el proyecto.');
+    return;
+  }
+  reanalizando = true;
+  const boton = $('expReanalizar');
+  boton.disabled = true; boton.setAttribute('aria-busy', 'true');
+  const seleccion = instantaneaSeleccionObjetivos();
+  const vista = VISTA_OBJETIVOS, textoBuscar = $('expBuscar').value;
+  try {
+    const res = await analizar(projectPath);
+    if(!(res && res.ok && res.resumen && res.resumen.total_modulos > 0)){
+      toastError(escHtml((res && res.error) || 'No se encontraron módulos analizables en el proyecto.'));
+      return;
+    }
+    cargarDatosVistaPrevia(res);
+    aplicarSeleccionObjetivos(seleccion);
+    VISTA_OBJETIVOS = vista;
+    $('expBuscar').value = textoBuscar;
+    BUSQUEDA = textoBuscar.trim().toLowerCase();
+    renderTree();   // termina en calc(): Preparar también se pone al día
+    toast('Proyecto analizado de nuevo. Se conservó tu selección.');
+  } catch(err) {
+    console.error('Error al volver a analizar el proyecto:', err);
+    toastError('No se pudo volver a analizar el proyecto. Inténtalo de nuevo.');
+  } finally {
+    reanalizando = false;
+    boton.disabled = false; boton.removeAttribute('aria-busy');
+  }
+}
+
+/* ---------------- Corridas previas (#251) ----------------
+   «Volver a correr las guardadas» depende de HAS_PRIOR_RUN y PRUEBAS_REPETIBLES, que se leían
+   solo al abrir el proyecto. Al terminar una corrida se vuelven a consultar. */
+async function actualizarCorridasPrevias(){
+  if(!projectPath) return;
+  HAS_PRIOR_RUN = await hayCorridaPrevia(projectPath);
+  PRUEBAS_REPETIBLES = await pruebasRepetibles(projectPath);
+  try { calc(); } catch(err) { console.warn('No se pudo actualizar Preparar:', err); }
 }
 
 /* ---------------- Vista previa ---------------- */

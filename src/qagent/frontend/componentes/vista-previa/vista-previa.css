@@ -126,3 +126,8 @@
   #s-preview .page{padding-top:var(--esp-4);padding-bottom:var(--esp-4);gap:var(--esp-3)}
   .exp-cifra{padding:var(--esp-3) var(--esp-4)}
 }
+
+/* Acciones de la cabecera (#251): «Volver a analizar» junto a «Preparar selección». */
+.exp-acciones{display:flex;align-items:center;gap:var(--esp-2);flex-wrap:wrap}
+.exp-acciones .ini-btn{height:44px}
+.exp-acciones .ini-btn[aria-busy="true"]{cursor:progress;opacity:.7}

@@ -402,6 +402,8 @@ function monitorFinReal(r){
     if (typeof cargarEjecucionReal === 'function') cargarEjecucionReal(r.run_id, false);
     if (typeof cargarReporteReal === 'function') cargarReporteReal(r.run_id, false);
   }
+  // #251: la corrida pudo dejar pruebas guardadas; «Volver a correr las guardadas» se habilita sin reabrir.
+  if (typeof actualizarCorridasPrevias === 'function') actualizarCorridasPrevias();
   pintarProgreso();
 }
 

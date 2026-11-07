@@ -124,6 +124,9 @@ def armar_comando(
 
 def entorno_git() -> dict[str, str]:
     """Entorno del proceso git: sin pedir credenciales y con mensajes en inglés."""
+    from qagent.config.entorno import buscar_git
+
+    buscar_git()  # Git instalado con QAgent abierto: agrega su carpeta al PATH (#251)
     entorno = dict(os.environ)
     # Repo privado → falla en vez de pedir credenciales (terminal o ventana de GCM)
     entorno["GIT_TERMINAL_PROMPT"] = "0"

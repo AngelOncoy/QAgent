@@ -17,6 +17,7 @@ from qagent.config.carga import (
     instalar_filtro_logs,
     leer_env,
     modo_simulado,
+    refrescar_simulacion_desde_env,
     simulado_desde_env,
 )
 from qagent.config.entorno import (
@@ -46,6 +47,7 @@ __all__ = [
     "instalar_filtro_logs",
     "leer_env",
     "modo_simulado",
+    "refrescar_simulacion_desde_env",
     "simulado_desde_env",
     "verificar_entorno",
 ]
