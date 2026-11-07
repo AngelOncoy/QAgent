@@ -84,7 +84,7 @@ VERSIONES: dict[str, dict[str, str]] = {
 #: Tipos que el contrato del futuro Recomendador puede representar en su primera
 #: versión. La integración de #197 deberá contrastarlos además con las capacidades
 #: del adaptador elegido para el proyecto (ADR-011).
-TIPOS_PRUEBA_RECOMENDABLES = ("funcion", "endpoint", "mutacion")
+TIPOS_PRUEBA_RECOMENDABLES = ("funcion", "endpoint", "mutacion", "componente")
 
 #: Lenguajes que pueden aparecer en un contrato (EN-17) y sus frameworks válidos.
 #: Debe coincidir con los `enum` de los schemas v3 / v2 (lo verifica una prueba).
@@ -96,8 +96,8 @@ FRAMEWORKS_PRUEBAS: dict[str, tuple[str, ...]] = {
 }
 FRAMEWORKS_APP: dict[str, tuple[str, ...]] = {
     "python": ("fastapi",),
-    "javascript": ("express",),
-    "typescript": ("express",),
+    "javascript": ("express", "react"),
+    "typescript": ("express", "react"),
     "java": ("spring",),
 }
 LENGUAJES = tuple(FRAMEWORKS_PRUEBAS)

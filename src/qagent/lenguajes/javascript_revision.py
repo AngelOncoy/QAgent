@@ -35,6 +35,10 @@ _PATRONES_ERROR_TEST = (
 )
 
 
+#: Error de Testing Library cuando ``getByRole``/``getByText`` no encuentran nada.
+_ELEMENTO_NO_ENCONTRADO = "testinglibraryelementerror: unable to find"
+
+
 def clasificar_salida_vitest(
     salida: str, contrato: dict[str, Any], raiz: Path
 ) -> Clasificacion | None:
@@ -59,6 +63,11 @@ def clasificar_salida_vitest(
 
     # 3. Fallo de aserción (AssertionError) -> bug_codigo
     if "assertionerror" in texto or "\nassert " in texto:
+        return Clasificacion("fallo_asercion", salida)
+
+    # 4. Componentes React (#171): getBy* lanza si el elemento que el contrato espera
+    # no aparece; es la aserción «visible» que falla, no un error de la prueba.
+    if _ELEMENTO_NO_ENCONTRADO in texto:
         return Clasificacion("fallo_asercion", salida)
 
     return None

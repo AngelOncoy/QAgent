@@ -29,13 +29,23 @@ from qagent.lenguajes.base import (
     ReglasRevision,
 )
 from qagent.lenguajes.javascript_cobertura import leer_cobertura_v8
+from qagent.lenguajes.javascript_componentes import (
+    AVISO_NO_SOPORTADOS,
+    FRAMEWORK_REACT,
+    detectar_framework_ui,
+    separar_componentes,
+)
 from qagent.lenguajes.javascript_ejecucion import (
     comando_vitest,
     funciones_de_modulo_js,
     huellas_de_archivo_js,
     variables_node,
 )
-from qagent.lenguajes.javascript_estructura import extraer_funciones, gramatica_de
+from qagent.lenguajes.javascript_estructura import (
+    describir,
+    exportadas,
+    gramatica_de,
+)
 from qagent.lenguajes.javascript_junit import interpretar_resultados_vitest
 from qagent.lenguajes.javascript_llamadas import agregar_llamadas
 from qagent.lenguajes.javascript_oraculo import registro_de_evidencias
@@ -57,6 +67,11 @@ PAQUETES_NODE = (
     "@stryker-mutator/vitest-runner",
     "typescript",
     "dependency-cruiser",
+    # Componentes React con Testing Library y jsdom (#171).
+    "jsdom",
+    "@testing-library/react",
+    "@testing-library/dom",
+    "@testing-library/jest-dom",
 )
 
 
@@ -107,6 +122,11 @@ class _AdaptadorNode(AdaptadorEnDesarrollo):
             NotADirectoryError: si ``raiz`` no es una carpeta existente.
         """
         carpeta = Path(raiz)
+        framework_ui = detectar_framework_ui(carpeta)
+        # Solo React se prueba: los componentes JSX de otro framework (o sin React en
+        # package.json) quedan aparte y nunca llegan al Planner (#171, CA6).
+        con_react = (framework_ui or {}).get("framework") == FRAMEWORK_REACT
+        clave_componentes = "componentes" if con_react else "componentes_no_soportados"
         modulos: list[dict[str, Any]] = []
         errores: list[dict[str, Any]] = []
         arboles: dict[str, Node] = {}
@@ -128,33 +148,44 @@ class _AdaptadorNode(AdaptadorEnDesarrollo):
                         "; ".join(extraer_errores_sintaxis(arbol.root_node))
                         or "error de sintaxis"
                     )
-                funciones = extraer_funciones(arbol.root_node)
+                logica, componentes = separar_componentes(
+                    arbol.root_node, exportadas(arbol.root_node)
+                )
+                funciones = [describir(e) for e in logica]
                 for funcion in funciones:
                     funcion["modulo"] = relativa
                     funcion["evidencias"] = registro_de_evidencias(funcion, relativa)
             except (OSError, UnicodeError, SyntaxError, RecursionError) as error:
                 errores.append(_error(relativa, error))
                 continue
-            modulos.append(
-                {
-                    "ruta": relativa,
-                    "huella": calcular_huella(fuente),
-                    "funciones": funciones,
-                    "endpoints": [],
-                }
-            )
+            modulo: dict[str, Any] = {
+                "ruta": relativa,
+                "huella": calcular_huella(fuente),
+                "funciones": funciones,
+                "endpoints": [],
+            }
+            if componentes:  # #171: solo aparece si el archivo exporta componentes
+                for componente in componentes:
+                    componente["modulo"] = relativa
+                modulo[clave_componentes] = componentes
+            modulos.append(modulo)
             arboles[relativa] = arbol.root_node
         agregar_llamadas(modulos, arboles)
-        return {
+        estructura: Estructura = {
             "lenguaje": self.lenguaje,
             "modulos": modulos,
             "errores": errores,
             "resumen": _resumen(modulos, errores),
         }
+        framework_ui = _framework_ui(framework_ui, modulos)
+        if framework_ui is not None:
+            estructura["framework_ui"] = framework_ui
+        return estructura
 
     def objetivos(self, estructura: Estructura) -> list[dict[str, Any]]:
-        """Funciones exportadas con ``critical``: al menos una decisión, como en Java."""
-        return [
+        """Funciones exportadas con ``critical`` (al menos una decisión, como en Java)
+        y, si el proyecto usa React, sus componentes (#171), que nunca se mutan."""
+        objetivos = [
             {
                 "modulo": m["ruta"],
                 "tipo": "funcion",
@@ -164,6 +195,18 @@ class _AdaptadorNode(AdaptadorEnDesarrollo):
             for m in estructura.get("modulos", [])
             for f in m.get("funciones", [])
         ]
+        if (estructura.get("framework_ui") or {}).get("soportado"):  # React
+            objetivos.extend(
+                {
+                    "modulo": m["ruta"],
+                    "tipo": "componente",
+                    "objetivo": c["nombre"],
+                    "critical": False,
+                }
+                for m in estructura.get("modulos", [])
+                for c in m.get("componentes", [])
+            )
+        return objetivos
 
     def reglas_planificacion(self) -> ReglasPlanificacion:
         """Prompt Vitest y oráculo estricto desde JSDoc y tipos para el Planner (#176)."""
@@ -172,6 +215,14 @@ class _AdaptadorNode(AdaptadorEnDesarrollo):
         if self.lenguaje == "typescript":
             return reglas.REGLAS_PLANIFICACION_TYPESCRIPT
         return reglas.REGLAS_PLANIFICACION_JAVASCRIPT
+
+    def reglas_componentes(self) -> Any:
+        """Prompt Testing Library y oráculo de props y JSDoc para componentes (#171)."""
+        from qagent.lenguajes import javascript_componentes_planificacion as reglas
+
+        if self.lenguaje == "typescript":
+            return reglas.REGLAS_COMPONENTES_TYPESCRIPT
+        return reglas.REGLAS_COMPONENTES_JAVASCRIPT
 
     def entorno_sandbox(
         self, raiz: str | os.PathLike[str] | None = None
@@ -206,7 +257,16 @@ class _AdaptadorNode(AdaptadorEnDesarrollo):
         feedback: str | None,
         ruta_proyecto: Path | None,
     ) -> str:
-        """Prompt Vitest con el oráculo del contrato y el import del módulo."""
+        """Prompt Vitest con el oráculo del contrato y el import del módulo.
+
+        Un componente React (#171) usa Testing Library en lugar de llamar la función.
+        """
+        if contrato.get("tipo") == "componente":
+            from qagent.lenguajes.javascript_componentes_generacion import (
+                prompt_componente,
+            )
+
+            return prompt_componente(contrato, intento, feedback, ruta_proyecto)
         from qagent.lenguajes.javascript_generacion import prompt_vitest
 
         return prompt_vitest(contrato, intento, feedback, ruta_proyecto)
@@ -226,7 +286,16 @@ class _AdaptadorNode(AdaptadorEnDesarrollo):
     def archivo_para_contrato(
         self, contrato: dict[str, Any], ruta_proyecto: Path | None
     ) -> str:
-        """El archivo de la prueba queda en ``generated_test.v2``."""
+        """El archivo de la prueba queda en ``generated_test.v2``.
+
+        Un componente necesita JSX: ``generado.test.tsx`` o ``.jsx`` (#171).
+        """
+        if contrato.get("tipo") == "componente":
+            from qagent.lenguajes.javascript_componentes_generacion import (
+                archivo_componente,
+            )
+
+            return archivo_componente(self.lenguaje)
         return self.archivo_de_prueba(contrato["objetivo"])
 
     def comparar_aserciones(
@@ -269,6 +338,38 @@ class _AdaptadorNode(AdaptadorEnDesarrollo):
         return ejecutar_stryker(*args, **opciones)
 
 
+def _framework_ui(
+    framework: dict[str, Any] | None, modulos: list[dict[str, Any]]
+) -> dict[str, Any] | None:
+    """Framework de interfaz del proyecto y cuántos componentes tiene (#171).
+
+    Con React los componentes se prueban. Con otro framework, o con componentes JSX
+    sin React en ``package.json``, solo se prueban los archivos de lógica y el
+    informe dice «componentes no soportados» (ADR-010, sección 10.6).
+    """
+    total = sum(
+        len(m.get("componentes", [])) + len(m.get("componentes_no_soportados", []))
+        for m in modulos
+    )
+    if framework is None and total:
+        framework = {
+            "framework": None,
+            "nombre": "JSX sin React en package.json",
+            "soportado": False,
+            "aviso": AVISO_NO_SOPORTADOS,
+        }
+    if framework is None:
+        return None
+    framework["componentes"] = total
+    framework["verificables"] = sum(
+        1
+        for m in modulos
+        for c in m.get("componentes", [])
+        if c["verificable"] and framework["framework"] == FRAMEWORK_REACT
+    )
+    return framework
+
+
 def _error(relativa: str, causa: Exception) -> dict[str, Any]:
     """Describe por qué un archivo no se pudo analizar, con la primera línea citada."""
     mensaje = str(causa) if not isinstance(causa, SyntaxError) else causa.msg
@@ -289,9 +390,10 @@ class JavaScriptAdapter(_AdaptadorNode):
     extensiones = (".js", ".mjs", ".cjs", ".jsx")
     marcadores = ("package.json",)
     frameworks_pruebas = ("vitest", "jest")
-    frameworks_app = ("express",)
-    # Vitest (EP-11a) y mutación con Stryker (EP-11c), ADR-010.
-    tipos_prueba_previstos = ("funcion", "mutacion")
+    # Express (endpoints) y React (componentes, #171): el primero es el de endpoints.
+    frameworks_app = ("express", "react")
+    # Vitest (EP-11a), mutación con Stryker (EP-11c) y componentes React (#171).
+    tipos_prueba_previstos = ("funcion", "mutacion", "componente")
 
     def validar_sintaxis(self, codigo: str) -> list[str]:
         """Errores de sintaxis del código JavaScript parseado con tree-sitter.
@@ -317,9 +419,10 @@ class TypeScriptAdapter(_AdaptadorNode):
     extensiones = (".ts", ".tsx", ".mts", ".cts")
     marcadores = ("tsconfig.json",)
     frameworks_pruebas = ("vitest", "jest")
-    frameworks_app = ("express",)
-    # Vitest (EP-11a) y mutación con Stryker (EP-11c), ADR-010.
-    tipos_prueba_previstos = ("funcion", "mutacion")
+    # Express (endpoints) y React (componentes, #171): el primero es el de endpoints.
+    frameworks_app = ("express", "react")
+    # Vitest (EP-11a), mutación con Stryker (EP-11c) y componentes React (#171).
+    tipos_prueba_previstos = ("funcion", "mutacion", "componente")
 
     def es_fuente(self, archivo: str) -> bool:
         """Los ``.d.ts`` solo declaran tipos: no tienen código que probar."""

@@ -26,6 +26,16 @@ Cada archivo implementa exactamente los mismos componentes de código para garan
 - [`calculadora.ts`](calculadora.ts): Implementación en TypeScript con interfaces y anotaciones JSDoc.
 - [`calculadora.js`](calculadora.js): Implementación en JavaScript (Node ES6 / CommonJS) con JSDoc tipado.
 - [`Calculadora.java`](Calculadora.java): Implementación en Java 17+ con Javadoc estándar y métodos tipados.
+- [`react/`](react/): proyecto React con TypeScript para las pruebas de componentes (#171). No entra en la medición de SPK-04:
+
+| Archivo | Qué prueba |
+| :--- | :--- |
+| `src/Boton.tsx` | Componente correcto: props de `interface` con opcional, valor por defecto y evento `onPulsar` documentado. Se aprueba. |
+| `src/Insignia.tsx` | Bug sembrado: el JSDoc promete «Agotado» y muestra «Sin stock». Exportación por defecto. Se detecta. |
+| `src/Libre.tsx` | Sin props tipadas ni JSDoc: queda omitido como «sin resultado esperado verificable». |
+| `src/formato.ts` | Función de lógica con `@example`, en el mismo proyecto. |
+
+Las respuestas grabadas del Planner están en `tests/lenguajes/test_banco_react.py`, y la corrida real en Docker, en `tests/sandbox/test_react_corrida_docker.py`.
 
 ---
 

@@ -24,7 +24,8 @@ def test_los_lenguajes_en_desarrollo_no_anuncian_tipos_operativos(
 
     assert not adaptador.completo
     assert adaptador.tipos_prueba == ()
-    assert adaptador.tipos_prueba_previstos == ("funcion", "mutacion")
+    # #171: los componentes React quedan previstos hasta conectar JS/TS.
+    assert adaptador.tipos_prueba_previstos == ("funcion", "mutacion", "componente")
 
 
 def test_todos_los_tipos_declarados_estan_en_el_contrato() -> None:

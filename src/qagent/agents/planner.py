@@ -51,6 +51,12 @@ MOTIVO_OMITIDA_HUMO = (
 
 # Campos fijos para validar un caso suelto contra el schema (el encabezado del
 # lenguaje lo agrega `PlannerAgent._encabezado`).
+#: Componente React verificable para el que no quedó ningún caso respaldado (#171).
+MOTIVO_COMPONENTE_SIN_CASOS = (
+    "sin resultado esperado verificable: ningún caso propuesto está respaldado por "
+    "los tipos de las props o el JSDoc"
+)
+
 _CONTRATO_DE_PRUEBA = {
     "modulo": "x",
     "huella": "0" * 64,
@@ -117,6 +123,9 @@ class PlannerAgent:
         }
         if tipo == "endpoint":
             encabezado["framework_app"] = self.adaptador.frameworks_app[0]
+        elif tipo == "componente":
+            encabezado["framework_app"] = "react"
+            encabezado["framework_pruebas"] = "vitest"
         return encabezado
 
     @property
@@ -182,6 +191,121 @@ class PlannerAgent:
                 f"El Planner no produjo ningún contrato válido ({detalle})."
             )
         return plan
+
+    def planificar_componentes(self, modulo: dict[str, Any]) -> list[dict[str, Any]]:
+        """Un `planner_contract.v3` de tipo `componente` por componente React (#171).
+
+        Los componentes sin props tipadas ni JSDoc no llegan al modelo: quedan en
+        `self.omitidas` como «sin resultado esperado verificable». Los casos cuyo
+        oráculo los tipos o el JSDoc no respaldan se descartan. Un componente sin casos
+        válidos queda omitido; nunca tumba la corrida del módulo.
+        """
+        self.descartados = []
+        self.avisos = []
+        self.omitidas = {}
+        reglas = self.adaptador.reglas_componentes()
+        componentes = {c["nombre"]: c for c in modulo.get("componentes", [])}
+        if reglas is None or not componentes:
+            return []
+        for nombre, componente in componentes.items():
+            if not componente.get("verificable"):
+                self.omitidas[nombre] = reglas.motivo_sin_oraculo
+        if len(self.omitidas) == len(componentes):
+            return []
+
+        respuesta = self.cliente.generar(
+            reglas.prompt_componentes(modulo, self.es_humo), rol="planner"
+        )
+        self.tracker.registrar(
+            agente="planner",
+            modelo=respuesta.modelo,
+            tokens_entrada=respuesta.tokens_entrada,
+            tokens_salida=respuesta.tokens_salida,
+            costo_usd=respuesta.costo_usd,
+            es_simulado=self.es_simulado,
+            es_estimado=getattr(respuesta, "es_estimado", False),
+        )
+        plan: list[dict[str, Any]] = []
+        for elemento in _leer_lista(respuesta.contenido):
+            if not isinstance(elemento, dict):
+                self.descartados.append("un elemento del plan no es un objeto JSON")
+                continue
+            nombre = elemento.get("objetivo")
+            componente = componentes.get(nombre)
+            if componente is None or nombre in self.omitidas:
+                self.descartados.append(f"componente desconocido: {nombre!r}")
+                continue
+            if any(c["objetivo"] == nombre for c in plan):
+                self.descartados.append(f"objetivo repetido: {nombre}")
+                continue
+            casos = self._casos_de_componente(
+                nombre, componente, elemento.get("casos"), reglas
+            )
+            if self.es_humo:
+                casos = self._solo_un_caso_normal(nombre, casos, es_normal_funcion)
+            if not casos:
+                self.omitidas[nombre] = MOTIVO_COMPONENTE_SIN_CASOS
+                continue
+            contrato = {
+                **self._encabezado("componente"),
+                "modulo": modulo["ruta"],
+                "huella": modulo["huella"],
+                "tipo": "componente",
+                "objetivo": nombre,
+                "firma": componente.get("firma") or f"{nombre}()",
+                "critical": False,  # la mutación nunca corre sobre componentes
+                "casos": casos,
+            }
+            try:
+                contracts.validar(contracts.PLANNER_V3, contrato)
+            except ContratoInvalido as error:
+                self.descartados.append(f"{nombre}: {error}")
+                continue
+            plan.append(contrato)
+        for nombre in componentes:
+            cubierto = any(c["objetivo"] == nombre for c in plan)
+            if not cubierto and nombre not in self.omitidas:
+                self.omitidas[nombre] = MOTIVO_COMPONENTE_SIN_CASOS
+        return plan
+
+    def _casos_de_componente(
+        self,
+        nombre: str,
+        componente: dict[str, Any],
+        casos: Any,
+        reglas: Any,
+    ) -> list[dict[str, Any]]:
+        """Casos que cumplen `caso_componente` y cuyo oráculo está respaldado."""
+        if not isinstance(casos, list):
+            return []
+        validos: list[dict[str, Any]] = []
+        for caso in casos:
+            if not isinstance(caso, dict):
+                self.descartados.append(f"{nombre}: un caso no es un objeto JSON")
+                continue
+            if any(caso.get("id") == previo["id"] for previo in validos):
+                self.descartados.append(f"{nombre}: caso repetido {caso.get('id')!r}")
+                continue
+            try:
+                contracts.validar(
+                    contracts.PLANNER_V3,
+                    {
+                        **self._encabezado("componente"),
+                        **_CONTRATO_DE_PRUEBA,
+                        "tipo": "componente",
+                        "objetivo": "X",
+                        "casos": [caso],
+                    },
+                )
+            except ContratoInvalido as error:
+                self.descartados.append(f"{nombre}: caso {caso.get('id')!r}: {error}")
+                continue
+            motivo = reglas.motivo_caso_componente(componente, caso)
+            if motivo:
+                self.descartados.append(f"{nombre}: caso {caso['id']!r}: {motivo}")
+                continue
+            validos.append(caso)
+        return validos
 
     def _omitir(self, nombre: str, funcion: dict[str, Any] | None = None) -> None:
         """Deja la función como omitida: su valor esperado no se puede deducir."""

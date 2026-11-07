@@ -501,6 +501,14 @@ class LanguageAdapter(ABC):
         """Prompts y filtros de casos del Planner para este lenguaje."""
         raise NoImplementado(self.lenguaje, "reglas_planificacion")
 
+    def reglas_componentes(self) -> Any | None:
+        """Prompt y filtros del Planner para componentes de interfaz (#171).
+
+        None si el lenguaje no prueba componentes; JavaScript y TypeScript devuelven
+        las reglas de React (``prompt_componentes`` y ``motivo_caso_componente``).
+        """
+        return None
+
     def prompt_generator(
         self,
         contrato: dict[str, Any],
