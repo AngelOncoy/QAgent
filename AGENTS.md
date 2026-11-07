@@ -29,7 +29,8 @@ Aplicación de escritorio local (pywebview + backend Python + Docker). No hay se
 
 ```bash
 pip install -e .[dev]           # instalación editable, una vez por máquina (pyproject.toml)
-python test.py                  # lint + formato + TODAS las pruebas (IA simulada, 0 tokens)
+python test.py                  # lint + formato + todas las pruebas menos Docker real (IA simulada, 0 tokens)
+python test.py --docker         # también las de Docker real (~15 min, crean imágenes que luego borran; #250)
 python test.py --rapido         # sin lint y sin pruebas de Docker ni de red
 pytest                          # solo pytest (con IA simulada: QAGENT_FAKE_LLM=1 en ~/.qagent/.env o set/export en el sistema)
 ruff check . && ruff format .   # lint y formato (bench/ está excluido a propósito)
@@ -82,7 +83,7 @@ La interfaz, los contratos y `config.toml` viajan dentro del paquete (`src/qagen
 - **Datos del usuario solo en `~/.qagent/`** (`.env`, `config.local.toml`, recientes, demostración): el programa nunca escribe en su propia carpeta, que instalado puede ser de solo lectura (TA-06). La pantalla Configuración guarda en `config.local.toml`; el `config.toml` del equipo solo se cambia a mano y se versiona.
 - **Modelos y precios solo desde `src/qagent/config/config.toml`** (se versiona, sin claves), nunca hardcodeados (ver `docs/decisiones/ADR-001-modelos.md`).
 - **Tests del sistema con la IA simulada:** ningún test de `tests/` debe llamar a una API real.
-- **Los tests no dependen de Docker ni de internet**, salvo los marcados `docker` o `red` (se omiten si no hay). Docker se simula en las demás.
+- **Los tests no dependen de Docker ni de internet**, salvo los marcados `docker` (solo corren con `--docker`, #250) o `red` (se omiten si no hay). Docker se simula en las demás.
 - **La lógica no depende de la interfaz:** `app/` llama a `proyectos/`, `analysis/`, `sandbox/`…, nunca al revés (la lógica no importa `qagent.app` ni `webview`).
 - **Frontend:** toda la interfaz (HTML, CSS y JS) vive en `src/qagent/frontend/`; el resto de `src/` no guarda pantallas ni demos (lo verifica `tests/frontend/`). Un componente por pantalla o modal en `src/qagent/frontend/componentes/`; colores, tipografía y logo en `src/qagent/frontend/css/tokens.css` (sin colores literales: todo es `var(--token)`, lo verifica `tests/frontend/`); sin bundler, sin módulos ES ni `fetch` de HTML (ver ADR-003).
 - **Un solo nombre:** todo identificador nuevo usa `qagent` / QAgent. No introducir `pyagent` fuera del código de compatibilidad (ADR-004).

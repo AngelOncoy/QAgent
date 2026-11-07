@@ -79,7 +79,7 @@ where = ["src"]
 pythonpath = ["src", "."]
 testpaths = ["tests"]
 markers = [
-    'docker: prueba de integración que necesita Docker Desktop iniciado (omitir con -m "not docker")',
+    'docker: prueba con Docker real; solo corre con --docker o -m docker y borra las imágenes que crea (#250)',
     'red: prueba de integración que necesita internet (omitir con -m "not red")',
 ]
 

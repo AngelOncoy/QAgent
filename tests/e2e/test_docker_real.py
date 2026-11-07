@@ -1,4 +1,7 @@
-"""Integración Playwright/Chromium real; nunca forma parte de una prueba simulada."""
+"""Integración Playwright/Chromium real; nunca forma parte de una prueba simulada.
+
+Necesita internet además de Docker: la imagen del proyecto instala `express` con npm.
+"""
 
 from __future__ import annotations
 
@@ -13,9 +16,12 @@ from qagent.e2e.modelos import ConfiguracionE2E
 
 FIXTURE = Path(__file__).parents[1] / "fixtures" / "issue186_e2e"
 
+pytestmark = [pytest.mark.docker, pytest.mark.red]
 
-@pytest.mark.docker
-def test_playwright_real_detecta_exitos_y_fallos_con_capturas(tmp_path: Path) -> None:
+
+def test_playwright_real_detecta_exitos_y_fallos_con_capturas(
+    cliente_docker, tmp_path: Path
+) -> None:
     project = tmp_path / "web"
     shutil.copytree(FIXTURE, project)
     result = ejecutar_humo_e2e(
@@ -23,6 +29,7 @@ def test_playwright_real_detecta_exitos_y_fallos_con_capturas(tmp_path: Path) ->
         config=ConfiguracionE2E(
             startup_timeout_s=20, route_timeout_s=8, total_timeout_s=90
         ),
+        client=cliente_docker,
     )
     by_path = {route["path"]: route for route in result["routes"]}
     assert by_path["/"]["status"] == "cumple"
@@ -42,8 +49,9 @@ def test_playwright_real_detecta_exitos_y_fallos_con_capturas(tmp_path: Path) ->
     assert result["limits"]["network"] == "none"
 
 
-@pytest.mark.docker
-def test_app_que_no_arranca_queda_sin_veredicto_y_con_log(tmp_path: Path) -> None:
+def test_app_que_no_arranca_queda_sin_veredicto_y_con_log(
+    cliente_docker, tmp_path: Path
+) -> None:
     project = tmp_path / "web-no-start"
     shutil.copytree(FIXTURE, project)
     (project / ".qagent").mkdir()
@@ -54,6 +62,7 @@ def test_app_que_no_arranca_queda_sin_veredicto_y_con_log(tmp_path: Path) -> Non
     result = ejecutar_humo_e2e(
         project,
         config=ConfiguracionE2E(startup_timeout_s=3, total_timeout_s=15),
+        client=cliente_docker,
     )
     assert result["status"] == "sin_veredicto"
     assert result["startup"]["ready"] is False
