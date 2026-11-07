@@ -85,8 +85,8 @@ async function actualizarSandbox() {
     const anterior = ESTADO_MOTOR && ESTADO_MOTOR.clave;
     ESTADO_MOTOR = {clave: SANDBOX_UI[clave] ? clave : 'no_iniciado', mensaje: r && r.mensaje};
     // #251: si el motor cambió (p. ej. se abrió Docker Desktop), Preparar vuelve a comprobar el
-    // entorno. Solo ante un cambio: verificarEntorno llama a esta función y ve el mismo estado,
-    // así que no hay bucle.
+    // entorno. Solo ante un cambio: la comprobación consulta otra vez el motor y ve el mismo
+    // estado, así que no hay bucle.
     if (anterior && anterior !== ESTADO_MOTOR.clave) alCambiarMotor();
     if (typeof renderMotorConfig === 'function') renderMotorConfig();
     pintarMotor(ui);

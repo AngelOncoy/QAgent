@@ -63,6 +63,20 @@ Las pruebas que necesitan Docker (`-m docker`) se omiten solas si Docker Desktop
 
 Para abrir la aplicación con la IA simulada (sin claves ni gasto), agrega `QAGENT_FAKE_LLM=1` a `~/.qagent/.env` o define `set QAGENT_FAKE_LLM=1` (Linux: `export QAGENT_FAKE_LLM=1`) antes de abrirla. El nombre anterior, `PYAGENT_FAKE_LLM`, se sigue aceptando.
 
+### Lo que la app pone al día sin reiniciar (#251)
+
+Con QAgent abierto, estos cambios se notan solos, sin reabrir el proyecto:
+
+| Si cambias… | Cuándo se nota |
+|---|---|
+| Docker Desktop (lo abres o lo cierras) | En la siguiente consulta del motor (cada 15 s) o al volver a la ventana; Preparar vuelve a comprobar el entorno y se desbloquea. |
+| `QAGENT_FAKE_LLM` en `~/.qagent/.env` | Igual que el motor. No cambia a mitad de una corrida. Si la variable está definida en el sistema (`set`/`export`), manda el sistema y el `.env` no la cambia: para eso hay que cerrar la terminal y abrir QAgent de nuevo. |
+| Claves escritas a mano en el `.env` | Igual que el motor: la consola las oculta desde que se guarda el archivo. |
+| Git instalado con la app abierta | Al pulsar Comprobar de nuevo o volver a la ventana: QAgent lo busca en `Program Files\Git\cmd`, `%LOCALAPPDATA%\Programs\Git\cmd` y el `PATH` del registro, aunque el proceso no lo herede. Si lo instalaste en otra carpeta que no está en el `PATH`, reinicia QAgent. |
+| El código del proyecto | Con **Volver a analizar** en Explorar (conserva la selección, la pestaña y la búsqueda). |
+| Las pruebas guardadas | Al terminar una corrida, «Volver a correr las guardadas» se habilita solo. |
+| Docker apagado al abrir QAgent | La limpieza de contenedores huérfanos e imágenes viejas se hace cuando Docker responde, nunca durante una corrida. |
+
 ### Compatibilidad de las pruebas del analizador con Python (#214)
 
 `texto_ts` normaliza expresiones con el formato de Python 3.11, independientemente
