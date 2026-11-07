@@ -11,7 +11,11 @@ from pathlib import PurePosixPath
 from qagent.analysis.analyzer import calcular_huella
 from qagent.lenguajes.javascript_estructura import extraer_funciones, gramatica_de
 from qagent.lenguajes.treesitter import obtener_parser
+from qagent.sandbox import LimitesSandbox
 from qagent.sandbox.ejecucion import ARCHIVO_JUNIT, DIR_SALIDA, DIR_TESTS
+
+#: Límites medidos de recursos para el contenedor de pruebas Node (CA2).
+LIMITES_NODE = LimitesSandbox(cpus=4.0, memoria="2g", timeout_s=120)
 
 
 def comando_vitest(modulo: str) -> list[str]:
