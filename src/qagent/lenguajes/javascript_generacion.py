@@ -18,7 +18,7 @@ import re
 from pathlib import Path, PurePosixPath
 from typing import Any
 
-from qagent.lenguajes.base import Clasificacion, NoImplementado
+from qagent.lenguajes.base import Clasificacion
 from qagent.lenguajes.javascript_aserciones import (
     EXCEPCION,
     IGUALDAD,
@@ -402,11 +402,15 @@ class ReglasRevisionVitest:
     def clasificar_salida(
         self, salida: str, contrato: dict[str, Any], raiz: Path
     ) -> Clasificacion | None:
-        """Leer la salida de Vitest es la parte 3 de EP-11a."""
-        raise NoImplementado(self.lenguaje, "clasificar_salida")
+        """Clasifica la salida de Vitest (entorno, error de test o fallo de aserción)."""
+        from qagent.lenguajes.javascript_revision import clasificar_salida_vitest
+
+        return clasificar_salida_vitest(salida, contrato, raiz)
 
     def rango_de_objetivo(
         self, raiz: Path, modulo: str, nombre: str
     ) -> tuple[int, int] | None:
-        """La cobertura por función es la parte 3 de EP-11a."""
-        raise NoImplementado(self.lenguaje, "rango_de_objetivo")
+        """Primera y última línea del cuerpo de la función probada para la cobertura."""
+        from qagent.lenguajes.javascript_revision import rango_de_objetivo_js
+
+        return rango_de_objetivo_js(raiz, modulo, nombre)
