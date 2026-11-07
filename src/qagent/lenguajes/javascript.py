@@ -247,7 +247,16 @@ class _AdaptadorNode(AdaptadorEnDesarrollo):
         feedback: str | None,
         ruta_proyecto: Path | None,
     ) -> str:
-        """Prompt Vitest con el oráculo del contrato y el import del módulo."""
+        """Prompt Vitest con el oráculo del contrato y el import del módulo.
+
+        Un componente React (#171) usa Testing Library en lugar de llamar la función.
+        """
+        if contrato.get("tipo") == "componente":
+            from qagent.lenguajes.javascript_componentes_generacion import (
+                prompt_componente,
+            )
+
+            return prompt_componente(contrato, intento, feedback, ruta_proyecto)
         from qagent.lenguajes.javascript_generacion import prompt_vitest
 
         return prompt_vitest(contrato, intento, feedback, ruta_proyecto)
@@ -267,7 +276,16 @@ class _AdaptadorNode(AdaptadorEnDesarrollo):
     def archivo_para_contrato(
         self, contrato: dict[str, Any], ruta_proyecto: Path | None
     ) -> str:
-        """El archivo de la prueba queda en ``generated_test.v2``."""
+        """El archivo de la prueba queda en ``generated_test.v2``.
+
+        Un componente necesita JSX: ``generado.test.tsx`` o ``.jsx`` (#171).
+        """
+        if contrato.get("tipo") == "componente":
+            from qagent.lenguajes.javascript_componentes_generacion import (
+                archivo_componente,
+            )
+
+            return archivo_componente(self.lenguaje)
         return self.archivo_de_prueba(contrato["objetivo"])
 
     def comparar_aserciones(

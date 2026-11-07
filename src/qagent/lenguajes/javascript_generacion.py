@@ -396,7 +396,16 @@ class ReglasRevisionVitest:
         return "; ".join(errores) if errores else None
 
     def validar_oraculo(self, contrato: dict[str, Any], codigo: str) -> str | None:
-        """Comprueba imports, evasiones y el esperado de cada caso (sin ejecutar)."""
+        """Comprueba imports, evasiones y el esperado de cada caso (sin ejecutar).
+
+        Los componentes React (#171) se validan con las reglas de Testing Library.
+        """
+        if contrato.get("tipo") == "componente":
+            from qagent.lenguajes.javascript_componentes_generacion import (
+                validar_componente,
+            )
+
+            return validar_componente(contrato, codigo)
         return validar_vitest(contrato, codigo)
 
     def clasificar_salida(

@@ -59,6 +59,18 @@ RIGOR: dict[str, int] = {
     "toBeDefined": 2,
     "toBeTruthy": 1,
     "toBeFalsy": 1,
+    # Mocks de eventos y matchers de jest-dom en componentes React (#171).
+    "toHaveBeenCalledTimes": 9,
+    "toHaveBeenCalledWith": 9,
+    "toHaveBeenLastCalledWith": 8,
+    "toHaveBeenCalled": 5,
+    "toHaveTextContent": 8,
+    "toBeInTheDocument": 8,
+    "toBeVisible": 8,
+    "toHaveValue": 8,
+    "toBeDisabled": 8,
+    "toBeEnabled": 8,
+    "toHaveAttribute": 7,
 }
 #: Rigor de ``toThrow()`` sin excepción: acepta cualquier error.
 RIGOR_EXCEPCION_GENERICA = 4
