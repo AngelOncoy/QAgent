@@ -1,0 +1,50 @@
+{
+  "numTotalTests": 4,
+  "numPassedTests": 1,
+  "numFailedTests": 2,
+  "numPendingTests": 1,
+  "startTime": 1700000000000,
+  "endTime": 1700000000150,
+  "testResults": [
+    {
+      "name": "/work/tests/generado.test.ts",
+      "status": "failed",
+      "startTime": 1700000000000,
+      "endTime": 1700000000150,
+      "assertionResults": [
+        {
+          "ancestorTitles": ["calcularDescuento"],
+          "title": "caso 1: descuento del 20%",
+          "status": "failed",
+          "duration": 5,
+          "failureMessages": [
+            "AssertionError: expected 20 to be 80 // Object.is equality\n    at /work/tests/generado.test.ts:8:25"
+          ]
+        },
+        {
+          "ancestorTitles": ["esPalindromo"],
+          "title": "caso 1: reconocer palindromo",
+          "status": "passed",
+          "duration": 2,
+          "failureMessages": []
+        },
+        {
+          "ancestorTitles": ["falloTecnico"],
+          "title": "caso con error de ejecucion",
+          "status": "failed",
+          "duration": 1,
+          "failureMessages": [
+            "TypeError: Cannot read properties of undefined\n    at /work/tests/generado.test.ts:25:9"
+          ]
+        },
+        {
+          "ancestorTitles": ["casoOmitido"],
+          "title": "pendiente",
+          "status": "pending",
+          "duration": 0,
+          "failureMessages": []
+        }
+      ]
+    }
+  ]
+}

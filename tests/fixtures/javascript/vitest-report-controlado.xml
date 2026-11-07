@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<testsuites name="vitest tests" tests="4" failures="1" errors="1" time="0.150">
+    <testsuite name="tests/generado.test.ts" timestamp="2026-11-06T12:00:00.000Z" hostname="sandbox" tests="4" failures="1" errors="1" time="0.150" id="0" package="tests/generado.test.ts">
+        <testcase classname="tests/generado.test.ts" name="calcularDescuento &gt; caso 1: descuento del 20%" time="0.005">
+            <failure message="AssertionError: expected 20 to be 80 // Object.is equality" type="AssertionError">
+AssertionError: expected 20 to be 80 // Object.is equality
+    at /work/tests/generado.test.ts:8:25
+    at file:///work/tests/generado.test.ts:8:25
+            </failure>
+        </testcase>
+        <testcase classname="tests/generado.test.ts" name="esPalindromo &gt; caso 1: reconocer palindromo" time="0.002">
+        </testcase>
+        <testcase classname="tests/generado.test.ts" name="falloTecnico &gt; caso con error de ejecucion" time="0.001">
+            <error message="TypeError: Cannot read properties of undefined (reading 'split')" type="TypeError">
+TypeError: Cannot read properties of undefined (reading 'split')
+    at formatearTexto (/work/proyecto/src/texto.ts:15:10)
+    at /work/tests/generado.test.ts:25:9
+            </error>
+        </testcase>
+        <testcase classname="tests/generado.test.ts" name="casoOmitido &gt; pendiente" time="0.000">
+            <skipped/>
+        </testcase>
+    </testsuite>
+</testsuites>
