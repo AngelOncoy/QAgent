@@ -27,7 +27,10 @@ from qagent.lenguajes.base import (
     ReglasPlanificacion,
     ReglasRevision,
 )
+from qagent.lenguajes.javascript_cobertura import leer_cobertura_v8
+from qagent.lenguajes.javascript_ejecucion import comando_vitest, variables_node
 from qagent.lenguajes.javascript_estructura import extraer_funciones, gramatica_de
+from qagent.lenguajes.javascript_junit import interpretar_resultados_vitest
 from qagent.lenguajes.javascript_llamadas import agregar_llamadas
 from qagent.lenguajes.javascript_oraculo import registro_de_evidencias
 from qagent.lenguajes.registro import listar_archivos
@@ -166,6 +169,25 @@ class _AdaptadorNode(AdaptadorEnDesarrollo):
         self, raiz: str | os.PathLike[str] | None = None
     ) -> EntornoSandbox:
         return entorno_node()
+
+    def comando_pruebas(self, modulo: str, framework: str | None = None) -> list[str]:
+        """Comando de Vitest con reporte JUnit y cobertura coverage-v8."""
+        self.elegir_framework(framework)
+        return comando_vitest(modulo)
+
+    def variables_pruebas(self) -> dict[str, str]:
+        """Variables de entorno para el contenedor Node."""
+        return variables_node()
+
+    def interpretar_resultados(self, informe: str) -> dict[str, Any]:
+        """Convierte el informe de Vitest (JUnit XML o JSON) a resultados comunes."""
+        return interpretar_resultados_vitest(informe)
+
+    def leer_cobertura(
+        self, dir_salida: str | os.PathLike[str]
+    ) -> dict[str, Any] | None:
+        """Lee la cobertura v8/Istanbul de dir_salida y la pasa a files/totals comunes."""
+        return leer_cobertura_v8(dir_salida)
 
     # --- Generación y guardrail Vitest (EP-11a, parte 2) -----------------------------
 
