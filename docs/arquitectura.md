@@ -945,6 +945,16 @@ Las categorías actuales se aplican a cada lenguaje. **Caja negra:** el valor es
 
 **Regla para frameworks no soportados:** el framework se detecta por `package.json` (`react`, `@angular/core`, `astro`). Si no tiene soporte, QAgent prueba solo los archivos de lógica `.ts`/`.js` y el informe marca «componentes no soportados». Así el producto funciona en cualquier proyecto aunque el soporte del framework llegue después.
 
+#### Componentes React implementados (#171)
+
+`analizar()` de JavaScript y TypeScript separa los **componentes**: funciones exportadas con nombre en PascalCase que devuelven JSX (`.jsx`/`.tsx`). Sus props salen del tipo de TypeScript del mismo archivo (`interface`, `type`, tipo en línea o `React.FC<Props>`) o del JSDoc (`@param {string} props.etiqueta`), con opcionales, valores por defecto y eventos (`onX` de tipo función). Todo es estático con tree-sitter. Si `package.json` declara `react`, van a `componentes` y son objetivos de tipo `componente`; si no, a `componentes_no_soportados`.
+
+- **Contrato:** `planner_contract.v3` admite `tipo: "componente"` con `framework_app: "react"` (solo JS/TS, Vitest, nunca `critical`). Cada caso es `{props, interacciones}` → `{renderiza, visible, ausente, llamadas}`; los elementos se buscan por rol (con nombre accesible) o por texto.
+- **Oráculo (Planner, sin IA):** con origen `tipo` un caso solo afirma que el componente renderiza. Con origen `docstring` puede esperar textos visibles citados en el JSDoc o que sean el valor de una prop documentada, y llamadas a eventos documentados con una interacción que las provoque. Un componente sin props tipadas ni JSDoc no llega al modelo: queda omitido como «sin resultado esperado verificable».
+- **Generator y Reviewer:** plantilla Testing Library (`render`, `screen.getByRole`/`getByText`, `fireEvent`, `vi.fn()`) en `generado.test.tsx`/`.jsx`, que empieza con `// @vitest-environment jsdom`. El oráculo rechaza clases CSS, `querySelector`, `container` e instantáneas. El guardrail de laundering es el de Vitest y conoce el rigor de los matchers de jest-dom.
+- **Sandbox:** `qagent-sandbox:node` trae jsdom 30.1.3 y Testing Library (`react` 16.3.3, `dom` 10.4.2, `jest-dom` 7.0.1). React es el del proyecto: la copia que npm instala como dependencia «peer» se cambia por un enlace a `/work/node_modules`, porque dos copias rompen los hooks. Vitest corre con raíz `/work` (proyecto y pruebas), sin red y con la raíz de solo lectura.
+- **Frameworks no soportados:** con Angular, Astro, Vue, Svelte, Solid o Preact (o JSX sin React), solo se prueba la lógica y el informe lista los componentes como omitidos con «Componentes no soportados». Fuera de alcance: componentes de clase, `memo`/`forwardRef`, props importadas de otro archivo y `propTypes`.
+
 #### Verificación arquitectónica implementada (#185)
 
 La pantalla **Preparar** ofrece una acción independiente de los perfiles `std`, `humo`,
