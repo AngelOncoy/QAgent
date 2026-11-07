@@ -1,0 +1,41 @@
+{
+  "version": "3",
+  "lenguaje": "typescript",
+  "framework_pruebas": "vitest",
+  "framework_app": "react",
+  "modulo": "src/componentes/Boton.tsx",
+  "huella": "7c2e5f0a9b8d1e3f4a6b7c8d9e0f1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f",
+  "tipo": "componente",
+  "objetivo": "Boton",
+  "firma": "Boton({ etiqueta, deshabilitado = false, onPulsar }: BotonProps)",
+  "critical": false,
+  "casos": [
+    {
+      "id": "muestra_la_etiqueta",
+      "descripcion": "El JSDoc dice que el botón muestra su etiqueta",
+      "entrada": { "props": { "etiqueta": "Pagar", "onPulsar": { "$funcion": true } } },
+      "valor_esperado": { "renderiza": true, "visible": [{ "rol": "button", "nombre": "Pagar" }] },
+      "origen": "docstring",
+      "categoria": "normal"
+    },
+    {
+      "id": "sin_props_opcionales",
+      "descripcion": "deshabilitado es opcional: renderiza sin ella",
+      "entrada": { "props": { "etiqueta": "Pagar", "onPulsar": { "$funcion": true } } },
+      "valor_esperado": { "renderiza": true },
+      "origen": "tipo",
+      "categoria": "limite"
+    },
+    {
+      "id": "pulsar_avisa",
+      "descripcion": "El JSDoc dice que avisa con onPulsar al pulsarlo",
+      "entrada": {
+        "props": { "etiqueta": "Pagar", "onPulsar": { "$funcion": true } },
+        "interacciones": [{ "accion": "click", "elemento": { "rol": "button", "nombre": "Pagar" } }]
+      },
+      "valor_esperado": { "renderiza": true, "llamadas": [{ "prop": "onPulsar", "veces": 1 }] },
+      "origen": "docstring",
+      "categoria": "normal"
+    }
+  ]
+}

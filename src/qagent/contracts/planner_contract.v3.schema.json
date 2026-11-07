@@ -17,8 +17,8 @@
       "description": "Framework con el que el Generator escribe el test y el sandbox lo ejecuta. Debe corresponder al lenguaje."
     },
     "framework_app": {
-      "enum": ["fastapi", "express", "spring"],
-      "description": "Framework web del endpoint. Obligatorio en endpoints; debe corresponder al lenguaje."
+      "enum": ["fastapi", "express", "spring", "react"],
+      "description": "Framework web del endpoint o de interfaz del componente (#171). Obligatorio en endpoints y componentes; debe corresponder al lenguaje y al tipo: `react` solo en componentes."
     },
     "modulo": {
       "type": "string",
@@ -30,11 +30,14 @@
       "pattern": "^[0-9a-f]{64}$",
       "description": "SHA-256 del archivo calculado por el analizador. Sirve para la caché de specs (HU-24)."
     },
-    "tipo": { "enum": ["funcion", "endpoint"] },
+    "tipo": {
+      "enum": ["funcion", "endpoint", "componente"],
+      "description": "`componente`: componente React de JavaScript o TypeScript probado con Testing Library (#171)."
+    },
     "objetivo": {
       "type": "string",
       "minLength": 1,
-      "description": "Nombre de la función (calcular_descuento, Precios.calcular) o método y ruta del endpoint (GET /items/{id})."
+      "description": "Nombre de la función (calcular_descuento, Precios.calcular), método y ruta del endpoint (GET /items/{id}) o nombre del componente (Boton)."
     },
     "manejador": {
       "$ref": "#/$defs/nombre_calificado",
@@ -81,12 +84,12 @@
       }
     },
     {
-      "description": "JavaScript y TypeScript: Jest o Vitest y Express.",
+      "description": "JavaScript y TypeScript: Jest o Vitest; Express en endpoints y React en componentes (#171).",
       "if": { "properties": { "lenguaje": { "enum": ["javascript", "typescript"] } } },
       "then": {
         "properties": {
           "framework_pruebas": { "enum": ["jest", "vitest"] },
-          "framework_app": { "const": "express" }
+          "framework_app": { "enum": ["express", "react"] }
         }
       }
     },
@@ -130,6 +133,23 @@
           "casos": { "items": { "$ref": "#/$defs/caso_endpoint" } }
         }
       }
+    },
+    {
+      "description": "Componentes React (#171): solo JS/TS con Vitest, nunca se mutan y cada caso es un render con su resultado visible.",
+      "if": { "required": ["tipo"], "properties": { "tipo": { "const": "componente" } } },
+      "then": {
+        "required": ["framework_app"],
+        "properties": {
+          "lenguaje": { "enum": ["javascript", "typescript"] },
+          "framework_pruebas": { "const": "vitest" },
+          "framework_app": { "const": "react" },
+          "objetivo": { "pattern": "^[A-Z][A-Za-z0-9_$]*$" },
+          "critical": { "const": false },
+          "casos": { "items": { "$ref": "#/$defs/caso_componente" } }
+        },
+        "not": { "anyOf": [{ "required": ["manejador"] }, { "required": ["aplicacion"] }, { "required": ["dependencias"] }] }
+      },
+      "else": { "properties": { "framework_app": { "not": { "const": "react" } } } }
     },
     {
       "description": "FastAPI declara siempre sus Depends (igual que v2).",
@@ -194,6 +214,78 @@
           }
         }
       }
+    },
+    "caso_componente": {
+      "description": "Un caso de componente (#171) renderiza con props y, opcionalmente, interactúa; el resultado esperado sale de los tipos de las props o del JSDoc, nunca de renderizar.",
+      "required": ["valor_esperado"],
+      "not": { "anyOf": [{ "required": ["excepcion"] }, { "required": ["tipo_valor_esperado"] }] },
+      "properties": {
+        "origen": { "enum": ["tipo", "docstring"] },
+        "entrada": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["props"],
+          "properties": {
+            "props": {
+              "type": "object",
+              "description": "Props con las que se renderiza. Una prop de evento declarada se pasa como `{\"$funcion\": true}` y el Generator la reemplaza por vi.fn()."
+            },
+            "interacciones": {
+              "type": "array",
+              "items": { "$ref": "#/$defs/interaccion" }
+            }
+          }
+        },
+        "valor_esperado": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["renderiza"],
+          "properties": {
+            "renderiza": { "const": true, "description": "Renderizar con estas props no lanza." },
+            "visible": { "type": "array", "items": { "$ref": "#/$defs/consulta" } },
+            "ausente": { "type": "array", "items": { "$ref": "#/$defs/consulta" } },
+            "llamadas": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["prop", "veces"],
+                "properties": {
+                  "prop": { "type": "string", "pattern": "^on[A-Z][A-Za-z0-9_$]*$" },
+                  "veces": { "type": "integer", "minimum": 0 },
+                  "argumentos": { "type": "array" }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "consulta": {
+      "description": "Cómo Testing Library encuentra un elemento: por rol (con nombre accesible opcional) o por texto. Nunca por clases CSS ni selectores.",
+      "type": "object",
+      "additionalProperties": false,
+      "oneOf": [{ "required": ["rol"] }, { "required": ["texto"] }],
+      "properties": {
+        "rol": { "type": "string", "pattern": "^[a-z]+$" },
+        "nombre": { "type": "string", "minLength": 1 },
+        "texto": { "type": "string", "minLength": 1 }
+      },
+      "if": { "required": ["texto"] },
+      "then": { "not": { "required": ["nombre"] } }
+    },
+    "interaccion": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["accion", "elemento"],
+      "properties": {
+        "accion": { "enum": ["click", "escribir", "enviar"] },
+        "elemento": { "$ref": "#/$defs/consulta" },
+        "valor": { "type": "string", "description": "Texto que se escribe; solo con `escribir`." }
+      },
+      "if": { "properties": { "accion": { "const": "escribir" } } },
+      "then": { "required": ["valor"] },
+      "else": { "not": { "required": ["valor"] } }
     },
     "preparacion_endpoint": {
       "type": "object",

@@ -352,7 +352,8 @@ class JavaScriptAdapter(_AdaptadorNode):
     extensiones = (".js", ".mjs", ".cjs", ".jsx")
     marcadores = ("package.json",)
     frameworks_pruebas = ("vitest", "jest")
-    frameworks_app = ("express",)
+    # Express (endpoints) y React (componentes, #171): el primero es el de endpoints.
+    frameworks_app = ("express", "react")
     # Vitest (EP-11a) y mutación con Stryker (EP-11c), ADR-010.
     tipos_prueba_previstos = ("funcion", "mutacion")
 
@@ -380,7 +381,8 @@ class TypeScriptAdapter(_AdaptadorNode):
     extensiones = (".ts", ".tsx", ".mts", ".cts")
     marcadores = ("tsconfig.json",)
     frameworks_pruebas = ("vitest", "jest")
-    frameworks_app = ("express",)
+    # Express (endpoints) y React (componentes, #171): el primero es el de endpoints.
+    frameworks_app = ("express", "react")
     # Vitest (EP-11a) y mutación con Stryker (EP-11c), ADR-010.
     tipos_prueba_previstos = ("funcion", "mutacion")
 

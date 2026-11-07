@@ -96,8 +96,8 @@ FRAMEWORKS_PRUEBAS: dict[str, tuple[str, ...]] = {
 }
 FRAMEWORKS_APP: dict[str, tuple[str, ...]] = {
     "python": ("fastapi",),
-    "javascript": ("express",),
-    "typescript": ("express",),
+    "javascript": ("express", "react"),
+    "typescript": ("express", "react"),
     "java": ("spring",),
 }
 LENGUAJES = tuple(FRAMEWORKS_PRUEBAS)
