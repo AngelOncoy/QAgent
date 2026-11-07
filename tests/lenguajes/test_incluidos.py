@@ -13,7 +13,6 @@ from qagent import contracts
 from qagent.lenguajes import (
     REGISTRO,
     JavaScriptAdapter,
-    NoImplementado,
     TypeScriptAdapter,
     adaptador_para,
     detectar_lenguaje,
@@ -70,10 +69,11 @@ def test_detectar_lenguaje_en_disco(tmp_path: Path) -> None:
 
 
 @pytest.mark.parametrize("clase", [JavaScriptAdapter, TypeScriptAdapter])
-def test_los_esqueletos_avisan_lo_que_falta(clase: type) -> None:
-    """Analizan y ejecutan con Vitest (EP-11a); la mutación con Stryker todavía no existe."""
-    with pytest.raises(NoImplementado, match=clase.lenguaje):
-        clase().comando_mutacion("src/a.ts", ["f"])
+def test_los_esqueletos_arman_comando_mutacion(clase: type) -> None:
+    """La mutación con Stryker está implementada acotada a funciones críticas (#179)."""
+    cmd = clase().comando_mutacion("src/a.ts", ["f"], rangos={"f": (1, 10)})
+    assert cmd.comando[0] == "stryker"
+    assert any("src/a.ts:1-10" in a for a in cmd.comando)
 
 
 def test_el_paquete_no_depende_de_la_interfaz() -> None:

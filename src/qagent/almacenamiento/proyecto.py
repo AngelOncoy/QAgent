@@ -146,7 +146,19 @@ def id_de_modulo(modulo: str) -> str:
     if (
         ruta.is_absolute()
         or ".." in ruta.parts
-        or ruta.suffix not in {".py", ".java"}
+        or ruta.suffix
+        not in {
+            ".py",
+            ".java",
+            ".js",
+            ".mjs",
+            ".cjs",
+            ".jsx",
+            ".ts",
+            ".tsx",
+            ".mts",
+            ".cts",
+        }
         or "\\" in modulo
         or ":" in modulo
     ):

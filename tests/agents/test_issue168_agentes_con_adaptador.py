@@ -18,7 +18,7 @@ from qagent.agents.generator import ErrorRespuestaGenerator, GeneratorAgent
 from qagent.agents.planner import PlannerAgent
 from qagent.agents.reviewer import ReviewerAgent
 from qagent.lenguajes import REGISTRO, JavaScriptAdapter, NoImplementado
-from qagent.lenguajes.base import Clasificacion, EntornoSandbox
+from qagent.lenguajes.base import AdaptadorEnDesarrollo, Clasificacion, EntornoSandbox
 from qagent.llm import RespuestaLLM, TokenTracker
 from qagent.sandbox import ResultadoSandbox
 from qagent.sandbox.ejecucion import DIR_SALIDA, DIR_TESTS
@@ -240,6 +240,10 @@ def test_el_reviewer_aplica_el_oraculo_y_la_clasificacion_del_adaptador(
     assert revision["tipo_fallo"] == "bug_codigo"
 
 
+class _AdaptadorEnDesarrolloGenerico(AdaptadorEnDesarrollo):
+    lenguaje = "generico"
+
+
 @pytest.mark.parametrize(
     "operacion, argumentos",
     [
@@ -251,7 +255,7 @@ def test_el_reviewer_aplica_el_oraculo_y_la_clasificacion_del_adaptador(
 def test_un_adaptador_en_desarrollo_no_implementa_lo_de_los_agentes(
     operacion, argumentos
 ) -> None:
-    adaptador = REGISTRO.adaptador_para("typescript")
+    adaptador = _AdaptadorEnDesarrolloGenerico()
 
     assert adaptador.completo is False
     with pytest.raises(NoImplementado, match=operacion):

@@ -172,8 +172,11 @@ def test_la_interfaz_muestra_el_aviso_de_lenguaje_no_soportado() -> None:
 
 
 def test_las_huellas_solo_recorren_los_archivos_fuente_de_un_adaptador_completo(
-    tmp_path,
+    tmp_path, monkeypatch
 ) -> None:
+    from qagent.lenguajes import JavaScriptAdapter
+
+    monkeypatch.setattr(JavaScriptAdapter, "huellas_disponibles", False)
     _escribir(
         tmp_path,
         {
