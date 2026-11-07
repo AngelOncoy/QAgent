@@ -75,7 +75,7 @@ pytest --docker tests/sandbox/test_pit_docker.py   # también con pytest; -m doc
 
 **Cuándo correrlas:** al tocar `src/qagent/sandbox/` (ejecución, imágenes, Dockerfiles, límites), los adaptadores de Java o JS/TS en lo que llega al contenedor, la mutación (mutmut, PIT, Stryker) o el E2E con Playwright. Para el resto de los cambios basta `python test.py`.
 
-Antes de empezar, pytest avisa cuántas son y cuánto tardan. Al terminar borra las imágenes de `qagent-sandbox` que **esa corrida creó** (compara las de antes y las de después) y lista cuáles borró. Nunca borra las que ya existían, ni `qagent-sandbox:base`, ni imágenes de otros repositorios (`node`, `eclipse-temurin`… que Docker descargó). Si Docker no responde, las pruebas se omiten y no se borra nada.
+Antes de empezar, pytest avisa cuántas son y cuánto tardan. Antes de la primera, **reconstruye las imágenes base que tengas y estén viejas**: cada imagen base guarda en el label `qagent.receta` la huella de su Dockerfile y sus recursos, y si la receta cambió desde que se construyó (o la imagen es anterior a #250 y no tiene el label), se vuelve a construir. Sin esto, una `qagent-sandbox:java` de antes de #185 no trae ArchUnit y Maven offline falla al compilar: las pruebas de Java, PIT y arquitectura fallaban por el entorno, no por el código. La primera corrida con `--docker` tras #250 reconstruye todas las imágenes base que tengas (una sola vez); el resumen final lista las que reconstruyó. Las imágenes derivadas (`java-…`, `req-…`) no se revisan: si una falla tras reconstruir su base, bórrala con `docker rmi`. Al terminar borra las imágenes de `qagent-sandbox` que **esa corrida creó** (compara las de antes y las de después) y lista cuáles borró. Nunca borra las que ya existían, ni `qagent-sandbox:base`, ni imágenes de otros repositorios (`node`, `eclipse-temurin`… que Docker descargó). Si Docker no responde, las pruebas se omiten y no se borra nada.
 
 El workflow **Pruebas con Docker real** (`.github/workflows/pruebas-docker.yml`) las corre cada lunes sobre `develop` y a mano desde Actions > Run workflow, en un runner que se descarta al terminar.
 
@@ -149,7 +149,7 @@ Las pruebas generadas se ejecutan solo dentro de un contenedor efímero: sin red
 python -c "from qagent.sandbox import construir_imagen_base; construir_imagen_base()"
 ```
 
-Una imagen base que ya existe no se reconstruye sola al cambiar su Dockerfile. Tras #171 (componentes React), `qagent-sandbox:node` debe traer jsdom y Testing Library; si es anterior, se reconstruye con:
+Una imagen base que ya existe no se reconstruye sola al cambiar su Dockerfile durante una corrida de la app (las pruebas con `--docker` sí lo hacen, ver «Pruebas con Docker real»). Para saber si la tuya está vieja: `python -c "from qagent.sandbox import obtener_cliente; from qagent.sandbox.imagen import imagen_desactualizada; print(imagen_desactualizada(obtener_cliente(), 'qagent-sandbox:java'))"`. Tras #171 (componentes React), `qagent-sandbox:node` debe traer jsdom y Testing Library; si es anterior, se reconstruye con:
 
 ```bash
 python -c "from qagent.sandbox import construir_imagen_base; from qagent.sandbox.modelos import IMAGEN_NODE; construir_imagen_base(imagen=IMAGEN_NODE)"

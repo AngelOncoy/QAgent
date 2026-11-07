@@ -12,6 +12,8 @@ from tests import soporte_docker
 _IMAGENES_ANTES = pytest.StashKey[set]()
 #: Imágenes que se borraron al terminar, y las que no se pudieron borrar.
 _LIMPIEZA = pytest.StashKey[tuple]()
+#: Imágenes base que se reconstruyeron por desactualizadas, y las que fallaron.
+_ACTUALIZADAS = pytest.StashKey[tuple]()
 
 
 def pytest_addoption(parser: pytest.Parser) -> None:
@@ -69,18 +71,74 @@ def pytest_sessionfinish(session: pytest.Session) -> None:
 
 
 def pytest_terminal_summary(terminalreporter, config: pytest.Config) -> None:
-    """Informa qué imágenes se borraron al terminar."""
+    """Informa qué imágenes se reconstruyeron y cuáles se borraron al terminar."""
+    actualizadas = config.stash.get(_ACTUALIZADAS, None)
     limpieza = config.stash.get(_LIMPIEZA, None)
+    if actualizadas is None and limpieza is None:
+        return
+    terminalreporter.section("Imágenes de las pruebas docker")
+    reconstruidas, fallidas = actualizadas or ([], {})
+    for etiqueta in reconstruidas:
+        terminalreporter.write_line(f"reconstruida (receta nueva) {etiqueta}")
+    for etiqueta, motivo in fallidas.items():
+        terminalreporter.write_line(f"no se pudo reconstruir {etiqueta}: {motivo}")
     if limpieza is None:
         return
     borradas, errores = limpieza
-    terminalreporter.section("Imágenes de las pruebas docker")
     if not borradas and not errores:
         terminalreporter.write_line("Las pruebas no crearon imágenes nuevas.")
     for etiqueta in borradas:
         terminalreporter.write_line(f"borrada   {etiqueta}")
     for etiqueta, motivo in errores.items():
         terminalreporter.write_line(f"no borrada {etiqueta}: {motivo}")
+
+
+@pytest.fixture(autouse=True)
+def imagenes_base_al_dia(request: pytest.FixtureRequest) -> None:
+    """Antes de la primera prueba `docker`, reconstruye las imágenes base viejas (#250).
+
+    Una imagen base construida con una receta anterior (por ejemplo `qagent-sandbox:java`
+    sin ArchUnit, de antes de #185) hace fallar las pruebas por el entorno. Se revisa una
+    sola vez por sesión y nunca en las pruebas sin Docker.
+    """
+    if request.node.get_closest_marker("docker") is None:
+        return
+    config = request.config
+    if _ACTUALIZADAS in config.stash:
+        return
+    cliente = _cliente_docker()
+    if cliente is None:
+        config.stash[_ACTUALIZADAS] = ([], {})
+        return
+    from qagent.sandbox.imagen import construir_imagen_base, imagen_desactualizada
+
+    config.stash[_ACTUALIZADAS] = soporte_docker.actualizar_imagenes_base(
+        cliente,
+        imagen_desactualizada,
+        lambda cliente, etiqueta: construir_imagen_base(cliente, imagen=etiqueta),
+    )
+
+
+@pytest.fixture(scope="session")
+def cliente_docker():
+    """Cliente Docker real; omite la prueba si Docker no está disponible."""
+    from qagent.sandbox import DockerNoDisponible, obtener_cliente
+
+    try:
+        return obtener_cliente()
+    except DockerNoDisponible as exc:
+        pytest.skip(str(exc))
+
+
+@pytest.fixture(scope="session")
+def imagen_base(cliente_docker) -> str:
+    """Imagen base del sandbox; la construye una vez si no existe."""
+    from qagent.sandbox import construir_imagen_base
+    from qagent.sandbox.imagen import IMAGEN_BASE, _imagen_existe
+
+    if not _imagen_existe(cliente_docker, IMAGEN_BASE):
+        construir_imagen_base(cliente_docker)
+    return IMAGEN_BASE
 
 
 def _escribir(config: pytest.Config, texto: str) -> None:

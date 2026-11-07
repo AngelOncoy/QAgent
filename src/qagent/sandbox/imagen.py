@@ -92,6 +92,10 @@ _BUILD_EXITOSO = re.compile(r"^(?:\[INFO\]\s+)?BUILD SUCCESS(?:FUL)?\b")
 
 _CARPETA_DEPENDENCIAS = "/tmp/qagent-deps"
 
+#: Label de Docker con la huella de la receta (Dockerfile y recursos) que construyó una
+#: imagen base. Si la receta cambia, la imagen local queda desactualizada (#250).
+LABEL_RECETA = "qagent.receta"
+
 
 @dataclass(frozen=True)
 class Dependencias:
@@ -333,10 +337,7 @@ def construir_imagen_base(
     cliente = cliente or obtener_cliente()
     _avisar(avanzar, AVISO_BASE)
     contexto = Path(tempfile.mkdtemp(prefix="qagent-base-"))
-    buildargs = None
-    if es_imagen_base_python(receta.imagen):
-        version = version_de_imagen_base(receta.imagen)
-        buildargs = {"PYTHON_VERSION": version}
+    buildargs = _buildargs_de(receta.imagen)
     try:
         shutil.copyfile(receta.dockerfile, contexto / "Dockerfile")
         for recurso in receta.recursos:
@@ -348,10 +349,52 @@ def construir_imagen_base(
             "No se pudo construir la imagen base",
             avanzar,
             buildargs=buildargs,
+            labels={LABEL_RECETA: huella_receta(receta, buildargs)},
         )
     finally:
         shutil.rmtree(contexto, ignore_errors=True)
     return receta.imagen
+
+
+def huella_receta(
+    receta: RecetaImagen, buildargs: Mapping[str, str] | None = None
+) -> str:
+    """Huella del Dockerfile, los recursos y los argumentos con que se construye una imagen base.
+
+    Cambia cuando cambia cualquier archivo de la receta: así se reconoce una imagen local
+    construida con una receta anterior (#250).
+    """
+    resumen = hashlib.sha256(receta.dockerfile.read_bytes())
+    for recurso in receta.recursos:
+        for archivo in sorted(p for p in recurso.rglob("*") if p.is_file()):
+            resumen.update(archivo.relative_to(recurso.parent).as_posix().encode())
+            resumen.update(b"\0")
+            resumen.update(archivo.read_bytes())
+    for clave, valor in sorted((buildargs or {}).items()):
+        resumen.update(f"\0{clave}={valor}".encode())
+    return resumen.hexdigest()[:16]
+
+
+def imagen_desactualizada(cliente: docker.DockerClient, imagen: str) -> bool:
+    """True si la imagen base existe pero no se construyó con su receta actual.
+
+    Una imagen sin el label `LABEL_RECETA` (construida antes de #250) cuenta como
+    desactualizada. Si la imagen no existe, devuelve False: no hay nada que actualizar.
+    """
+    try:
+        actual = cliente.images.get(imagen)
+    except ImageNotFound:
+        return False
+    receta = receta_de(imagen)
+    esperada = huella_receta(receta, _buildargs_de(receta.imagen))
+    return (actual.labels or {}).get(LABEL_RECETA) != esperada
+
+
+def _buildargs_de(imagen: str) -> dict[str, str] | None:
+    """Argumentos de build de una imagen base: la versión de Python, si es de Python."""
+    if not es_imagen_base_python(imagen):
+        return None
+    return {"PYTHON_VERSION": version_de_imagen_base(imagen)}
 
 
 def etiqueta_para_requirements(contenido: bytes, version: str | None = None) -> str:
@@ -585,6 +628,7 @@ def _construir(
     mensaje: str,
     avanzar: Avance | None = None,
     buildargs: dict[str, str] | None = None,
+    labels: dict[str, str] | None = None,
 ) -> None:
     """Construye una imagen y traduce los errores de Docker a `ErrorConstruccionImagen`.
 
@@ -592,10 +636,16 @@ def _construir(
     """
     if avanzar is not None:
         _construir_con_avance(
-            cliente, contexto, etiqueta, mensaje, avanzar, buildargs=buildargs
+            cliente,
+            contexto,
+            etiqueta,
+            mensaje,
+            avanzar,
+            buildargs=buildargs,
+            labels=labels,
         )
         return
-    opciones = {"buildargs": buildargs} if buildargs else {}
+    opciones = _opciones_build(buildargs, labels)
     try:
         cliente.images.build(
             path=str(contexto), tag=etiqueta, rm=True, forcerm=True, **opciones
@@ -615,11 +665,12 @@ def _construir_con_avance(
     mensaje: str,
     avanzar: Avance,
     buildargs: dict[str, str] | None = None,
+    labels: dict[str, str] | None = None,
 ) -> None:
     """`docker build` leyendo el log a medida que llega; cada paso útil va a `avanzar`."""
     log: list[str] = []
     partes = None
-    opciones = {"buildargs": buildargs} if buildargs else {}
+    opciones = _opciones_build(buildargs, labels)
     try:
         partes = cliente.api.build(
             path=str(contexto),
@@ -653,6 +704,18 @@ def _construir_con_avance(
         raise ErrorConstruccionImagen(
             f"{mensaje}: {exc.explanation}", "".join(log)
         ) from exc
+
+
+def _opciones_build(
+    buildargs: dict[str, str] | None, labels: dict[str, str] | None
+) -> dict[str, Any]:
+    """Argumentos opcionales de `docker build`: solo los que tienen valor."""
+    opciones: dict[str, Any] = {}
+    if buildargs:
+        opciones["buildargs"] = buildargs
+    if labels:
+        opciones["labels"] = labels
+    return opciones
 
 
 def _avisar(avanzar: Avance | None, texto: str) -> None:

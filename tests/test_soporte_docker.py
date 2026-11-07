@@ -66,7 +66,9 @@ def test_aviso_dice_cuanto_tardan_y_ocupan():
     assert "60 pruebas" in aviso
     assert "minutos" in aviso and "GB" in aviso
     assert "--conservar-imagenes" in aviso
-    assert "1 prueba " in soporte_docker.texto_aviso(1, conservar=True)
+    conservando = soporte_docker.texto_aviso(1, conservar=True)
+    assert "(1 prueba)" in conservando
+    assert "se quedan" in conservando
 
 
 # --- qué imágenes se borran ---
@@ -105,6 +107,50 @@ def test_borrar_imagenes_sigue_si_una_falla():
     assert borradas == ["qagent-sandbox:java"]
     assert list(errores) == ["qagent-sandbox:req-1"]
     assert "running container" in errores["qagent-sandbox:req-1"]
+
+
+# --- imágenes base viejas ---
+
+
+def test_es_imagen_base():
+    for etiqueta in (BASE, "qagent-sandbox:base-py3.12", "qagent-sandbox:java"):
+        assert soporte_docker.es_imagen_base(etiqueta)
+    for etiqueta in ("qagent-sandbox:java-abc", "qagent-sandbox:req-1"):
+        assert not soporte_docker.es_imagen_base(etiqueta)
+
+
+def test_actualizar_reconstruye_solo_las_bases_viejas_que_existen():
+    falso = cliente(
+        [BASE, "qagent-sandbox:java", "qagent-sandbox:java-abc", "qagent-sandbox:node"]
+    )
+    viejas = {"qagent-sandbox:java", "qagent-sandbox:java-abc"}
+    construidas: list[str] = []
+
+    def construir(_cliente, etiqueta):
+        if etiqueta == "qagent-sandbox:node":
+            raise AssertionError("node está al día: no se reconstruye")
+        construidas.append(etiqueta)
+
+    reconstruidas, errores = soporte_docker.actualizar_imagenes_base(
+        falso, lambda _cliente, etiqueta: etiqueta in viejas, construir
+    )
+    # La derivada java-abc no es una imagen base: no se reconstruye aunque sea vieja.
+    assert reconstruidas == construidas == ["qagent-sandbox:java"]
+    assert errores == {}
+
+
+def test_un_fallo_al_reconstruir_se_informa_y_sigue():
+    falso = cliente([BASE, "qagent-sandbox:java"])
+
+    def construir(_cliente, etiqueta):
+        if etiqueta == "qagent-sandbox:java":
+            raise RuntimeError("sin internet")
+
+    reconstruidas, errores = soporte_docker.actualizar_imagenes_base(
+        falso, lambda *_: True, construir
+    )
+    assert reconstruidas == [BASE]
+    assert errores == {"qagent-sandbox:java": "sin internet"}
 
 
 # --- los hooks, en una sesión de pytest aparte ---
