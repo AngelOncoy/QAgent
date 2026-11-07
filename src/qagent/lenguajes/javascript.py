@@ -41,6 +41,7 @@ from qagent.sandbox.ejecucion import ARCHIVO_JUNIT, DIR_SALIDA, DIR_TESTS
 from qagent.sandbox.modelos import IMAGEN_NODE
 from qagent.lenguajes.javascript_ejecucion import comando_vitest, variables_node
 from qagent.lenguajes.javascript_junit import interpretar_resultados_vitest
+from qagent.lenguajes.javascript_cobertura import leer_cobertura_v8
 
 #: Herramientas que trae ``qagent-sandbox:node`` (``sandbox/Dockerfile.node``).
 PAQUETES_NODE = (
@@ -181,6 +182,12 @@ class _AdaptadorNode(AdaptadorEnDesarrollo):
     def interpretar_resultados(self, informe: str) -> dict[str, Any]:
         """Convierte el informe de Vitest (JUnit XML o JSON) a resultados comunes."""
         return interpretar_resultados_vitest(informe)
+
+    def leer_cobertura(
+        self, dir_salida: str | os.PathLike[str]
+    ) -> dict[str, Any] | None:
+        """Lee la cobertura v8/Istanbul de dir_salida y la pasa a files/totals comunes."""
+        return leer_cobertura_v8(dir_salida)
 
     # --- Generación y guardrail Vitest (EP-11a, parte 2) -----------------------------
 
