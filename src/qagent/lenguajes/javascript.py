@@ -27,7 +27,10 @@ from qagent.lenguajes.base import (
     ReglasPlanificacion,
     ReglasRevision,
 )
+from qagent.lenguajes.javascript_cobertura import leer_cobertura_v8
+from qagent.lenguajes.javascript_ejecucion import comando_vitest, variables_node
 from qagent.lenguajes.javascript_estructura import extraer_funciones, gramatica_de
+from qagent.lenguajes.javascript_junit import interpretar_resultados_vitest
 from qagent.lenguajes.javascript_llamadas import agregar_llamadas
 from qagent.lenguajes.javascript_oraculo import registro_de_evidencias
 from qagent.lenguajes.registro import listar_archivos
@@ -39,9 +42,6 @@ from qagent.lenguajes.treesitter import (
 )
 from qagent.sandbox.ejecucion import ARCHIVO_JUNIT, DIR_SALIDA, DIR_TESTS
 from qagent.sandbox.modelos import IMAGEN_NODE
-from qagent.lenguajes.javascript_ejecucion import comando_vitest, variables_node
-from qagent.lenguajes.javascript_junit import interpretar_resultados_vitest
-from qagent.lenguajes.javascript_cobertura import leer_cobertura_v8
 
 #: Herramientas que trae ``qagent-sandbox:node`` (``sandbox/Dockerfile.node``).
 PAQUETES_NODE = (
