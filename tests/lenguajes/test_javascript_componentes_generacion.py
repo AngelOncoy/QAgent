@@ -158,6 +158,18 @@ def test_oraculo_rechaza(cambio: tuple[str, str], fragmento: str) -> None:
     assert fragmento in motivo
 
 
+def test_exige_la_directiva_de_jsdom_al_inicio() -> None:
+    codigo = _codigo()
+    assert codigo.startswith("// @vitest-environment jsdom\n")
+    sin = codigo.replace("// @vitest-environment jsdom\n", "", 1)
+    motivo = validar_componente(_contrato(), sin)
+    assert motivo is not None and "jsdom" in motivo
+    con_bloque = "/** @vitest-environment jsdom */\n" + sin
+    assert validar_componente(_contrato(), con_bloque) is None
+    escondida = sin.replace("afterEach(", "// @vitest-environment jsdom\nafterEach(", 1)
+    assert validar_componente(_contrato(), escondida) is not None
+
+
 def test_instantanea_se_rechaza_aunque_cumpla_lo_demas() -> None:
     codigo = _codigo().replace(
         "  });\n});", "    expect(document.body).toMatchSnapshot();\n  });\n});"

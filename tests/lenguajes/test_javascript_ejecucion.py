@@ -75,15 +75,21 @@ def test_comando_pruebas_arma_comando_vitest_con_junit_y_coverage_v8() -> None:
         assert "--coverage.reporter=json-summary" in cmd
         assert "--coverage.reportsDirectory=/out" in cmd
         assert "--no-color" in cmd
+        # #171: raíz /work (proyecto y pruebas), sin escribir fuera de /tmp y /out.
+        assert "--root=/work" in cmd
+        assert "--fsModuleCache=false" in cmd
+        assert "--coverage.clean=false" in cmd
+        assert "--coverage.reportOnFailure=true" in cmd
 
-    assert "--coverage.include=src/personas.mjs" in cmd_js
-    assert "--coverage.include=src/precios.ts" in cmd_ts
+    assert "--coverage.include=proyecto/src/personas.mjs" in cmd_js
+    assert "--coverage.include=proyecto/src/precios.ts" in cmd_ts
 
 
 def test_variables_pruebas_incluye_node_env_y_no_color() -> None:
     vars_node = variables_node()
     assert vars_node.get("NODE_ENV") == "test"
     assert vars_node.get("NO_COLOR") == "1"
+    assert vars_node.get("HOME") == "/tmp"
 
 
 # --- Criterio 3: interpretar_resultados (JUnit XML y JSON) ---------------------------

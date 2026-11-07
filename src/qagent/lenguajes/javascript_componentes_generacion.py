@@ -15,6 +15,7 @@ comprueba su oráculo con :func:`validar_componente`, sin ejecutar nada:
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 from typing import Any
 
@@ -60,6 +61,12 @@ SELECTORES_PROHIBIDOS = frozenset(
 #: Instantáneas: su esperado sale de renderizar, no del contrato.
 MATCHERS_INSTANTANEA = frozenset(
     {"toMatchSnapshot", "toMatchInlineSnapshot", "toMatchFileSnapshot"}
+)
+#: Primera línea de la prueba: Vitest la corre con jsdom y el resto sigue en Node.
+DIRECTIVA_JSDOM = "// @vitest-environment jsdom"
+_DIRECTIVA = re.compile(
+    r"\A(?:\s*(?://[^\n]*\n|/\*.*?\*/))*?\s*(?://|/\*\*?)\s*@vitest-environment\s+jsdom\b",
+    re.DOTALL,
 )
 _ACCIONES = {"click": "click", "escribir": "change", "enviar": "submit"}
 _LIMITE_FUENTE = 2_000_000
@@ -201,6 +208,7 @@ def codigo_componente(contrato: dict[str, Any], contexto: dict[str, Any]) -> str
     )
     testing = ["cleanup", *(["fireEvent"] if usa_eventos else []), "render", "screen"]
     lineas = [
+        DIRECTIVA_JSDOM,
         'import { afterEach, describe, expect, it, vi } from "vitest";',
         f"import {{ {', '.join(testing)} }} from {_js(TESTING_LIBRARY)};",
         f"import {_js(JEST_DOM)};",
@@ -231,6 +239,7 @@ def prompt_componente(
         f"Escribe una prueba Vitest + Testing Library en {nombre} para el componente "
         "React del contrato. Corre con jsdom y sin red.\n"
         "REGLAS OBLIGATORIAS:\n"
+        f"- La primera línea es «{DIRECTIVA_JSDOM}».\n"
         '- Importa afterEach, describe, it, expect y vi desde "vitest"; render, '
         f'screen, cleanup y fireEvent desde "{TESTING_LIBRARY}"; "{JEST_DOM}"; y el '
         "componente con la línea `importacion` del contexto, sin cambiar la ruta.\n"
@@ -380,6 +389,11 @@ def validar_componente(contrato: dict[str, Any], codigo: str) -> str | None:
         return f"Oráculo inválido: {error}"
     if analisis.evasiones:
         return "Oráculo inválido: " + analisis.evasiones[0]
+    if not _DIRECTIVA.match(codigo):
+        return (
+            "Oráculo inválido: la prueba debe empezar con "
+            f"«{DIRECTIVA_JSDOM}» para renderizar con jsdom."
+        )
     if prohibido:
         return (
             "Oráculo inválido: busca los elementos por rol o texto, no por selectores "

@@ -13,7 +13,7 @@ from qagent.analysis.analyzer import calcular_huella
 from qagent.lenguajes.javascript_estructura import extraer_funciones, gramatica_de
 from qagent.lenguajes.treesitter import obtener_parser
 from qagent.sandbox import LimitesSandbox
-from qagent.sandbox.ejecucion import ARCHIVO_JUNIT, DIR_SALIDA, DIR_TESTS
+from qagent.sandbox.ejecucion import ARCHIVO_JUNIT, DIR_PROYECTO, DIR_SALIDA, DIR_TESTS
 
 #: Límites medidos de recursos para el contenedor de pruebas Node (CA2).
 LIMITES_NODE = LimitesSandbox(cpus=4.0, memoria="2g", timeout_s=120)
@@ -24,22 +24,35 @@ def comando_vitest(modulo: str) -> list[str]:
 
     Ejecuta en modo no interactivo (`run`) sobre la carpeta de pruebas montada,
     con reporte JUnit en `/out/junit.xml` y cobertura en `/out/coverage-final.json`.
+
+    La raíz de Vitest es `/work`, que contiene la copia del proyecto y las pruebas:
+    con la raíz en el proyecto, Vite no sirve `/work/tests` en jsdom (#171) y no
+    encuentra las pruebas. Por eso la cobertura se filtra con `proyecto/<módulo>`.
+    El sistema de archivos del contenedor es de solo lectura: sin caché de módulos
+    en disco y sin borrar `/out`, que es un montaje.
     """
     ruta_modulo = PurePosixPath(str(modulo).replace("\\", "/")).as_posix()
+    proyecto = PurePosixPath(DIR_PROYECTO)
     return [
         "vitest",
         "run",
+        f"--root={proyecto.parent}",
         DIR_TESTS,
+        "--fsModuleCache=false",
         "--reporter=default",
         "--reporter=junit",
         f"--outputFile.junit={DIR_SALIDA}/{ARCHIVO_JUNIT}",
         f"--outputFile={DIR_SALIDA}/{ARCHIVO_JUNIT}",
         "--coverage.enabled=true",
         "--coverage.provider=v8",
-        f"--coverage.include={ruta_modulo}",
+        f"--coverage.include={proyecto.name}/{ruta_modulo}",
         "--coverage.reporter=json",
         "--coverage.reporter=json-summary",
         f"--coverage.reportsDirectory={DIR_SALIDA}",
+        # /out es un montaje: Vitest no puede borrarlo antes de escribir (EROFS).
+        "--coverage.clean=false",
+        # Un bug detectado también necesita su cobertura (Vitest la omite si falla).
+        "--coverage.reportOnFailure=true",
         "--no-color",
     ]
 
@@ -49,6 +62,8 @@ def variables_node() -> dict[str, str]:
     return {
         "NODE_ENV": "test",
         "NO_COLOR": "1",
+        # Vitest guarda un token en $HOME; el resto del contenedor es de solo lectura.
+        "HOME": "/tmp",
     }
 
 

@@ -31,8 +31,21 @@ RUN mkdir -p /opt/qagent \
         @stryker-mutator/vitest-runner@10.1.1 \
         dependency-cruiser@18.6.0 \
         typescript@6.0.3 \
+        jsdom@30.1.3 \
+        @testing-library/react@16.3.3 \
+        @testing-library/dom@10.4.2 \
+        @testing-library/jest-dom@7.0.1 \
     && npm cache clean --force \
     && ln -s /opt/qagent/node_modules /node_modules
+# Componentes React (#171): Testing Library debe usar el MISMO React que el proyecto
+# (dos copias rompen los hooks). npm instala React como dependencia «peer» de
+# Testing Library; se borra esa copia y se enlaza a la del proyecto, que la imagen
+# derivada instala en /work/node_modules. En proyectos sin React el enlace queda roto
+# y no se usa.
+RUN cd /opt/qagent/node_modules \
+    && rm -rf react react-dom scheduler \
+    && ln -s /work/node_modules/react react \
+    && ln -s /work/node_modules/react-dom react-dom
 
 # La imagen oficial ya trae el usuario `node` con uid 1000: se renombra a `sandbox`
 # para que todas las imágenes del sandbox usen el mismo usuario.

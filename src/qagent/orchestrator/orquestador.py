@@ -132,12 +132,14 @@ def _resumen_error_contrato(error: BaseException) -> str:
 
 
 def _objetivos_de_tipo(modulo: dict[str, Any], tipo: str) -> list[str]:
-    """Nombres de las funciones o de los endpoints del módulo, en su orden."""
+    """Nombres de las funciones, endpoints o componentes del módulo, en su orden."""
     if tipo == "endpoint":
         nombres = [
             e.get("objetivo") or e.get("manejador")
             for e in modulo.get("endpoints") or []
         ]
+    elif tipo == "componente":
+        nombres = [c.get("nombre") for c in modulo.get("componentes") or []]
     else:
         nombres = [f.get("nombre") for f in modulo.get("funciones") or []]
     return [n for n in nombres if n]
@@ -564,6 +566,13 @@ class Orquestador:
             omitidos.append(
                 {"objetivo": objetivo, "tipo": "endpoint", "motivo": motivo}
             )
+        for componente in modulo.get("componentes") or []:
+            nombre = componente.get("nombre")
+            if nombre and nombre not in planificados:
+                motivo = self._motivos_omision.get(nombre, MOTIVO_SIN_CONTRATO)
+                omitidos.append(
+                    {"objetivo": nombre, "tipo": "componente", "motivo": _frase(motivo)}
+                )
         return omitidos
 
     def _registrar_fallidos_planner(
@@ -628,7 +637,10 @@ class Orquestador:
         plan_endpoints = self._planificar_parte(
             modulo, "endpoint", self._planificar_endpoints
         )
-        plan = [*plan, *plan_endpoints]
+        plan_componentes = self._planificar_parte(
+            modulo, "componente", self._planificar_componentes
+        )
+        plan = [*plan, *plan_endpoints, *plan_componentes]
         for elemento in plan:
             if not isinstance(elemento, dict) or not elemento.get("objetivo"):
                 raise FalloControlado(
@@ -710,6 +722,33 @@ class Orquestador:
             self._emitir("planner", None, f"Aviso: {aviso}")
         for descarte in getattr(self.planner, "descartados", None) or []:
             self._emitir("planner", None, f"Caso descartado: {descarte}")
+        return plan
+
+    def _planificar_componentes(self, modulo: dict[str, Any]) -> list[Contrato]:
+        """Pide al Planner los componentes React del módulo (#171).
+
+        Solo hay componentes si el adaptador los separó y el proyecto usa React; los
+        que no tienen props tipadas ni JSDoc quedan omitidos con su motivo.
+        """
+        planificar = getattr(self.planner, "planificar_componentes", None)
+        if not modulo.get("componentes") or planificar is None:
+            return []
+        plan = self._llamar("planner", planificar, modulo)
+        if not isinstance(plan, list):
+            raise FalloControlado("El Planner no devolvió una lista de contratos")
+        omitidas = getattr(self.planner, "omitidas", None) or {}
+        self._motivos_omision.update(omitidas)
+        for aviso in getattr(self.planner, "avisos", None) or []:
+            self._emitir("planner", None, f"Aviso: {aviso}")
+        for descarte in getattr(self.planner, "descartados", None) or []:
+            self._emitir("planner", None, f"Caso descartado: {descarte}")
+        for nombre, motivo in omitidas.items():
+            self._emitir(
+                "planner",
+                nombre,
+                f"Componente omitido: {motivo}",
+                datos={"omitida": True},
+            )
         return plan
 
     def _usar_plan_reutilizado(

@@ -54,9 +54,7 @@ def test_corrida_banco_js_ts_detecta_tres_bugs_y_guarda_metricas(
 
     for adaptador, modulos in configuraciones:
         estructura = adaptador.analizar(proyecto)
-        modulos_dict = {
-            m["modulo"].replace("\\", "/"): m for m in estructura["modulos"]
-        }
+        modulos_dict = {m["ruta"].replace("\\", "/"): m for m in estructura["modulos"]}
 
         planner = PlannerAgent(
             FakeLLMClient(grabaciones=GRABACIONES),
