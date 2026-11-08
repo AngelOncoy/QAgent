@@ -215,7 +215,12 @@ def test_la_entrada_es_la_proyeccion_minima(mixto):
     assert entrada["lenguajes"] == [
         {
             "lenguaje": "python",
-            "tipos_prueba_soportados": ["funcion", "endpoint", "mutacion"],
+            "tipos_prueba_soportados": [
+                "funcion",
+                "endpoint",
+                "mutacion",
+                "integracion",
+            ],
         }
     ]
 

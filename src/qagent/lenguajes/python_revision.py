@@ -31,6 +31,7 @@ def _funcion_llamada(contrato: dict[str, Any]) -> str:
         return str(contrato["cadena"][0])
     return str(contrato["objetivo"])
 
+
 _PATRONES_ERROR_TEST = (
     "syntaxerror",
     "indentationerror",

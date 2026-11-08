@@ -228,7 +228,7 @@ function cargarDatosVistaPrevia(res) {
       sel: tieneObjetivos,
       fns: fns,
       endpoints: endpoints,
-      // #245: cadenas candidatas a integración interna; se eligen por la función raíz.
+      // issue 245: cadenas candidatas a integración interna; se eligen por la función raíz.
       integraciones: (m.integraciones || []).map(i => ({ n: i.nombre, cadena: i.cadena || [] })),
       conRamas: m.funciones_con_ramas ?? fns.filter(f => f.br > 0).length,
       huella: m.huella
@@ -834,7 +834,7 @@ function obtenerSeleccionObjetivos(){
       .concat(conEps ? (m.endpoints || []).filter(e => endpointElegible(e) && e.inc && e.crit).map(e => e.objetivo) : [])
   })).filter(m => m.funciones.length || m.endpoints.length || m.integraciones.length);
 }
-// #245: las raíces de cadena cuya función sigue incluida en Explorar, si se eligió «Integración interna».
+// issue 245: las raíces de cadena cuya función sigue incluida en Explorar, si se eligió «Integración interna».
 function integracionesIncluidas(m){
   if (eleccionPruebas.integracion !== true) return [];
   return (m.integraciones || []).filter(i => (m.fns || []).some(f => f.n === i.n && f.inc));

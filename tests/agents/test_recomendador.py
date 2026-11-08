@@ -364,7 +364,12 @@ def _proyeccion_integracion(cadenas: int) -> dict[str, Any]:
                 "nombre": "Python",
                 "archivos": 3,
                 "analizado": True,
-                "tipos_prueba_soportados": ["funcion", "endpoint", "mutacion", "integracion"],
+                "tipos_prueba_soportados": [
+                    "funcion",
+                    "endpoint",
+                    "mutacion",
+                    "integracion",
+                ],
                 "tipos_prueba_previstos": [],
             }
         ],

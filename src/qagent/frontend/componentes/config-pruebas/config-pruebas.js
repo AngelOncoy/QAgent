@@ -337,7 +337,7 @@ function renderTiposPrueba(){
   const mods = MODULES.filter(m=>m.sel && !m.error && moduloTieneObjetivos(m));
   const nFns = mods.flatMap(m=>m.fns).filter(f=>f.inc).length;
   const nEps = mods.flatMap(m=>(m.endpoints || []).filter(e=>endpointElegible(e) && e.inc)).length;
-  // #245: cadenas de funciones que se pueden probar juntas (las incluidas en Explorar).
+  // issue 245: cadenas de funciones que se pueden probar juntas (las incluidas en Explorar).
   const nInt = mods.flatMap(m=>(m.integraciones || []).filter(i=>(m.fns || []).some(f=>f.n===i.n && f.inc))).length;
   // issue 246: cada tipo declara su caja (data-caja) para las pestañas de Preparar.
   const fila = (clave, titulo, n, singular, plural, caja) => `<label class="prep-casilla ${n ? '' : 'dis'}" data-caja="${caja}">

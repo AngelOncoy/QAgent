@@ -8,12 +8,20 @@ from qagent import contracts
 from qagent.lenguajes import REGISTRO, AdaptadorEnDesarrollo, Registro
 
 
-@pytest.mark.parametrize("lenguaje", ["python", "java"])
-def test_los_lenguajes_completos_declaran_los_tres_tipos(lenguaje: str) -> None:
+@pytest.mark.parametrize(
+    ("lenguaje", "tipos"),
+    [
+        ("python", ("funcion", "endpoint", "mutacion", "integracion")),
+        ("java", ("funcion", "endpoint", "mutacion")),
+    ],
+)
+def test_los_lenguajes_completos_declaran_sus_tipos(
+    lenguaje: str, tipos: tuple[str, ...]
+) -> None:
     adaptador = REGISTRO.adaptador_para(lenguaje)
 
     assert adaptador.completo
-    assert adaptador.tipos_prueba == ("funcion", "endpoint", "mutacion", "integracion")
+    assert adaptador.tipos_prueba == tipos
 
 
 @pytest.mark.parametrize("lenguaje", ["javascript", "typescript"])

@@ -582,7 +582,11 @@ class Orquestador:
             if objetivo and objetivo not in planificados:
                 motivo = self._motivos_omision.get(objetivo, MOTIVO_SIN_CONTRATO)
                 omitidos.append(
-                    {"objetivo": objetivo, "tipo": "integracion", "motivo": _frase(motivo)}
+                    {
+                        "objetivo": objetivo,
+                        "tipo": "integracion",
+                        "motivo": _frase(motivo),
+                    }
                 )
         for endpoint in modulo.get("endpoints") or []:
             objetivo = endpoint.get("objetivo") or endpoint.get("manejador")
@@ -723,7 +727,9 @@ class Orquestador:
                 continue
             derivados.append(contrato_de_integracion(base, info))
         solo = {
-            f["nombre"] for f in modulo.get("funciones") or [] if f.get("solo_integracion")
+            f["nombre"]
+            for f in modulo.get("funciones") or []
+            if f.get("solo_integracion")
         }
         plan = [
             c

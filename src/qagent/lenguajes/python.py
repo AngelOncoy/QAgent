@@ -58,7 +58,9 @@ from qagent.sandbox.mutacion import (
 )
 
 
-def _agregar_integraciones(estructura: Estructura, raiz: str | os.PathLike[str]) -> None:
+def _agregar_integraciones(
+    estructura: Estructura, raiz: str | os.PathLike[str]
+) -> None:
     """Agrega ``integraciones`` a los módulos con cadenas candidatas (#245)."""
     from qagent.analysis.integracion import candidatas, lector_de_proyecto
     from qagent.config import Integracion, cargar_configuracion

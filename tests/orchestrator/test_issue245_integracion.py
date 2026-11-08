@@ -37,7 +37,12 @@ def _base() -> dict[str, Any]:
         "critical": False,
         "llama_a": ["b.py::precio"],
         "casos": [
-            {"id": "c1", "entrada": {"p": 1}, "valor_esperado": 1, "origen": "docstring"}
+            {
+                "id": "c1",
+                "entrada": {"p": 1},
+                "valor_esperado": 1,
+                "origen": "docstring",
+            }
         ],
     }
 

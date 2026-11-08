@@ -54,7 +54,9 @@ def test_la_funcion_que_llama_a_internas_puras_es_candidata(tmp_path: Path) -> N
 def test_si_todas_las_internas_son_de_efecto_no_es_candidata(tmp_path: Path) -> None:
     raiz = _proyecto(tmp_path, {"app.py": APP, "precios.py": PRECIOS})
     modulos = analizar_proyecto(raiz)["modulos"]
-    assert construir_cadena(modulos, "app.py", "pedir", lector_de_proyecto(raiz)) is None
+    assert (
+        construir_cadena(modulos, "app.py", "pedir", lector_de_proyecto(raiz)) is None
+    )
 
 
 def test_una_interna_de_efecto_se_simula_y_no_entra_en_la_cadena(
@@ -121,4 +123,7 @@ def test_el_banco_de_integracion_tiene_las_cadenas_esperadas() -> None:
     modulos = analizar_proyecto(raiz)["modulos"]
     cadenas = {c.raiz: c for c in candidatas(modulos, lector_de_proyecto(raiz))}
     assert set(cadenas) == {"total_del_pedido", "total_con_impuesto"}
-    assert cadenas["total_del_pedido"].funciones == ("total_del_pedido", "aplicar_descuento")
+    assert cadenas["total_del_pedido"].funciones == (
+        "total_del_pedido",
+        "aplicar_descuento",
+    )

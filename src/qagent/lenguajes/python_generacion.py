@@ -74,7 +74,9 @@ def _contexto(
     """Contexto del módulo de una función (los endpoints ya traen su declaración)."""
     if ruta_proyecto is None or contrato.get("tipo") == "endpoint":
         return None
-    return contexto_de_funcion(ruta_proyecto, contrato["modulo"], funcion_probada(contrato))
+    return contexto_de_funcion(
+        ruta_proyecto, contrato["modulo"], funcion_probada(contrato)
+    )
 
 
 def funcion_probada(contrato: dict[str, Any]) -> str:

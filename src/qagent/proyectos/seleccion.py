@@ -86,7 +86,9 @@ def filtrar_modulos(
         ]
         componentes_reales = {c.get("nombre"): c for c in modulo.get("componentes", [])}
         inexistentes_co = [n for n in componentes if n not in componentes_reales]
-        integraciones_reales = {i.get("nombre"): i for i in modulo.get("integraciones", [])}
+        integraciones_reales = {
+            i.get("nombre"): i for i in modulo.get("integraciones", [])
+        }
         inexistentes_in = [n for n in integraciones if n not in integraciones_reales]
         if inexistentes_fn or inexistentes_ep or inexistentes_co or inexistentes_in:
             inexistentes = ", ".join(
@@ -127,7 +129,11 @@ def filtrar_modulos(
                 integraciones_reales[nombre] for nombre in integraciones
             ]
             filtrado["funciones"].extend(
-                {**funciones_reales[nombre], "critical": False, "solo_integracion": True}
+                {
+                    **funciones_reales[nombre],
+                    "critical": False,
+                    "solo_integracion": True,
+                }
                 for nombre in integraciones
                 if nombre not in funciones and nombre in funciones_reales
             )

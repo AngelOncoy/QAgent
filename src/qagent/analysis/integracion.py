@@ -24,7 +24,14 @@ from typing import Any
 from tree_sitter import Node
 
 from qagent.analysis import arbol_ts
-from qagent.analysis.arbol_ts import campo, definicion, es_funcion, nombre, sentencias, texto
+from qagent.analysis.arbol_ts import (
+    campo,
+    definicion,
+    es_funcion,
+    nombre,
+    sentencias,
+    texto,
+)
 
 #: Módulos cuyo uso hace que una función sea «de efecto»: red, base de datos, sistema
 #: de archivos, subprocesos, hora y azar. Si dudamos de un módulo, va aquí.
@@ -122,9 +129,7 @@ def efectos_de(fuente: str, funcion: str) -> tuple[str, ...]:
 def _es_llamada(nodo: Node) -> bool:
     padre = nodo.parent
     return (
-        padre is not None
-        and padre.type == "call"
-        and campo(padre, "function") == nodo
+        padre is not None and padre.type == "call" and campo(padre, "function") == nodo
     )
 
 
