@@ -69,6 +69,7 @@ def test_componente_sin_oraculo_queda_omitido_y_se_registra(tmp_path: Path) -> N
         {
             "objetivo": "Libre",
             "tipo": "componente",
+            "lenguaje": "typescript",
             "motivo": MOTIVO_SIN_ORACULO[0].upper() + MOTIVO_SIN_ORACULO[1:] + ".",
         }
     ]

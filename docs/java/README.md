@@ -1,5 +1,8 @@
 # EN-19 (#132) — Prototipo Java con Tree-sitter y JUnit 5
 
+> Los perfiles actuales, la presentación de evidencia y las opciones compatibles
+> con Java se describen en [perfiles-resultados.md](perfiles-resultados.md) (#262).
+
 > La matriz de criterios y los comandos de validación de la épica #174 están en
 > [validacion-ep12.md](validacion-ep12.md). Esa página reúne banco original,
 > flujo integrado, regresión de Python, Spring y PIT.

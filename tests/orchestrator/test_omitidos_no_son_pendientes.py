@@ -86,11 +86,13 @@ def test_el_modulo_registra_lo_que_no_entro_al_plan_con_su_motivo() -> None:
         {
             "objetivo": "sin_docstring",
             "tipo": "funcion",
+            "lenguaje": "python",
             "motivo": MOTIVO_PLANNER[0].upper() + MOTIVO_PLANNER[1:] + ".",
         },
         {
             "objetivo": "GET /health",
             "tipo": "endpoint",
+            "lenguaje": "python",
             "motivo": MOTIVO_RUTA_SIN_RESOLVER,
         },
     ]
@@ -105,6 +107,7 @@ def test_sin_motivo_del_planner_queda_un_motivo_generico() -> None:
     assert funcion == {
         "objetivo": "sin_docstring",
         "tipo": "funcion",
+        "lenguaje": "python",
         "motivo": MOTIVO_SIN_CONTRATO,
     }
 
@@ -366,7 +369,7 @@ def test_los_informes_usan_el_criterio_comun() -> None:
         assert "respuesta_principal(" in codigo
         assert 'f"Todo pasó:' not in codigo
     exportar = (storage / "exportar_informe.py").read_text(encoding="utf-8")
-    assert '"omitidos": copy.deepcopy(results.get("omitidos") or [])' in exportar
+    assert '"omitidos": copy.deepcopy(vista["omitidos"])' in exportar
 
 
 def test_el_monitor_cuenta_las_omitidas_al_terminar() -> None:

@@ -75,15 +75,14 @@ def test_lo_definido_en_el_sistema_sigue_mandando(sin_bandera, monkeypatch, tmp_
 
 
 def test_reinstalar_el_filtro_actualiza_las_claves_sin_duplicarlo(monkeypatch):
+    """Actualiza la redacción sin sustituir el logger que necesita pytest."""
     handler = logging.Handler()
     registro = SimpleNamespace(
         handlers=[handler]
     )  # el logger raíz, con un solo handler
     original = logging.getLogger
-    # Solo el logger raíz se reemplaza: los handlers de pytest no reciben el filtro.
-    monkeypatch.setattr(
-        carga.logging, "getLogger", lambda *a: original(*a) if a else registro
-    )
+    # Se sustituye la referencia de carga, no el módulo logging compartido con pytest.
+    monkeypatch.setattr(carga, "logging", SimpleNamespace(getLogger=lambda: registro))
     monkeypatch.setattr(carga, "_FILTRO_RAIZ", None)
 
     primero = carga.instalar_filtro_logs(carga.Claves({"A": "clave-vieja-123456"}))
@@ -96,6 +95,8 @@ def test_reinstalar_el_filtro_actualiza_las_claves_sin_duplicarlo(monkeypatch):
     )
     primero.filter(mensaje)
     assert "clave-nueva-654321" not in mensaje.msg
+    assert logging.getLogger is original
+    assert isinstance(logging.getLogger(), logging.Logger)
 
 
 def test_un_env_editado_a_mano_vuelve_a_leerse_una_sola_vez(monkeypatch, tmp_path):

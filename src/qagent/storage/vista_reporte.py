@@ -29,10 +29,12 @@ from qagent.storage.registro import (
     PERFILES_CON_MUTACION,
     nombre_perfil,
 )
+from qagent.storage.resumen_prueba import resumir_prueba
 from qagent.storage.vista_ejecucion import (
     categorias_de,
     estado_de,
     identidad_de,
+    omitidos_con_lenguaje,
     texto_categorias,
     tipo_de,
 )
@@ -168,7 +170,7 @@ def vista_reporte(
     pasaron = sum(1 for o in results["objetivos"] if o["metricas"]["paso"])
     por_agente = resumen.get("por_agente") or {}
 
-    omitidos = results.get("omitidos") or []
+    omitidos = omitidos_con_lenguaje(results.get("omitidos") or [])
     total_omitidos = _primer_entero(
         results.get("objetivos_omitidos"),
         resumen.get("objetivos_omitidos"),
@@ -214,6 +216,7 @@ def vista_reporte(
         "total_procesados": total_procesados,
         "total_pendientes": total_pendientes,
         "total_omitidos": total_omitidos,
+        "omitidos": omitidos,
         "tipo_terminacion": tipo_terminacion,
         "es_parcial": es_parcial,
         "run_id": results["run_id"],
@@ -317,7 +320,7 @@ def _funcion(
     categorias = categorias_de(objetivo) or (
         contar_categorias(casos) if casos else None
     )
-    return {
+    funcion = {
         "modulo": objetivo["modulo"],
         "funcion": objetivo["funcion"],
         "lenguaje": objetivo.get("lenguaje", "python"),
@@ -365,6 +368,8 @@ def _funcion(
             (i["ejecucion"] for i in reversed(intentos) if i["ejecucion"]), None
         ),
     }
+    funcion["resumen_ejecucion"] = resumir_prueba(funcion, perfil)
+    return funcion
 
 
 def _intentos(crudos: Any) -> list[dict[str, Any]]:

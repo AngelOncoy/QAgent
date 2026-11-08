@@ -251,6 +251,7 @@ def generar_vista_previa(
         "nombre_lenguaje": adaptador.nombre_visible,
         "framework_pruebas": adaptador.frameworks_pruebas[0],
         "solo_e2e": solo_e2e,
+        "e2e_humo_disponible": adaptador.e2e_humo_disponible,
         "modulos": modulos_priorizados,
         "errores": errores_procesados,
         "resumen": resultado_ast["resumen"],
