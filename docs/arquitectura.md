@@ -192,7 +192,7 @@ El Sprint 2 agrega tres piezas, todas fuera de la máquina de estados:
 
 - **`lenguajes/`** (EN-17) reúne todo lo que depende del lenguaje (análisis, comando de pruebas, imagen del sandbox, lectura de resultados y guardrail de aserciones) detrás de la interfaz `LanguageAdapter`. Desde #168 la corrida obtiene el adaptador mediante el registro y los agentes usan sus reglas; Python conserva el flujo completo. JavaScript, TypeScript y Java siguen con `completo = False`, por lo que la aplicación avisa que aún no admite una corrida en esos lenguajes.
 - **El Explicador** lo invoca el código de la corrida (`corrida.py`) cuando los veredictos ya están guardados. Es de solo lectura y, si falla o está desactivado, los informes siguen como hoy.
-- **El Recomendador** (ADR-011, definido pero no implementado) se invocará desde Vista previa después del análisis estático y antes de `start_run`. Recibirá una proyección mínima sin código, secretos ni rutas absolutas y devolverá `recommendation.v1`. Las capacidades permitidas vendrán de los adaptadores; el usuario conservará la confirmación y el cambio de la selección.
+- **El Recomendador** (ADR-011; reglas sin IA #197 y modo IA opcional #200 implementados, medición con LLM real #201 pendiente) se invoca desde Vista previa después del análisis estático y antes de `start_run`. Recibe una proyección mínima sin código, secretos ni rutas absolutas y devuelve `recommendation.v1`. Las capacidades permitidas vendrán de los adaptadores; el usuario conservará la confirmación y el cambio de la selección.
 
 | Componente | Carpeta | Responsabilidad | Ítems |
 |---|---|---|---|
@@ -425,7 +425,7 @@ Antes de que exista una corrida, Vista previa analiza el proyecto y el usuario c
 ```mermaid
 flowchart LR
     A["Abrir proyecto"] --> V["Vista previa<br/>análisis estático"]
-    V -. "resumen mínimo + capacidades" .-> REC["Recomendador<br/>definido, no implementado"]
+    V -. "resumen mínimo + capacidades" .-> REC["Recomendador<br/>reglas + IA opcional"]
     REC -. "recommendation.v1" .-> U{"Usuario confirma<br/>o cambia la selección"}
     V --> U
     U --> S["start_run<br/>corrida determinista"]
@@ -750,7 +750,7 @@ Hay **cinco roles** implementados: cuatro con LLM (Planner, Generator, Reviewer 
 | **Liveness** | `EXPLICADOR = (SolicitarExplicación . LeerHallazgo . AplicarPlantilla . [RedactarConLLM] . ValidarContrato . EntregarExplicación)*` |
 | **Safety** | • Nunca cambia ni reinterpreta una decisión, un intento, la cobertura ni `laundering_detectado`. • Si sugiere relajar una aserción o cambiar el valor esperado, la explicación se descarta. • Su `decision` debe coincidir con `results.json`. • Si falla, queda la plantilla. • No corre si la corrida se canceló o se alcanzó el presupuesto. |
 
-#### Rol: Recomendador (definido, no implementado; ADR-011)
+#### Rol: Recomendador (ADR-011; reglas #197 e IA opcional #200 implementadas)
 
 | Campo | Contenido |
 |---|---|
@@ -1099,6 +1099,7 @@ Responsables sugeridos en el plan del Sprint 2, a confirmar en el Sprint Plannin
 | Versionar en `bench/` los bancos y scripts de medición de SPK-03 y SPK-04 (**Resuelto**) | Sanchez Vargas, Adrián y Castillo Pezo, Mateo | ADR-008 · ADR-009 |
 | Implementar las reglas del Recomendador y la declaración de capacidades por adaptador; integrar la confirmación en Vista previa | bel001 | ADR-011 · #197 |
 | Implementar y medir el modo IA opcional antes de considerar un cambio del modo predeterminado | bel001, con revisión del equipo | ADR-011 · #200 · #201 |
+| Aprobar el ADR-014 y, solo después, implementar las pruebas de integración interna (piloto en Python) | Oncoy Patricio, Angel, con aprobación del equipo | ADR-014 · #245 |
 
 ## 14. Aprobación
 
