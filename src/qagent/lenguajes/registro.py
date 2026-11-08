@@ -156,20 +156,33 @@ class Registro:
         """Adaptador con el que se corre el proyecto en ``raiz`` (#168).
 
         Es el del lenguaje con más archivos fuente entre los que tienen adaptador
-        completo: un proyecto de Python con algo de JavaScript (una carpeta
-        ``static/``) se sigue probando como antes. Sin archivos fuente de ningún
-        lenguaje se usa ``predeterminado``.
+        completo. Si hay más de uno, un adaptador con ``marcadores_si_mixto``
+        (JavaScript y TypeScript) solo se elige con uno de ellos en la raíz: un
+        proyecto de Python con algo de JavaScript (una carpeta ``static/``) se sigue
+        probando como Python. Sin archivos fuente de ningún lenguaje se usa
+        ``predeterminado``.
 
         Raises:
             LenguajeNoSoportado: si el proyecto solo tiene lenguajes cuyo adaptador
-                todavía no permite corridas (hoy JavaScript y TypeScript; Java ya
-                las permite desde ``JavaAdapter.completo = True``).
+                todavía no permite corridas.
         """
         detecciones = [d for d in self.detectar(raiz) if d.archivos]
-        for deteccion in detecciones:
-            adaptador = self.adaptador_para(deteccion.lenguaje)
-            if adaptador.completo:
-                return adaptador
+        completos = [
+            a for d in detecciones if (a := self.adaptador_para(d.lenguaje)).completo
+        ]
+        for adaptador in completos:
+            mixto = any(a.lenguaje != adaptador.lenguaje for a in completos)
+            if (
+                mixto
+                and adaptador.marcadores_si_mixto
+                and not any(
+                    (Path(raiz) / m).is_file() for m in adaptador.marcadores_si_mixto
+                )
+            ):
+                continue
+            return adaptador
+        if completos:
+            return completos[0]
         if detecciones:
             principal = self.adaptador_para(detecciones[0].lenguaje)
             soportados = [
@@ -179,6 +192,51 @@ class Registro:
                 principal.lenguaje, principal.nombre_visible, soportados
             )
         return self.adaptador_para(predeterminado)
+
+    def fuera_de_la_corrida(
+        self, raiz: str | os.PathLike[str], adaptador: LanguageAdapter
+    ) -> list[dict[str, Any]]:
+        """Archivos de un lenguaje hermano que la corrida de ``adaptador`` no prueba.
+
+        Un proyecto con ``.js`` y ``.ts`` se corre con un solo adaptador: el del
+        lenguaje con más archivos. Los del otro quedan fuera y aquí se cuentan para
+        avisarlo, en lugar de omitirlos en silencio.
+
+        Returns:
+            Una entrada por lenguaje omitido con ``lenguaje``, ``nombre``,
+            ``archivos`` (cantidad), ``rutas`` y ``mensaje`` para personas.
+        """
+        if not adaptador.lenguajes_hermanos:
+            return []
+        archivos = listar_archivos(raiz)
+        omitidos = []
+        for lenguaje in adaptador.lenguajes_hermanos:
+            if lenguaje == adaptador.lenguaje or lenguaje not in self._adaptadores:
+                continue
+            hermano = self.adaptador_para(lenguaje)
+            rutas = sorted(a for a in archivos if hermano.es_fuente(a))
+            if not rutas:
+                continue
+            cantidad = len(rutas)
+            sujeto = (
+                f"1 archivo de {hermano.nombre_visible} no se prueba"
+                if cantidad == 1
+                else f"{cantidad} archivos de {hermano.nombre_visible} no se prueban"
+            )
+            omitidos.append(
+                {
+                    "lenguaje": hermano.lenguaje,
+                    "nombre": hermano.nombre_visible,
+                    "archivos": cantidad,
+                    "rutas": rutas,
+                    "mensaje": (
+                        f"{sujeto} en esta corrida: QAgent prueba un lenguaje por "
+                        f"corrida y este proyecto se prueba como "
+                        f"{adaptador.nombre_visible}, que tiene más archivos."
+                    ),
+                }
+            )
+        return omitidos
 
     def adaptador_e2e_del_proyecto(
         self, raiz: str | os.PathLike[str]

@@ -77,8 +77,9 @@ def test_cada_adaptador_tiene_sus_reglas_y_vitest() -> None:
     assert JavaScriptAdapter().reglas_planificacion() is REGLAS_PLANIFICACION_JAVASCRIPT
     assert TypeScriptAdapter().framework_predeterminado == "vitest"
     assert JavaScriptAdapter().framework_predeterminado == "vitest"
-    # Siguen en desarrollo: la app no ofrece JS/TS hasta tener generación y ejecución.
-    assert TypeScriptAdapter().completo is False
+    # EP-11: con generación y ejecución listas, la app ya ofrece JS/TS.
+    assert TypeScriptAdapter().completo is True
+    assert JavaScriptAdapter().completo is True
 
 
 def test_endpoints_express_aun_no_se_planifican() -> None:

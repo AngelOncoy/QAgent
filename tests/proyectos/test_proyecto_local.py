@@ -13,6 +13,7 @@ from qagent.proyectos.proyecto_local import (
     detectar_rama,
     inspeccionar_carpeta,
 )
+from tests.lenguajes.en_desarrollo import simular_node_en_desarrollo
 
 
 def _crear(
@@ -184,7 +185,10 @@ def test_sin_repositorio_o_head_invalido_no_hay_rama(
     assert resultado["rama"] is None
 
 
-def test_proyecto_javascript_se_abre_solo_para_humo_e2e(tmp_path: Path) -> None:
+def test_lenguaje_en_desarrollo_se_abre_solo_para_humo_e2e(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    simular_node_en_desarrollo(monkeypatch)
     _crear(tmp_path, "package.json", '{"scripts":{"start":"node server.js"}}')
     _crear(
         tmp_path,
@@ -198,3 +202,16 @@ def test_proyecto_javascript_se_abre_solo_para_humo_e2e(tmp_path: Path) -> None:
     assert resultado["lenguaje"] == "javascript"
     assert resultado["cantidad_fuentes"] == 1
     assert resultado["solo_e2e"] is True
+
+
+def test_proyecto_javascript_se_abre_para_la_corrida_completa(tmp_path: Path) -> None:
+    """EP-11: un proyecto JavaScript ya no queda limitado al humo E2E."""
+    _crear(tmp_path, "package.json", '{"scripts":{"start":"node server.js"}}')
+    _crear(tmp_path, "src/precios.js", "export function doble(x) { return 2 * x; }\n")
+
+    resultado = inspeccionar_carpeta(str(tmp_path))
+
+    assert resultado["ok"] is True
+    assert resultado["lenguaje"] == "javascript"
+    assert resultado["cantidad_fuentes"] == 1
+    assert "solo_e2e" not in resultado

@@ -4,8 +4,10 @@ Análisis estático y validación de sintaxis con tree-sitter (SPK-04, ADR-009):
 funciones exportadas, su JSDoc, sus tipos, sus ramas y ``llama_a`` (#176).
 El Generator escribe pruebas Vitest y el guardrail detecta Assertion Laundering en
 ``expect`` sin IA y antes de ejecutar (EP-11a, parte 2). El entorno del sandbox es la
-imagen ``qagent-sandbox:node`` (#169). El comando de Vitest y la lectura de resultados
-lanzan ``NoImplementado`` hasta la parte 3 (ver ``README.md`` de este paquete).
+imagen ``qagent-sandbox:node`` (#169), donde Vitest ejecuta las pruebas sin red y se
+leen el informe JUnit y la cobertura v8 (#178). Con React también se prueban los
+componentes (#171) y las funciones críticas se mutan con Stryker (#179). Desde
+``completo = True`` la app y la corrida usan estos adaptadores como los de Python y Java.
 """
 
 from __future__ import annotations
@@ -103,6 +105,11 @@ def es_prueba(relativa: str) -> bool:
 class _AdaptadorNode(AdaptadorEnDesarrollo):
     """Análisis compartido de JavaScript y TypeScript; cada uno con sus extensiones."""
 
+    completo = True
+    # Un proyecto Python o Java con algo de JS/TS sigue siendo de su lenguaje.
+    marcadores_si_mixto = ("package.json", "tsconfig.json")
+    # Una corrida usa un solo adaptador: los archivos del otro se avisan.
+    lenguajes_hermanos = ("javascript", "typescript")
     e2e_humo_disponible = True
     huellas_disponibles = True
     motor_mutacion = "Stryker"
@@ -393,7 +400,7 @@ class JavaScriptAdapter(_AdaptadorNode):
     # Express (endpoints) y React (componentes, #171): el primero es el de endpoints.
     frameworks_app = ("express", "react")
     # Vitest (EP-11a), mutación con Stryker (EP-11c) y componentes React (#171).
-    tipos_prueba_previstos = ("funcion", "mutacion", "componente")
+    tipos_prueba = ("funcion", "mutacion", "componente")
 
     def validar_sintaxis(self, codigo: str) -> list[str]:
         """Errores de sintaxis del código JavaScript parseado con tree-sitter.
@@ -422,7 +429,7 @@ class TypeScriptAdapter(_AdaptadorNode):
     # Express (endpoints) y React (componentes, #171): el primero es el de endpoints.
     frameworks_app = ("express", "react")
     # Vitest (EP-11a), mutación con Stryker (EP-11c) y componentes React (#171).
-    tipos_prueba_previstos = ("funcion", "mutacion", "componente")
+    tipos_prueba = ("funcion", "mutacion", "componente")
 
     def es_fuente(self, archivo: str) -> bool:
         """Los ``.d.ts`` solo declaran tipos: no tienen código que probar."""
