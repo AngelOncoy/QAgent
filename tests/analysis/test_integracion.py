@@ -113,3 +113,12 @@ def test_la_configuracion_trae_los_limites_de_la_cadena(tmp_path: Path) -> None:
     assert resultado.config.integracion == Integracion(
         profundidad_max=2, max_funciones=4
     )
+
+
+def test_el_banco_de_integracion_tiene_las_cadenas_esperadas() -> None:
+    """Banco `bench/integracion` (#245): qué es candidata y qué no."""
+    raiz = Path(__file__).resolve().parents[2] / "bench" / "integracion"
+    modulos = analizar_proyecto(raiz)["modulos"]
+    cadenas = {c.raiz: c for c in candidatas(modulos, lector_de_proyecto(raiz))}
+    assert set(cadenas) == {"total_del_pedido", "total_con_impuesto"}
+    assert cadenas["total_del_pedido"].funciones == ("total_del_pedido", "aplicar_descuento")

@@ -955,6 +955,17 @@ Las categorías actuales se aplican a cada lenguaje. **Caja negra:** el valor es
 - **Sandbox:** `qagent-sandbox:node` trae jsdom 30.1.3 y Testing Library (`react` 16.3.3, `dom` 10.4.2, `jest-dom` 7.0.1). React es el del proyecto: la copia que npm instala como dependencia «peer» se cambia por un enlace a `/work/node_modules`, porque dos copias rompen los hooks. Vitest corre con raíz `/work` (proyecto y pruebas), sin red y con la raíz de solo lectura.
 - **Frameworks no soportados:** con Angular, Astro, Vue, Svelte, Solid o Preact (o JSX sin React), solo se prueba la lógica y el informe lista los componentes como omitidos con «Componentes no soportados». Fuera de alcance: componentes de clase, `memo`/`forwardRef`, props importadas de otro archivo y `propTypes`.
 
+#### Integración interna implementada (#245, ADR-014; piloto en Python)
+
+Prueba una función **raíz** junto con las funciones internas puras que llama, ejecutadas de verdad en el sandbox sin red. Solo Python. No reabre la «integración contra servicios reales», que sigue fuera de alcance: lo que sale del proyecto se simula.
+
+- **Candidatas y cadenas (estático, 0 tokens):** `qagent.analysis.integracion` parte de `llama_a` y arma la cadena (raíz más internas) hasta `profundidad_max` niveles y `max_funciones` funciones (`[integracion]` de `config.toml`; si hay más se recorta y se marca `recortada`). Una función interna **de efecto** (usa red, base de datos, archivos, subprocesos, hora o azar, o `open`/`input`) no entra en la cadena: se simula. Ante la duda se trata como de efecto. Sin ninguna interna pura, la función no es candidata y el tipo no se ofrece. `PythonAdapter.analizar()` agrega `integraciones` a los módulos que tienen candidatas.
+- **Contrato:** `planner_contract.v3` con `tipo: "integracion"`, `objetivo` `integracion_<raíz>` (así no choca con la unitaria de la misma función), `cadena` (la raíz primero), `efectos` y `llama_a` solo con las internas de efecto a simular. Nunca `critical`.
+- **Oráculo:** sin llamada nueva al Planner. El orquestador deriva el contrato del unitario de la raíz (mismos casos y mismo oráculo, de su firma y documentación). Sin contrato unitario verificable no hay integración: queda omitida con su motivo. Una raíz elegida solo para integrar se planifica pero no se ejecuta como unitaria (`solo_integracion`).
+- **Generator y Reviewer:** el prompt de `python_generacion` pide llamar a la raíz sin simular la cadena y simular solo lo externo. El guardrail contra Assertion Laundering es el de Python, apuntando a la raíz; la cobertura se mide sobre la raíz (`objetivo_de_cobertura`). Una integración que falla es un hallazgo, no se relaja.
+- **Preparar y Recomendador:** casilla «Integración interna» (apagada por defecto, aparece si hay candidatas); entra en la estimación y se envía como `integraciones` (raíces) en la selección. El Recomendador (reglas) la propone solo si hay cadenas, con su motivo, después de las unitarias.
+- **Medición:** `bench/integracion/` trae un defecto que solo se ve al combinar funciones (`total_del_pedido`). La comparación con las unitarias necesita Docker y un modelo real: está pendiente (ver su `README.md`). Si no encuentra nada que las unitarias no encuentren, el tipo debe quedar fuera por defecto; hoy ya nunca se activa sin elegirlo.
+
 #### Verificación arquitectónica implementada (#185)
 
 La pantalla **Preparar** ofrece una acción independiente de los perfiles `std`, `humo`,
