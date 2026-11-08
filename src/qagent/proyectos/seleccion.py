@@ -26,6 +26,13 @@ def filtrar_modulos(
 
     Los ``componentes`` React (#171) se seleccionan por nombre igual que las
     funciones, pero nunca se profundizan: la mutación no corre sobre componentes.
+
+    Las ``integraciones`` (#245, ADR-014) son opcionales y se eligen por el nombre de la
+    función raíz, entre las cadenas candidatas del análisis. Sin una selección que las
+    pida, el módulo sale sin ellas (el tipo nunca se activa solo). Si se elige una raíz
+    cuya función unitaria no está seleccionada, la función queda en el módulo con
+    ``solo_integracion``: el Planner la necesita para derivar la integración, pero no
+    se ejecuta como prueba unitaria.
     """
     analizables = [
         m
@@ -33,7 +40,7 @@ def filtrar_modulos(
         if m.get("funciones") or m.get("endpoints") or m.get("componentes")
     ]
     if seleccion is None:
-        return analizables
+        return [_sin_integraciones(m) for m in analizables]
     if not isinstance(seleccion, list) or not seleccion:
         raise SeleccionInvalida("Selecciona al menos un objetivo analizable.")
 
@@ -48,6 +55,7 @@ def filtrar_modulos(
         funciones = entrada.get("funciones", [])
         endpoints = entrada.get("endpoints", [])
         componentes = entrada.get("componentes", [])
+        integraciones = entrada.get("integraciones", [])
         criticas = entrada.get("criticas", [])
         if (
             not isinstance(ruta, str)
@@ -55,6 +63,7 @@ def filtrar_modulos(
             or not _lista_unica_de_textos(funciones)
             or not _lista_unica_de_textos(endpoints)
             or not _lista_unica_de_textos(componentes)
+            or not _lista_unica_de_textos(integraciones)
             or not _lista_unica_de_textos(criticas)
         ):
             raise SeleccionInvalida("La selección de objetivos no es válida.")
@@ -77,12 +86,14 @@ def filtrar_modulos(
         ]
         componentes_reales = {c.get("nombre"): c for c in modulo.get("componentes", [])}
         inexistentes_co = [n for n in componentes if n not in componentes_reales]
-        if inexistentes_fn or inexistentes_ep or inexistentes_co:
+        integraciones_reales = {i.get("nombre"): i for i in modulo.get("integraciones", [])}
+        inexistentes_in = [n for n in integraciones if n not in integraciones_reales]
+        if inexistentes_fn or inexistentes_ep or inexistentes_co or inexistentes_in:
             inexistentes = ", ".join(
-                inexistentes_fn + inexistentes_ep + inexistentes_co
+                inexistentes_fn + inexistentes_ep + inexistentes_co + inexistentes_in
             )
             raise SeleccionInvalida(f"Objetivos inexistentes en {ruta}: {inexistentes}")
-        if not funciones and not endpoints and not componentes:
+        if not funciones and not endpoints and not componentes and not integraciones:
             raise SeleccionInvalida(
                 f"El módulo no tiene objetivos seleccionados: {ruta}"
             )
@@ -110,9 +121,26 @@ def filtrar_modulos(
             filtrado["componentes"] = [
                 componentes_reales[nombre] for nombre in componentes
             ]
+        filtrado.pop("integraciones", None)
+        if integraciones:
+            filtrado["integraciones"] = [
+                integraciones_reales[nombre] for nombre in integraciones
+            ]
+            filtrado["funciones"].extend(
+                {**funciones_reales[nombre], "critical": False, "solo_integracion": True}
+                for nombre in integraciones
+                if nombre not in funciones and nombre in funciones_reales
+            )
         filtrados.append(filtrado)
 
     return filtrados
+
+
+def _sin_integraciones(modulo: dict[str, Any]) -> dict[str, Any]:
+    """Copia del módulo sin las cadenas candidatas: no se piden, no se ejecutan."""
+    if "integraciones" not in modulo:
+        return modulo
+    return {k: v for k, v in modulo.items() if k != "integraciones"}
 
 
 def _lista_unica_de_textos(valor: Any) -> bool:

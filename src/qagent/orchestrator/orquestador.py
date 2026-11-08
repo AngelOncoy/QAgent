@@ -145,6 +145,28 @@ def _objetivos_de_tipo(modulo: dict[str, Any], tipo: str) -> list[str]:
     return [n for n in nombres if n]
 
 
+def contrato_de_integracion(base: Contrato, info: dict[str, Any]) -> Contrato:
+    """`planner_contract.v3` de integración derivado del unitario de la raíz (#245).
+
+    Conserva casos, firma, módulo y huella; el objetivo pasa a `integracion_<raíz>`,
+    nunca se muta (`critical` False) y `llama_a` queda solo con las funciones internas
+    de efecto que el test debe simular.
+    """
+    contrato = copy.deepcopy(base)
+    contrato.update(
+        {
+            "version": "3",
+            "tipo": "integracion",
+            "objetivo": info["objetivo"],
+            "cadena": list(info["cadena"]),
+            "efectos": list(info.get("efectos") or []),
+            "llama_a": list(info.get("a_simular") or []),
+            "critical": False,
+        }
+    )
+    return contrato
+
+
 def es_falla_pasajera(error: BaseException) -> bool:
     """True si el error es de tiempo o de red y no del código, el test o la cuenta.
 
@@ -548,10 +570,19 @@ class Orquestador:
         omitidos: list[dict[str, str]] = []
         for funcion in modulo.get("funciones") or []:
             nombre = funcion.get("nombre")
+            if funcion.get("solo_integracion"):
+                continue  # solo se planificó para derivar su integración (#245)
             if nombre and nombre not in planificados:
                 motivo = self._motivos_omision.get(nombre, MOTIVO_SIN_CONTRATO)
                 omitidos.append(
                     {"objetivo": nombre, "tipo": "funcion", "motivo": _frase(motivo)}
+                )
+        for integracion in modulo.get("integraciones") or []:
+            objetivo = integracion.get("objetivo")
+            if objetivo and objetivo not in planificados:
+                motivo = self._motivos_omision.get(objetivo, MOTIVO_SIN_CONTRATO)
+                omitidos.append(
+                    {"objetivo": objetivo, "tipo": "integracion", "motivo": _frase(motivo)}
                 )
         for endpoint in modulo.get("endpoints") or []:
             objetivo = endpoint.get("objetivo") or endpoint.get("manejador")
@@ -641,6 +672,7 @@ class Orquestador:
             modulo, "componente", self._planificar_componentes
         )
         plan = [*plan, *plan_endpoints, *plan_componentes]
+        plan = self._derivar_integraciones(modulo, plan)
         for elemento in plan:
             if not isinstance(elemento, dict) or not elemento.get("objetivo"):
                 raise FalloControlado(
@@ -653,6 +685,56 @@ class Orquestador:
             datos={"objetivos_planificados": len(plan)},
         )
         return plan
+
+    def _derivar_integraciones(
+        self, modulo: dict[str, Any], plan: list[Contrato]
+    ) -> list[Contrato]:
+        """Contratos de integración interna (#245, ADR-014) a partir de los unitarios.
+
+        No hay una llamada nueva al Planner: la integración prueba a la raíz con los
+        mismos casos y el mismo oráculo (firma y documentación de la raíz), pero deja
+        que se ejecuten de verdad las funciones internas de la cadena. Si la raíz no
+        tiene contrato unitario verificable, no hay integración y queda omitida con su
+        motivo. Una raíz que solo se eligió para integrar no se ejecuta como unitaria.
+        """
+        cadenas = modulo.get("integraciones") or []
+        if not cadenas:
+            return plan
+        unitarios = {
+            c["objetivo"]: c
+            for c in plan
+            if isinstance(c, dict) and c.get("tipo", "funcion") == "funcion"
+        }
+        derivados: list[Contrato] = []
+        for info in cadenas:
+            base = unitarios.get(info["nombre"])
+            if base is None:
+                motivo = (
+                    "la función raíz no tiene un resultado esperado verificable en su "
+                    "firma o documentación"
+                )
+                self._motivos_omision[info["objetivo"]] = motivo
+                self._emitir(
+                    "planner",
+                    info["objetivo"],
+                    f"Integración omitida: {motivo}",
+                    datos={"omitida": True},
+                )
+                continue
+            derivados.append(contrato_de_integracion(base, info))
+        solo = {
+            f["nombre"] for f in modulo.get("funciones") or [] if f.get("solo_integracion")
+        }
+        plan = [
+            c
+            for c in plan
+            if not (
+                isinstance(c, dict)
+                and c.get("tipo", "funcion") == "funcion"
+                and c.get("objetivo") in solo
+            )
+        ]
+        return [*plan, *derivados]
 
     def _planificar_parte(
         self,
