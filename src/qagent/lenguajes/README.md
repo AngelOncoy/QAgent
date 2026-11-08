@@ -14,7 +14,7 @@ concreto. Decisión completa en `docs/decisiones/ADR-007-adaptadores-por-lenguaj
 | `python_generacion.py` | Prompt del Generator: archivo pytest con el contexto del módulo (#168) | Completo |
 | `python_revision.py` | Sintaxis, oráculo y clasificación de la salida de pytest para el Reviewer (#168) | Completo |
 | `python_regresion.py` | Huellas de los objetivos y línea de cada función (#168) | Completo |
-| `javascript.py` | `JavaScriptAdapter`, `TypeScriptAdapter`: `analizar()`, `objetivos()`, reglas del Planner, prompt del Generator, reglas del Reviewer, `archivo_de_prueba` y `comparar_aserciones` | Analiza, planifica (#176), genera Vitest y detecta laundering (#177); ejecución con Vitest pendiente (parte 3) |
+| `javascript.py` | `JavaScriptAdapter`, `TypeScriptAdapter`: `analizar()`, `objetivos()`, reglas del Planner, prompt del Generator, reglas del Reviewer, `archivo_de_prueba` y `comparar_aserciones` | Completo (EP-11): analiza y planifica (#176), genera Vitest y detecta laundering (#177), ejecuta en `qagent-sandbox:node` (#178), componentes React (#171) y Stryker (#179). `marcadores_si_mixto` evita elegir JS/TS en un proyecto Python o Java sin `package.json`/`tsconfig.json` en la raíz, y `lenguajes_hermanos` hace que los `.js` o `.ts` que la corrida no prueba se avisen (`Registro.fuera_de_la_corrida`) |
 | `javascript_estructura.py` | Funciones exportadas (ESM, CommonJS y métodos de clase), parámetros y tipos de TS, JSDoc desglosado y conteo de ramas (#176) | Completo |
 | `javascript_llamadas.py` | `llama_a`: llamadas al mismo módulo, a imports ESM y a `require` relativos (#176) | Completo |
 | `javascript_oraculo.py` | Registro de evidencias desde JSDoc y tipos, y `oracle.v1` de cada caso validado con `validar_oraculo_js_ts` (#176) | Completo |
@@ -51,7 +51,8 @@ adaptador.comando_pruebas("tienda.precios")
 adaptador_de_contrato(contrato)
 
 # El de la corrida (#168): entre los lenguajes con adaptador completo, el de más
-# archivos fuente. Lanza LenguajeNoSoportado si solo hay lenguajes en desarrollo.
+# archivos fuente (JS/TS en un proyecto mixto, solo con package.json o tsconfig.json
+# en la raíz). Lanza LenguajeNoSoportado si solo hay lenguajes en desarrollo.
 adaptador_del_proyecto("ruta/al/proyecto")
 ```
 
@@ -103,8 +104,8 @@ adaptador declara. Los valores salen de `contracts.TIPOS_PRUEBA_RECOMENDABLES`
 
 | Atributo | Qué declara | Ejemplo |
 |---|---|---|
-| `tipos_prueba` | Tipos que el adaptador ya ejecuta de punta a punta. Un adaptador con `completo = False` no puede declarar ninguno. | Python y Java: `("funcion", "endpoint", "mutacion")` |
-| `tipos_prueba_previstos` | Tipos aprobados que aún no funcionan. La Vista previa los muestra como «próximamente». | JavaScript y TypeScript: `("funcion", "mutacion")` |
+| `tipos_prueba` | Tipos que el adaptador ya ejecuta de punta a punta. Un adaptador con `completo = False` no puede declarar ninguno. | Python y Java: `("funcion", "endpoint", "mutacion")`; JavaScript y TypeScript: `("funcion", "mutacion", "componente")` |
+| `tipos_prueba_previstos` | Tipos aprobados que aún no funcionan. La Vista previa los muestra como «próximamente». | Ninguno hoy: todos los lenguajes registrados están completos |
 
 Al completar un tipo, se pasa de `tipos_prueba_previstos` a `tipos_prueba`.
 
@@ -198,7 +199,7 @@ La [mutación PIT de métodos críticos](../../../docs/java/mutacion-pit.md) (#1
 añade ejecución acotada en Docker, lectura de XML, huellas y conexión con la caché
 y los informes comunes. `huellas_disponibles` permite obtener huellas aunque
 `completo` siga siendo falso en un adaptador en desarrollo. Java ya declara
-`completo = True` desde #182. `motor_mutacion` identifica el ejecutor en los mensajes compartidos.
+`completo = True` desde #182, y JavaScript/TypeScript desde EP-11. `motor_mutacion` identifica el ejecutor en los mensajes compartidos.
 
 Antes de cerrar EN-17 conviene revisar juntos:
 
