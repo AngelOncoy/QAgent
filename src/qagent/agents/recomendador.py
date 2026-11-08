@@ -121,6 +121,7 @@ def proyectar(
     funciones = [f for m in modulos for f in m.get("funciones") or []]
     endpoints = [e for m in modulos for e in m.get("endpoints") or []]
     resueltos = [e for e in endpoints if _endpoint_resuelto(e)]
+    integraciones = [i for m in modulos for i in m.get("integraciones") or []]
     criticos = sum(1 for f in funciones if _es_critico(f)) + sum(
         1 for e in resueltos if _es_critico(e)
     )
@@ -140,6 +141,8 @@ def proyectar(
                     _recortar(e["objetivo"]) for e in resueltos[:MAX_RUTAS_EJEMPLO]
                 ],
             },
+            # #245: solo la cantidad de cadenas candidatas; ni nombres ni código.
+            "integraciones": {"cantidad": len(integraciones)},
         },
         "objetivos_critical": criticos,
         "hay_objetivos_critical": criticos > 0,
@@ -166,6 +169,8 @@ def tipos_elegibles(proyeccion: Proyeccion) -> set[str]:
         con_objetivos.add("funcion")
     if objetivos["endpoints"]["cantidad"]:
         con_objetivos.add("endpoint")
+    if (objetivos.get("integraciones") or {}).get("cantidad"):
+        con_objetivos.add("integracion")
     if proyeccion.get("hay_objetivos_critical") and con_objetivos:
         con_objetivos.add("mutacion")
     return tipos_soportados(proyeccion) & con_objetivos
@@ -216,6 +221,15 @@ def _motivo_funcion(funciones: dict[str, Any]) -> str:
     )
 
 
+def _motivo_integracion(integraciones: dict[str, Any]) -> str:
+    n = integraciones["cantidad"]
+    return (
+        f"{_plural(n, 'función llama', 'funciones llaman')} a otras funciones puras del "
+        "proyecto. Se prueban juntas en el sandbox, sin red, simulando solo lo que sale "
+        "del proyecto, para detectar fallos que una unitaria aislada no ve."
+    )
+
+
 def _motivo_mutacion(criticos: int) -> str:
     propuestos = (
         "1 objetivo con decisiones (condiciones o excepciones) se propone como crítico"
@@ -232,7 +246,8 @@ def _motivo_mutacion(criticos: int) -> str:
 def recomendar(proyeccion: Proyeccion) -> dict[str, Any]:
     """Lista ordenada de tipos de prueba recomendados, en ``recommendation.v1``.
 
-    Orden: endpoints (cubren más comportamiento por prueba), después unitarias y al
+    Orden: endpoints (cubren más comportamiento por prueba), después unitarias, la
+    integración interna (#245, solo si hay cadenas candidatas) y al
     final la mutación de los objetivos críticos, que se apoya en las anteriores.
     Si no hay nada elegible, la lista está vacía.
     """
@@ -251,6 +266,13 @@ def recomendar(proyeccion: Proyeccion) -> dict[str, Any]:
             {
                 "tipo_prueba": "funcion",
                 "motivo": _motivo_funcion(objetivos["funciones"]),
+            }
+        )
+    if "integracion" in elegibles:
+        recomendaciones.append(
+            {
+                "tipo_prueba": "integracion",
+                "motivo": _motivo_integracion(objetivos["integraciones"]),
             }
         )
     if "mutacion" in elegibles:

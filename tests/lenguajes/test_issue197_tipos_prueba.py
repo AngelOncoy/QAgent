@@ -13,7 +13,7 @@ def test_los_lenguajes_completos_declaran_los_tres_tipos(lenguaje: str) -> None:
     adaptador = REGISTRO.adaptador_para(lenguaje)
 
     assert adaptador.completo
-    assert adaptador.tipos_prueba == ("funcion", "endpoint", "mutacion")
+    assert adaptador.tipos_prueba == ("funcion", "endpoint", "mutacion", "integracion")
 
 
 @pytest.mark.parametrize("lenguaje", ["javascript", "typescript"])

@@ -100,7 +100,7 @@ class PythonAdapter(LanguageAdapter):
     marcadores = ("pyproject.toml", "setup.py", "setup.cfg", "requirements.txt")
     frameworks_pruebas = ("pytest",)
     frameworks_app = ("fastapi",)
-    tipos_prueba = ("funcion", "endpoint", "mutacion")
+    tipos_prueba = ("funcion", "endpoint", "mutacion", "integracion")
     motor_mutacion = "mutmut"
     comprobar_librerias_sistema = True
 
