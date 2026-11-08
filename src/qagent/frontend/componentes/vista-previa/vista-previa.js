@@ -118,9 +118,10 @@ const TIPOS_RECOMENDADOS = {
   funcion: 'Unitarias',
   mutacion: 'Análisis a fondo de críticas (mutación)',
   componente: 'Componentes React',
+  integracion: 'Integración interna',
 };
 const TIPOS_PROXIMAMENTE = {
-  funcion: 'unitarias', endpoint: 'endpoints', mutacion: 'mutación', componente: 'componentes React',
+  funcion: 'unitarias', endpoint: 'endpoints', mutacion: 'mutación', componente: 'componentes React', integracion: 'integración interna',
 };
 // Vista de objetivos activa: 'funciones' (por defecto) o 'endpoints' (issue #66).
 let VISTA_OBJETIVOS = 'funciones';
@@ -233,6 +234,8 @@ function cargarDatosVistaPrevia(res) {
       sel: tieneObjetivos,
       fns: fns,
       endpoints: endpoints,
+      // issue 245: cadenas candidatas a integración interna; se eligen por la función raíz.
+      integraciones: (m.integraciones || []).map(i => ({ n: i.nombre, cadena: i.cadena || [] })),
       conRamas: m.funciones_con_ramas ?? fns.filter(f => f.br > 0).length,
       huella: m.huella
     };
@@ -469,6 +472,7 @@ function aplicarRecomendacion(){
     ...eleccionPruebas,
     unitarias: tipos.has('funcion'),
     endpoints: tipos.has('endpoint'),
+    integracion: tipos.has('integracion'),
     modo: tipos.has('mutacion') ? 'fondo' : 'nuevas',
     profundizarRepetir: false,
   };
@@ -883,11 +887,17 @@ function obtenerSeleccionObjetivos(){
   const conFns = eleccionPruebas.unitarias !== false, conEps = eleccionPruebas.endpoints !== false;
   return MODULES.filter(m => m.sel && moduloTieneObjetivos(m)).map(m => ({
     ruta: m.path,
+    integraciones: integracionesIncluidas(m).map(i => i.n),
     funciones: conFns ? (m.fns || []).filter(f => f.inc).map(f => f.n) : [],
     endpoints: conEps ? (m.endpoints || []).filter(e => endpointElegible(e) && e.inc).map(e => e.objetivo) : [],
     criticas: (conFns ? (m.fns || []).filter(f => f.inc && f.crit).map(f => f.n) : [])
       .concat(conEps ? (m.endpoints || []).filter(e => endpointElegible(e) && e.inc && e.crit).map(e => e.objetivo) : [])
-  })).filter(m => m.funciones.length || m.endpoints.length);
+  })).filter(m => m.funciones.length || m.endpoints.length || m.integraciones.length);
+}
+// issue 245: las raíces de cadena cuya función sigue incluida en Explorar, si se eligió «Integración interna».
+function integracionesIncluidas(m){
+  if (eleccionPruebas.integracion !== true) return [];
+  return (m.integraciones || []).filter(i => (m.fns || []).some(f => f.n === i.n && f.inc));
 }
 
 // Pie de la vista previa (alcance): lo invoca calc() porque depende de la selección actual.

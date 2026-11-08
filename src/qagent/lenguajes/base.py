@@ -345,6 +345,8 @@ class LanguageAdapter(ABC):
 
     def objetivo_de_cobertura(self, contrato: dict[str, Any]) -> str:
         """Identidad del cuerpo probado: manejador de endpoint o función del contrato."""
+        if contrato.get("tipo") == "integracion":  # #245: la función raíz de la cadena
+            return str(contrato["cadena"][0])
         return contrato.get("manejador") or contrato["objetivo"]
 
     # --- Puntos de extensión ----------------------------------------------------

@@ -263,7 +263,12 @@ def generar_test_desde_contrato(contrato: dict[str, Any]) -> str:
         .as_posix()
         .replace("/", ".")
     )
-    objetivo = contrato["objetivo"]
+    # Integración (#245): la prueba llama a la raíz de la cadena, no al objetivo.
+    objetivo = (
+        contrato["cadena"][0]
+        if contrato.get("tipo") == "integracion"
+        else contrato["objetivo"]
+    )
     lineas = ["import pytest", "", f"from {modulo} import {objetivo}", ""]
     for caso in contrato.get("casos", []):
         llamada = f"{objetivo}({_argumentos(caso.get('entrada'))})"

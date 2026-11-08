@@ -190,7 +190,8 @@
             "enum": [
               "funcion",
               "endpoint",
-              "componente"
+              "componente",
+              "integracion"
             ]
           },
           "motivo": {
@@ -559,7 +560,8 @@
           "enum": [
             "funcion",
             "endpoint",
-              "componente"
+              "componente",
+              "integracion"
           ],
           "description": "EN-16. Qué se probó; en un endpoint, funcion es \"MÉTODO /ruta\". Si falta, es una función."
         },

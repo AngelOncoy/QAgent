@@ -271,6 +271,7 @@ function estFor(k){
   const endpoints = eleccionPruebas.endpoints === false ? [] : mods.flatMap(m=>(m.endpoints || []).filter(e=>endpointElegible(e) && e.inc));
   const objetivos = mods.flatMap(m=>[
     ...(eleccionPruebas.unitarias === false ? [] : m.fns.filter(f=>f.inc)),
+    ...integracionesIncluidas(m),
     ...(eleccionPruebas.endpoints === false ? [] : (m.endpoints || []).filter(e=>endpointElegible(e) && e.inc))
   ].map(objetivo=>({...objetivo, reuse: SPEC_STATUS[m.path]==='reuse'})));
   const reused = k==='reg' ? 0 : objetivos.filter(objetivo=>objetivo.reuse).length;
@@ -354,13 +355,18 @@ function renderTiposPrueba(){
   const mods = MODULES.filter(m=>m.sel && !m.error && moduloTieneObjetivos(m));
   const nFns = mods.flatMap(m=>m.fns).filter(f=>f.inc).length;
   const nEps = mods.flatMap(m=>(m.endpoints || []).filter(e=>endpointElegible(e) && e.inc)).length;
+  // issue 245: cadenas de funciones que se pueden probar juntas (las incluidas en Explorar).
+  const nInt = mods.flatMap(m=>(m.integraciones || []).filter(i=>(m.fns || []).some(f=>f.n===i.n && f.inc))).length;
   // issue 246: cada tipo declara su caja (data-caja) para las pestañas de Preparar.
   const fila = (clave, titulo, n, singular, plural, caja) => `<label class="prep-casilla ${n ? '' : 'dis'}" data-caja="${caja}">
       <input type="checkbox" class="exp-caja" ${eleccionPruebas[clave] === true && n ? 'checked' : ''} ${n ? '' : 'disabled'} onchange="elegirPruebas({${clave}:this.checked})">
       <span><b>${titulo}</b><span class="prep-desc">${n} ${n === 1 ? singular : plural}</span></span>
     </label>`;
   $('prepTipos').innerHTML = fila('unitarias', 'Unitarias', nFns, 'función seleccionada', 'funciones seleccionadas', 'negra')
-    + fila('endpoints', 'Endpoints API', nEps, 'endpoint seleccionado', 'endpoints seleccionados', 'gris');
+    + fila('endpoints', 'Endpoints API', nEps, 'endpoint seleccionado', 'endpoints seleccionados', 'gris')
+    + (mods.some(m=>(m.integraciones || []).length)
+      ? fila('integracion', 'Integración interna', nInt, 'cadena de funciones', 'cadenas de funciones', 'negra')
+      : '');
 }
 // Críticas: funciones y endpoints incluidos y marcados en Profundizar. Se muestran tres; el resto
 // se ve y se edita en la columna Profundizar de Explorar (visible con «Análisis a fondo»).
@@ -464,7 +470,7 @@ function seleccionExplorar(){
     endpoints: mods.flatMap(m=>(m.endpoints || []).filter(e=>endpointElegible(e) && e.inc)),
   };
 }
-const algunTipoElegido = () => eleccionPruebas.unitarias === true || eleccionPruebas.endpoints === true;
+const algunTipoElegido = () => eleccionPruebas.unitarias === true || eleccionPruebas.endpoints === true || eleccionPruebas.integracion === true;
 
 function comprobacionesPrevias(total, reused){
   const lista = [];

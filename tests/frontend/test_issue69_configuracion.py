@@ -25,7 +25,7 @@ def test_la_eleccion_por_defecto_equivale_al_perfil_por_defecto() -> None:
 
     assert "let profile = 'deep';" in estado
     assert (
-        "let eleccionPruebas = {modo:'nuevas', unitarias:false, endpoints:false, profundizarRepetir:false};"
+        "let eleccionPruebas = {modo:'nuevas', unitarias:false, endpoints:false, integracion:false, profundizarRepetir:false};"
         in estado
     )
 

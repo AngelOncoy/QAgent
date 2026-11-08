@@ -192,7 +192,7 @@ El Sprint 2 agrega tres piezas, todas fuera de la máquina de estados:
 
 - **`lenguajes/`** (EN-17) reúne todo lo que depende del lenguaje (análisis, comando de pruebas, imagen del sandbox, lectura de resultados y guardrail de aserciones) detrás de la interfaz `LanguageAdapter`. Desde #168 la corrida obtiene el adaptador mediante el registro y los agentes usan sus reglas; Python conserva el flujo completo. JavaScript, TypeScript y Java siguen con `completo = False`, por lo que la aplicación avisa que aún no admite una corrida en esos lenguajes.
 - **El Explicador** lo invoca el código de la corrida (`corrida.py`) cuando los veredictos ya están guardados. Es de solo lectura y, si falla o está desactivado, los informes siguen como hoy.
-- **El Recomendador** (ADR-011, definido pero no implementado) se invocará desde Vista previa después del análisis estático y antes de `start_run`. Recibirá una proyección mínima sin código, secretos ni rutas absolutas y devolverá `recommendation.v1`. Las capacidades permitidas vendrán de los adaptadores; el usuario conservará la confirmación y el cambio de la selección.
+- **El Recomendador** (ADR-011; reglas sin IA #197 y modo IA opcional #200 implementados, medición con LLM real #201 pendiente) se invoca desde Vista previa después del análisis estático y antes de `start_run`. Recibe una proyección mínima sin código, secretos ni rutas absolutas y devuelve `recommendation.v1`. Las capacidades permitidas vendrán de los adaptadores; el usuario conservará la confirmación y el cambio de la selección.
 
 | Componente | Carpeta | Responsabilidad | Ítems |
 |---|---|---|---|
@@ -425,7 +425,7 @@ Antes de que exista una corrida, Vista previa analiza el proyecto y el usuario c
 ```mermaid
 flowchart LR
     A["Abrir proyecto"] --> V["Vista previa<br/>análisis estático"]
-    V -. "resumen mínimo + capacidades" .-> REC["Recomendador<br/>definido, no implementado"]
+    V -. "resumen mínimo + capacidades" .-> REC["Recomendador<br/>reglas + IA opcional"]
     REC -. "recommendation.v1" .-> U{"Usuario confirma<br/>o cambia la selección"}
     V --> U
     U --> S["start_run<br/>corrida determinista"]
@@ -750,7 +750,7 @@ Hay **cinco roles** implementados: cuatro con LLM (Planner, Generator, Reviewer 
 | **Liveness** | `EXPLICADOR = (SolicitarExplicación . LeerHallazgo . AplicarPlantilla . [RedactarConLLM] . ValidarContrato . EntregarExplicación)*` |
 | **Safety** | • Nunca cambia ni reinterpreta una decisión, un intento, la cobertura ni `laundering_detectado`. • Si sugiere relajar una aserción o cambiar el valor esperado, la explicación se descarta. • Su `decision` debe coincidir con `results.json`. • Si falla, queda la plantilla. • No corre si la corrida se canceló o se alcanzó el presupuesto. |
 
-#### Rol: Recomendador (definido, no implementado; ADR-011)
+#### Rol: Recomendador (ADR-011; reglas #197 e IA opcional #200 implementadas)
 
 | Campo | Contenido |
 |---|---|
@@ -955,6 +955,17 @@ Las categorías actuales se aplican a cada lenguaje. **Caja negra:** el valor es
 - **Sandbox:** `qagent-sandbox:node` trae jsdom 30.1.3 y Testing Library (`react` 16.3.3, `dom` 10.4.2, `jest-dom` 7.0.1). React es el del proyecto: la copia que npm instala como dependencia «peer» se cambia por un enlace a `/work/node_modules`, porque dos copias rompen los hooks. Vitest corre con raíz `/work` (proyecto y pruebas), sin red y con la raíz de solo lectura.
 - **Frameworks no soportados:** con Angular, Astro, Vue, Svelte, Solid o Preact (o JSX sin React), solo se prueba la lógica y el informe lista los componentes como omitidos con «Componentes no soportados». Fuera de alcance: componentes de clase, `memo`/`forwardRef`, props importadas de otro archivo y `propTypes`.
 
+#### Integración interna implementada (#245, ADR-014; piloto en Python)
+
+Prueba una función **raíz** junto con las funciones internas puras que llama, ejecutadas de verdad en el sandbox sin red. Solo Python. No reabre la «integración contra servicios reales», que sigue fuera de alcance: lo que sale del proyecto se simula.
+
+- **Candidatas y cadenas (estático, 0 tokens):** `qagent.analysis.integracion` parte de `llama_a` y arma la cadena (raíz más internas) hasta `profundidad_max` niveles y `max_funciones` funciones (`[integracion]` de `config.toml`; si hay más se recorta y se marca `recortada`). Una función interna **de efecto** (usa red, base de datos, archivos, subprocesos, hora o azar, o `open`/`input`) no entra en la cadena: se simula. Ante la duda se trata como de efecto. Sin ninguna interna pura, la función no es candidata y el tipo no se ofrece. `PythonAdapter.analizar()` agrega `integraciones` a los módulos que tienen candidatas.
+- **Contrato:** `planner_contract.v3` con `tipo: "integracion"`, `objetivo` `integracion_<raíz>` (así no choca con la unitaria de la misma función), `cadena` (la raíz primero), `efectos` y `llama_a` solo con las internas de efecto a simular. Nunca `critical`.
+- **Oráculo:** sin llamada nueva al Planner. El orquestador deriva el contrato del unitario de la raíz (mismos casos y mismo oráculo, de su firma y documentación). Sin contrato unitario verificable no hay integración: queda omitida con su motivo. Una raíz elegida solo para integrar se planifica pero no se ejecuta como unitaria (`solo_integracion`).
+- **Generator y Reviewer:** el prompt de `python_generacion` pide llamar a la raíz sin simular la cadena y simular solo lo externo. El guardrail contra Assertion Laundering es el de Python, apuntando a la raíz; la cobertura se mide sobre la raíz (`objetivo_de_cobertura`). Una integración que falla es un hallazgo, no se relaja.
+- **Preparar y Recomendador:** casilla «Integración interna» (apagada por defecto, aparece si hay candidatas); entra en la estimación y se envía como `integraciones` (raíces) en la selección. El Recomendador (reglas) la propone solo si hay cadenas, con su motivo, después de las unitarias.
+- **Medición:** `bench/integracion/` trae un defecto que solo se ve al combinar funciones (`total_del_pedido`). La comparación con las unitarias necesita Docker y un modelo real: está pendiente (ver su `README.md`). Si no encuentra nada que las unitarias no encuentren, el tipo debe quedar fuera por defecto; hoy ya nunca se activa sin elegirlo.
+
 #### Verificación arquitectónica implementada (#185)
 
 La pantalla **Preparar** ofrece una acción independiente de los perfiles `std`, `humo`,
@@ -1099,6 +1110,7 @@ Responsables sugeridos en el plan del Sprint 2, a confirmar en el Sprint Plannin
 | Versionar en `bench/` los bancos y scripts de medición de SPK-03 y SPK-04 (**Resuelto**) | Sanchez Vargas, Adrián y Castillo Pezo, Mateo | ADR-008 · ADR-009 |
 | Implementar las reglas del Recomendador y la declaración de capacidades por adaptador; integrar la confirmación en Vista previa | bel001 | ADR-011 · #197 |
 | Implementar y medir el modo IA opcional antes de considerar un cambio del modo predeterminado | bel001, con revisión del equipo | ADR-011 · #200 · #201 |
+| Aprobar el ADR-014 y, solo después, implementar las pruebas de integración interna (piloto en Python) | Oncoy Patricio, Angel, con aprobación del equipo | ADR-014 · #245 |
 
 ## 14. Aprobación
 

@@ -342,3 +342,42 @@ def test_no_importa_ningun_cliente_de_ia() -> None:
     } | {a.name for n in ast.walk(arbol) if isinstance(n, ast.Import) for a in n.names}
 
     assert not any(m.startswith(("qagent.llm", "anthropic", "openai")) for m in modulos)
+
+
+def test_recomienda_integracion_solo_si_hay_cadenas_candidatas() -> None:
+    """#245: la integración interna se propone con su motivo, después de las unitarias."""
+    base = _proyeccion_integracion(0)
+    assert "integracion" not in {
+        r["tipo_prueba"] for r in recomendar(base)["recomendaciones"]
+    }
+    con_cadenas = recomendar(_proyeccion_integracion(2))
+    tipos = [r["tipo_prueba"] for r in con_cadenas["recomendaciones"]]
+    assert tipos == ["funcion", "integracion"]
+    assert "2 funciones llaman" in con_cadenas["recomendaciones"][1]["motivo"]
+
+
+def _proyeccion_integracion(cadenas: int) -> dict[str, Any]:
+    return {
+        "lenguajes": [
+            {
+                "lenguaje": "python",
+                "nombre": "Python",
+                "archivos": 3,
+                "analizado": True,
+                "tipos_prueba_soportados": [
+                    "funcion",
+                    "endpoint",
+                    "mutacion",
+                    "integracion",
+                ],
+                "tipos_prueba_previstos": [],
+            }
+        ],
+        "objetivos": {
+            "funciones": {"cantidad": 3, "documentadas": 3},
+            "endpoints": {"cantidad": 0, "sin_resolver": 0, "rutas_http": []},
+            "integraciones": {"cantidad": cadenas},
+        },
+        "objetivos_critical": 0,
+        "hay_objetivos_critical": False,
+    }
