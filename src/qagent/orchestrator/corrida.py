@@ -51,6 +51,7 @@ from qagent.lenguajes import (
     LenguajeNoSoportado,
     VersionPythonNoSoportada,
     adaptador_del_proyecto,
+    fuera_de_la_corrida,
 )
 from qagent.llm import TokenTracker, crear_cliente
 from qagent.llm.fabrica import ConfiguracionLLMIncompleta, FuenteClaves
@@ -319,6 +320,11 @@ def ejecutar_corrida(
         no_soportados = omitidos_de_interfaz(analisis)
         if no_soportados:
             avisar(no_soportados[0]["motivo"])
+        # EP-11: los archivos del lenguaje hermano (JS o TS) no elegido no se prueban;
+        # se avisan en el Monitor y quedan en results.json para el informe.
+        fuera = fuera_de_la_corrida(ruta, adaptador)
+        for aviso in fuera:
+            avisar(aviso["mensaje"], "aviso")
         progreso["total"] = resumen.total_funciones = resumen.total_seleccionados
         if n_endpoints:
             tipos = ["funcion", "endpoint"] if n_funciones else ["endpoint"]
@@ -672,6 +678,7 @@ def ejecutar_corrida(
             tipos,
             ia=_ContextoIA(claves, simulado, cancelado, _docstrings(modulos)),
             no_soportados=no_soportados,
+            fuera_de_la_corrida=fuera,
         )
     except Exception as error:  # noqa: BLE001 — la corrida nunca debe tumbar la app
         if "tracker" in locals():
@@ -1055,11 +1062,14 @@ def _registrar(
     tipos: list[str] | None = None,
     ia: _ContextoIA | None = None,
     no_soportados: list[dict[str, str]] | None = None,
+    fuera_de_la_corrida: list[dict[str, Any]] | None = None,
 ) -> None:
     """log.json y results.json, specs y pruebas aprobadas, y cierre del run.json.
 
     ``no_soportados`` son los componentes de un framework sin soporte (#171): van a
     ``omitidos`` para que el informe diga «componentes no soportados».
+    ``fuera_de_la_corrida`` son los archivos JS o TS que no se prueban (EP-11): van
+    aparte, sin cambiar los conteos, para que el informe lo avise.
     """
     if resultados:
         rutas = escribir_corrida(
@@ -1089,6 +1099,7 @@ def _registrar(
                 ),
                 *(no_soportados or []),
             ],
+            fuera_de_la_corrida=fuera_de_la_corrida,
         )
         resumen.run_id = rutas.run_id
         resumen.carpeta = str(rutas.carpeta)

@@ -1123,6 +1123,19 @@ def _bloques_ejecucion(
     return bloques
 
 
+def avisos_fuera_de_la_corrida(datos: dict[str, Any]) -> list[str]:
+    """Avisos de los archivos JS o TS que la corrida no probó (EP-11).
+
+    Con ``.js`` y ``.ts`` juntos la corrida usa un solo adaptador; el informe lo dice
+    en lugar de omitir esos archivos en silencio. Corridas anteriores no lo traen.
+    """
+    return [
+        str(f["mensaje"])
+        for f in datos.get("fuera_de_la_corrida") or []
+        if isinstance(f, dict) and f.get("mensaje")
+    ]
+
+
 def datos_informe(
     raiz_proyecto: str | Path,
     run_id: str | None = None,
@@ -1197,6 +1210,8 @@ def datos_informe(
         "es_parcial": vista.get("es_parcial"),
         # Seleccionados que no se probaron, con su motivo.
         "omitidos": copy.deepcopy(vista["omitidos"]),
+        # EP-11: archivos JS o TS que esta corrida no prueba.
+        "fuera_de_la_corrida": copy.deepcopy(vista.get("fuera_de_la_corrida") or []),
         "criticas": sum(1 for o in results["objetivos"] if o.get("critical")),
         "modelos": copy.deepcopy(results["modelos"]),
         "costo_por_agente": por_agente,
@@ -1306,6 +1321,9 @@ def construir_markdown_informe(
         f"{datos.get('total_procesados', total)} procesados · "
         f"{datos.get('total_omitidos', 0)} omitidos · "
         f"{datos.get('total_pendientes', 0)} pendientes"
+    )
+    lineas.extend(
+        f"- **Aviso:** {aviso}" for aviso in avisos_fuera_de_la_corrida(datos)
     )
     lineas.extend(["", *_markdown_comparacion(datos)])
     lineas.extend(
@@ -1865,6 +1883,11 @@ def construir_html_informe(
         f"{datos.get('total_omitidos', 0)} omitidos · "
         f"{datos.get('total_pendientes', 0)} pendientes"
     )
+    fuera_html = "".join(
+        f'\n    <p class="header-meta"><small><span class="badge-aviso">Aviso</span> '
+        f"{esc(aviso)}</small></p>"
+        for aviso in avisos_fuera_de_la_corrida(datos)
+    )
 
     funciones = sorted(
         datos.get("funciones") or [],
@@ -2336,7 +2359,7 @@ code{{font-family:ui-monospace,SFMono-Regular,Consolas,monospace}}
     </div>
     <div class="respuesta">{respuesta}</div>
     <p class="header-meta">Proyecto: <b>{proyecto}</b> · Rama: <b>{rama}</b> · Fecha: <b>{fecha}</b> · Perfil: <b>{perfil}</b> · Funciones: <b>{total_fn}</b> ({criticas} críticas){duracion}</p>
-    <p class="header-meta"><small>Objetivos: {contadores}</small></p>
+    <p class="header-meta"><small>Objetivos: {contadores}</small></p>{fuera_html}
     <p class="header-meta"><small>Etapas: {modelos_str} · Specs: {specs_txt}</small></p>
     <div class="cifras-grid">
       <div class="cifra-card">

@@ -203,6 +203,45 @@
           }
         }
       }
+    },
+    "fuera_de_la_corrida": {
+      "type": "array",
+      "description": "EP-11: archivos de un lenguaje hermano (JavaScript o TypeScript) que esta corrida no prueba porque usa un solo adaptador. Es un aviso: no cuenta como omitido ni como pendiente.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "lenguaje",
+          "nombre",
+          "archivos",
+          "rutas",
+          "mensaje"
+        ],
+        "properties": {
+          "lenguaje": {
+            "enum": ["python", "javascript", "typescript", "java"]
+          },
+          "nombre": {
+            "type": "string",
+            "minLength": 1
+          },
+          "archivos": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "rutas": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "mensaje": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
     }
   },
   "allOf": [
@@ -223,7 +262,8 @@
         ],
         "properties": {
           "objetivos": false,
-          "resumen": false
+          "resumen": false,
+          "fuera_de_la_corrida": false
         }
       }
     },

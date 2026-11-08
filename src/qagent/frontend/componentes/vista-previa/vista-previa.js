@@ -100,6 +100,9 @@ registrarComponente('vista-previa/vista-previa', `<!-- ===== 2. EXPLORAR ===== -
       </section>
     </div>
 
+    <!-- EP-11: archivos de JS o TS que no prueba esta corrida -->
+    <div class="np-aviso np-aviso-aviso exp-errores hide" id="expFuera">${ICO_AVISO_EXP}<div><b id="expFueraTitulo"></b><div id="expFueraLista"></div></div></div>
+
     <!-- Archivos que no se pudieron leer -->
     <div class="np-aviso np-aviso-aviso exp-errores hide" id="expErrores">${ICO_AVISO_EXP}<div><b id="expErroresTitulo"></b><div id="expErroresLista"></div></div></div>
 
@@ -192,6 +195,7 @@ function cargarDatosVistaPrevia(res) {
   reiniciarVistaExplorar();
   PROYECTO_RESUMEN = res.resumen;
   PROYECTO_ERRORES = res.errores || [];
+  renderFueraDeLaCorrida(res.fuera_de_la_corrida || []);
   RECOMENDACION = res.recomendacion ? {recomendacion: res.recomendacion, proximamente: res.proximamente || []} : null;
   renderRecomendacion();
 
@@ -650,6 +654,15 @@ function seleccionarCarpeta(dir, seleccionado){
 }
 
 // Aviso de archivos que no se pudieron leer, con el motivo de cada uno.
+// EP-11: un proyecto con .js y .ts se prueba con un solo lenguaje; el otro se avisa.
+function renderFueraDeLaCorrida(fuera){
+  $('expFuera').classList.toggle('hide', !fuera.length);
+  if(!fuera.length) return;
+  $('expFueraTitulo').textContent = fuera.map(f => f.archivos === 1 ? `1 archivo de ${f.nombre} no se prueba` : `${f.archivos} archivos de ${f.nombre} no se prueban`).join(' · ');
+  $('expFueraLista').innerHTML = fuera.map(f =>
+    `<span>${escHtml(f.mensaje)} <span class="mono">${f.rutas.slice(0, 5).map(escHtml).join(', ')}${f.rutas.length > 5 ? '…' : ''}</span></span>`
+  ).join('');
+}
 function renderErroresLectura(){
   const conError = MODULES.filter(m => m.error);
   $('expErrores').classList.toggle('hide', !conError.length);

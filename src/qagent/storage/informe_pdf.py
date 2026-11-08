@@ -509,6 +509,11 @@ def _portada(
         "F1",
         TEXTO_2,
     )
+    # EP-11: archivos JS o TS que esta corrida no prueba.
+    from qagent.storage.exportar_informe import avisos_fuera_de_la_corrida
+
+    for aviso in avisos_fuera_de_la_corrida(datos):
+        lz.parrafo(limpiar(f"Aviso: {aviso}"), 9.5, "F1", ESTADOS["aviso"][0])
 
     # Cifras: pasaron, posibles bugs, cobertura y tokens (nunca costos)
     m = {x["clave"]: x for x in datos.get("metricas") or []}

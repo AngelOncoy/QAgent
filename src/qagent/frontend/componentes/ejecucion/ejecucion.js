@@ -37,6 +37,8 @@ registrarComponente('ejecucion/ejecucion', `<!-- ===== 5. PRUEBAS: BANDEJA DE PR
 
     <div class="exp-cifras bnj-cifras" id="kpis"></div>
     <p class="np-meta" id="bnjResumen"></p>
+    <!-- EP-11: archivos de JS o TS que esta corrida no probó -->
+    <div class="np-aviso np-aviso-aviso hide" id="bnjFuera"></div>
     <section class="np-tarjeta bnj-comparacion hide" id="bnjComparacion" aria-labelledby="bnjComparacionTitulo"></section>
 
     <div class="bnj-filtros">
@@ -284,6 +286,7 @@ function renderExec(){
     $('bnjSub').textContent = document.querySelector('.ini-migas .repoName') ? document.querySelector('.ini-migas .repoName').textContent : '';
     ['kpis', 'bnjResumen', 'bnjComparacion', 'bnjBandejas', 'suites', 'bnjNotaLista', 'bnjDetalle', 'bnjPrioridades'].forEach(id => { $(id).innerHTML = ''; });
     $('bnjComparacion').classList.add('hide');
+    renderFueraDeLaCorridaResultados([]);
     ELEMENTOS_BANDEJA = [];
     return;
   }
@@ -293,6 +296,7 @@ function renderExec(){
   ELEMENTOS_BANDEJA = todos;
 
   renderCabeceraBandeja(todos, v);
+  renderFueraDeLaCorridaResultados((v && v.fuera_de_la_corrida) || []);
   renderComparacionCorridas(v && v.comparacion);
   renderFiltrosBandeja(todos);
 
@@ -386,6 +390,15 @@ function estadoGeneral(todos, v){
 }
 
 // Título que responde la pregunta: cuántos posibles bugs y por dónde empezar.
+// EP-11: con .js y .ts juntos la corrida usa un solo lenguaje; el otro se avisa aquí.
+function renderFueraDeLaCorridaResultados(fuera){
+  const caja = $('bnjFuera');
+  caja.classList.toggle('hide', !fuera.length);
+  if(!fuera.length){ caja.innerHTML = ''; return; }
+  caja.innerHTML = `${ICO_AVISO_CLON}<div><b>No todo el proyecto se probó en esta corrida</b>` +
+    fuera.map(f => `<span>${escHtml(f.mensaje)}</span>`).join('') + '</div>';
+}
+
 function renderCabeceraBandeja(todos, v){
   const n = k => todos.filter(e => e.bandeja === k).length;
   const bugs = todos.filter(e => e.bandeja === 'bug');
