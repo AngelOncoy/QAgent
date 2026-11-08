@@ -31,8 +31,15 @@
       "description": "SHA-256 del archivo calculado por el analizador. Sirve para la caché de specs (HU-24)."
     },
     "tipo": {
-      "enum": ["funcion", "endpoint", "componente"],
-      "description": "`componente`: componente React de JavaScript o TypeScript probado con Testing Library (#171)."
+      "enum": ["funcion", "endpoint", "componente", "integracion"],
+      "description": "`componente`: componente React de JavaScript o TypeScript probado con Testing Library (#171). `integracion`: función raíz de Python probada junto con las funciones internas que llama (#245, ADR-014)."
+    },
+    "cadena": {
+      "type": "array",
+      "minItems": 2,
+      "uniqueItems": true,
+      "items": { "$ref": "#/$defs/identificador_python" },
+      "description": "Solo en `integracion` (#245): la función raíz (que es el `objetivo`, primera de la lista) y las funciones internas que se ejecutan de verdad. Máximo de funciones y profundidad en config.toml."
     },
     "objetivo": {
       "type": "string",
@@ -123,6 +130,20 @@
           }
         }
       }
+    },
+    {
+      "description": "Integración interna (#245, ADR-014): solo Python; el objetivo es la raíz de la cadena y es obligatoria la `cadena`. El valor esperado sigue saliendo de la firma y la documentación de la raíz.",
+      "if": { "required": ["tipo"], "properties": { "tipo": { "const": "integracion" } } },
+      "then": {
+        "required": ["cadena"],
+        "properties": {
+          "lenguaje": { "const": "python" },
+          "objetivo": { "$ref": "#/$defs/identificador_python" },
+          "critical": { "const": false }
+        },
+        "not": { "anyOf": [{ "required": ["manejador"] }, { "required": ["aplicacion"] }, { "required": ["dependencias"] }, { "required": ["framework_app"] }] }
+      },
+      "else": { "not": { "required": ["cadena"] } }
     },
     {
       "if": { "properties": { "tipo": { "const": "endpoint" } } },

@@ -1,6 +1,6 @@
 # ADR-014: Pruebas de integración interna (piloto en Python)
 
-- **Estado:** Propuesto (pendiente de aprobación del equipo; no se implementa nada antes)
+- **Estado:** Aprobado por el equipo (2026-11-08)
 - **Fecha:** 2026-11-08
 - **Ítem:** #245 — HU · Probar la integración entre funciones del mismo proyecto
 - **Responsable:** Oncoy Patricio, Angel
@@ -99,8 +99,8 @@ Cada fase con sus pruebas, con la IA simulada y sin Docker ni red (salvo las mar
 
 ## 7. Aprobación
 
-- [ ] Castillo Pezo, Mateo
-- [ ] Oncoy Patricio, Angel
-- [ ] Rodríguez Malca, Rodrigo
-- [ ] Sanchez Vargas, Adrián
-- [ ] Nuevo integrante (Java)
+- [x] Castillo Pezo, Mateo
+- [x] Oncoy Patricio, Angel
+- [x] Rodríguez Malca, Rodrigo
+- [x] Sanchez Vargas, Adrián
+- [x] Nuevo integrante (Java)

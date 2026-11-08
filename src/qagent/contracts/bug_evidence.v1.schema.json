@@ -32,7 +32,7 @@
       "properties": {
         "modulo": { "type": "string", "minLength": 1 },
         "nombre": { "type": "string", "minLength": 1 },
-        "tipo": { "enum": ["funcion", "endpoint", "componente"] }
+        "tipo": { "enum": ["funcion", "endpoint", "componente", "integracion"] }
       }
     },
     "archivo_prueba": { "type": "string", "pattern": "^test_[A-Za-z0-9_]+\\.py$" },
