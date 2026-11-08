@@ -61,9 +61,22 @@ como aprobación. `--docker` es necesario para habilitar Docker real.
   sin omisiones. Spring produjo un aprobado, un defecto HTTP y un omitido;
   PIT obtuvo 60 % y la regresión profunda reutilizó su puntuación.
 - Ruff: lint aprobado y **479 archivos** con formato correcto.
+- Banco original completo: **1 passed en 258.76 s**; tres aprobados, tres defectos
+  detectados y tres aprobados reutilizados en regresión. POM original intacto,
+  Docker sin red y proveedores grabados con cero tokens.
+- Regresión general sin Docker/red: **3671 passed, 1 skipped, 68 deselected**
+  en 754.72 s. El escenario omitido y los excluidos no cuentan como aprobados.
+- Estados, bitácora y configuración después del ajuste del aislamiento del
+  logger de su prueba: **268 passed**. Se mantienen las aserciones del filtro
+  y se comprueba que el logger global de Python permanece intacto.
 
 Estos resultados corresponden a los escenarios indicados y no sustituyen la
-regresión general ni la comprobación visual en la aplicación.
+comprobación visual en la aplicación. La primera ejecución general falló porque
+una prueba de estados sustituía el logger compartido con pytest; se aisló la
+referencia simulada en ese test y se repitió la suite completa. La primera
+repetición del banco encontró un contenedor marcado para eliminación durante
+una sesión con otras validaciones y aperturas de la app; se conserva como un
+intento fallido. La repetición aislada posterior es la aprobación indicada arriba.
 
 ## Comprobación en la aplicación
 
