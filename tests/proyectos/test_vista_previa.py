@@ -31,6 +31,7 @@ from qagent.proyectos.vista_previa import (
     generar_vista_previa,
     priorizar_modulos,
 )
+from tests.lenguajes.en_desarrollo import simular_node_en_desarrollo
 
 
 def _crear_archivo(raiz: Path, ruta_relativa: str, contenido: str) -> Path:
@@ -297,9 +298,11 @@ def test_carpeta_invalida_retorna_ok_false(tmp_path: Path) -> None:
     assert vista["resumen"]["total_modulos"] == 0
 
 
-def test_vista_previa_javascript_permite_acceder_al_flujo_e2e(
+def test_vista_previa_de_un_lenguaje_en_desarrollo_permite_acceder_al_flujo_e2e(
     tmp_path: Path,
+    monkeypatch,
 ) -> None:
+    simular_node_en_desarrollo(monkeypatch)
     _crear_archivo(tmp_path, "package.json", '{"scripts":{"start":"node server.js"}}')
     _crear_archivo(
         tmp_path,
@@ -313,3 +316,22 @@ def test_vista_previa_javascript_permite_acceder_al_flujo_e2e(
     assert vista["lenguaje"] == "javascript"
     assert vista["solo_e2e"] is True
     assert vista["resumen"]["total_modulos"] == 1
+
+
+def test_vista_previa_typescript_ofrece_la_corrida_completa(tmp_path: Path) -> None:
+    """EP-11: TypeScript muestra sus funciones y no queda limitado al E2E."""
+    _crear_archivo(tmp_path, "tsconfig.json", "{}")
+    _crear_archivo(
+        tmp_path,
+        "src/precios.ts",
+        "/** @returns {number} el doble */\n"
+        "export function doble(x: number): number { return 2 * x; }\n",
+    )
+
+    vista = generar_vista_previa(tmp_path)
+
+    assert vista["ok"] is True
+    assert vista["lenguaje"] == "typescript"
+    assert vista["solo_e2e"] is False
+    assert vista["resumen"]["total_modulos"] == 1
+    assert vista["proximamente"] == []

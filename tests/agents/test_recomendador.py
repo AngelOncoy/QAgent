@@ -30,6 +30,7 @@ from qagent.agents.recomendador import (
 )
 from qagent.lenguajes import REGISTRO
 from qagent.proyectos.vista_previa import generar_vista_previa
+from tests.lenguajes.en_desarrollo import simular_node_en_desarrollo
 
 FUNCIONES = '''
 def sumar(a: int, b: int) -> int:
@@ -235,7 +236,10 @@ def test_proyecto_java_con_spring_recomienda_los_tres_tipos(tmp_path: Path) -> N
     assert vista["proximamente"] == []
 
 
-def test_lenguaje_en_desarrollo_aparece_como_proximamente(tmp_path: Path) -> None:
+def test_lenguaje_en_desarrollo_aparece_como_proximamente(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    simular_node_en_desarrollo(monkeypatch)
     raiz = _crear(tmp_path, {"calc.py": FUNCIONES, "web/a.ts": "x;"})
     vista = generar_vista_previa(raiz)
 
@@ -249,7 +253,10 @@ def test_lenguaje_en_desarrollo_aparece_como_proximamente(tmp_path: Path) -> Non
     assert "Se detectó 1 archivo de TypeScript" in vista["proximamente"][0]["motivo"]
 
 
-def test_proyecto_e2e_only_conserva_tipos_proximos(tmp_path: Path) -> None:
+def test_proyecto_e2e_only_conserva_tipos_proximos(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    simular_node_en_desarrollo(monkeypatch)
     vista = generar_vista_previa(_crear(tmp_path, {"web/a.ts": "export const x = 1;"}))
 
     assert vista["ok"] is True
@@ -278,7 +285,10 @@ def test_solo_cuenta_el_lenguaje_analizado() -> None:
     assert proximamente(proyeccion) == []
 
 
-def test_sin_adaptador_completo_no_recomienda_nada() -> None:
+def test_sin_adaptador_completo_no_recomienda_nada(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    simular_node_en_desarrollo(monkeypatch)
     vista = {"modulos": [{"funciones": [{"nombre": "f", "ramas": 1}]}]}
     proyeccion = proyectar(vista, REGISTRO.detectar_en(["web/a.ts"]))
 

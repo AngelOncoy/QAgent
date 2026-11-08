@@ -105,6 +105,7 @@ def escribir_corrida(
     tipo_terminacion: str | None = None,
     objetivos_omitidos: int | None = None,
     omitidos: list[dict[str, str]] | None = None,
+    fuera_de_la_corrida: list[dict[str, Any]] | None = None,
 ) -> RutasCorrida:
     """Genera, valida y escribe log.json y results.json de una corrida.
 
@@ -124,6 +125,8 @@ def escribir_corrida(
         duracion_etapas: segundos acumulados por etapa (#115).
         omitidos: objetivos seleccionados que no se probaron, cada uno con su
             módulo, objetivo, tipo y motivo; Resultados los muestra aparte.
+        fuera_de_la_corrida: archivos de JavaScript o TypeScript que la corrida no
+            prueba porque usa un solo adaptador (EP-11); solo se guarda si hay.
 
     Returns:
         Rutas de la carpeta y de los dos archivos.
@@ -157,6 +160,9 @@ def escribir_corrida(
     results["rama"] = rama
     if omitidos is not None:
         results["omitidos"] = list(omitidos)
+    if fuera_de_la_corrida:
+        # EP-11: aviso de los archivos JS o TS que esta corrida no prueba.
+        results["fuera_de_la_corrida"] = list(fuera_de_la_corrida)
     if inicio is not None:
         results["inicio"] = inicio
     if fin is not None:

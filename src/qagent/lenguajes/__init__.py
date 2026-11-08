@@ -68,6 +68,13 @@ def adaptador_del_proyecto(raiz: str | os.PathLike[str]) -> LanguageAdapter:
     )
 
 
+def fuera_de_la_corrida(
+    raiz: str | os.PathLike[str], adaptador: LanguageAdapter
+) -> list[dict]:
+    """Archivos de JS o TS que no prueba la corrida (ver ``Registro.fuera_de_la_corrida``)."""
+    return REGISTRO.fuera_de_la_corrida(raiz, adaptador)
+
+
 def adaptador_e2e_del_proyecto(raiz: str | os.PathLike[str]) -> LanguageAdapter:
     """Adaptador principal cuando el proyecto admite el humo E2E de #186."""
     return REGISTRO.adaptador_e2e_del_proyecto(raiz)
@@ -97,6 +104,7 @@ __all__ = [
     "detectar_declaracion_version",
     "detectar_lenguaje",
     "elegir_version_python",
+    "fuera_de_la_corrida",
     "listar_archivos",
     "resolver_version_python_proyecto",
 ]

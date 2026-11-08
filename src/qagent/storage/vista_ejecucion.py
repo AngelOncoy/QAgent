@@ -176,6 +176,8 @@ def vista_ejecucion(
         "total_pendientes": total_pendientes,
         # Seleccionados que no se probaron, con su motivo (no son pendientes).
         "omitidos": omitidos,
+        # EP-11: archivos JS o TS que esta corrida no prueba (aviso, sin conteos).
+        "fuera_de_la_corrida": list(results.get("fuera_de_la_corrida") or []),
         "total_omitidos": total_omitidos,
         "tipo_terminacion": tipo_terminacion,
         "es_parcial": es_parcial,

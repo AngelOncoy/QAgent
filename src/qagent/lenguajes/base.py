@@ -247,6 +247,14 @@ class LanguageAdapter(ABC):
     huellas_disponibles: ClassVar[bool] = False
     #: Permite abrir el proyecto para ejecutar exclusivamente humo E2E (#186).
     e2e_humo_disponible: ClassVar[bool] = False
+    #: En un proyecto con otro lenguaje que sí corre, este adaptador solo se elige si
+    #: alguno de estos archivos está en la raíz (JS/TS: ``package.json``). Así una
+    #: carpeta ``static/`` con JavaScript no cambia el lenguaje de un proyecto Python.
+    marcadores_si_mixto: ClassVar[tuple[str, ...]] = ()
+    #: Lenguajes que suelen convivir en el mismo proyecto (JS y TS). La corrida usa un
+    #: solo adaptador, así que los archivos del hermano no elegido se avisan como
+    #: «no se prueban en esta corrida» en la Vista previa y el Monitor.
+    lenguajes_hermanos: ClassVar[tuple[str, ...]] = ()
     #: Nombre del motor que usa el adaptador, para los mensajes compartidos.
     motor_mutacion: ClassVar[str] = "mutación"
     #: Comprobación opcional de librerías del sistema propia del entorno Python.

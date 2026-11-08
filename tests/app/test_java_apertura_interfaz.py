@@ -11,6 +11,7 @@ from qagent.app import desktop
 from qagent.lenguajes import JavaAdapter, LenguajeNoSoportado, adaptador_del_proyecto
 from qagent.proyectos.proyecto_local import inspeccionar_carpeta
 from qagent.proyectos.seleccion import filtrar_modulos
+from tests.lenguajes.en_desarrollo import simular_node_en_desarrollo
 
 BANCO = Path(__file__).resolve().parents[2] / "bench_java"
 
@@ -122,9 +123,14 @@ def test_java_con_sintaxis_invalida_se_muestra_como_error(
     "extension,lenguaje", [("js", "JavaScript"), ("ts", "TypeScript")]
 )
 def test_lenguaje_incompleto_se_abre_solo_para_e2e(
-    tmp_path: Path, api: desktop.DesktopAPI, extension: str, lenguaje: str
+    tmp_path: Path,
+    api: desktop.DesktopAPI,
+    extension: str,
+    lenguaje: str,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """JS/TS acceden a E2E sin prometer la corrida de agentes incompleta."""
+    """Un lenguaje en desarrollo accede a E2E sin prometer la corrida de agentes."""
+    simular_node_en_desarrollo(monkeypatch)
     (tmp_path / f"main.{extension}").write_text(
         "export function f() { return 1; }", encoding="utf-8"
     )

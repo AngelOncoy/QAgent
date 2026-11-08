@@ -46,6 +46,7 @@ from qagent.lenguajes import (
     LenguajeNoSoportado,
     adaptador_del_proyecto,
     adaptador_e2e_del_proyecto,
+    fuera_de_la_corrida,
 )
 from qagent.llm.tracker import TokenTracker
 
@@ -258,6 +259,8 @@ def generar_vista_previa(
         # #171: React se prueba; otro framework de interfaz se avisa como
         # «componentes no soportados» y solo se prueba la lógica.
         "framework_ui": resultado_ast.get("framework_ui"),
+        # EP-11: con .js y .ts juntos, los archivos del lenguaje no elegido se avisan.
+        "fuera_de_la_corrida": fuera_de_la_corrida(carpeta, adaptador),
         "avisos": {
             "oraculo_debil": AVISO_ORACULO_DEBIL,
             "falta_docstring": ETIQUETA_FALTA_DOCSTRING,

@@ -21,6 +21,7 @@ from qagent.lenguajes import (
 from qagent.orchestrator import regresion
 from qagent.orchestrator.corrida import FALLO, ejecutar_corrida
 from qagent.sandbox import ResultadoSandbox
+from tests.lenguajes.en_desarrollo import simular_node_en_desarrollo
 
 FUNCION_PY = (
     'def duplicar(x: int) -> int:\n    """Devuelve 2 * x."""\n    return 2 * x\n'
@@ -70,7 +71,10 @@ def test_python_con_algo_de_javascript_se_sigue_probando_como_python(tmp_path) -
         ({"index.js": "module.exports = {};\n", "package.json": "{}"}, "JavaScript"),
     ],
 )
-def test_un_lenguaje_en_desarrollo_da_un_mensaje_claro(tmp_path, archivos, nombre):
+def test_un_lenguaje_en_desarrollo_da_un_mensaje_claro(
+    tmp_path, archivos, nombre, monkeypatch
+):
+    simular_node_en_desarrollo(monkeypatch)
     _escribir(tmp_path, archivos)
 
     with pytest.raises(LenguajeNoSoportado) as error:
@@ -89,13 +93,64 @@ def test_sin_archivos_fuente_se_usa_el_lenguaje_de_los_contratos_anteriores(
     assert adaptador_del_proyecto(tmp_path).lenguaje == "python"
 
 
-def test_python_y_java_tienen_adaptador_completo() -> None:
-    completos = [
+def test_todos_los_lenguajes_tienen_adaptador_completo() -> None:
+    """EP-11: JavaScript y TypeScript se suman a Python y Java."""
+    completos = {
         nombre
         for nombre in REGISTRO.lenguajes
         if REGISTRO.adaptador_para(nombre).completo
-    ]
-    assert completos == ["python", "java"]
+    }
+    assert completos == {"python", "java", "javascript", "typescript"}
+
+
+@pytest.mark.parametrize(
+    "archivos, lenguaje",
+    [
+        ({"src/suma.ts": "export const s = 1;\n", "tsconfig.json": "{}"}, "typescript"),
+        ({"index.js": "module.exports = {};\n", "package.json": "{}"}, "javascript"),
+        ({"src/suma.ts": "export const s = 1;\n"}, "typescript"),
+    ],
+)
+def test_un_proyecto_javascript_o_typescript_usa_su_adaptador(
+    tmp_path, archivos, lenguaje
+) -> None:
+    """EP-11: la app y la corrida usan el adaptador Node con la imagen sin red."""
+    _escribir(tmp_path, archivos)
+
+    adaptador = adaptador_del_proyecto(tmp_path)
+
+    assert adaptador.lenguaje == lenguaje
+    assert adaptador.entorno_sandbox().imagen == "qagent-sandbox:node"
+    assert "vitest" in " ".join(adaptador.comando_pruebas("src/suma.ts"))
+
+
+def test_python_con_package_json_en_la_raiz_y_mas_javascript_es_javascript(
+    tmp_path,
+) -> None:
+    """Con ``package.json`` en la raíz el JavaScript es del proyecto, no un ``static/``."""
+    _escribir(
+        tmp_path,
+        {
+            "scripts/util.py": FUNCION_PY,
+            "package.json": "{}",
+            **{f"src/m{n}.js": "export const a = 1;\n" for n in range(3)},
+        },
+    )
+
+    assert adaptador_del_proyecto(tmp_path).lenguaje == "javascript"
+
+
+def test_java_con_algo_de_typescript_sigue_siendo_java(tmp_path) -> None:
+    _escribir(
+        tmp_path,
+        {
+            "src/main/java/A.java": "class A {}\n",
+            "pom.xml": "<project/>",
+            **{f"web/m{n}.ts": "export const a = 1;\n" for n in range(3)},
+        },
+    )
+
+    assert adaptador_del_proyecto(tmp_path).lenguaje == "java"
 
 
 def test_proyecto_java_selecciona_adaptador_integrado(tmp_path) -> None:
@@ -113,9 +168,10 @@ def test_proyecto_java_selecciona_adaptador_integrado(tmp_path) -> None:
 # --- La corrida y la app con un lenguaje sin soporte --------------------------------
 
 
-def test_la_corrida_de_un_proyecto_typescript_termina_con_el_aviso(
-    tmp_path, config
+def test_la_corrida_de_un_lenguaje_en_desarrollo_termina_con_el_aviso(
+    tmp_path, config, monkeypatch
 ) -> None:
+    simular_node_en_desarrollo(monkeypatch)
     _escribir(tmp_path, {"src/suma.ts": "export const s = 1;\n"})
     eventos: list[dict] = []
     preparar = MagicMock()
@@ -150,7 +206,10 @@ def api(monkeypatch) -> DesktopAPI:
     return puente
 
 
-def test_la_app_no_inicia_un_proyecto_de_un_lenguaje_sin_soporte(api, tmp_path):
+def test_la_app_no_inicia_un_proyecto_de_un_lenguaje_sin_soporte(
+    api, tmp_path, monkeypatch
+):
+    simular_node_en_desarrollo(monkeypatch)
     _escribir(tmp_path, {"index.js": "module.exports = {};\n"})
 
     resultado = api.start_run(str(tmp_path), "deep")
@@ -176,6 +235,7 @@ def test_las_huellas_solo_recorren_los_archivos_fuente_de_un_adaptador_completo(
 ) -> None:
     from qagent.lenguajes import JavaScriptAdapter
 
+    simular_node_en_desarrollo(monkeypatch)
     monkeypatch.setattr(JavaScriptAdapter, "huellas_disponibles", False)
     _escribir(
         tmp_path,

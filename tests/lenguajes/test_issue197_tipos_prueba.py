@@ -25,15 +25,15 @@ def test_los_lenguajes_completos_declaran_sus_tipos(
 
 
 @pytest.mark.parametrize("lenguaje", ["javascript", "typescript"])
-def test_los_lenguajes_en_desarrollo_no_anuncian_tipos_operativos(
+def test_javascript_y_typescript_anuncian_sus_tipos_operativos(
     lenguaje: str,
 ) -> None:
+    """EP-11: Vitest, mutación con Stryker y componentes React ya corren."""
     adaptador = REGISTRO.adaptador_para(lenguaje)
 
-    assert not adaptador.completo
-    assert adaptador.tipos_prueba == ()
-    # #171: los componentes React quedan previstos hasta conectar JS/TS.
-    assert adaptador.tipos_prueba_previstos == ("funcion", "mutacion", "componente")
+    assert adaptador.completo
+    assert adaptador.tipos_prueba == ("funcion", "mutacion", "componente")
+    assert adaptador.tipos_prueba_previstos == ()
 
 
 def test_todos_los_tipos_declarados_estan_en_el_contrato() -> None:

@@ -217,6 +217,8 @@ def vista_reporte(
         "total_pendientes": total_pendientes,
         "total_omitidos": total_omitidos,
         "omitidos": omitidos,
+        # EP-11: archivos JS o TS que esta corrida no prueba (aviso, sin conteos).
+        "fuera_de_la_corrida": list(results.get("fuera_de_la_corrida") or []),
         "tipo_terminacion": tipo_terminacion,
         "es_parcial": es_parcial,
         "run_id": results["run_id"],
