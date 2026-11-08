@@ -199,7 +199,7 @@ class ReviewerAgent:
         rango = reglas.rango_de_objetivo(
             self.ruta_proyecto,
             modulo,
-            contrato.get("manejador") or contrato["objetivo"],
+            adaptador.objetivo_de_cobertura(contrato),
         )
         self._ejecucion = resumir_ejecucion(
             resultado,

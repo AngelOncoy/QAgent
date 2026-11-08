@@ -39,6 +39,7 @@ def test_integracion_es_un_tipo_recomendable() -> None:
         {"cadena": ["total_del_pedido", "total_del_pedido"]},
         {"cadena": ["total_del_pedido", "no es un nombre"]},
         {"objetivo": "Clase.metodo"},
+        {"objetivo": "total_del_pedido"},
         {"manejador": "total_del_pedido"},
         {"framework_app": "fastapi"},
     ],

@@ -39,7 +39,7 @@
       "minItems": 2,
       "uniqueItems": true,
       "items": { "$ref": "#/$defs/identificador_python" },
-      "description": "Solo en `integracion` (#245): la función raíz (que es el `objetivo`, primera de la lista) y las funciones internas que se ejecutan de verdad. Máximo de funciones y profundidad en config.toml."
+      "description": "Solo en `integracion` (#245): la función raíz (primera de la lista) y las funciones internas que se ejecutan de verdad. Máximo de funciones y profundidad en config.toml."
     },
     "objetivo": {
       "type": "string",
@@ -70,6 +70,12 @@
       "items": { "type": "string", "minLength": 1 },
       "uniqueItems": true,
       "description": "Funciones del proyecto que el objetivo llama; el Generator las simula."
+    },
+    "efectos": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "uniqueItems": true,
+      "description": "Solo en `integracion` (#245): módulos de efecto (red, archivos, hora, azar…) que usa la raíz y que el test debe simular. Las funciones internas de efecto van en `llama_a`."
     },
     "casos": {
       "type": "array",
@@ -132,18 +138,18 @@
       }
     },
     {
-      "description": "Integración interna (#245, ADR-014): solo Python; el objetivo es la raíz de la cadena y es obligatoria la `cadena`. El valor esperado sigue saliendo de la firma y la documentación de la raíz.",
+      "description": "Integración interna (#245, ADR-014): solo Python; el objetivo se llama `integracion_<raíz>` (así no choca con la unitaria de la misma función) y es obligatoria la `cadena`, que empieza por la raíz. El valor esperado sigue saliendo de la firma y la documentación de la raíz.",
       "if": { "required": ["tipo"], "properties": { "tipo": { "const": "integracion" } } },
       "then": {
         "required": ["cadena"],
         "properties": {
           "lenguaje": { "const": "python" },
-          "objetivo": { "$ref": "#/$defs/identificador_python" },
+          "objetivo": { "pattern": "^integracion_[A-Za-z_][A-Za-z0-9_]*$" },
           "critical": { "const": false }
         },
         "not": { "anyOf": [{ "required": ["manejador"] }, { "required": ["aplicacion"] }, { "required": ["dependencias"] }, { "required": ["framework_app"] }] }
       },
-      "else": { "not": { "required": ["cadena"] } }
+      "else": { "not": { "anyOf": [{ "required": ["cadena"] }, { "required": ["efectos"] }] } }
     },
     {
       "if": { "properties": { "tipo": { "const": "endpoint" } } },

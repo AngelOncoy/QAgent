@@ -38,7 +38,9 @@ Una prueba que llama a una función **raíz** del proyecto y deja que se ejecute
 
 - **Candidata:** función con al menos una llamada a otra función interna del proyecto (`llama_a` resuelto con el grafo de imports). Sin candidatas, el tipo no se ofrece ni se recomienda.
 - **Cadena:** la raíz más sus llamadas internas, hasta profundidad 2 y 4 funciones como máximo (valores en `config.toml`, no en la lógica). Si la cadena real es mayor se recorta y el informe lo dice.
-- Un objetivo = una raíz = una prueba de integración. Los métodos de clase y las funciones sin cuerpo analizable no son candidatos.
+- Un objetivo = una raíz = una prueba de integración. Su nombre es `integracion_<raíz>` para no chocar con la unitaria de la misma función (el pipeline identifica cada objetivo por su nombre); la raíz es el primer elemento de `cadena`. Los métodos de clase y las funciones sin cuerpo analizable no son candidatos.
+- Solo entran en la cadena las funciones internas **puras**; las de efecto se simulan y no cuentan. Una función cuyas internas son todas de efecto no es candidata.
+- El Planner no hace una llamada nueva: el contrato de integración se deriva del contrato unitario de la raíz (mismos casos y mismo oráculo, sacados de su firma y documentación). Si la raíz no tiene contrato unitario verificable, no hay integración.
 
 ### 4.2 De dónde sale el valor esperado (oráculo)
 
