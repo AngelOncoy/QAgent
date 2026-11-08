@@ -104,7 +104,7 @@ adaptador declara. Los valores salen de `contracts.TIPOS_PRUEBA_RECOMENDABLES`
 
 | Atributo | Qué declara | Ejemplo |
 |---|---|---|
-| `tipos_prueba` | Tipos que el adaptador ya ejecuta de punta a punta. Un adaptador con `completo = False` no puede declarar ninguno. | Python y Java: `("funcion", "endpoint", "mutacion")`; JavaScript y TypeScript: `("funcion", "mutacion", "componente")` |
+| `tipos_prueba` | Tipos que el adaptador ya ejecuta de punta a punta. Un adaptador con `completo = False` no puede declarar ninguno. | Python: `("funcion", "endpoint", "mutacion", "integracion")`; Java: `("funcion", "endpoint", "mutacion")`; JavaScript y TypeScript: `("funcion", "mutacion", "componente")` |
 | `tipos_prueba_previstos` | Tipos aprobados que aún no funcionan. La Vista previa los muestra como «próximamente». | Ninguno hoy: todos los lenguajes registrados están completos |
 
 Al completar un tipo, se pasa de `tipos_prueba_previstos` a `tipos_prueba`.

@@ -21,6 +21,8 @@ bench/
 │   ├── medir_parsers_spk04.py       # Script de medición de parsers nativos vs tree-sitter vs Graphify
 │   ├── spk04_benchmark.py           # Entrada compatible para medir_parsers_spk04.py
 │   └── resultados_spk04.json        # Resultados de la última medición de SPK-04
+├── integracion/                     # Banco de integración interna (#245, ADR-014): defecto que solo se ve al combinar funciones
+│   └── README.md                    # Cadenas, qué se simula y cómo medir contra las unitarias (necesita Docker y un modelo real)
 └── dependencias/                    # Banco modular de dependencias entre archivos (SPK #196)
     ├── README.md                    # Explicación del caso de dependencias entre módulos
     ├── modelos.py, api.py, ...      # Módulos interconectados

@@ -1,0 +1,24 @@
+{
+  "version": "3",
+  "lenguaje": "python",
+  "framework_pruebas": "pytest",
+  "modulo": "tienda/pedidos.py",
+  "huella": "f6b02d52a7e2ac5840090f1c8ae57e74de26fd81799635065e984e5b278f9da7",
+  "tipo": "integracion",
+  "objetivo": "integracion_total_del_pedido",
+  "cadena": ["total_del_pedido", "calcular_descuento"],
+  "firma": "(precio: float, porcentaje: float, cantidad: int) -> float",
+  "critical": false,
+  "llama_a": [],
+  "efectos": ["datetime"],
+  "casos": [
+    {
+      "id": "total_con_descuento",
+      "descripcion": "El total es el precio con descuento por la cantidad",
+      "entrada": { "precio": 100.0, "porcentaje": 20.0, "cantidad": 2 },
+      "valor_esperado": 160.0,
+      "origen": "docstring",
+      "categoria": "normal"
+    }
+  ]
+}

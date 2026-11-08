@@ -24,6 +24,14 @@ from qagent.lenguajes.base import Clasificacion
 
 _NO_LITERAL = object()
 
+
+def _funcion_llamada(contrato: dict[str, Any]) -> str:
+    """Función que el test llama: el objetivo, o la raíz de la cadena en una integración."""
+    if contrato.get("tipo") == "integracion":
+        return str(contrato["cadena"][0])
+    return str(contrato["objetivo"])
+
+
 _PATRONES_ERROR_TEST = (
     "syntaxerror",
     "indentationerror",
@@ -90,7 +98,7 @@ class ReglasRevisionPython:
 
         valores_disponibles = cls.valores_de_aserciones(
             arbol,
-            None if contrato.get("tipo") == "endpoint" else contrato["objetivo"],
+            None if contrato.get("tipo") == "endpoint" else _funcion_llamada(contrato),
         )
         excepciones_disponibles = cls._excepciones_esperadas(arbol)
         cantidad_aserciones = sum(

@@ -76,6 +76,7 @@ DIRECTORIOS_IGNORADOS = frozenset(
         "mutants",
         "multilenguaje",
         "dependencias",
+        "integracion",  # banco de #245: se abre como proyecto aparte
     }
 )
 #: Scripts de medición empírica versionados en bench/ que no forman parte del código a probar.

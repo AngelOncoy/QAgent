@@ -55,7 +55,7 @@ def _contexto_dependencias(contrato: dict[str, Any], ruta_proyecto: Path | None)
         nombre_simbolo = (
             contrato.get("manejador")
             if contrato.get("tipo") == "endpoint" and contrato.get("manejador")
-            else contrato["objetivo"]
+            else funcion_probada(contrato)
         )
         grafo = construir_grafo_dependencias(
             ruta_proyecto,
@@ -74,7 +74,16 @@ def _contexto(
     """Contexto del módulo de una función (los endpoints ya traen su declaración)."""
     if ruta_proyecto is None or contrato.get("tipo") == "endpoint":
         return None
-    return contexto_de_funcion(ruta_proyecto, contrato["modulo"], contrato["objetivo"])
+    return contexto_de_funcion(
+        ruta_proyecto, contrato["modulo"], funcion_probada(contrato)
+    )
+
+
+def funcion_probada(contrato: dict[str, Any]) -> str:
+    """Función que importa y llama el test: el objetivo, o la raíz de una integración."""
+    if contrato.get("tipo") == "integracion":
+        return str(contrato["cadena"][0])
+    return str(contrato["objetivo"])
 
 
 def crear_prompt(
@@ -89,8 +98,17 @@ def crear_prompt(
     correccion = (
         feedback if feedback else "No existe feedback porque este es el primer intento."
     )
+    regla_simulacion = "- Simula con mocks las funciones incluidas en llama_a."
     if contrato.get("tipo") == "endpoint":
         reglas_objetivo = _reglas_endpoint(contrato)
+    elif contrato.get("tipo") == "integracion":
+        reglas_objetivo = _reglas_integracion(contrato)
+        regla_simulacion = (
+            "- Simula solo lo que sale del proyecto; las funciones de la cadena "
+            "se ejecutan de verdad."
+        )
+        if contexto is not None:
+            reglas_objetivo += "\n" + _reglas_contexto(contrato)
     else:
         importacion = (
             f"from {modulo_importable(contrato['modulo'])} import "
@@ -116,7 +134,7 @@ REGLAS OBLIGATORIAS:
 - Un array sin esa metadata conserva su significado de lista.
 - No ejecutes el código para descubrir resultados.
 - No elimines, cambies ni debilites las aserciones; sin try/except, skip ni xfail.
-- Simula con mocks las funciones incluidas en llama_a.
+{regla_simulacion}
 - Devuelve únicamente código Python, sin explicaciones.
 - Este es el intento {intento}.
 
@@ -125,6 +143,27 @@ FEEDBACK DEL INTENTO ANTERIOR:
 {_texto_contexto(contexto)}
 {texto_dependencias}
 {MARCA_CONTRATO} {contrato_json}
+""".strip()
+
+
+def _reglas_integracion(contrato: dict[str, Any]) -> str:
+    """Reglas de una prueba de integración interna (#245, ADR-014)."""
+    raiz, *internas = contrato["cadena"]
+    importacion = f"from {modulo_importable(contrato['modulo'])} import {raiz}"
+    efectos = ", ".join(contrato.get("efectos") or []) or "(ninguno detectado)"
+    simulables = ", ".join(contrato.get("llama_a") or []) or "(ninguna)"
+    return f"""
+- Es una prueba de INTEGRACIÓN: llama a la función raíz y deja que se ejecuten DE VERDAD
+  las funciones internas de la cadena ({", ".join(internas)}). No las simules ni uses
+  patch sobre ellas.
+- Importa la raíz exactamente así: {importacion}
+- Llama a {raiz} con la entrada de cada caso.
+- Para un caso con "excepcion" usa: with pytest.raises(<Excepcion>).
+- Simula solo lo que sale del proyecto: red, base de datos, archivos, subprocesos, hora y
+  azar. Módulos de efecto que usa la raíz: {efectos}. Funciones internas de efecto
+  (simúlalas): {simulables}.
+- El valor esperado de cada caso sale SIEMPRE del contrato (firma y documentación de la
+  raíz), nunca del código de las funciones internas ni de ejecutarlas.
 """.strip()
 
 

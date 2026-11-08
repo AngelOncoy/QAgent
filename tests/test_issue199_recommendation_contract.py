@@ -114,7 +114,9 @@ def test_rechaza_motivo_vacio_o_de_tipo_incorrecto(motivo: Any) -> None:
     assert not contracts.es_valido(contracts.RECOMMENDATION_V1, dato)
 
 
-@pytest.mark.parametrize("tipo_prueba", ["unitaria", "integracion", "e2e", "", None, 3])
+@pytest.mark.parametrize(
+    "tipo_prueba", ["unitaria", "integracion_externa", "e2e", "", None, 3]
+)
 def test_rechaza_tipo_de_prueba_fuera_del_vocabulario(tipo_prueba: Any) -> None:
     dato = recomendacion()
     dato["recomendaciones"][0]["tipo_prueba"] = tipo_prueba

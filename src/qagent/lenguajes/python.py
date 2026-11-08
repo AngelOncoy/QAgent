@@ -58,6 +58,42 @@ from qagent.sandbox.mutacion import (
 )
 
 
+def _agregar_integraciones(
+    estructura: Estructura, raiz: str | os.PathLike[str]
+) -> None:
+    """Agrega ``integraciones`` a los módulos con cadenas candidatas (#245)."""
+    from qagent.analysis.integracion import candidatas, lector_de_proyecto
+    from qagent.config import Integracion, cargar_configuracion
+
+    try:
+        config = cargar_configuracion(simulado=True).config
+        limites = config.integracion if config is not None else Integracion()
+        cadenas = candidatas(
+            estructura["modulos"],
+            lector_de_proyecto(raiz),
+            profundidad_max=limites.profundidad_max,
+            max_funciones=limites.max_funciones,
+        )
+    except (OSError, ValueError, KeyError):  # sin cadenas, el análisis sigue igual
+        return
+    por_modulo: dict[str, list[dict[str, Any]]] = {}
+    for cadena in cadenas:
+        por_modulo.setdefault(cadena.modulo, []).append(
+            {
+                "nombre": cadena.raiz,
+                "objetivo": f"integracion_{cadena.raiz}",
+                "cadena": list(cadena.funciones),
+                "modulos": dict(cadena.modulos),
+                "a_simular": list(cadena.a_simular),
+                "efectos": list(cadena.efectos_raiz),
+                "recortada": cadena.recortada,
+            }
+        )
+    for modulo in estructura["modulos"]:
+        if modulo["ruta"] in por_modulo:
+            modulo["integraciones"] = por_modulo[modulo["ruta"]]
+
+
 class PythonAdapter(LanguageAdapter):
     """Python 3.10+ con pytest; endpoints FastAPI con TestClient."""
 
@@ -66,7 +102,7 @@ class PythonAdapter(LanguageAdapter):
     marcadores = ("pyproject.toml", "setup.py", "setup.cfg", "requirements.txt")
     frameworks_pruebas = ("pytest",)
     frameworks_app = ("fastapi",)
-    tipos_prueba = ("funcion", "endpoint", "mutacion")
+    tipos_prueba = ("funcion", "endpoint", "mutacion", "integracion")
     motor_mutacion = "mutmut"
     comprobar_librerias_sistema = True
 
@@ -78,8 +114,15 @@ class PythonAdapter(LanguageAdapter):
         return [p.relative_to(carpeta).as_posix() for p in listar_archivos_py(carpeta)]
 
     def analizar(self, raiz: str | os.PathLike[str]) -> Estructura:
-        """``analizar_proyecto(raiz)`` (tree-sitter) con ``lenguaje: "python"``."""
-        return {"lenguaje": self.lenguaje, **analizar_proyecto(raiz)}
+        """``analizar_proyecto(raiz)`` (tree-sitter) con ``lenguaje: "python"``.
+
+        Cada módulo con funciones que llaman a otras funciones puras del proyecto trae
+        además ``integraciones`` (#245, ADR-014): las cadenas candidatas a una prueba
+        de integración interna. Sin candidatas, la clave no aparece.
+        """
+        estructura: Estructura = {"lenguaje": self.lenguaje, **analizar_proyecto(raiz)}
+        _agregar_integraciones(estructura, raiz)
+        return estructura
 
     def comando_pruebas(self, modulo: str, framework: str | None = None) -> list[str]:
         """``comando_pytest(modulo)``: pytest con cobertura de ramas y junit.xml."""

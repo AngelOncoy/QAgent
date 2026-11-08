@@ -84,7 +84,13 @@ VERSIONES: dict[str, dict[str, str]] = {
 #: Tipos que el contrato del futuro Recomendador puede representar en su primera
 #: versión. La integración de #197 deberá contrastarlos además con las capacidades
 #: del adaptador elegido para el proyecto (ADR-011).
-TIPOS_PRUEBA_RECOMENDABLES = ("funcion", "endpoint", "mutacion", "componente")
+TIPOS_PRUEBA_RECOMENDABLES = (
+    "funcion",
+    "endpoint",
+    "mutacion",
+    "componente",
+    "integracion",
+)
 
 #: Lenguajes que pueden aparecer en un contrato (EN-17) y sus frameworks válidos.
 #: Debe coincidir con los `enum` de los schemas v3 / v2 (lo verifica una prueba).

@@ -47,6 +47,7 @@ PLANES_V3 = [
     "planner_contract.v3.typescript",
     "planner_contract.v3.java",
     "planner_contract.v3.react",
+    "planner_contract.v3.integracion",
 ]
 TESTS_V2 = ["generated_test.v2", "generated_test.v2.java"]
 

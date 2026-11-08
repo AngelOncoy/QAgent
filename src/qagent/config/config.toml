@@ -22,6 +22,13 @@ iteraciones_promedio_max = 2.0   # intentos promedio por prueba
 [mutacion]
 tiempo_maximo_por_funcion_s = 120   # segundos por función crítica
 
+# Pruebas de integración interna (#245, ADR-014): una función raíz se prueba junto con las
+# funciones internas que llama. Estos límites acotan la cadena; si hay más, se recorta y el
+# informe lo dice.
+[integracion]
+profundidad_max = 2   # niveles de llamadas internas desde la raíz
+max_funciones = 4      # funciones por cadena, contando la raíz
+
 # Límites de cada contenedor del sandbox Docker (EN-03). Si Docker Desktop tiene menos
 # CPU asignados que `cpus`, se usan los que tenga. La memoria es también el tope de swap.
 # Solo los cambia el equipo aquí: ~/.qagent/config.local.toml no puede tocarlos.

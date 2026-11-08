@@ -167,6 +167,16 @@ class Mutacion:
 
 
 @dataclass(frozen=True)
+class Integracion:
+    """Pruebas de integración interna (#245, ADR-014): tamaño máximo de una cadena."""
+
+    #: Niveles de llamadas internas que se siguen desde la función raíz.
+    profundidad_max: int = 2
+    #: Funciones de una cadena, contando la raíz; si hay más se recorta y se avisa.
+    max_funciones: int = 4
+
+
+@dataclass(frozen=True)
 class Explicador:
     """Agente Explicador (HU-32, ADR-008): explica los hallazgos tras el veredicto."""
 
@@ -220,6 +230,7 @@ class Configuracion:
     )
     sandbox_python: SandboxPython = field(default_factory=SandboxPython)
     recomendador: Recomendador = Recomendador()
+    integracion: Integracion = Integracion()
 
     def limites_sandbox(self, lenguaje: str | None = None) -> LimitesSandbox:
         """Límites del sandbox para `lenguaje`; los de `[sandbox]` si no tiene propios.
@@ -662,6 +673,7 @@ def _leer_config(
     recomendador = _leer_recomendador(
         (datos.get("agentes") or {}).get("recomendador", {}), avisos
     )
+    integracion = _leer_integracion(datos.get("integracion", {}), avisos)
     if len(avisos) > antes:
         return None
     return Configuracion(
@@ -675,6 +687,7 @@ def _leer_config(
         sandbox_lenguajes,
         sandbox_python,
         recomendador,
+        integracion,
     )  # type: ignore[arg-type]
 
 
@@ -785,6 +798,21 @@ def _leer_mutacion(tabla: Mapping[str, Any], avisos: list[str]) -> Mutacion | No
         )
         return None
     return Mutacion(int(tiempo))
+
+
+def _leer_integracion(tabla: Mapping[str, Any], avisos: list[str]) -> Integracion:
+    """`[integracion]` es opcional; cada límite es un entero positivo."""
+    if not isinstance(tabla, Mapping):
+        avisos.append("[integracion] de config.toml debe ser una sección.")
+        return Integracion()
+    valores = {}
+    for clave, defecto in (("profundidad_max", 2), ("max_funciones", 4)):
+        valor = tabla.get(clave, defecto)
+        if isinstance(valor, bool) or not isinstance(valor, int) or valor < 1:
+            avisos.append(f"{clave} en [integracion] debe ser un entero positivo.")
+            valor = defecto
+        valores[clave] = valor
+    return Integracion(valores["profundidad_max"], valores["max_funciones"])
 
 
 def _leer_explicador(tabla: Mapping[str, Any], avisos: list[str]) -> Explicador | None:

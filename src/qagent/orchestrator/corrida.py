@@ -313,10 +313,15 @@ def ejecutar_corrida(
             _con_fuente(ruta, m)
             for m in filtrar_modulos(analisis["modulos"], seleccion)
         ]
-        n_funciones = sum(len(m["funciones"]) for m in modulos)
+        n_funciones = sum(
+            1 for m in modulos for f in m["funciones"] if not f.get("solo_integracion")
+        )
+        n_integraciones = sum(len(m.get("integraciones") or []) for m in modulos)
         n_endpoints = sum(len(m.get("endpoints") or []) for m in modulos)
         n_componentes = sum(len(m.get("componentes") or []) for m in modulos)
-        resumen.total_seleccionados = n_funciones + n_endpoints + n_componentes
+        resumen.total_seleccionados = (
+            n_funciones + n_endpoints + n_componentes + n_integraciones
+        )
         no_soportados = omitidos_de_interfaz(analisis)
         if no_soportados:
             avisar(no_soportados[0]["motivo"])
@@ -337,6 +342,9 @@ def ejecutar_corrida(
                 f"Análisis estático: {len(modulos)} módulo(s) con "
                 f"{n_funciones} función(es) pública(s)"
             )
+        if n_integraciones:
+            tipos = [*tipos, "integracion"]
+            avisar(f"Integración interna: {n_integraciones} cadena(s) de funciones")
         if not modulos:
             raise ErrorCorrida(
                 "El proyecto no tiene funciones públicas ni endpoints que revisar."
@@ -1217,13 +1225,18 @@ def _objetivos_de(modulo: dict[str, Any]) -> set[str]:
     Un endpoint sin ruta resuelta no se planifica (el Planner lo omite), así que no
     cuenta como faltante en la spec.
     """
-    funciones = {f["nombre"] for f in modulo.get("funciones") or []}
+    funciones = {
+        f["nombre"]
+        for f in modulo.get("funciones") or []
+        if not f.get("solo_integracion")  # #245: solo sirve para derivar la integración
+    }
     endpoints = {
         e["objetivo"]
         for e in modulo.get("endpoints") or []
         if e.get("objetivo") and e.get("resuelta", True)
     }
-    return funciones | endpoints
+    integraciones = {i["objetivo"] for i in modulo.get("integraciones") or []}
+    return funciones | endpoints | integraciones
 
 
 def _combinar_plan(
