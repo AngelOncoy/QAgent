@@ -425,7 +425,10 @@ function renderCabeceraBandeja(todos, v){
   const porRevisar = Math.max(0, procesados - pasaron);
   const subPasaron = [`${porRevisar} procesados con algo por revisar`, omitidas ? `${omitidas} sin probar (omitidos)` : '', pendientes ? `${pendientes} pendientes` : ''].filter(Boolean).join(' · ');
   const k = v ? v.indicadores : null;
-  const cobertura = k ? k.cobertura.lineas : (total ? todos.reduce((s, e) => s + (Number(e.cobLineas) || 0), 0) / total : null);
+  // #266: sin backend, la cobertura promedia solo lo que tiene prueba (lo omitido o sin prueba no baja ni sube el número).
+  const conPrueba = todos.filter(e => (e.bandeja === 'paso' || e.bandeja === 'bug') && Number.isFinite(Number(e.cobLineas)));
+  const cobertura = k ? k.cobertura.lineas : (conPrueba.length ? conPrueba.reduce((s, e) => s + Number(e.cobLineas), 0) / conPrueba.length : null);
+  const sinCobertura = total - conPrueba.length;
   const ramas = k ? k.cobertura.ramas : null;
   const tokens = k ? k.costo.tokens_total : null;
   const reales = k && k.costo ? k.costo.tokens_reales : null;
@@ -438,7 +441,7 @@ function renderCabeceraBandeja(todos, v){
   $('kpis').innerHTML = `
     <div class="exp-cifra"><span class="exp-cifra-etq">Aprobados</span><b>${pasaron} / ${procesados}</b><span class="exp-cifra-sub">${subPasaron}</span></div>
     <div class="exp-cifra"><span class="exp-cifra-etq">Posibles bugs</span><b class="${bugs.length ? 'bnj-cifra-bug' : ''}">${bugs.length}</b><span class="exp-cifra-sub">En ${bugs.length} de ${procesados} objetivos procesados</span></div>
-    <div class="exp-cifra"><span class="exp-cifra-etq" title="Porcentaje de líneas del código que ejecutaron las pruebas">Cobertura ⓘ</span><b>${pctTexto(cobertura)}</b><span class="exp-cifra-sub">${k && k.cobertura.exige_ramas === false ? 'Ramas no exigidas en Humo' : ramas !== null && ramas !== undefined ? pctTexto(ramas) + ' de las ramas' : 'De las líneas del código'}</span></div>
+    <div class="exp-cifra"><span class="exp-cifra-etq" title="Porcentaje de líneas del código que ejecutaron las pruebas">Cobertura ⓘ</span><b>${pctTexto(cobertura)}</b><span class="exp-cifra-sub">${k && k.cobertura.exige_ramas === false ? 'Ramas no exigidas en Humo' : ramas !== null && ramas !== undefined ? pctTexto(ramas) + ' de las ramas' : 'De las líneas del código'}${sinCobertura > 0 ? ` · ${sinCobertura} ${sinCobertura === 1 ? 'objetivo sin prueba no cuenta' : 'objetivos sin prueba no cuentan'}` : ''}</span></div>
     <div class="exp-cifra"><span class="exp-cifra-etq">Tokens de la corrida</span><b>${tokens === null ? '—' : Number(tokens).toLocaleString('es-PE')}</b><span class="exp-cifra-sub">${subTokens}</span></div>`;
   const etiquetasResumen = {
     bug: ['posible bug', 'posibles bugs'], sin: ['sin prueba', 'sin pruebas'],

@@ -299,7 +299,9 @@ function finishRun(){
   registrarEnPython({tipo:'fin', agente:'Corrida #' + RUN_ID, mensaje:`completada: ${RUN_TOTAL} funciones procesadas`});
   $('skipBtn').classList.add('hide');
   if (typeof desbloquearVista === 'function') { desbloquearVista('exec'); desbloquearVista('history'); }
-  PRG.fin = {ok: true, t: Date.now(), runId: null};
+  // #266: la demostración también termina con avisos (una función quedó estancada) y aclara que solo simula funciones.
+  PRG.fin = {ok: true, conAvisos: true, omitidos: 0, pendientes: 0, estancadas: 1, t: Date.now(), runId: null};
+  PRG.alerta = {titulo: 'Corrida de demostración: 1 función quedó sin prueba', texto: 'La demostración simula solo las 9 funciones de ejemplo; los endpoints seleccionados no se ejecutan aquí. Con la app de escritorio se procesan funciones y endpoints.'};
   if (typeof metrics === 'function') { const m = metrics(); $('prgTokens').textContent = Number(m.tokens).toLocaleString('es-PE'); $('prgTokensSub').textContent = 'Datos de la demostración'; }
   pintarProgreso();
 }
@@ -378,7 +380,8 @@ function monitorFinReal(r){
   if (duracion !== null) PRG.inicio = Date.now() - duracion * 1000;
   const omitidos = Number(r.objetivos_omitidos || 0);
   const pendientes = Number(r.total_pendientes || 0);
-  PRG.fin = {ok, cancelada, conErrores, conAvisos: ok && omitidos > 0, omitidos, pendientes, t: Date.now(), runId: r.run_id && r.carpeta ? r.run_id : null, duracion};
+  const estancadas = Number(r.estancadas || 0);   // #266: un objetivo sin prueba no deja la corrida en verde
+  PRG.fin = {ok, cancelada, conErrores, conAvisos: ok && (omitidos > 0 || estancadas > 0), omitidos, pendientes, estancadas, t: Date.now(), runId: r.run_id && r.carpeta ? r.run_id : null, duracion};
   // El total y lo procesado salen del resumen final, no de los eventos en vivo.
   if (Number(r.total_seleccionados) > 0) PRG.total = Number(r.total_seleccionados);
   if (Number.isFinite(Number(r.total_procesados))) PRG.hechos = Number(r.total_procesados);
@@ -396,6 +399,9 @@ function monitorFinReal(r){
   } else if (omitidos) {
     PRG.alerta = {titulo: `${omitidos} ${omitidos === 1 ? 'objetivo no se probó' : 'objetivos no se probaron'}`,
       texto: 'No tienen un resultado esperado verificable en su especificación o su ruta no se pudo resolver. Revísalos en Resultados, en «No se probaron».'};
+  } else if (estancadas) {
+    PRG.alerta = {titulo: `${estancadas} ${estancadas === 1 ? 'objetivo quedó sin prueba' : 'objetivos quedaron sin prueba'}`,
+      texto: 'Se agotaron los intentos sin lograr una prueba válida. Revísalos en Resultados, en «Sin prueba».'};
   }
   if(PRG.fin.runId){   // HU-18: Resultados lee el results.json de esta corrida
     if (typeof desbloquearVista === 'function') { desbloquearVista('exec'); desbloquearVista('history'); }
