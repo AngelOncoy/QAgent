@@ -434,7 +434,7 @@ function renderCabeceraBandeja(todos, v){
   const reales = k && k.costo ? k.costo.tokens_reales : null;
   const estimados = k && k.costo ? k.costo.tokens_estimados : null;
   const subTokens = tokens === null
-    ? 'Disponible en la app de escritorio'
+    ? (enAppEscritorio() ? 'Esta corrida no registró el consumo de tokens' : 'Disponible en la app de escritorio')
     : (estimados > 0)
     ? `${Number(reales || 0).toLocaleString('es-PE')} reales · ${Number(estimados).toLocaleString('es-PE')} estimados`
     : 'Sumando las tres etapas';

@@ -726,11 +726,12 @@ function endpointsElegibles(m){ return (m.endpoints || []).filter(endpointElegib
 function endpointsIncluidos(m){ return endpointsElegibles(m).filter(e => e.inc); }
 
 // Totales detectados (no seleccionados): el selector muestra lo que se encontró, no lo elegido.
+// #266 (I1): las pestañas cuentan lo mismo que la tabla y «Seleccionar todas»: solo las carpetas incluidas.
 function totalFuncionesDetectadas(){
-  return MODULES.filter(m => !m.error).flatMap(m => m.fns || []).length;
+  return MODULES.filter(m => !m.error && m.sel).flatMap(m => m.fns || []).length;
 }
 function totalEndpointsDetectados(){
-  return MODULES.filter(m => !m.error).flatMap(m => m.endpoints || []).length;
+  return MODULES.filter(m => !m.error && m.sel).flatMap(m => m.endpoints || []).length;
 }
 
 // Selector Funciones/Endpoints: cuenta los detectados, deshabilita la opción sin objetivos y
