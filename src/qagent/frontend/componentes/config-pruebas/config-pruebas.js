@@ -318,7 +318,7 @@ function renderRegresionProfunda(repetibles){
   const motivo = !HAS_PRIOR_RUN
     ? 'Disponible cuando haya pruebas aprobadas y guardadas de este proyecto.'
     : !datosListos
-      ? 'No se pudo comprobar la vigencia de las pruebas guardadas.'
+      ? 'No se pudo confirmar si las pruebas guardadas siguen vigentes. Vuelve a abrir el proyecto para comprobarlo.'
       : repetibles === 0
         ? 'Ninguna función crítica seleccionada tiene una prueba guardada válida.'
         : `${repetibles} ${repetibles === 1 ? 'función crítica elegible' : 'funciones críticas elegibles'}.`;
@@ -547,6 +547,12 @@ function renderDetallesCorrida(e, bloqueado, prioritarias, epsPrioritarios = 0){
     <button type="button" class="ini-enlace prep-enlace" onclick="go('config')">Ajustar en Configuración</button>`;
 }
 
+// Si lo único que falta son los tipos de prueba de esta pantalla (#266).
+function destinoBloqueoPrevio(lista){
+  const pend = lista.filter(c => c.ok === false);
+  return pend.length && pend.every(c => c.tipos) ? 'tipos' : null;
+}
+
 // Botón principal: inicia la corrida si todo está listo; si no, lleva a resolver lo pendiente.
 let destinoBloqueo = null;
 const NUMEROS = ['', 'una', 'dos', 'tres', 'cuatro', 'cinco', 'seis'];
@@ -592,6 +598,7 @@ function calc(){
   $('prepSub').textContent = bloqueado ? 'Resuelve estos puntos antes de empezar.' : resumen;
   $('prepTitulo').textContent = verificando ? 'Comprobando tu entorno…'
     : !bloqueado ? 'Prepara una corrida fiable'
+    : destinoBloqueoPrevio(lista) === 'tipos' ? 'Elige qué tipos de prueba hacer'   // #266: dice qué falta, no «una comprobación»
     : pendientes <= 1 ? 'Falta una comprobación' : `Faltan ${NUMEROS[pendientes] || pendientes} comprobaciones`;
   // El botón principal lleva a resolver lo pendiente: Explorar, los tipos de esta pantalla o Configuración.
   const pend = lista.filter(c => c.ok === false);

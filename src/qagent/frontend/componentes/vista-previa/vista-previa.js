@@ -811,7 +811,7 @@ function renderFns(){
       <td class="fn" title="${escHtml(f.n + f.sig)}">${escHtml(f.n)}${tieneDocstring(f) === false ? etiquetaSinDocstring('funcion') : ''}<div class="sub">${escHtml(m.path)}</div></td>
       <td>${textoComplejidad(f.br)}</td>
       <td>${textoDesdeUltimaVez(m)}</td>
-      <td class="col-prof"><input type="checkbox" class="exp-caja" aria-label="Profundizar: ${escHtml(f.n)}" ${f.crit ? 'checked' : ''} title="Profundizar: solicita un análisis más exhaustivo de la función. Se aplica si activas Profundizar en la configuración de pruebas." onchange="toggle(${mi},${fi},'crit')"></td>
+      <td class="col-prof"><input type="checkbox" class="exp-caja" aria-label="Profundizar: ${escHtml(f.n)}" ${f.crit ? 'checked' : ''} ${f.inc ? '' : 'disabled'} title="${f.inc ? 'Profundizar: solicita un análisis más exhaustivo de la función. Se aplica si activas Profundizar en la configuración de pruebas.' : 'Incluye la función para poder profundizar en ella.'}" onchange="toggle(${mi},${fi},'crit')"></td>
     </tr>`).join('') || `<tr><td colspan="5" class="exp-vacio">${BUSQUEDA ? 'Ninguna función coincide con la búsqueda.' : 'No hay funciones en las carpetas incluidas.'}</td></tr>`;
   renderEndpoints();
   actualizarSelectorObjetivos();
