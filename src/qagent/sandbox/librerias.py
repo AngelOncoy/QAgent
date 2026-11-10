@@ -94,11 +94,18 @@ AVISO_INFORME_ILEGIBLE = (
     "No se pudo leer el informe de librerías del sistema en el entorno aislado"
 )
 
+#: Revisión del mecanismo de comprobación: si cambia la forma de comprobar o
+#: construir la imagen final, se incrementa para invalidar imágenes anteriores
+#: (por ejemplo, imágenes construidas con un lector de informes defectuoso).
+REVISION_LIBRERIAS = 2
+
 
 def _version() -> str:
-    """Huella de la tabla y del script: si cambian, la imagen final se reconstruye."""
+    """Huella de la tabla, del script y de la revisión del mecanismo."""
     contenido = (
-        json.dumps(TABLA_LIBRERIAS, sort_keys=True).encode() + SCRIPT.read_bytes()
+        f"v{REVISION_LIBRERIAS}:".encode()
+        + json.dumps(TABLA_LIBRERIAS, sort_keys=True).encode()
+        + SCRIPT.read_bytes()
     )
     return hashlib.sha256(contenido).hexdigest()[:8]
 
