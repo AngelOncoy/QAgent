@@ -34,7 +34,7 @@ def escribir_texto_atomico(ruta: Path, texto: str) -> None:
     """
     ruta.parent.mkdir(parents=True, exist_ok=True)
     descriptor, temporal = tempfile.mkstemp(
-        prefix=f".{ruta.name}.", suffix=".tmp", dir=ruta.parent
+        prefix=".qa-", suffix=".tmp", dir=ruta.parent
     )
     try:
         with os.fdopen(descriptor, "w", encoding="utf-8", newline="\n") as archivo:

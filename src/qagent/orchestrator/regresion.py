@@ -13,7 +13,7 @@ from typing import Any
 
 from qagent import contracts
 from qagent.agents.planner import contrato_sin_triviales
-from qagent.almacenamiento import AlmacenProyecto
+from qagent.almacenamiento import AlmacenProyecto, id_de_spec
 from qagent.almacenamiento.proyecto import VERSION_HUELLA_OBJETIVO
 from qagent.analysis.analyzer import calcular_huella
 from qagent.lenguajes import REGISTRO, LanguageAdapter, adaptador_de_contrato
@@ -129,6 +129,7 @@ def _cobertura(datos: dict[str, Any] | None) -> dict[str, float | None] | None:
 def _specs_aprobadas(almacen: AlmacenProyecto) -> list[dict[str, Any]]:
     """Lee candidatas aprobadas y conserva hashes corruptos para bloquearlos."""
     candidatas: list[dict[str, Any]] = []
+    por_objetivo: dict[str, dict[str, Any]] = {}
     if not almacen.carpeta_specs.is_dir():
         return candidatas
     for ruta in sorted(almacen.carpeta_specs.glob("*.json")):
@@ -147,6 +148,12 @@ def _specs_aprobadas(almacen: AlmacenProyecto) -> list[dict[str, Any]]:
             contracts.ContratoInvalido,
         ):
             continue
+        identidad = id_de_spec(contrato["modulo"], contrato["objetivo"])
+        if identidad not in por_objetivo or spec.get("id") == identidad:
+            por_objetivo[identidad] = spec
+    # Un guardado nuevo reemplaza lógicamente al antiguo, incluso si dejó de aprobar.
+    # Los archivos históricos se conservan y no se repiten ambos objetivos (#268).
+    for spec in por_objetivo.values():
         archivo = spec.get("archivo_prueba")
         if spec.get("estado") != "vigente" or not isinstance(archivo, str):
             continue

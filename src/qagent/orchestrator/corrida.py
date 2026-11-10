@@ -687,6 +687,7 @@ def ejecutar_corrida(
             ia=_ContextoIA(claves, simulado, cancelado, _docstrings(modulos)),
             no_soportados=no_soportados,
             fuera_de_la_corrida=fuera,
+            al_aviso=lambda mensaje: avisar(mensaje, "aviso"),
         )
     except Exception as error:  # noqa: BLE001 — la corrida nunca debe tumbar la app
         if "tracker" in locals():
@@ -1071,6 +1072,7 @@ def _registrar(
     ia: _ContextoIA | None = None,
     no_soportados: list[dict[str, str]] | None = None,
     fuera_de_la_corrida: list[dict[str, Any]] | None = None,
+    al_aviso: Callable[[str], None] | None = None,
 ) -> None:
     """log.json y results.json, specs y pruebas aprobadas, y cierre del run.json.
 
@@ -1135,9 +1137,19 @@ def _registrar(
                     archivo = nombre_prueba(spec_id)
                     almacen.guardar_prueba_aprobada(archivo, objetivo.codigo)
                 elif objetivo.decision == "bug_detectado" and objetivo.codigo:
-                    almacen.guardar_evidencia_bug(
-                        objetivo.contrato, objetivo.codigo, resumen.run_id
-                    )
+                    try:
+                        almacen.guardar_evidencia_bug(
+                            objetivo.contrato, objetivo.codigo, resumen.run_id
+                        )
+                    except (OSError, ErrorAlmacen) as error:
+                        mensaje = (
+                            f"Se detectó un bug en {objetivo.objetivo}, pero no se pudo "
+                            "guardar su evidencia. El resultado se conserva y la "
+                            "corrida continúa; revisa el espacio y los permisos de la carpeta."
+                        )
+                        _registro.warning("%s (%s)", mensaje, error)
+                        if al_aviso is not None:
+                            al_aviso(mensaje)
                 huella = huellas_objetivos.get((resultado.modulo, objetivo.objetivo))
                 contrato, perfil_spec = guardadas.get(
                     (resultado.modulo, objetivo.objetivo), (objetivo.contrato, None)
