@@ -286,6 +286,35 @@ def test_cliente_simulado_detecta_faltantes_y_pide_paquetes_por_logs() -> None:
     assert "for p in libgl1; do" in cliente.dockerfiles[1]
 
 
+def test_no_quedan_containers_run_sin_detach_en_src() -> None:
+    """Verifica que toda invocación a containers.run en src/ use detach=True."""
+    import ast
+
+    raiz_src = Path(__file__).resolve().parents[2] / "src" / "qagent"
+    llamadas_sin_detach = []
+    for py_file in raiz_src.rglob("*.py"):
+        arbol = ast.parse(py_file.read_text("utf-8"), filename=str(py_file))
+        for nodo in ast.walk(arbol):
+            if isinstance(nodo, ast.Call):
+                func = nodo.func
+                if (
+                    isinstance(func, ast.Attribute)
+                    and func.attr == "run"
+                    and isinstance(func.value, ast.Attribute)
+                    and func.value.attr == "containers"
+                ):
+                    tiene_detach = any(
+                        kw.arg == "detach" and getattr(kw.value, "value", None) is True
+                        for kw in nodo.keywords
+                    )
+                    if not tiene_detach:
+                        llamadas_sin_detach.append(f"{py_file.name}:{nodo.lineno}")
+
+    assert not llamadas_sin_detach, (
+        f"Se encontraron containers.run sin detach=True: {llamadas_sin_detach}"
+    )
+
+
 def test_describir_faltantes_ignora_entradas_sin_libreria() -> None:
     assert describir_faltantes([{"modulos": ["x"]}]) == []
 
