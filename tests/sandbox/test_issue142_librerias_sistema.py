@@ -110,22 +110,31 @@ def test_la_etiqueta_final_depende_de_la_tabla(monkeypatch) -> None:
 
 
 def _cliente(informes: list[bytes], final_existe: bool = False) -> MagicMock:
-    """Cliente simulado: guarda cada Dockerfile construido y devuelve los informes."""
+    """Cliente simulado: guarda cada Dockerfile construido y devuelve los informes vía logs()."""
     cliente = MagicMock()
     cliente.dockerfiles = []
+    cola_informes = list(informes)
 
     def obtener(etiqueta):
         if etiqueta.endswith(librerias.VERSION_LIBRERIAS) and not final_existe:
-            raise ImageNotFound("no existe")
+            raise ImageNotFound(etiqueta)
         return MagicMock()
 
-    def construir(path, **_):
+    def construir(path=None, **kwargs):
         cliente.dockerfiles.append((Path(path) / "Dockerfile").read_text("utf-8"))
         assert (Path(path) / "verificar_entorno.py").is_file()
 
+    def correr(_imagen, _comando, **kwargs):
+        assert kwargs.get("detach") is True
+        assert kwargs.get("network_mode") == "none"
+        contenedor = MagicMock()
+        informe = cola_informes.pop(0) if cola_informes else b"{}"
+        contenedor.logs.return_value = informe
+        return contenedor
+
     cliente.images.get.side_effect = obtener
     cliente.images.build.side_effect = construir
-    cliente.containers.run.side_effect = list(informes)
+    cliente.containers.run.side_effect = correr
     return cliente
 
 
@@ -150,8 +159,9 @@ def test_si_falta_libgl_se_instala_libgl1_y_se_vuelve_a_comprobar() -> None:
     assert "for p in libgl1; do" in segunda
     assert avances[0] == AVISO_COMPROBANDO
     assert any("libgl1" in a for a in avances)
-    # El informe se lee sin red.
+    # El informe se lee sin red y con detach=True.
     assert cliente.containers.run.call_args.kwargs["network_mode"] == "none"
+    assert cliente.containers.run.call_args.kwargs["detach"] is True
 
 
 def test_si_no_falta_nada_se_construye_una_sola_vez() -> None:
@@ -261,6 +271,19 @@ def test_leer_informe_quita_el_contenedor_tambien_si_falla() -> None:
 
     assert resultado == {"faltantes": []}
     contenedor.remove.assert_called_once_with(force=True)
+
+
+def test_cliente_simulado_detecta_faltantes_y_pide_paquetes_por_logs() -> None:
+    """Con un cliente simulado que devuelve el informe por logs(),
+    se detectan los faltantes y se piden los paquetes correctos.
+    """
+    cliente = _cliente([_informe(LIBGL), _informe()])
+    entorno = asegurar_librerias_sistema(DEPENDENCIAS, cliente)
+
+    assert entorno.imagen == etiqueta_final(DEPENDENCIAS)
+    assert entorno.faltantes == []
+    assert len(cliente.dockerfiles) == 2
+    assert "for p in libgl1; do" in cliente.dockerfiles[1]
 
 
 def test_describir_faltantes_ignora_entradas_sin_libreria() -> None:
