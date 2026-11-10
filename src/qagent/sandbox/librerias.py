@@ -17,6 +17,7 @@ script, así que cambiar cualquiera de los dos la reconstruye (sin reinstalar `p
 
 from __future__ import annotations
 
+import contextlib
 import hashlib
 import json
 import logging
@@ -242,13 +243,22 @@ def leer_informe(cliente: Any, imagen: str) -> dict[str, Any]:
 
     Un informe ilegible cuenta como «sin faltantes»: no es motivo para frenar la corrida.
     """
+    contenedor = None
     try:
-        salida = cliente.containers.run(
+        contenedor = cliente.containers.run(
             imagen,
             ["cat", RUTA_INFORME],
+            detach=True,
             network_mode="none",
-            remove=True,
         )
+        if hasattr(contenedor, "wait"):
+            contenedor.wait()
+        if hasattr(contenedor, "logs"):
+            salida = contenedor.logs(stdout=True, stderr=False)
+        else:
+            salida = contenedor
+        if salida is None:
+            raise ValueError("El contenedor no devolvió salida")
         texto = salida.decode("utf-8") if isinstance(salida, bytes) else str(salida)
         informe = json.loads(texto)
     except Exception as error:  # noqa: BLE001 — el informe es solo informativo
@@ -256,6 +266,10 @@ def leer_informe(cliente: Any, imagen: str) -> dict[str, Any]:
             "No se pudo leer el informe del entorno de %s: %s", imagen, error
         )
         return {"faltantes": []}
+    finally:
+        if contenedor is not None and hasattr(contenedor, "remove"):
+            with contextlib.suppress(Exception):
+                contenedor.remove(force=True)
     return informe if isinstance(informe, dict) else {"faltantes": []}
 
 

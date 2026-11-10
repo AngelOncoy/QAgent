@@ -237,6 +237,18 @@ def test_un_informe_ilegible_no_frena_la_corrida(salida) -> None:
     assert leer_informe(cliente, "imagen") == {"faltantes": []}
 
 
+def test_leer_informe_quita_el_contenedor_tambien_si_falla() -> None:
+    cliente = MagicMock()
+    contenedor = MagicMock()
+    contenedor.wait.side_effect = RuntimeError("error en wait")
+    cliente.containers.run.return_value = contenedor
+
+    resultado = leer_informe(cliente, "imagen")
+
+    assert resultado == {"faltantes": []}
+    contenedor.remove.assert_called_once_with(force=True)
+
+
 def test_describir_faltantes_ignora_entradas_sin_libreria() -> None:
     assert describir_faltantes([{"modulos": ["x"]}]) == []
 
