@@ -17,6 +17,7 @@ from docker.errors import BuildError, ImageNotFound
 from qagent.sandbox import librerias, verificar_entorno
 from qagent.sandbox.librerias import (
     AVISO_COMPROBANDO,
+    AVISO_INFORME_ILEGIBLE,
     RUTA_INFORME,
     TABLA_LIBRERIAS,
     EntornoVerificado,
@@ -109,22 +110,31 @@ def test_la_etiqueta_final_depende_de_la_tabla(monkeypatch) -> None:
 
 
 def _cliente(informes: list[bytes], final_existe: bool = False) -> MagicMock:
-    """Cliente simulado: guarda cada Dockerfile construido y devuelve los informes."""
+    """Cliente simulado: guarda cada Dockerfile construido y devuelve los informes vía logs()."""
     cliente = MagicMock()
     cliente.dockerfiles = []
+    cola_informes = list(informes)
 
     def obtener(etiqueta):
         if etiqueta.endswith(librerias.VERSION_LIBRERIAS) and not final_existe:
-            raise ImageNotFound("no existe")
+            raise ImageNotFound(etiqueta)
         return MagicMock()
 
-    def construir(path, **_):
+    def construir(path=None, **kwargs):
         cliente.dockerfiles.append((Path(path) / "Dockerfile").read_text("utf-8"))
         assert (Path(path) / "verificar_entorno.py").is_file()
 
+    def correr(_imagen, _comando, **kwargs):
+        assert kwargs.get("detach") is True
+        assert kwargs.get("network_mode") == "none"
+        contenedor = MagicMock()
+        informe = cola_informes.pop(0) if cola_informes else b"{}"
+        contenedor.logs.return_value = informe
+        return contenedor
+
     cliente.images.get.side_effect = obtener
     cliente.images.build.side_effect = construir
-    cliente.containers.run.side_effect = list(informes)
+    cliente.containers.run.side_effect = correr
     return cliente
 
 
@@ -149,8 +159,9 @@ def test_si_falta_libgl_se_instala_libgl1_y_se_vuelve_a_comprobar() -> None:
     assert "for p in libgl1; do" in segunda
     assert avances[0] == AVISO_COMPROBANDO
     assert any("libgl1" in a for a in avances)
-    # El informe se lee sin red.
+    # El informe se lee sin red y con detach=True.
     assert cliente.containers.run.call_args.kwargs["network_mode"] == "none"
+    assert cliente.containers.run.call_args.kwargs["detach"] is True
 
 
 def test_si_no_falta_nada_se_construye_una_sola_vez() -> None:
@@ -229,12 +240,79 @@ def test_si_falla_la_ronda_con_paquetes_queda_la_anterior() -> None:
     assert [f["libreria"] for f in entorno.faltantes] == ["libGL.so.1"]
 
 
-@pytest.mark.parametrize("salida", [b"no es json", b"[1, 2]", RuntimeError("caido")])
+@pytest.mark.parametrize(
+    "salida", [b"no es json", b"[1, 2]", b"", None, RuntimeError("caido")]
+)
 def test_un_informe_ilegible_no_frena_la_corrida(salida) -> None:
     cliente = MagicMock()
-    cliente.containers.run.side_effect = [salida]
+    contenedor = MagicMock()
+    if isinstance(salida, Exception):
+        cliente.containers.run.side_effect = salida
+    else:
+        contenedor.logs.return_value = salida
+        cliente.containers.run.return_value = contenedor
 
-    assert leer_informe(cliente, "imagen") == {"faltantes": []}
+    avances: list[str] = []
+    assert leer_informe(cliente, "imagen", avanzar=avances.append) == {"faltantes": []}
+    assert AVISO_INFORME_ILEGIBLE in avances
+    if not isinstance(salida, Exception):
+        contenedor.wait.assert_called_once()
+        contenedor.logs.assert_called_once_with(stdout=True, stderr=False)
+        contenedor.remove.assert_called_once_with(force=True)
+
+
+def test_leer_informe_quita_el_contenedor_tambien_si_falla() -> None:
+    cliente = MagicMock()
+    contenedor = MagicMock()
+    contenedor.wait.side_effect = RuntimeError("error en wait")
+    cliente.containers.run.return_value = contenedor
+
+    resultado = leer_informe(cliente, "imagen")
+
+    assert resultado == {"faltantes": []}
+    contenedor.remove.assert_called_once_with(force=True)
+
+
+def test_cliente_simulado_detecta_faltantes_y_pide_paquetes_por_logs() -> None:
+    """Con un cliente simulado que devuelve el informe por logs(),
+    se detectan los faltantes y se piden los paquetes correctos.
+    """
+    cliente = _cliente([_informe(LIBGL), _informe()])
+    entorno = asegurar_librerias_sistema(DEPENDENCIAS, cliente)
+
+    assert entorno.imagen == etiqueta_final(DEPENDENCIAS)
+    assert entorno.faltantes == []
+    assert len(cliente.dockerfiles) == 2
+    assert "for p in libgl1; do" in cliente.dockerfiles[1]
+
+
+def test_no_quedan_containers_run_sin_detach_en_src() -> None:
+    """Verifica que toda invocación a containers.run en src/ use detach=True."""
+    import ast
+
+    raiz_src = Path(__file__).resolve().parents[2] / "src" / "qagent"
+    llamadas_sin_detach = []
+    for py_file in raiz_src.rglob("*.py"):
+        arbol = ast.parse(py_file.read_text("utf-8"), filename=str(py_file))
+        for nodo in ast.walk(arbol):
+            if isinstance(nodo, ast.Call):
+                func = nodo.func
+                if (
+                    isinstance(func, ast.Attribute)
+                    and func.attr == "run"
+                    and isinstance(func.value, ast.Attribute)
+                    and func.value.attr == "containers"
+                ):
+                    tiene_detach = any(
+                        kw.arg == "detach" and getattr(kw.value, "value", None) is True
+                        for kw in nodo.keywords
+                    )
+                    if not tiene_detach:
+                        llamadas_sin_detach.append(f"{py_file.name}:{nodo.lineno}")
+
+    assert not llamadas_sin_detach, (
+        f"Se encontraron containers.run sin detach=True: {llamadas_sin_detach}"
+    )
 
 
 def test_describir_faltantes_ignora_entradas_sin_libreria() -> None:

@@ -17,6 +17,7 @@ script, así que cambiar cualquiera de los dos la reconstruye (sin reinstalar `p
 
 from __future__ import annotations
 
+import contextlib
 import hashlib
 import json
 import logging
@@ -88,12 +89,23 @@ AVISO_LISTAS = "Librerías del sistema listas en el entorno aislado"
 AVISO_INSTALANDO = "Instalando librerías del sistema que necesitan las dependencias"
 #: Así empieza el aviso de una librería sin resolver (el Monitor lo destaca).
 PREFIJO_FALTANTE = "Falta la librería del sistema"
+#: Aviso para el Monitor si el informe de comprobación no se puede leer.
+AVISO_INFORME_ILEGIBLE = (
+    "No se pudo leer el informe de librerías del sistema en el entorno aislado"
+)
+
+#: Revisión del mecanismo de comprobación: si cambia la forma de comprobar o
+#: construir la imagen final, se incrementa para invalidar imágenes anteriores
+#: (por ejemplo, imágenes construidas con un lector de informes defectuoso).
+REVISION_LIBRERIAS = 2
 
 
 def _version() -> str:
-    """Huella de la tabla y del script: si cambian, la imagen final se reconstruye."""
+    """Huella de la tabla, del script y de la revisión del mecanismo."""
     contenido = (
-        json.dumps(TABLA_LIBRERIAS, sort_keys=True).encode() + SCRIPT.read_bytes()
+        f"v{REVISION_LIBRERIAS}:".encode()
+        + json.dumps(TABLA_LIBRERIAS, sort_keys=True).encode()
+        + SCRIPT.read_bytes()
     )
     return hashlib.sha256(contenido).hexdigest()[:8]
 
@@ -180,7 +192,7 @@ def asegurar_librerias_sistema(
     try:
         if not _imagen_existe(cliente, final):
             _construir_con_rondas(cliente, imagen_dependencias, final, avanzar)
-        informe = leer_informe(cliente, final)
+        informe = leer_informe(cliente, final, avanzar=avanzar)
     except ErrorConstruccionImagen as error:
         registro.warning(
             "No se pudo comprobar el entorno de %s: %s", imagen_dependencias, error
@@ -205,7 +217,9 @@ def _construir_con_rondas(
                 raise
             registro.warning("No se pudieron instalar %s", ", ".join(sorted(paquetes)))
             break
-        nuevos = paquetes_para(leer_informe(cliente, final).get("faltantes") or [])
+        nuevos = paquetes_para(
+            leer_informe(cliente, final, avanzar=avanzar).get("faltantes") or []
+        )
         nuevos -= paquetes
         if not nuevos:
             break
@@ -237,26 +251,49 @@ def _construir_final(
         shutil.rmtree(contexto, ignore_errors=True)
 
 
-def leer_informe(cliente: Any, imagen: str) -> dict[str, Any]:
+def leer_informe(
+    cliente: Any, imagen: str, avanzar: Avance | None = None
+) -> dict[str, Any]:
     """Lee el informe de la comprobación guardado en la imagen (sin red).
 
-    Un informe ilegible cuenta como «sin faltantes»: no es motivo para frenar la corrida.
+    Un informe ilegible se avisa en el Monitor y cuenta como «sin faltantes»
+    para no frenar la corrida.
     """
+    contenedor = None
     try:
-        salida = cliente.containers.run(
+        contenedor = cliente.containers.run(
             imagen,
             ["cat", RUTA_INFORME],
+            detach=True,
             network_mode="none",
-            remove=True,
         )
+        if hasattr(contenedor, "wait"):
+            contenedor.wait()
+        if hasattr(contenedor, "logs"):
+            salida = contenedor.logs(stdout=True, stderr=False)
+        else:
+            salida = contenedor
+        if salida is None:
+            raise ValueError("El contenedor no devolvió salida")
         texto = salida.decode("utf-8") if isinstance(salida, bytes) else str(salida)
         informe = json.loads(texto)
+        if not isinstance(informe, dict):
+            raise TypeError(
+                f"El informe no es un objeto JSON: {type(informe).__name__}"
+            )
+        if informe.get("error"):
+            _avisar(avanzar, AVISO_INFORME_ILEGIBLE)
+        return informe
     except Exception as error:  # noqa: BLE001 — el informe es solo informativo
         registro.warning(
             "No se pudo leer el informe del entorno de %s: %s", imagen, error
         )
+        _avisar(avanzar, AVISO_INFORME_ILEGIBLE)
         return {"faltantes": []}
-    return informe if isinstance(informe, dict) else {"faltantes": []}
+    finally:
+        if contenedor is not None and hasattr(contenedor, "remove"):
+            with contextlib.suppress(Exception):
+                contenedor.remove(force=True)
 
 
 def describir_faltantes(faltantes: list[dict[str, Any]]) -> list[dict[str, Any]]:
