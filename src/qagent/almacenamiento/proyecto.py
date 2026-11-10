@@ -104,6 +104,8 @@ PATRON_RUN_ID = re.compile(r"^\d{8}-\d{6}-[0-9a-f]{4}$")
 PATRON_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_-]*$")
 PATRON_PRUEBA = re.compile(r"^test_[A-Za-z0-9_]+\.py$")
 PATRON_HUELLA = re.compile(r"^[0-9a-f]{64}$")
+#: Reserva espacio para carpetas, extensiones y temporales en Windows (#268).
+LIMITE_ID_ARCHIVO = 64
 #: Cómo se calculó `huella_objetivo` (huella de una función o endpoint). 1: `ast.dump`,
 #: hasta TA-16 (las specs viejas no traen el campo); 2: árbol de tree-sitter.
 VERSION_HUELLA_OBJETIVO = 2
@@ -121,13 +123,30 @@ def _nombre(ruta: Path) -> str:
     return ruta.name
 
 
-def id_de_spec(modulo: str, objetivo: str) -> str:
-    """Identificador estable de la spec de un objetivo: `<modulo>__<objetivo>`.
+def _archivo_anterior_existe(ruta: Path) -> bool:
+    """La búsqueda opcional de un nombre histórico no bloquea un guardado nuevo.
 
-    Solo letras, números y `_`, para usarlo como nombre de archivo en cualquier
-    sistema. Ej.: `("tienda/precios.py", "calcular")` -> `tienda_precios_py__calcular`;
-    `("api.py", "GET /items/{id}")` -> `api_py__GET_items_id` (endpoint).
+    Windows puede rechazar incluso stat() de un nombre viejo demasiado largo.
+    Los errores de la escritura actual siguen propagándose normalmente.
     """
+    try:
+        return ruta.is_file()
+    except OSError:
+        return False
+
+
+def _acotar_id(identificador: str, identidad: str | None = None) -> str:
+    """Conserva nombres cortos; los largos reciben un sufijo SHA-256 estable."""
+    if len(identificador) <= LIMITE_ID_ARCHIVO:
+        return identificador
+    huella = hashlib.sha256((identidad or identificador).encode("utf-8")).hexdigest()[
+        :16
+    ]
+    return f"{identificador[: LIMITE_ID_ARCHIVO - 17]}_{huella}"
+
+
+def _id_spec_anterior(modulo: str, objetivo: str) -> str:
+    """Identificador anterior a #268, solo para localizar registros existentes."""
 
     def limpiar(texto: str) -> str:
         return re.sub(r"[^A-Za-z0-9]+", "_", texto).strip("_")
@@ -135,13 +154,24 @@ def id_de_spec(modulo: str, objetivo: str) -> str:
     return f"{limpiar(modulo)}__{limpiar(objetivo)}"
 
 
+def id_de_spec(modulo: str, objetivo: str) -> str:
+    """Identificador estable de hasta 64 caracteres, independiente de la carpeta raíz.
+
+    Solo letras, números y `_`, para usarlo como nombre de archivo en cualquier
+    sistema. Ej.: `("tienda/precios.py", "calcular")` -> `tienda_precios_py__calcular`;
+    `("api.py", "GET /items/{id}")` -> `api_py__GET_items_id` (endpoint).
+    """
+
+    return _acotar_id(_id_spec_anterior(modulo, objetivo), f"{modulo}\0{objetivo}")
+
+
 def nombre_prueba(spec_id: str) -> str:
     """Nombre del archivo de la prueba aprobada de una spec: `test_<spec_id>.py`."""
-    return f"test_{spec_id.replace('-', '_')}.py"
+    return f"test_{_acotar_id(spec_id).replace('-', '_')}.py"
 
 
-def id_de_modulo(modulo: str) -> str:
-    """Identificador seguro y estable de un módulo para su caché HU-24."""
+def _id_modulo_anterior(modulo: str) -> str:
+    """Calcula el nombre histórico del plan para mantener su lectura (#268)."""
     ruta = PurePosixPath(modulo)
     if (
         ruta.is_absolute()
@@ -182,6 +212,11 @@ def id_de_modulo(modulo: str) -> str:
         sufijo = hashlib.sha256(modulo.encode("utf-8")).hexdigest()[:12]
         identificador = f"{identificador}--{sufijo}"
     return identificador
+
+
+def id_de_modulo(modulo: str) -> str:
+    """Identificador seguro y acotado del módulo; conserva los nombres cortos."""
+    return _acotar_id(_id_modulo_anterior(modulo), modulo)
 
 
 def huella_de_prueba(codigo: str) -> str:
@@ -555,6 +590,21 @@ class AlmacenProyecto:
             DatoCorrupto: si está dañada o no tiene el formato esperado.
         """
         ruta = self._ruta_spec(spec_id)
+        if not ruta.is_file() and self.carpeta_specs.is_dir():
+            # Un consumidor puede pedir el ID nuevo de una spec histórica sin migrarla.
+            for candidata in sorted(self.carpeta_specs.glob("*.json"), key=_nombre):
+                if candidata.name.endswith(".spec.json"):
+                    continue
+                try:
+                    anterior = leer_json_objeto(candidata)
+                    contrato = anterior["contrato"]
+                    _validar_spec(anterior)
+                    contracts.validar_versionado(contracts.FAMILIA_PLANNER, contrato)
+                except (ErrorAlmacen, contracts.ContratoInvalido, KeyError):
+                    continue
+                if id_de_spec(contrato["modulo"], contrato["objetivo"]) == spec_id:
+                    ruta = candidata
+                    break
         spec = leer_json_objeto(ruta)
         try:
             _validar_spec(spec)
@@ -575,7 +625,13 @@ class AlmacenProyecto:
                 specs.append(self.leer_spec(ruta.stem))
             except ErrorAlmacen:
                 continue
-        return specs
+        por_objetivo = {}
+        for spec in specs:
+            contrato = spec["contrato"]
+            identidad = id_de_spec(contrato["modulo"], contrato["objetivo"])
+            if identidad not in por_objetivo or spec["id"] == identidad:
+                por_objetivo[identidad] = spec
+        return sorted(por_objetivo.values(), key=lambda spec: spec["id"])
 
     def tiene_specs(self) -> bool:
         """Indica si hay al menos una spec válida (habilita el modo regresión)."""
@@ -747,7 +803,7 @@ class AlmacenProyecto:
 
     def leer_plan_modulo(self, modulo: str) -> dict[str, Any]:
         """Lee y valida la spec modular usada como caché del Planner."""
-        ruta = self._ruta_plan_modulo(modulo)
+        ruta = self._ruta_plan_modulo_lectura(modulo)
         plan = leer_json_objeto(ruta)
         try:
             _validar_plan_modulo(plan)
@@ -779,7 +835,17 @@ class AlmacenProyecto:
             except (ErrorAlmacen, contracts.ContratoInvalido):
                 continue
             planes.append(dato)
-        return planes
+        por_modulo = {}
+        for plan in planes:
+            modulo = plan["modulo"]
+            if modulo not in por_modulo:
+                # Leer por identidad da prioridad al formato actual si ambos existen.
+                try:
+                    preferido = self.leer_plan_modulo(modulo)
+                except ErrorAlmacen:
+                    continue
+                por_modulo[modulo] = preferido
+        return list(por_modulo.values())
 
     def registrar_specs_run(
         self, run_id: str, registros: list[dict[str, Any]]
@@ -797,7 +863,7 @@ class AlmacenProyecto:
             rutas = sorted(self.carpeta_specs.glob("*.spec.json"), key=_nombre)
             nombre = f"specs_{self.raiz.name}.zip"
         else:
-            ruta = self._ruta_plan_modulo(modulo)
+            ruta = self._ruta_plan_modulo_lectura(modulo)
             if not ruta.is_file():
                 raise DatoNoEncontrado(f"No existe la spec del módulo: {modulo}")
             rutas = [ruta]
@@ -813,6 +879,13 @@ class AlmacenProyecto:
 
     def _ruta_plan_modulo(self, modulo: str) -> Path:
         return self.carpeta_specs / nombre_spec_modulo(modulo)
+
+    def _ruta_plan_modulo_lectura(self, modulo: str) -> Path:
+        """Prefiere el plan actual; encuentra el anterior sin renombrarlo ni borrarlo."""
+        actual = self._ruta_plan_modulo(modulo)
+        if actual.is_file():
+            return actual
+        return self.carpeta_specs / f"{_id_modulo_anterior(modulo)}.spec.json"
 
     # --- Evidencias de bugs (#193) -------------------------------------------------
 
@@ -839,6 +912,17 @@ class AlmacenProyecto:
             raise ErrorAlmacen("El código de la evidencia de bug no puede estar vacío.")
         self.leer_run(run_id)
         evidencia_id = id_de_spec(contrato["modulo"], contrato["objetivo"])
+        anterior_id = _id_spec_anterior(contrato["modulo"], contrato["objetivo"])
+        if anterior_id != evidencia_id:
+            anterior_ruta = self._ruta_evidencia_bug(run_id, anterior_id)
+            if _archivo_anterior_existe(anterior_ruta):
+                anterior = self.leer_evidencia_bug(run_id, anterior_id)
+                if anterior["spec"] != contrato or anterior["codigo_prueba"] != codigo:
+                    raise ErrorAlmacen(
+                        "La evidencia existente no coincide con el nuevo contenido; "
+                        "se conserva su procedencia original."
+                    )
+                return anterior
         evidencia = {
             "version": "1",
             "id": evidencia_id,
@@ -1131,9 +1215,15 @@ def _validar_evidencia_bug(evidencia: dict[str, Any]) -> None:
     if evidencia["firma"] != contrato["firma"]:
         raise ErrorAlmacen("La firma de la evidencia no coincide con su spec.")
     esperado = id_de_spec(contrato["modulo"], contrato["objetivo"])
-    if evidencia["id"] != esperado:
+    anterior = _id_spec_anterior(contrato["modulo"], contrato["objetivo"])
+    if evidencia["id"] not in {esperado, anterior}:
         raise ErrorAlmacen("El id de la evidencia no corresponde a su objetivo.")
-    if evidencia["archivo_prueba"] != nombre_prueba(esperado):
+    nombre = (
+        nombre_prueba(esperado)
+        if evidencia["id"] == esperado
+        else f"test_{anterior.replace('-', '_')}.py"
+    )
+    if evidencia["archivo_prueba"] != nombre:
         raise ErrorAlmacen("El archivo de la evidencia no corresponde a su id.")
     if evidencia["huella_prueba"] != huella_de_prueba(evidencia["codigo_prueba"]):
         raise ErrorAlmacen("La huella de la prueba no coincide con su código.")
