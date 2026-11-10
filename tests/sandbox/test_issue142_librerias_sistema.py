@@ -17,6 +17,7 @@ from docker.errors import BuildError, ImageNotFound
 from qagent.sandbox import librerias, verificar_entorno
 from qagent.sandbox.librerias import (
     AVISO_COMPROBANDO,
+    AVISO_INFORME_ILEGIBLE,
     RUTA_INFORME,
     TABLA_LIBRERIAS,
     EntornoVerificado,
@@ -229,12 +230,25 @@ def test_si_falla_la_ronda_con_paquetes_queda_la_anterior() -> None:
     assert [f["libreria"] for f in entorno.faltantes] == ["libGL.so.1"]
 
 
-@pytest.mark.parametrize("salida", [b"no es json", b"[1, 2]", RuntimeError("caido")])
+@pytest.mark.parametrize(
+    "salida", [b"no es json", b"[1, 2]", b"", None, RuntimeError("caido")]
+)
 def test_un_informe_ilegible_no_frena_la_corrida(salida) -> None:
     cliente = MagicMock()
-    cliente.containers.run.side_effect = [salida]
+    contenedor = MagicMock()
+    if isinstance(salida, Exception):
+        cliente.containers.run.side_effect = salida
+    else:
+        contenedor.logs.return_value = salida
+        cliente.containers.run.return_value = contenedor
 
-    assert leer_informe(cliente, "imagen") == {"faltantes": []}
+    avances: list[str] = []
+    assert leer_informe(cliente, "imagen", avanzar=avances.append) == {"faltantes": []}
+    assert AVISO_INFORME_ILEGIBLE in avances
+    if not isinstance(salida, Exception):
+        contenedor.wait.assert_called_once()
+        contenedor.logs.assert_called_once_with(stdout=True, stderr=False)
+        contenedor.remove.assert_called_once_with(force=True)
 
 
 def test_leer_informe_quita_el_contenedor_tambien_si_falla() -> None:
