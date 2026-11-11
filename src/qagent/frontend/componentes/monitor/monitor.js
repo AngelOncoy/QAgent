@@ -274,7 +274,8 @@ async function startMonitor(){
   if (!entornoListo) { toast(escHtml(entornoMotivo)); return; }
   if (window.pywebview && window.pywebview.api) {
     // Python verifica Docker (HU-13) y el entorno completo (EN-06) antes de iniciar.
-    const r = await window.pywebview.api.start_run(projectPath, profile, obtenerSeleccionObjetivos());
+    // #275: inferir el contrato de las funciones sin docstring y, si se pidió, revisarlo antes de generar.
+    const r = await window.pywebview.api.start_run(projectPath, profile, obtenerSeleccionObjetivos(), INFERIR_SIN_DOCSTRING, INFERIR_SIN_DOCSTRING && REVISAR_INFERIDOS);
     if (r && r.status === 'docker_no_disponible') {
       toastError(escHtml(r.mensaje));
       actualizarSandbox();

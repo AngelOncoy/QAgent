@@ -283,8 +283,18 @@ function estFor(k){
   const reused = k==='reg' ? 0 : objetivos.filter(objetivo=>objetivo.reuse).length;
   const total = objetivos.length;
   const et = {P: (total - reused) * p.tok * EST_SPLIT.P, G: total * p.tok * EST_SPLIT.G, R: total * p.tok * EST_SPLIT.R};
-  const tok = Math.round(et.P + et.G + et.R);
-  return {p, fns, endpoints, total, reused, tok, time: Math.max(1, Math.round(total * p.t))};
+  // #275: la inferencia es un segundo paso del Planner solo para las funciones sin docstring; su costo se estima aparte.
+  const inferidas = INFERIR_SIN_DOCSTRING && k!=='reg' && eleccionPruebas.unitarias !== false
+    ? mods.filter(m=>SPEC_STATUS[m.path]!=='reuse').flatMap(m=>m.fns).filter(f=>f.inc && f.inferible).length : 0;
+  const tokInferidas = Math.round(inferidas * p.tok * EST_SPLIT.P);
+  const tok = Math.round(et.P + et.G + et.R) + tokInferidas;
+  return {p, fns, endpoints, total, reused, tok, inferidas, tokInferidas, time: Math.max(1, Math.round(total * p.t))};
+}
+// #275: la persona activa o apaga la inferencia y la revisión; se recalcula la estimación.
+function elegirInferencia(cambio){
+  if ('inferir' in cambio) INFERIR_SIN_DOCSTRING = !!cambio.inferir;
+  if ('revisar' in cambio) REVISAR_INFERIDOS = !!cambio.revisar;
+  calc();
 }
 
 // #74: «4 funciones y 2 endpoints críticos» según lo marcado en Profundizar.
@@ -368,7 +378,19 @@ function renderTiposPrueba(){
       <input type="checkbox" class="exp-caja" ${eleccionPruebas[clave] === true && n ? 'checked' : ''} ${n ? '' : 'disabled'} onchange="elegirPruebas({${clave}:this.checked})">
       <span><b>${titulo}</b><span class="prep-desc">${n} ${n === 1 ? singular : plural}</span></span>
     </label>`;
+  // #275 (ADR-015): funciones sin docstring que QAgent puede inferir (solo Python) entre las unitarias elegidas.
+  const nInferibles = eleccionPruebas.unitarias === true ? mods.flatMap(m=>m.fns).filter(f=>f.inc && f.inferible).length : 0;
+  const tokInferidas = nInferibles && INFERIR_SIN_DOCSTRING ? (estFor(profile==='reg_deep' ? 'reg' : profile).tokInferidas || 0) : 0;
+  const filaInferencia = !mods.some(m=>m.fns.some(f=>f.inferible)) ? '' : `<label class="prep-casilla ${nInferibles ? '' : 'dis'}" data-caja="negra">
+      <input type="checkbox" class="exp-caja" ${INFERIR_SIN_DOCSTRING && nInferibles ? 'checked' : ''} ${nInferibles ? '' : 'disabled'} onchange="elegirInferencia({inferir:this.checked})">
+      <span><b>Inferir funciones sin docstring</b><span class="prep-desc">${nInferibles ? `${nInferibles} ${nInferibles === 1 ? 'función sin docstring' : 'funciones sin docstring'}: QAgent deduce su resultado leyendo su código y su uso, sin ejecutarlo. Son pruebas de regresión, sin contrato documentado.${tokInferidas ? ` Estimación aparte: ~${tokInferidas.toLocaleString('es-PE')} tokens más.` : ''}` : 'Elige Unitarias con funciones sin docstring para usarla.'}</span></span>
+    </label>
+    <label class="prep-casilla ${nInferibles && INFERIR_SIN_DOCSTRING ? '' : 'dis'}" data-caja="negra">
+      <input type="checkbox" class="exp-caja" ${REVISAR_INFERIDOS && nInferibles && INFERIR_SIN_DOCSTRING ? 'checked' : ''} ${nInferibles && INFERIR_SIN_DOCSTRING ? '' : 'disabled'} onchange="elegirInferencia({revisar:this.checked})">
+      <span><b>Revisar contratos inferidos</b><span class="prep-desc">Antes de generar las pruebas, la corrida se detiene para que aceptes o descartes lo que se infirió de cada función.</span></span>
+    </label>`;
   $('prepTipos').innerHTML = fila('unitarias', 'Unitarias', nFns, 'función seleccionada', 'funciones seleccionadas', 'negra')
+    + filaInferencia
     + fila('endpoints', 'Endpoints API', nEps, 'endpoint seleccionado', 'endpoints seleccionados', 'gris')
     + (mods.some(m=>(m.integraciones || []).length)
       ? fila('integracion', 'Integración interna', nInt, 'cadena de funciones', 'cadenas de funciones', 'negra')
@@ -545,6 +567,7 @@ function renderDetallesCorrida(e, bloqueado, prioritarias, epsPrioritarios = 0){
     `Uso de IA estimado: <b>${usoIA(tok)}</b>${tok ? ` · ~${tok.toLocaleString('es-PE')} tokens` : ''}`,
     `Duración aproximada: <b>${p.duracion}</b> · ~${e.time} min`,
     reused ? `${reused} sin cambios: se reutiliza el trabajo anterior.` : '',
+    e.inferidas ? `Contratos inferidos: ${e.inferidas} ${e.inferidas === 1 ? 'función sin docstring' : 'funciones sin docstring'} (~${e.tokInferidas.toLocaleString('es-PE')} tokens incluidos). Son pruebas de regresión, sin contrato documentado${REVISAR_INFERIDOS ? '; podrás revisarlas antes de generar' : ''}.` : '',
     profile==='humo' ? 'Revisión rápida: un caso normal por función o endpoint. No se exige cubrir las ramas.' : '',
     profile==='deep' ? `Análisis a fondo en ${textoPrioritarias(prioritarias - epsPrioritarios, epsPrioritarios)}: comprueba con mutación si las pruebas detectan errores. No usa tokens, pero tarda más.` : '',
     profile==='reg' ? 'Solo se vuelven a correr pruebas guardadas: no se usa IA.' : '',
