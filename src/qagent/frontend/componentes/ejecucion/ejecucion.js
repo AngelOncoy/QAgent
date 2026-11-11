@@ -185,6 +185,9 @@ function detalleDeReporte(f){
     esperado: esperado || null,
     debilitada: intentos.some(i => i.laundering_detectado),
     firma: f.firma || f.manejador || null,
+    // #275 (ADR-015): contrato inferido leyendo el código, sin docstring: es una prueba de regresión.
+    inferido: f.respaldo === 'inferido',
+    evidenciaInferida: Array.isArray(f.evidencia_inferida) ? f.evidencia_inferida : [],
     // Ejecución del último intento que llegó al sandbox: cada caso con esperado y obtenido.
     ...ejecucionDeIntentos(intentos),
     // Evidencia de auditoría (antes en la pantalla del informe).
@@ -500,6 +503,9 @@ function renderDetalleBandeja(e){
       ${e.critica ? '<span class="np-chip np-chip-progreso">Crítica</span>' : ''}
     </div>
     <span class="np-chip np-chip-${b.cls}">${b.ico()}${e.bandeja === 'bug' ? 'Posible bug en tu código' : e.bandeja === 'paso' ? (e.perfil === 'humo' ? 'Pasó el caso probado' : 'Pasaron los casos probados') : b.chip}</span>
+    ${e.inferido ? `<div class="bnj-bloque"><span class="np-chip np-chip-progreso">Regresión · contrato inferido</span>
+      <p class="np-meta">Sin docstring: QAgent infirió lo esperado leyendo el código y su uso, sin ejecutarlo. ${e.bandeja === 'bug' ? 'Un fallo aquí es un hallazgo a revisar (el código se comporta distinto de lo inferido), no un bug confirmado.' : 'Verifica que la función siga haciendo lo mismo, no que sea correcta.'}</p>
+      ${e.evidenciaInferida.length ? `<details class="np-detalle"><summary>Ver en qué se basó</summary><ul>${e.evidenciaInferida.map(x => `<li><code>${escHtml(x)}</code></li>`).join('')}</ul></details>` : ''}</div>` : ''}
     ${explicacion ? `<p class="bnj-explicacion">${escHtml(explicacion)}</p>` : ''}
     ${e.errorPlanner ? `<details class="np-detalle"><summary>Ver motivo del fallo de planificación</summary><pre class="np-log">${escHtml(e.errorPlanner)}</pre></details>` : ''}
     ${e.explicacionSimple ? explicacionSimple(e.explicacionSimple) : ''}
@@ -509,7 +515,7 @@ function renderDetalleBandeja(e){
         <div class="bnj-esperado"><span class="bnj-caja-etq">Esperado</span><pre>${escHtml(e.fallo.esperado ?? '—')}</pre></div>
         <div class="bnj-obtenido"><span class="bnj-caja-etq">Obtenido${e.fallo.operador && e.fallo.operador !== '==' ? ' (condición: ' + escHtml(e.fallo.operador) + ')' : ''}</span><pre>${escHtml(e.fallo.obtenido ?? '—')}</pre></div>
       </div>`
-      : e.esperado ? `<div class="bnj-esperado"><span class="bnj-caja-etq">Esperado según el contrato</span><pre>${escHtml(e.esperado)}</pre></div>` : ''}
+      : e.esperado ? `<div class="bnj-esperado"><span class="bnj-caja-etq">${e.inferido ? 'Esperado según lo inferido del código y su uso' : 'Esperado según el contrato'}</span><pre>${escHtml(e.esperado)}</pre></div>` : ''}
     ${e.codigo ? `<div class="bnj-bloque"><div class="bnj-bloque-cab"><b>Prueba generada</b><button type="button" class="ini-enlace" onclick="copiarPruebaBandeja()">${ICO_COPIAR}Copiar prueba</button></div>
       <pre class="bnj-codigo" id="bnjCodigo">${escHtml(e.codigo)}</pre></div>` : ''}
     ${e.lineasSinCubrir ? `<p class="bnj-sin-probar ${e.lineasSinCubrir.length ? '' : 'completo'}">${e.lineasSinCubrir.length ? 'Código sin probar · líneas ' + e.lineasSinCubrir.join(', ') : 'Todas las líneas de la función se ejecutaron en las pruebas'}</p>` : ''}

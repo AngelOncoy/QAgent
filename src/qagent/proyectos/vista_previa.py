@@ -53,6 +53,11 @@ from qagent.llm.tracker import TokenTracker
 _log = logging.getLogger(__name__)
 
 AVISO_ORACULO_DEBIL = "el valor esperado no tendrá fuente (oráculo débil)"
+#: #275 (ADR-015): sin docstring, QAgent infiere el contrato leyendo el código y su uso.
+AVISO_CONTRATO_INFERIDO = (
+    "Sin docstring: contrato inferido por QAgent (prueba de regresión, sin contrato "
+    "documentado)"
+)
 ETIQUETA_FALTA_DOCSTRING = "⚠ falta"
 ETIQUETA_NO_ANALIZABLE = "no se pudo analizar"
 
@@ -81,6 +86,27 @@ def priorizar_modulos(modulos: list[dict[str, Any]]) -> list[dict[str, Any]]:
         )
 
     return sorted(modulos, key=clave_orden)
+
+
+def _inferencia_activa(adaptador: Any) -> bool:
+    """Si QAgent inferirá el contrato de las funciones sin docstring (#275, ADR-015).
+
+    Solo si el lenguaje lo soporta y `[inferencia] activa` no está apagada; ante
+    cualquier problema con la configuración se asume activa, como la corrida.
+    """
+    if getattr(adaptador, "lenguaje", None) != "python":
+        return False
+    from qagent.config import carga as config_carga
+    from qagent.config import cargar_configuracion
+
+    try:
+        previa = cargar_configuracion(
+            simulado=True, ruta_local=config_carga.RUTA_CONFIG_LOCAL
+        )
+        return previa.config is None or previa.config.inferencia.activa
+    except Exception as error:  # noqa: BLE001 — informar nunca debe romper la vista
+        _log.warning("No se leyó [inferencia] de la configuración: %s", error)
+        return True
 
 
 def _recomendador_configurado() -> RecomendadorConIA | None:
@@ -201,6 +227,7 @@ def generar_vista_previa(
 
     # Anotamos los módulos con su conteo de funciones con ramas y aviso en funciones sin docstring
     modulos_procesados: list[dict[str, Any]] = []
+    infiere = _inferencia_activa(adaptador)
     for mod in resultado_ast["modulos"]:
         funciones_mod: list[dict[str, Any]] = []
         for f in mod.get("funciones", []):
@@ -212,6 +239,10 @@ def generar_vista_previa(
                     **f,
                     "aviso_docstring": aviso_doc,
                     "etiqueta_docstring": etiqueta_doc,
+                    # #275: se infiere solo lo que el contrato no alcanza a cubrir.
+                    "aviso_inferencia": (
+                        AVISO_CONTRATO_INFERIDO if doc is None and infiere else None
+                    ),
                     "critica_propuesta": f.get("ramas", 0) > 0,
                 }
             )
@@ -265,6 +296,7 @@ def generar_vista_previa(
             "oraculo_debil": AVISO_ORACULO_DEBIL,
             "falta_docstring": ETIQUETA_FALTA_DOCSTRING,
             "no_analizable": ETIQUETA_NO_ANALIZABLE,
+            "contrato_inferido": AVISO_CONTRATO_INFERIDO,
         },
     }
     # #197/#200: recomendación (reglas o IA). Solo informa; no cambia la selección.
