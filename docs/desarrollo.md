@@ -169,6 +169,10 @@ Una imagen base que ya existe no se reconstruye sola al cambiar su Dockerfile du
 python -c "from qagent.sandbox import construir_imagen_base; from qagent.sandbox.modelos import IMAGEN_NODE; construir_imagen_base(imagen=IMAGEN_NODE)"
 ```
 
+### Dependencias de proyectos JavaScript y TypeScript (#272, ADR-015)
+
+La imagen derivada de Node instala con el gestor del proyecto: **npm**, **pnpm** o **yarn** (classic o berry), elegido por el lockfile y el campo `packageManager`. pnpm y yarn se instalan con corepack fijado solo durante esa construcción. Nunca se ejecutan los scripts del proyecto (`postinstall`, `prepare`…), y `.npmrc`/`.yarnrc.yml` se copian sin credenciales. En los monorepos (`pnpm-workspace.yaml` o `workspaces` del `package.json`) se copia el `package.json` de cada workspace y las dependencias quedan en `/work/node_modules`. La lógica está en `src/qagent/sandbox/gestores_js.py` y `sandbox/node/reubicar_workspaces.cjs`. Si la instalación falla, el Monitor muestra el gestor, la causa probable y las últimas líneas de error. Prueba con Docker real: `pytest --docker tests/sandbox/test_issue272_gestores_js_docker.py`.
+
 ## Versiones de Python soportadas en el sandbox (ADR-013)
 
 El sandbox de Docker de QAgent ejecuta pruebas para proyectos en el rango **Python 3.10–3.14** (3.10, 3.11, 3.12, 3.13 y 3.14), con **3.11** como versión por defecto.
