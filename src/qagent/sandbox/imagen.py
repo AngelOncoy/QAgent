@@ -30,6 +30,7 @@ from typing import Any
 import docker
 from docker.errors import APIError, BuildError, ImageNotFound
 
+from qagent.sandbox import espacio
 from qagent.sandbox.cliente import obtener_cliente
 from qagent.sandbox.modelos import (
     ETIQUETA_CONSTRUCCION,
@@ -525,6 +526,34 @@ def preparar_imagen(
     return etiqueta
 
 
+def construccion_pendiente(
+    ruta_proyecto: str | Path,
+    cliente: docker.DockerClient | None = None,
+    imagen: str = IMAGEN_BASE,
+) -> bool:
+    """True si `preparar_imagen` tendría que construir o descargar algo para este proyecto.
+
+    Falta la imagen base, o falta la imagen derivada de sus dependencias. Sirve para
+    comprobar el espacio libre solo cuando hace falta (con las imágenes ya construidas, un
+    disco justo no impide correr).
+
+    Raises:
+        ValueError: si `imagen` no es una imagen base conocida.
+    """
+    receta = receta_de(imagen)
+    cliente = cliente or obtener_cliente()
+    if not _imagen_existe(cliente, receta.imagen):
+        return True
+    encontrada = _buscar_dependencias(Path(ruta_proyecto).resolve(), receta)
+    if encontrada is None:
+        return False
+    _, archivos = encontrada
+    etiqueta = etiqueta_para_dependencias(
+        receta.prefijo, archivos, imagen_base=receta.imagen
+    )
+    return not _imagen_existe(cliente, etiqueta)
+
+
 def asegurar_imagen(
     ruta_proyecto: str | Path,
     imagen: str = IMAGEN_BASE,
@@ -634,7 +663,15 @@ def _construir(
     """Construye una imagen y traduce los errores de Docker a `ErrorConstruccionImagen`.
 
     Con `avanzar`, lee el log en streaming (API de bajo nivel) para informar el avance.
+
+    Todas las construcciones (base, dependencias, librerías del sistema) pasan por aquí: es
+    el único punto donde se comprueba, antes de gastar nada, que quede espacio libre en el
+    disco de Docker (#267).
+
+    Raises:
+        EspacioInsuficiente: si el espacio libre está por debajo del mínimo de `[disco]`.
     """
+    espacio.verificar_espacio_libre()
     if avanzar is not None:
         _construir_con_avance(
             cliente,

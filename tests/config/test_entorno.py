@@ -52,6 +52,7 @@ def test_todo_correcto_muestra_entorno_listo(env_completo):
         "claves",
         "docker",
         "git",
+        "espacio",
     ]
     assert all(c["ok"] for c in r["comprobaciones"])
 
@@ -262,3 +263,52 @@ def test_estado_git_con_codigo_de_error(monkeypatch):
         lambda *_a, **_k: subprocess.CompletedProcess(["git"], 1, "", "boom"),
     )
     assert estado_git()["estado"] == "error"
+
+
+# ---------- Espacio libre del disco de Docker (#267) ----------
+
+
+def _con_espacio(env: Path, estado: dict[str, str]) -> dict:
+    return verificar_entorno(
+        RUTA_CONFIG,
+        env,
+        simulado=False,
+        docker=lambda: OK,
+        git=lambda: OK,
+        espacio=lambda: estado,
+    )
+
+
+def _comprobacion(r: dict, id_: str) -> dict:
+    return next(c for c in r["comprobaciones"] if c["id"] == id_)
+
+
+def test_el_espacio_libre_es_una_comprobacion_mas_del_entorno(env_completo):
+    r = _con_espacio(env_completo, {"estado": "ok", "mensaje": "80,0 GB libres."})
+
+    assert _comprobacion(r, "espacio") == {
+        "id": "espacio",
+        "ok": True,
+        "mensaje": "80,0 GB libres.",
+    }
+    assert r["listo"] is True
+
+
+def test_con_poco_espacio_se_avisa_pero_no_se_bloquea_el_entorno(env_completo):
+    """Solo hace falta para construir una imagen; con las imágenes hechas se puede correr."""
+    r = _con_espacio(
+        env_completo, {"estado": "poco", "mensaje": "Queda poco espacio: faltan 7 GB."}
+    )
+
+    espacio = _comprobacion(r, "espacio")
+    assert espacio["ok"] is False and espacio["advertencia"] is True
+    assert "faltan 7 GB" in espacio["mensaje"]
+    assert r["listo"] is True
+    assert r["problemas"] == []
+
+
+def test_si_no_se_pudo_medir_el_espacio_no_cuenta_como_fallo(env_completo):
+    r = _con_espacio(env_completo, {"estado": "desconocido", "mensaje": "No se pudo."})
+
+    espacio = _comprobacion(r, "espacio")
+    assert espacio["ok"] is True and espacio["opcional"] is True

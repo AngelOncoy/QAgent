@@ -27,6 +27,7 @@ BYTES_POR_GB = 1024**3
 CLAVES = (
     "tope_imagenes_derivadas_gb",
     "cache_antiguedad_dias",
+    "espacio_libre_minimo_gb",
 )
 
 
@@ -38,14 +39,21 @@ class LimitesDisco:
         tope_imagenes_derivadas_gb: espacio total máximo de las imágenes derivadas
             (`req-`, `node-`, `java-`, `browser-`); al superarlo se borran las menos usadas.
         cache_antiguedad_dias: la caché de compilación más vieja que esto se poda.
+        espacio_libre_minimo_gb: espacio libre mínimo del disco de Docker para construir
+            o descargar una imagen.
     """
 
     tope_imagenes_derivadas_gb: float | None = None
     cache_antiguedad_dias: float | None = None
+    espacio_libre_minimo_gb: float | None = None
 
     @property
     def tope_imagenes_derivadas_bytes(self) -> int | None:
         return _a_bytes(self.tope_imagenes_derivadas_gb)
+
+    @property
+    def espacio_libre_minimo_bytes(self) -> int | None:
+        return _a_bytes(self.espacio_libre_minimo_gb)
 
 
 def _a_bytes(gb: float | None) -> int | None:

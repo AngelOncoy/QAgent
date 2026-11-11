@@ -203,6 +203,19 @@ Los define el equipo en `src/qagent/config/config.toml`, nunca en el código; `~
 |---|---|---|
 | `tope_imagenes_derivadas_gb` | 10 | Espacio total máximo de las imágenes derivadas. Cuenta lo propio de cada imagen, sin las capas de la imagen base que comparten. |
 | `cache_antiguedad_dias` | 7 | Antigüedad máxima de la caché de compilación. |
+| `espacio_libre_minimo_gb` | 10 | Espacio libre mínimo del disco de Docker para construir o descargar una imagen (ver abajo). |
+
+### Espacio libre antes de construir
+
+Antes de construir o descargar una imagen (la base, las dependencias del proyecto o las librerías del sistema) se mide el espacio libre del disco que usa Docker (`qagent.sandbox.espacio`): en Windows, el de `%LOCALAPPDATA%\Docker\wsl` o el disco elegido en los ajustes de Docker Desktop; en Linux, `/var/lib/docker`; si no se sabe, la carpeta personal. No hace falta que Docker responda. Si queda menos de `espacio_libre_minimo_gb`:
+
+- la corrida **no empieza**: se detiene antes del análisis y de gastar tokens, con un mensaje en lenguaje simple («Queda poco espacio en el disco que usa Docker: 4,2 GB libres y QAgent necesita al menos 10,0 GB… faltan 5,8 GB. Libera espacio… y vuelve a intentar»);
+- solo pasa si hace falta construir algo: con las imágenes ya hechas un disco justo no impide correr (`construccion_pendiente`);
+- la comprobación vive en `_construir`, el único punto por el que pasan todas las construcciones, así que también protege la regresión, el humo E2E y la verificación de corrección.
+
+El estado del entorno (EN-06, `verificar_entorno`) incluye el espacio libre como la comprobación `espacio`. Con poco espacio sale como **no ok con `advertencia`**, pero no bloquea el entorno (no entra en `problemas`): lo que detiene la corrida es la comprobación de arriba, y solo cuando de verdad hay que construir. Si no se puede medir, no cuenta como fallo.
+
+Las pruebas no dependen del disco donde corren: `tests/conftest.py` fija siempre espacio de sobra, y las pruebas de la comprobación fijan su propio valor.
 
 El tope se aplica al abrir la app y al terminar cada corrida, no a mitad de una: una corrida que necesita una imagen grande puede pasarse del tope hasta que termine. El orden de «menos usada» sale de `~/.qagent/imagenes_sandbox.json` (`registrar_uso`, que reconoce las cuatro familias de prefijos y se llama al preparar la imagen de una corrida); si una imagen no tiene registro (por ejemplo, las que preparan solo el humo E2E o la verificación de corrección), cuenta su fecha de creación.
 

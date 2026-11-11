@@ -308,6 +308,19 @@ def ejecutar_corrida(
                 avisar_entorno(resumen.motivo, ENTORNO_FALLO, "fallo")
                 _cerrar_run(almacen, resumen, tipos)
                 return resumen
+        # #267: si hay que construir o descargar una imagen y el disco de Docker está
+        # justo, la corrida no empieza (antes de gastar tokens planificando).
+        sin_espacio = (
+            _motivo_sin_espacio(ruta, adaptador) if preparar_imagen is None else None
+        )
+        if sin_espacio is not None:
+            resumen.estado = FALLO
+            resumen.tipo_terminacion = "detenida_error"
+            resumen.motivo = sin_espacio
+            avisar(resumen.motivo, "fallo")
+            avisar_entorno(resumen.motivo, ENTORNO_FALLO, "fallo")
+            _cerrar_run(almacen, resumen, tipos)
+            return resumen
         analisis = adaptador.analizar(ruta)
         modulos = [
             _con_fuente(ruta, m)
@@ -863,6 +876,30 @@ def _registrar_limite_tokens(
 
 
 # --- Partes de la corrida ---------------------------------------------------------
+
+
+def _motivo_sin_espacio(ruta: Path, adaptador: Any) -> str | None:
+    """Mensaje en lenguaje simple si falta espacio para construir la imagen; None si no.
+
+    Solo se comprueba cuando de verdad hay que construir o descargar (falta la imagen
+    base o la de las dependencias del proyecto). Si no se puede saber (Docker cerrado,
+    sin imagen que construir…), devuelve None: ese caso ya lo atiende el flujo normal.
+    """
+    from qagent.sandbox import EspacioInsuficiente
+    from qagent.sandbox.cliente import obtener_cliente
+    from qagent.sandbox.espacio import verificar_espacio_libre
+    from qagent.sandbox.imagen import construccion_pendiente
+
+    try:
+        imagen = adaptador.entorno_sandbox(ruta).imagen
+        if not construccion_pendiente(ruta, obtener_cliente(), imagen):
+            return None
+        verificar_espacio_libre()
+    except EspacioInsuficiente as error:
+        return str(error)
+    except Exception as error:  # noqa: BLE001 — comprobar el espacio nunca frena la corrida
+        _registro.warning("No se comprobó el espacio libre: %s", error)
+    return None
 
 
 def _preparar_imagen(
