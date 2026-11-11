@@ -204,6 +204,8 @@ Los define el equipo en `src/qagent/config/config.toml`, nunca en el código; `~
 | `cache_antiguedad_dias` | 7 | Antigüedad mínima de la caché de compilación para podarla; solo se usa en la poda manual de «Liberar espacio». |
 | `espacio_libre_minimo_gb` | 10 | Espacio libre mínimo del disco de Docker para construir o descargar una imagen (ver abajo). |
 
+El tope se aplica al abrir la app y al terminar cada corrida, no a mitad de una: una corrida que necesita una imagen grande puede pasarse del tope hasta que termine. El orden de «menos usada» sale de `~/.qagent/imagenes_sandbox.json` (`registrar_uso`, que reconoce las cuatro familias de prefijos y se llama al preparar la imagen de una corrida); si una imagen no tiene registro (por ejemplo, las que preparan solo el humo E2E o la verificación de corrección), cuenta su fecha de creación.
+
 ### Espacio libre antes de construir
 
 Antes de construir o descargar una imagen (la base, las dependencias del proyecto o las librerías del sistema) se mide el espacio libre del disco que usa Docker (`qagent.sandbox.espacio`): en Windows, el de `%LOCALAPPDATA%\Docker\wsl` o el disco elegido en los ajustes de Docker Desktop; en Linux, `/var/lib/docker`; si no se sabe, la carpeta personal. No hace falta que Docker responda. Si queda menos de `espacio_libre_minimo_gb`:
@@ -216,7 +218,18 @@ El estado del entorno (EN-06, `verificar_entorno`) incluye el espacio libre como
 
 Las pruebas no dependen del disco donde corren: `tests/conftest.py` fija siempre espacio de sobra, y las pruebas de la comprobación fijan su propio valor.
 
-El tope se aplica al abrir la app y al terminar cada corrida, no a mitad de una: una corrida que necesita una imagen grande puede pasarse del tope hasta que termine. El orden de «menos usada» sale de `~/.qagent/imagenes_sandbox.json` (`registrar_uso`, que reconoce las cuatro familias de prefijos y se llama al preparar la imagen de una corrida); si una imagen no tiene registro (por ejemplo, las que preparan solo el humo E2E o la verificación de corrección), cuenta su fecha de creación.
+### Configuración → «Espacio en disco» y «Liberar espacio»
+
+La pantalla Configuración muestra cuánto ocupa QAgent en Docker (imágenes base, imágenes de proyectos con el tope, restos de construcciones cortadas, y la caché de compilación aparte) y cuánto espacio libre queda en el disco de Docker (con aviso si está bajo el mínimo). La lógica está en `qagent.sandbox.uso_disco` (`medir_uso`, `liberar_espacio`); `desktop.py` solo hace de puente (`obtener_espacio_disco`, `liberar_espacio`) y el componente es `frontend/componentes/configuracion/espacio-disco.js` (+ `modal-espacio.js`).
+
+El botón **Liberar espacio** pide confirmación y lista qué se borra y qué se conserva:
+
+- Se borra lo que QAgent puede volver a crear: **todas** las imágenes de proyectos (`req-`, `node-`, `java-`, `browser-`), los contenedores sobrantes de corridas y construcciones interrumpidas y las capas sin etiqueta de QAgent. Lo reciente (menos de 1 h) no se toca.
+- Se conservan las imágenes base, todo lo que no sea de QAgent, y los proyectos, pruebas y resultados del usuario.
+- No se libera espacio con una corrida en curso (su imagen no se puede borrar): el puente lo rechaza con un mensaje.
+- La **caché de compilación de Docker** es opcional (casilla sin marcar de antemano). Como no admite labels, afecta a toda la caché de compilación de Docker, no solo a la de QAgent: la confirmación lo dice explícitamente. Se poda la que lleva más de `cache_antiguedad_dias` días sin usarse. Es la única poda de caché que existe; la limpieza automática nunca la hace.
+
+Borrar contenido libera espacio *dentro* de Docker, pero `C:` no lo recupera hasta compactar `docker_data.vhdx`: la sección lo explica con los pasos (`wsl --shutdown` y `diskpart` → `select vdisk file=…`, `attach vdisk readonly`, `compact vdisk`, `detach vdisk`).
 
 ## Versiones de Python soportadas en el sandbox (ADR-013)
 

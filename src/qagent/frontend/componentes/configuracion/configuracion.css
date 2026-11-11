@@ -39,6 +39,22 @@
 /* Motor de ejecución */
 .cfg-pasos-motor{display:flex;flex-direction:column;gap:var(--esp-1);padding-left:var(--esp-5);color:var(--texto-2);font-size:var(--texto-meta)}
 
+/* Espacio en disco (issue 267) */
+.esp-datos{display:flex;flex-direction:column;width:100%;margin:0}
+.esp-fila{display:flex;justify-content:space-between;align-items:baseline;gap:var(--esp-4);padding:var(--esp-2) 0}
+.esp-fila+.esp-fila{border-top:var(--borde-ancho) solid var(--borde)}
+.esp-fila dt{display:flex;flex-direction:column;min-width:0;color:var(--texto)}
+.esp-fila dd{margin:0;text-align:right;color:var(--texto);font-family:var(--fuente-mono);font-size:13px;white-space:nowrap}
+.esp-total dt,.esp-total dd{font-weight:var(--peso-fuerte)}
+.esp-libre{display:flex;flex-wrap:wrap;gap:var(--esp-2)}
+.esp-acciones{display:flex;flex-wrap:wrap;gap:var(--esp-2)}
+.esp-compactar{width:100%;color:var(--texto-2);font-size:var(--texto-meta)}
+.esp-compactar summary{cursor:pointer;color:var(--enlace)}
+.esp-pasos{display:flex;flex-direction:column;gap:var(--esp-2);padding-left:var(--esp-5);margin-top:var(--esp-2)}
+.esp-codigo{margin:var(--esp-2) 0 0;padding:var(--esp-3);background:var(--hundido);border:var(--borde-ancho) solid var(--borde);border-radius:var(--radio-control);color:var(--texto);font-family:var(--fuente-mono);font-size:12px;white-space:pre-wrap;overflow-wrap:anywhere}
+.esp-subtitulo{color:var(--texto-2);margin:var(--esp-2) 0 var(--esp-1)}
+.esp-lista{display:flex;flex-direction:column;gap:var(--esp-1);padding-left:var(--esp-5);margin:0 0 var(--esp-2);color:var(--texto)}
+
 /* Apariencia */
 .cfg-temas{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--esp-3);width:100%}
 .cfg-tema{display:flex;flex-direction:column;align-items:flex-start;gap:var(--esp-3);padding:var(--esp-4);border:var(--borde-ancho) solid var(--borde);border-radius:var(--radio-control);background:var(--hundido);color:var(--texto);font:inherit;cursor:pointer}

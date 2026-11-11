@@ -393,6 +393,49 @@ class DesktopAPI:
             )
         return {**resultado, "limites": leer_limites()}
 
+    def obtener_espacio_disco(self) -> dict:
+        """Cuánto ocupa QAgent en Docker y cuánto espacio libre queda (Configuración, #267).
+
+        Returns:
+            dict: ver `qagent.sandbox.uso_disco.medir_uso`.
+        """
+        from qagent.sandbox.uso_disco import medir_uso
+
+        return medir_uso()
+
+    def liberar_espacio(self, incluir_cache: bool = False) -> dict:
+        """Borra lo que QAgent puede reconstruir en Docker (botón «Liberar espacio», #267).
+
+        Conserva las imágenes base y no corre mientras haya una corrida en curso (su imagen
+        no se puede borrar). La caché de compilación de Docker, que es de todos los
+        `docker build` y no solo de QAgent, solo se poda con `incluir_cache`, que la interfaz
+        pide tras avisarlo en la confirmación.
+
+        Returns:
+            dict: ver `qagent.sandbox.uso_disco.liberar_espacio`, más `uso` (la medición
+            nueva) y `en_curso` si se rechazó por la corrida.
+        """
+        from qagent.sandbox.uso_disco import liberar_espacio, medir_uso
+
+        if self._corrida is not None and self._corrida.is_alive():
+            return {
+                "ok": False,
+                "en_curso": True,
+                "mensaje": (
+                    "Hay una corrida en curso y está usando el entorno aislado: "
+                    "espera a que termine para liberar espacio."
+                ),
+            }
+        if not _LIBERANDO_ESPACIO.acquire(blocking=False):
+            return {"ok": False, "mensaje": "Ya se está liberando espacio."}
+        try:
+            resultado = liberar_espacio(incluir_cache=bool(incluir_cache))
+            if resultado["ok"]:
+                bitacora.registro.info("Sandbox: %s", resultado["mensaje"])
+            return {**resultado, "uso": medir_uso()}
+        finally:
+            _LIBERANDO_ESPACIO.release()
+
     def detener_corrida(self) -> dict:
         """Detiene de forma controlada la corrida en curso."""
         if self._corrida is not None and self._corrida.is_alive():
@@ -1303,6 +1346,9 @@ def _ocultar_claves_en_bitacora() -> None:
         instalar_filtro_logs(claves)
     bitacora.configurar_registro(claves)
 
+
+#: Una sola «Liberar espacio» a la vez (#267).
+_LIBERANDO_ESPACIO = threading.Lock()
 
 #: Estados de Docker en los que el servicio responde (aunque falte la imagen).
 DOCKER_RESPONDE = ("ok", "sin_imagen")

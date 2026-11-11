@@ -108,6 +108,13 @@ def _gb(bytes_: float) -> str:
     return f"{bytes_ / BYTES_POR_GB:.1f}".replace(".", ",")
 
 
+def texto_tamano(bytes_: float) -> str:
+    """«3,2 GB» o «350 MB», para mostrar a personas."""
+    if bytes_ >= BYTES_POR_GB:
+        return f"{_gb(bytes_)} GB"
+    return f"{bytes_ / 1024**2:.0f} MB"
+
+
 def mensaje_espacio_insuficiente(libre: int, minimo: int) -> str:
     """Texto para personas: cuánto queda, cuánto falta y qué hacer."""
     return (

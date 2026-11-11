@@ -102,6 +102,23 @@ def registrar_uso(
         registro.warning("No se pudo anotar el uso de la imagen %s: %s", imagen, exc)
 
 
+def es_contenedor_huerfano(contenedor: Any, ahora: float) -> bool:
+    """True si un contenedor del sandbox es de una corrida interrumpida.
+
+    Los detenidos lo son; uno que sigue corriendo solo pasado `ANTIGUEDAD_HUERFANO_S`.
+    """
+    if contenedor.status != "running":
+        return True
+    creado = _segundos(contenedor.attrs.get("Created"))
+    return creado is not None and ahora - creado >= ANTIGUEDAD_HUERFANO_S
+
+
+def es_contenedor_construccion_cortado(contenedor: Any, ahora: float) -> bool:
+    """True si un contenedor de construcción lleva más de `ANTIGUEDAD_CONSTRUCCION_S`."""
+    creado = _segundos(contenedor.attrs.get("Created"))
+    return creado is not None and ahora - creado >= ANTIGUEDAD_CONSTRUCCION_S
+
+
 def eliminar_contenedores_huerfanos(cliente: Any, ahora: float | None = None) -> int:
     """Borra los contenedores del sandbox que quedaron de una corrida interrumpida.
 
@@ -115,10 +132,8 @@ def eliminar_contenedores_huerfanos(cliente: Any, ahora: float | None = None) ->
     filtro = {"label": [f"{k}={v}" for k, v in ETIQUETA_CONTENEDOR.items()]}
     borrados = 0
     for contenedor in cliente.containers.list(all=True, filters=filtro):
-        if contenedor.status == "running":
-            creado = _segundos(contenedor.attrs.get("Created"))
-            if creado is None or ahora - creado < ANTIGUEDAD_HUERFANO_S:
-                continue
+        if not es_contenedor_huerfano(contenedor, ahora):
+            continue
         try:
             contenedor.remove(force=True)
             borrados += 1
@@ -174,8 +189,7 @@ def eliminar_contenedores_construccion(cliente: Any, ahora: float | None = None)
     filtro = {"label": _filtro_label(ETIQUETA_CONSTRUCCION)}
     borrados = 0
     for contenedor in cliente.containers.list(all=True, filters=filtro):
-        creado = _segundos(contenedor.attrs.get("Created"))
-        if creado is None or ahora - creado < ANTIGUEDAD_CONSTRUCCION_S:
+        if not es_contenedor_construccion_cortado(contenedor, ahora):
             continue
         try:
             contenedor.remove(force=True)
@@ -250,29 +264,7 @@ def aplicar_tope_imagenes(
     Returns:
         Etiquetas de las imágenes borradas, de la menos usada a la más usada.
     """
-    ahora = time.time() if ahora is None else ahora
-    imagenes = list(cliente.images.list(name=REPOSITORIO))
-    bases = [
-        (_entero(i.attrs.get("Size")), _capas(cliente, i))
-        for i in imagenes
-        if i.tags and not any(_es_imagen_req(t) for t in i.tags)
-    ]
-    candidatas = []
-    for imagen in imagenes:
-        etiquetas = [t for t in imagen.tags if _es_imagen_req(t)]
-        if not etiquetas:
-            continue
-        creada = _segundos(imagen.attrs.get("Created")) or 0.0
-        ultimo = max(usos.get(t, creada) for t in etiquetas)
-        candidatas.append(
-            {
-                "etiquetas": etiquetas,
-                "bytes": _tamano_propio(cliente, imagen, bases),
-                "ultimo": ultimo,
-                "protegida": any(t in protegidas for t in etiquetas)
-                or ultimo > ahora - ANTIGUEDAD_HUERFANO_S,
-            }
-        )
+    candidatas = listar_derivadas(cliente, usos, ahora, protegidas)[0]
     total = sum(c["bytes"] for c in candidatas)
     borradas: list[str] = []
     for candidata in sorted(candidatas, key=lambda c: c["ultimo"]):
@@ -291,6 +283,46 @@ def aplicar_tope_imagenes(
         if len(quitadas) == len(candidata["etiquetas"]):
             total -= candidata["bytes"]
     return borradas
+
+
+def listar_derivadas(
+    cliente: Any,
+    usos: dict[str, float],
+    ahora: float | None = None,
+    protegidas: Collection[str] = (),
+) -> tuple[list[dict], list[tuple[int, list[str]]]]:
+    """Las imágenes derivadas de QAgent y las bases, con su espacio, último uso y protección.
+
+    Returns:
+        `(derivadas, bases)`. Cada derivada es `{"etiquetas", "bytes", "ultimo", "protegida"}`
+        (`bytes` es solo lo propio, sin la base que comparte; `protegida` si es de
+        `protegidas` o se usó o creó hace menos de `ANTIGUEDAD_HUERFANO_S`). Cada base es
+        `(bytes de la imagen, capas)`.
+    """
+    ahora = time.time() if ahora is None else ahora
+    imagenes = list(cliente.images.list(name=REPOSITORIO))
+    bases = [
+        (_entero(i.attrs.get("Size")), _capas(cliente, i))
+        for i in imagenes
+        if i.tags and not any(_es_imagen_req(t) for t in i.tags)
+    ]
+    derivadas = []
+    for imagen in imagenes:
+        etiquetas = [t for t in imagen.tags if _es_imagen_req(t)]
+        if not etiquetas:
+            continue
+        creada = _segundos(imagen.attrs.get("Created")) or 0.0
+        ultimo = max(usos.get(t, creada) for t in etiquetas)
+        derivadas.append(
+            {
+                "etiquetas": etiquetas,
+                "bytes": _tamano_propio(cliente, imagen, bases),
+                "ultimo": ultimo,
+                "protegida": any(t in protegidas for t in etiquetas)
+                or ultimo > ahora - ANTIGUEDAD_HUERFANO_S,
+            }
+        )
+    return derivadas, bases
 
 
 def limpiar_al_iniciar(

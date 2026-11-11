@@ -514,7 +514,7 @@ async function hayCorridaPrevia(ruta) {
 let entornoListo = !(window.pywebview), entornoMotivo = 'Verificando el entorno…';
 // Último resultado de verificar_entorno (EN-06): lo usan las «Comprobaciones previas» de Preparar.
 let ENTORNO_VERIFICADO = null;
-const ENV_NOMBRES = {config:'Configuración (config.toml)', claves:'Claves de IA (.env)', docker:'Docker y sandbox', git:'Git'};
+const ENV_NOMBRES = {config:'Configuración (config.toml)', claves:'Claves de IA (.env)', docker:'Docker y sandbox', git:'Git', espacio:'Espacio libre en disco'};
 // La tarjeta de entorno salió de Explorar (pasa a «Comprobaciones previas» de Preparar): si sus
 // elementos no están en la página, solo se actualiza el estado que bloquea el inicio de la corrida.
 async function verificarEntorno() {
