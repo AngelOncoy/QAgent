@@ -111,6 +111,19 @@ Caracterización por ejecución (opción D), pruebas de propiedades y cualquier 
 
 Cada fase con sus pruebas, con la IA simulada y sin Docker ni red (salvo las marcadas `docker`).
 
+### 6.1 Estado de la implementación (#275)
+
+| Fase | Estado |
+|---|---|
+| 1. Contrato (`origen: inferido`, `evidencia`) | Hecha (`planner_contract.v3`, `contracts.es_contrato_inferido`) |
+| 2. Índice de llamadores y tests existentes | Hecha (`analysis/inferencia.py`) |
+| 3. Contexto del Planner y validación | Hecha (segundo paso del Planner; la evidencia solo vale si QAgent la entregó) |
+| 4. Informe, Vista previa y Explicador | Hecha (`respaldo`, `texto_respaldo`, «hallazgo a revisar», marca en Vista previa y en el detalle) |
+| 5. Preparar: estimación aparte y selección | **Pendiente**: hoy se controla con `[inferencia]` en `config.toml` (`activa`, `max_funciones_por_modulo`, `max_caracteres_contexto`) |
+| 5b. Interruptor «Revisar contratos inferidos» (opción C) | **Pendiente**: la revisión humana no está en la interfaz todavía |
+| 6. Banco en `bench/sin_docstring/` | Banco creado; **medición pendiente** (necesita Docker y un modelo real) |
+| 7. Documentación | Hecha (AGENTS.md, este ADR); falta `docs/arquitectura.md` |
+
 ## 7. Aprobación
 
 - [ ] Castillo Pezo, Mateo

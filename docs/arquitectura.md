@@ -966,6 +966,17 @@ Prueba una función **raíz** junto con las funciones internas puras que llama, 
 - **Preparar y Recomendador:** casilla «Integración interna» (apagada por defecto, aparece si hay candidatas); entra en la estimación y se envía como `integraciones` (raíces) en la selección. El Recomendador (reglas) la propone solo si hay cadenas, con su motivo, después de las unitarias.
 - **Medición:** `bench/integracion/` trae un defecto que solo se ve al combinar funciones (`total_del_pedido`). La comparación con las unitarias necesita Docker y un modelo real: está pendiente (ver su `README.md`). Si no encuentra nada que las unitarias no encuentren, el tipo debe quedar fuera por defecto; hoy ya nunca se activa sin elegirlo.
 
+#### Contrato inferido para funciones sin docstring (#275, ADR-015; piloto en Python)
+
+Una función sin docstring cuyo resultado la firma y los tipos no determinan ya no se omite: el Planner hace un **segundo paso** y la infiere leyendo el proyecto, sin ejecutarlo.
+
+- **Contexto estático (0 tokens):** `qagent.analysis.inferencia` junta, por función, su cuerpo, las dependencias del grafo (ADR-012), los **llamadores** (índice inverso de `llama_a`) y los tests existentes que la mencionan. El grafo y el contexto, que antes solo llegaban al Generator, ahora también llegan al Planner. `LanguageAdapter.proveedor_inferencia` lo entrega; solo Python lo implementa.
+- **Contrato:** `planner_contract.v3` agrega `origen: "inferido"` y `evidencia` (obligatoria con ese origen, prohibida con otro). Una evidencia solo vale si QAgent la entregó (`cuerpo`, `dependencia:…`, `llamador:…`, `test_existente:…`); el Planner descarta el caso que cita otra. `origen: inferido` fuera de este paso se rechaza.
+- **Qué se infiere:** solo lo que el primer paso omitió y no tiene docstring, hasta `max_funciones_por_modulo` por módulo (`[inferencia]` de `config.toml`, que también permite apagarlo con `activa = false`). Lo que no alcanza queda omitido con un motivo accionable.
+- **Honestidad del resultado:** cada objetivo sale con `respaldo` (`contrato` o `inferido`) y el resumen del reporte separa «N con contrato · M de regresión sin contrato documentado». Un fallo de una prueba inferida es un **hallazgo a revisar**, no un bug confirmado; el Explicador lo dice así. La interfaz muestra la marca «Regresión · contrato inferido» con la evidencia.
+- **Orquestador sin cambios:** sigue determinista (ADR-008). El valor esperado nunca sale de ejecutar el código.
+- **Pendiente:** el interruptor «Revisar contratos inferidos» (confirmación por función, opción C del ADR) y la estimación aparte en Preparar; la medición con `bench/sin_docstring/` necesita Docker y un modelo real.
+
 #### Verificación arquitectónica implementada (#185)
 
 La pantalla **Preparar** ofrece una acción independiente de los perfiles `std`, `humo`,
