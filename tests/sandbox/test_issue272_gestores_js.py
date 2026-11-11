@@ -17,7 +17,12 @@ from unittest.mock import MagicMock
 import pytest
 from docker.errors import ImageNotFound
 
-from qagent.sandbox import IMAGEN_NAVEGADOR, IMAGEN_NODE, preparar_imagen
+from qagent.sandbox import (
+    IMAGEN_NAVEGADOR,
+    IMAGEN_NODE,
+    ErrorConstruccionImagen,
+    preparar_imagen,
+)
 from qagent.sandbox.gestores_js import (
     MARCA_SIN_LOCKFILE,
     NOMBRE_SCRIPT,
@@ -30,7 +35,7 @@ from qagent.sandbox.gestores_js import (
     recolectar_archivos,
     sin_credenciales,
 )
-from qagent.sandbox.imagen import etiqueta_para_dependencias
+from qagent.sandbox.imagen import aviso_dependencias, etiqueta_para_dependencias
 
 CARPETA = "/tmp/qagent-deps"
 
@@ -551,3 +556,68 @@ def test_reescribe_los_enlaces_a_paquetes_del_monorepo(tmp_path):
 
     assert (raiz / "@mono" / "core").readlink() == Path("/work/p/packages/core")
     assert (raiz / ".bin" / "dep").readlink() == Path("/work/node_modules/dep/bin.js")
+
+
+# --- Mensaje de error y avance ----------------------------------------------------------
+
+
+def _fallo_pnpm(monorepo: Path, log: str) -> str:
+    docker = DockerSimulado(IMAGEN_NODE)
+    docker.cliente.api.build.return_value = iter(
+        [
+            {"stream": "Step 6/7 : RUN true && corepack pnpm@10.33.4 install\n"},
+            {"stream": log},
+            {"error": "The command '/bin/sh -c true' returned a non-zero code: 1"},
+        ]
+    )
+    with pytest.raises(ErrorConstruccionImagen) as error:
+        preparar_imagen(monorepo, docker.cliente, lambda _t: None, IMAGEN_NODE)
+    return str(error.value)
+
+
+def test_el_error_nombra_el_gestor_la_causa_y_no_la_orden_de_docker(monorepo_pnpm):
+    mensaje = _fallo_pnpm(
+        monorepo_pnpm,
+        " ERR_PNPM_UNSUPPORTED_ENGINE  Unsupported environment (bad pnpm and/or Node.js version)\n",
+    )
+
+    assert mensaje.startswith(
+        "No se pudieron instalar las dependencias del proyecto con "
+        "pnpm 10.33.4 (pnpm-lock.yaml): el proyecto pide otra versión de Node."
+    )
+    assert "ERR_PNPM_UNSUPPORTED_ENGINE" in mensaje
+    assert "/bin/sh" not in mensaje and "RUN" not in mensaje
+
+
+@pytest.mark.parametrize(
+    ("log", "causa"),
+    [
+        ("npm error code ETARGET\n", "una dependencia pide una versión que no existe"),
+        ("npm error code E401\n", "el registro de paquetes pidió credenciales"),
+        ("npm error network getaddrinfo ENOTFOUND registry\n", "no hubo conexión"),
+        ("Usage Error: This project is configured to use yarn\n", "corepack"),
+        ("ENOSPC: no space left on device\n", "sin espacio en disco"),
+    ],
+)
+def test_reconoce_las_causas_habituales(monorepo_pnpm, log, causa):
+    assert causa in _fallo_pnpm(monorepo_pnpm, log)
+
+
+def test_sin_causa_conocida_cita_las_ultimas_lineas_de_error(monorepo_pnpm):
+    mensaje = _fallo_pnpm(monorepo_pnpm, " ERR_PNPM_ALGO_RARO  Algo raro pasó\n")
+
+    assert "Revisa el detalle del error del gestor de paquetes" in mensaje
+    assert "ERR_PNPM_ALGO_RARO  Algo raro pasó" in mensaje
+
+
+def test_el_monitor_nombra_el_gestor_y_los_paquetes_de_pnpm(monorepo_pnpm):
+    docker = DockerSimulado(IMAGEN_NODE)
+    docker.cliente.api.build.return_value = iter(
+        [{"stream": "Packages: +1234\n"}, {"stream": "Successfully tagged x\n"}]
+    )
+    avisos: list[str] = []
+
+    preparar_imagen(monorepo_pnpm, docker.cliente, avisos.append, IMAGEN_NODE)
+
+    assert aviso_dependencias("pnpm 10.33.4 (pnpm-lock.yaml)") in avisos
+    assert "Instalando 1234 paquetes" in avisos

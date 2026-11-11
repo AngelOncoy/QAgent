@@ -89,6 +89,8 @@ _INSTALANDO = re.compile(r"^Installing collected packages:\s*(.+)$")
 _INSTALADO = re.compile(r"^Successfully installed\b")
 # npm («added 57 packages in 3s»), Maven y Gradle al terminar de bajar dependencias.
 _NPM_INSTALADO = re.compile(r"^added\s+(\d+)\s+packages?\b")
+# pnpm («Packages: +1234») al resolver las dependencias (#272).
+_PNPM_PAQUETES = re.compile(r"^Packages:\s*\+(\d+)\b")
 _BUILD_EXITOSO = re.compile(r"^(?:\[INFO\]\s+)?BUILD SUCCESS(?:FUL)?\b")
 
 _CARPETA_DEPENDENCIAS = "/tmp/qagent-deps"
@@ -110,6 +112,10 @@ class Dependencias:
             (ruta relativa → contenido).
         recolectar: si está, decide qué archivos copiar en lugar de `opcionales`
             (proyectos JS: lockfile del gestor, workspaces y parches, #272).
+        describir: texto para personas a partir de los archivos («pnpm 10.33.4
+            (pnpm-lock.yaml)»); si falta, se usa `nombre`.
+        explicar_fallo: arma el mensaje de error a partir de los archivos y del log
+            de la construcción; si falta, se muestra el error de Docker.
     """
 
     nombre: str
@@ -117,6 +123,8 @@ class Dependencias:
     opcionales: tuple[str, ...]
     dockerfile: Callable[[str, Mapping[str, bytes]], str]
     recolectar: Callable[[Path], dict[str, bytes]] | None = None
+    describir: Callable[[Mapping[str, bytes]], str] | None = None
+    explicar_fallo: Callable[[Mapping[str, bytes], str], str] | None = None
 
 
 @dataclass(frozen=True)
@@ -238,6 +246,8 @@ RECETAS: dict[str, RecetaImagen] = {
                 ("package-lock.json",),
                 _dockerfile_npm,
                 gestores_js.recolectar_archivos,
+                lambda archivos: gestores_js.gestor_de_archivos(archivos).descripcion,
+                gestores_js.explicar_fallo,
             ),
         ),
     ),
@@ -273,6 +283,8 @@ RECETAS: dict[str, RecetaImagen] = {
                 ("package-lock.json",),
                 _dockerfile_npm_navegador,
                 gestores_js.recolectar_archivos,
+                lambda archivos: gestores_js.gestor_de_archivos(archivos).descripcion,
+                gestores_js.explicar_fallo,
             ),
         ),
     ),
@@ -501,7 +513,8 @@ def preparar_imagen(
         return etiqueta
 
     _avisar(avanzar, AVISO_CONSTRUYENDO)
-    _avisar(avanzar, aviso_dependencias(forma.nombre))
+    nombre = forma.describir(archivos) if forma.describir else forma.nombre
+    _avisar(avanzar, aviso_dependencias(nombre))
     contexto = Path(tempfile.mkdtemp(prefix="qagent-req-"))
     try:
         for nombre, contenido in archivos.items():
@@ -511,13 +524,21 @@ def preparar_imagen(
         (contexto / "Dockerfile").write_text(
             forma.dockerfile(receta.imagen, archivos), encoding="utf-8"
         )
-        _construir(
-            cliente,
-            contexto,
-            etiqueta,
-            f"No se pudieron instalar las dependencias del {forma.nombre} del proyecto",
-            avanzar,
-        )
+        try:
+            _construir(
+                cliente,
+                contexto,
+                etiqueta,
+                f"No se pudieron instalar las dependencias del {forma.nombre} del proyecto",
+                avanzar,
+            )
+        except ErrorConstruccionImagen as error:
+            if forma.explicar_fallo is None:
+                raise
+            # #272: la causa probable y qué hacer, no la orden RUN de Docker.
+            raise ErrorConstruccionImagen(
+                forma.explicar_fallo(archivos, error.log or str(error)), error.log
+            ) from error
     finally:
         shutil.rmtree(contexto, ignore_errors=True)
     _avisar(avanzar, AVISO_LISTO)
@@ -597,6 +618,9 @@ def describir_linea(linea: str) -> str | None:
     if coincidencia := _NPM_INSTALADO.match(texto):
         cantidad = int(coincidencia.group(1))
         return f"Instalados {cantidad} {'paquete' if cantidad == 1 else 'paquetes'}"
+    if coincidencia := _PNPM_PAQUETES.match(texto):
+        cantidad = int(coincidencia.group(1))
+        return f"Instalando {cantidad} {'paquete' if cantidad == 1 else 'paquetes'}"
     if _INSTALADO.match(texto) or _BUILD_EXITOSO.match(texto):
         return AVISO_DEPENDENCIAS_LISTAS
     texto_minusculas = texto.lower()

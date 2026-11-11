@@ -463,6 +463,120 @@ def dockerfile_js(
     )
 
 
+# --- Mensaje de error para personas -----------------------------------------------------
+
+#: (marcas del log, causa, qué hacer). Se revisan en orden; gana la primera que aparece.
+_CAUSAS: tuple[tuple[tuple[str, ...], str, str], ...] = (
+    (
+        ("ENOTFOUND", "EAI_AGAIN", "ETIMEDOUT", "ECONNRESET", "getaddrinfo"),
+        "no hubo conexión con el registro de paquetes",
+        (
+            "Revisa la conexión a internet (la instalación de dependencias necesita red) "
+            "y vuelve a intentarlo"
+        ),
+    ),
+    (
+        ("E401", "E403", "ERR_PNPM_FETCH_401", "ERR_PNPM_FETCH_403", "YN0041"),
+        "el registro de paquetes pidió credenciales",
+        (
+            "El proyecto usa un registro privado. QAgent no copia credenciales a la "
+            "imagen, así que esas dependencias no se pueden instalar"
+        ),
+    ),
+    (
+        (
+            "ERR_PNPM_UNSUPPORTED_ENGINE",
+            "EBADENGINE",
+            "is incompatible with this module",
+        ),
+        "el proyecto pide otra versión de Node",
+        "Revisa el campo `engines` del package.json: el entorno aislado usa Node 26",
+    ),
+    (
+        ("ERR_PNPM_LOCKFILE_BREAKING_CHANGE", "ERR_PNPM_LOCKFILE_CONFIG_MISMATCH"),
+        "el lockfile es de otra versión del gestor",
+        (
+            "Declara la versión del gestor en `packageManager` del package.json "
+            "(por ejemplo, `pnpm@9.15.0`)"
+        ),
+    ),
+    (
+        (
+            "ERR_PNPM_WORKSPACE_PKG_NOT_FOUND",
+            "ERR_PNPM_NO_MATCHING_VERSION_INSIDE_WORKSPACE",
+        ),
+        "un paquete del monorepo no se encontró entre los workspaces",
+        "Revisa `pnpm-workspace.yaml` o el campo `workspaces` del package.json",
+    ),
+    (
+        (
+            "ETARGET",
+            "No matching version found",
+            "ERR_PNPM_NO_MATCHING_VERSION",
+            "E404",
+        ),
+        "una dependencia pide una versión que no existe en el registro",
+        "Revisa las versiones del package.json y del lockfile",
+    ),
+    (
+        ("ERESOLVE", "ERR_PNPM_PEER_DEP_ISSUES"),
+        "hay dependencias con versiones incompatibles entre sí",
+        (
+            "Revisa las dependencias «peer» del proyecto (`npm install` también debería "
+            "fallar en tu equipo)"
+        ),
+    ),
+    (
+        ("ENOSPC", "no space left on device"),
+        "Docker se quedó sin espacio en disco",
+        "Libera espacio en Docker Desktop (imágenes sin uso) y vuelve a intentarlo",
+    ),
+    (
+        # No buscar «corepack» a secas: el log repite la orden RUN, que lo nombra.
+        ("Usage Error:", "Internal Error:"),
+        "no se pudo preparar el gestor de paquetes con corepack",
+        "Revisa el campo `packageManager` del package.json",
+    ),
+)
+
+_LINEA_ERROR = re.compile(
+    r"(npm (?:ERR!|error)|ERR_PNPM_|\bYN\d{4}\b|^error\b|Error:)", re.IGNORECASE
+)
+
+
+def explicar_fallo(archivos: Mapping[str, bytes], log: str) -> str:
+    """Mensaje para personas cuando falla la instalación de dependencias JS.
+
+    Dice qué gestor se usó, la causa probable según el log y qué hacer, y cita las
+    últimas líneas de error del gestor (no el comando de Docker).
+    """
+    gestor = gestor_de_archivos(archivos)
+    mensaje = (
+        "No se pudieron instalar las dependencias del proyecto con "
+        f"{gestor.descripcion}"
+    )
+    causa = next(
+        (
+            (texto, accion)
+            for marcas, texto, accion in _CAUSAS
+            if any(marca in log for marca in marcas)
+        ),
+        None,
+    )
+    if causa is not None:
+        mensaje += f": {causa[0]}. {causa[1]}."
+    else:
+        mensaje += ". Revisa el detalle del error del gestor de paquetes."
+    errores = [
+        linea.strip()
+        for linea in log.splitlines()
+        if _LINEA_ERROR.search(linea) and MARCA_SIN_LOCKFILE not in linea
+    ]
+    if errores:
+        mensaje += " Detalle: " + " | ".join(errores[-3:])[:600]
+    return mensaje
+
+
 def _leer(ruta: Path) -> bytes | None:
     try:
         return ruta.read_bytes()
