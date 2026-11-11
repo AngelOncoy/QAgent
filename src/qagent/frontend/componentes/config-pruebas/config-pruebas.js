@@ -547,7 +547,7 @@ function renderDetallesCorrida(e, bloqueado, prioritarias, epsPrioritarios = 0){
     <button type="button" class="ini-enlace prep-enlace" onclick="go('config')">Ajustar en Configuración</button>`;
 }
 
-// Si lo único que falta son los tipos de prueba de esta pantalla (#266).
+// Si lo único que falta son los tipos de prueba de esta pantalla (issue 266).
 function destinoBloqueoPrevio(lista){
   const pend = lista.filter(c => c.ok === false);
   return pend.length && pend.every(c => c.tipos) ? 'tipos' : null;
@@ -598,7 +598,7 @@ function calc(){
   $('prepSub').textContent = bloqueado ? 'Resuelve estos puntos antes de empezar.' : resumen;
   $('prepTitulo').textContent = verificando ? 'Comprobando tu entorno…'
     : !bloqueado ? 'Prepara una corrida fiable'
-    : destinoBloqueoPrevio(lista) === 'tipos' ? 'Elige qué tipos de prueba hacer'   // #266: dice qué falta, no «una comprobación»
+    : destinoBloqueoPrevio(lista) === 'tipos' ? 'Elige qué tipos de prueba hacer'   // issue 266: dice qué falta, no «una comprobación»
     : pendientes <= 1 ? 'Falta una comprobación' : `Faltan ${NUMEROS[pendientes] || pendientes} comprobaciones`;
   // El botón principal lleva a resolver lo pendiente: Explorar, los tipos de esta pantalla o Configuración.
   const pend = lista.filter(c => c.ok === false);

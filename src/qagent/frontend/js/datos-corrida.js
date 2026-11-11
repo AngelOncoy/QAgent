@@ -207,6 +207,16 @@ RUN.forEach(f => f.checks = {
   cov_met: f.lines_cov >= 60 && f.branch_cov >= 60,
   ms_met: f.critical ? f.mutation_score >= META.ms : null,
 });
+// issue 266 (C1): la demostración solo simula las funciones de RUN. Los endpoints elegidos en
+// Preparar no se ejecutan aquí, pero cuentan como seleccionados y aparecen en Resultados
+// como «No se probaron», con el motivo; en la app de escritorio sí se prueban.
+const MOTIVO_ENDPOINT_DEMO = 'La demostración no ejecuta endpoints. En la app de escritorio se prueban con TestClient, sin red.';
+function endpointsDeLaDemo(){
+  return MODULES.filter(m => m.sel && !m.error)
+    .flatMap(m => (m.endpoints || []).filter(e => e.inc && e.objetivo).map(e => ({modulo: m.path, objetivo: e.objetivo})));
+}
+// Lo que la demostración no logró probar (estancado o rechazado): no cuenta como procesado.
+const sinPruebaDemo = () => RUN.filter(f => f.status === 'stuck' || f.status === 'rejected_laundering').length;
 const ranOK = f => f.status==='passed' || f.status==='low_mutation';   // la suite corrió sin error
 function metrics(){
   const n = RUN.length, ok = RUN.filter(ranOK).length, crit = RUN.filter(f=>f.critical);

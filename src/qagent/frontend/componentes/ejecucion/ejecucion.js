@@ -217,7 +217,10 @@ function elementosDemo(){
     esperado: fn.cmp ? fn.cmp.original : null,
     debilitada: fn.status === 'rejected_laundering' || (fn.cmp && fn.cmp.state === 'relaxed'),
     firma: fn.signature || null, estadoBackend: fn.status,
-  }));
+  })).concat(endpointsDeLaDemo().map(e => ({   // issue 266 (C1): los endpoints elegidos, con su propio estado
+    id: 'omitido::' + e.modulo + '::' + e.objetivo, modulo: e.modulo, tipo: 'endpoint', nombre: e.objetivo, endpoint: true,
+    bandeja: 'omitida', critica: false, omitido: true, explicacion: MOTIVO_ENDPOINT_DEMO,
+  })));
 }
 
 /* ---------------- Carga de la corrida real ---------------- */
@@ -418,17 +421,28 @@ function renderCabeceraBandeja(todos, v){
 
   // Cifras: pruebas que pasan, posibles bugs, cobertura y tokens (nunca costos).
   const total = todos.length, pasaron = n('paso'), omitidas = n('omitida');
+  // issue 266 (C2): «procesados» es lo que revisó la corrida (igual que en Historial y los informes);
+  // lo que quedó sin prueba (estancado, rechazado, sin veredicto o por repetir) se muestra siempre aparte.
   const procesados = v && Number.isFinite(Number(v.total_procesados)) ? Number(v.total_procesados) : total - omitidas;
+  const sinPrueba = n('sin') + n('tiempo') + n('repetir');
   const seleccionados = v && Number.isFinite(Number(v.total_seleccionados)) ? Number(v.total_seleccionados) : total;
   const elegibles = v && Number.isFinite(Number(v.total_elegibles)) ? Number(v.total_elegibles) : Math.max(0, seleccionados - omitidas);
   const pendientes = v && Number.isFinite(Number(v.total_pendientes)) ? Number(v.total_pendientes) : Math.max(0, elegibles - procesados);
-  const porRevisar = Math.max(0, procesados - pasaron);
-  const subPasaron = [`${porRevisar} procesados con algo por revisar`, omitidas ? `${omitidas} sin probar (omitidos)` : '', pendientes ? `${pendientes} pendientes` : ''].filter(Boolean).join(' · ');
+  // issue 266 (C3): «Aprobados» dice sobre cuántos objetivos se calcula y no se ve en verde si algo quedó sin prueba.
+  const subPasaron = [`Sobre ${procesados} ${procesados === 1 ? 'objetivo procesado' : 'objetivos procesados'}`,
+    sinPrueba ? `${sinPrueba} sin prueba` : '', bugs.length ? `${bugs.length} ${bugs.length === 1 ? 'posible bug' : 'posibles bugs'}` : '',
+    omitidas ? `${omitidas} sin probar (omitidos)` : '', pendientes ? `${pendientes} pendientes` : ''].filter(Boolean).join(' · ');
+  const avisoAprobados = pasaron < procesados || pendientes > 0;
   const k = v ? v.indicadores : null;
-  // #266: sin backend, la cobertura promedia solo lo que tiene prueba (lo omitido o sin prueba no baja ni sube el número).
-  const conPrueba = todos.filter(e => (e.bandeja === 'paso' || e.bandeja === 'bug') && Number.isFinite(Number(e.cobLineas)));
-  const cobertura = k ? k.cobertura.lineas : (conPrueba.length ? conPrueba.reduce((s, e) => s + Number(e.cobLineas), 0) / conPrueba.length : null);
-  const sinCobertura = total - conPrueba.length;
+  // issue 266 (C3): la cobertura dice sobre cuántos objetivos se promedió. Con backend es el promedio de
+  // results.json (objetivos con cobertura medida); en la demostración, solo lo que tiene prueba.
+  const conDato = e => e.cobLineas !== null && e.cobLineas !== undefined && Number.isFinite(Number(e.cobLineas));
+  const baseCobertura = todos.filter(e => !e.omitido && conDato(e) && (k || e.bandeja === 'paso' || e.bandeja === 'bug'));
+  const cobertura = k ? k.cobertura.lineas : (baseCobertura.length ? baseCobertura.reduce((s, e) => s + Number(e.cobLineas), 0) / baseCobertura.length : null);
+  const sinPruebaEnBase = baseCobertura.filter(e => e.bandeja !== 'paso' && e.bandeja !== 'bug').length;
+  const subCobertura = !baseCobertura.length ? 'Sin objetivos con cobertura medida'
+    : `Promedio de ${baseCobertura.length} de ${procesados} ${procesados === 1 ? 'objetivo procesado' : 'objetivos procesados'}`
+      + (sinPruebaEnBase ? ` (incluye ${sinPruebaEnBase} sin prueba)` : procesados > baseCobertura.length ? ' · lo que no tiene prueba no cuenta' : '');
   const ramas = k ? k.cobertura.ramas : null;
   const tokens = k ? k.costo.tokens_total : null;
   const reales = k && k.costo ? k.costo.tokens_reales : null;
@@ -439,16 +453,16 @@ function renderCabeceraBandeja(todos, v){
     ? `${Number(reales || 0).toLocaleString('es-PE')} reales · ${Number(estimados).toLocaleString('es-PE')} estimados`
     : 'Sumando las tres etapas';
   $('kpis').innerHTML = `
-    <div class="exp-cifra"><span class="exp-cifra-etq">Aprobados</span><b>${pasaron} / ${procesados}</b><span class="exp-cifra-sub">${subPasaron}</span></div>
-    <div class="exp-cifra"><span class="exp-cifra-etq">Posibles bugs</span><b class="${bugs.length ? 'bnj-cifra-bug' : ''}">${bugs.length}</b><span class="exp-cifra-sub">En ${bugs.length} de ${procesados} objetivos procesados</span></div>
-    <div class="exp-cifra"><span class="exp-cifra-etq" title="Porcentaje de líneas del código que ejecutaron las pruebas">Cobertura ⓘ</span><b>${pctTexto(cobertura)}</b><span class="exp-cifra-sub">${k && k.cobertura.exige_ramas === false ? 'Ramas no exigidas en Humo' : ramas !== null && ramas !== undefined ? pctTexto(ramas) + ' de las ramas' : 'De las líneas del código'}${sinCobertura > 0 ? ` · ${sinCobertura} ${sinCobertura === 1 ? 'objetivo sin prueba no cuenta' : 'objetivos sin prueba no cuentan'}` : ''}</span></div>
+    <div class="exp-cifra"><span class="exp-cifra-etq">Aprobados</span><b class="${avisoAprobados ? 'bnj-cifra-aviso' : ''}">${pasaron} / ${procesados}</b><span class="exp-cifra-sub">${subPasaron}</span></div>
+    <div class="exp-cifra"><span class="exp-cifra-etq">Posibles bugs</span><b class="${bugs.length ? 'bnj-cifra-bug' : ''}">${bugs.length}</b><span class="exp-cifra-sub">En ${bugs.length} de ${procesados} ${procesados === 1 ? 'objetivo procesado' : 'objetivos procesados'}</span></div>
+    <div class="exp-cifra"><span class="exp-cifra-etq" title="Porcentaje de líneas del código que ejecutaron las pruebas">Cobertura ⓘ</span><b>${pctTexto(cobertura)}</b><span class="exp-cifra-sub">${subCobertura} · ${k && k.cobertura.exige_ramas === false ? 'Ramas no exigidas en Humo' : ramas !== null && ramas !== undefined ? pctTexto(ramas) + ' de las ramas' : 'De las líneas del código'}</span></div>
     <div class="exp-cifra"><span class="exp-cifra-etq">Tokens de la corrida</span><b>${tokens === null ? '—' : Number(tokens).toLocaleString('es-PE')}</b><span class="exp-cifra-sub">${subTokens}</span></div>`;
   const etiquetasResumen = {
     bug: ['posible bug', 'posibles bugs'], sin: ['sin prueba', 'sin pruebas'],
     tiempo: ['tiempo agotado', 'tiempos agotados'], repetir: ['requiere corrida nueva', 'requieren corrida nueva'],
     omitida: ['no se probó', 'no se probaron'], paso: ['pasó', 'pasaron'],
   };
-  $('bnjResumen').textContent = `${seleccionados} seleccionados · ${elegibles} elegibles · ${procesados} procesados · ${omitidas} omitidos · ${pendientes} pendientes: ` +
+  $('bnjResumen').textContent = `${seleccionados} seleccionados · ${elegibles} elegibles · ${procesados} procesados${sinPrueba ? ` (${sinPrueba} sin prueba)` : ''} · ${omitidas} omitidos · ${pendientes} pendientes: ` +
     BANDEJAS.map(b => [n(b.k), b.k]).filter(([c]) => c).map(([c, k]) => `${c} ${etiquetasResumen[k][c === 1 ? 0 : 1]}`).join(' · ');
 }
 function renderFiltrosBandeja(todos){

@@ -726,12 +726,11 @@ function endpointsElegibles(m){ return (m.endpoints || []).filter(endpointElegib
 function endpointsIncluidos(m){ return endpointsElegibles(m).filter(e => e.inc); }
 
 // Totales detectados (no seleccionados): el selector muestra lo que se encontró, no lo elegido.
-// #266 (I1): las pestañas cuentan lo mismo que la tabla y «Seleccionar todas»: solo las carpetas incluidas.
 function totalFuncionesDetectadas(){
-  return MODULES.filter(m => !m.error && m.sel).flatMap(m => m.fns || []).length;
+  return MODULES.filter(m => !m.error).flatMap(m => m.fns || []).length;
 }
 function totalEndpointsDetectados(){
-  return MODULES.filter(m => !m.error && m.sel).flatMap(m => m.endpoints || []).length;
+  return MODULES.filter(m => !m.error).flatMap(m => m.endpoints || []).length;
 }
 
 // Selector Funciones/Endpoints: cuenta los detectados, deshabilita la opción sin objetivos y
@@ -799,7 +798,7 @@ function renderEndpoints(){
       <td class="fn" title="${detalle}"><span class="endpoint-method">${e.metodo ? escHtml(e.metodo) : 'SIN MÉTODO'}</span> <span class="endpoint-route">${e.ruta ? escHtml(e.ruta) : 'Ruta no disponible'}</span>${tieneDocstring(e) === false ? etiquetaSinDocstring('endpoint') : ''}${elegible ? '' : '<span class="etq-sin-doc etq-no-resuelta" data-tip="Ruta sin resolver: no se podrá probar (su prefijo final no se conoce sin ejecutar la app)" role="note" aria-label="Ruta sin resolver. No se podrá probar">Ruta sin resolver</span>'}<div class="sub">${escHtml(m.path)}</div></td>
       <td>${textoComplejidad(e.br)}</td>
       <td>${textoDesdeUltimaVez(m)}</td>
-      <td class="col-prof"><input type="checkbox" class="exp-caja" aria-label="Profundizar: ${nombreEp}" ${e.crit && elegible ? 'checked' : ''} ${elegible ? '' : 'disabled'} title="${elegible ? 'Profundizar: solicita un análisis más exhaustivo del endpoint. Se aplica si activas Profundizar en la configuración de pruebas.' : 'Ruta no disponible: no se puede probar'}" onchange="toggleEndpointCrit(${mi},${ei})"></td>
+      <td class="col-prof"><input type="checkbox" class="exp-caja" aria-label="Profundizar: ${nombreEp}" ${e.crit && elegible ? 'checked' : ''} ${elegible && e.inc ? '' : 'disabled'} title="${!elegible ? 'Ruta no disponible: no se puede probar' : e.inc ? 'Profundizar: solicita un análisis más exhaustivo del endpoint. Se aplica si activas Profundizar en la configuración de pruebas.' : 'Incluye el endpoint para poder profundizar en él.'}" onchange="toggleEndpointCrit(${mi},${ei})"></td>
     </tr>`;
   }).join('') || `<tr><td colspan="5" class="exp-vacio">${BUSQUEDA ? 'Ningún endpoint coincide con la búsqueda.' : 'No se detectaron endpoints en el proyecto.'}</td></tr>`;
 }
