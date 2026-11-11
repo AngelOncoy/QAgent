@@ -377,7 +377,11 @@ def test_el_monitor_cuenta_las_omitidas_al_terminar() -> None:
     fin = _cuerpo(js, "function monitorFinReal", "\n}\n")
 
     assert "const omitidos = Number(r.objetivos_omitidos || 0);" in fin
-    assert "conAvisos: ok && omitidos > 0" in fin
+    # issue 266 (C2): lo omitido o sin prueba es una incidencia, no un éxito.
+    assert (
+        "const incidencias = ok && (conErrores || omitidos > 0 || sinPrueba > 0);"
+        in fin
+    )
     assert "PRG.total = Number(r.total_seleccionados)" in fin
-    assert "PRG.fin.conAvisos ? 'Corrida completada con avisos'" in js
+    assert "if (fin.incidencias) return 'Corrida completada con incidencias';" in js
     assert "(PRG.hechos + omitidos) / PRG.total" in js

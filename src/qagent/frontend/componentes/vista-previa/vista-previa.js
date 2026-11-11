@@ -55,7 +55,7 @@ registrarComponente('vista-previa/vista-previa', `<!-- ===== 2. EXPLORAR ===== -
       <section class="np-tarjeta exp-carpetas" aria-labelledby="expCarpetasTitulo">
         <h2 id="expCarpetasTitulo">Carpetas incluidas</h2>
         <div class="tree" id="tree"></div>
-        <p class="exp-nota">Las dependencias y pruebas existentes no se incluyen en la selección.</p>
+        <p class="exp-nota" id="expCarpetasNota">No se analizan ni se pueden seleccionar: las pruebas existentes (<span class="mono">tests</span>), los entornos virtuales y dependencias, y las carpetas ocultas como <span class="mono">.qagent</span>.</p>
       </section>
 
       <!-- Funciones y endpoints -->
@@ -514,7 +514,7 @@ async function hayCorridaPrevia(ruta) {
 let entornoListo = !(window.pywebview), entornoMotivo = 'Verificando el entorno…';
 // Último resultado de verificar_entorno (EN-06): lo usan las «Comprobaciones previas» de Preparar.
 let ENTORNO_VERIFICADO = null;
-const ENV_NOMBRES = {config:'Configuración (config.toml)', claves:'Claves de IA (.env)', docker:'Docker y sandbox', git:'Git'};
+const ENV_NOMBRES = {config:'Configuración (config.toml)', claves:'Claves de IA (.env)', docker:'Docker y sandbox', git:'Git', espacio:'Espacio libre en disco'};
 // La tarjeta de entorno salió de Explorar (pasa a «Comprobaciones previas» de Preparar): si sus
 // elementos no están en la página, solo se actualiza el estado que bloquea el inicio de la corrida.
 async function verificarEntorno() {
@@ -632,10 +632,8 @@ function renderTree(){
     const habilitada = modulosDeCarpeta(dir).length > 0;
     h += `<label class="row ${habilitada ? '' : 'no-targets'}" style="--nivel:${partes.length}" ${habilitada ? '' : 'title="sin objetivos analizables"'}><input type="checkbox" class="exp-caja exp-carpeta" data-dir="${escHtml(dir)}" ${habilitada ? '' : 'disabled'} onchange="seleccionarCarpeta(this.dataset.dir, this.checked)">${ICO_CARPETA_ARBOL}<span class="mono">${escHtml(partes[partes.length - 1])}</span></label>`;
   });
-  // Siempre fuera de la selección: las pruebas existentes y la carpeta de QAgent.
-  ['tests', '.qagent'].forEach(n => {
-    h += `<div class="row ign" style="--nivel:1"><input type="checkbox" class="exp-caja" disabled aria-label="${n} no se incluye">${ICO_CARPETA_ARBOL}<span class="mono">${n}</span></div>`;
-  });
+  // issue 266 (I2): las pruebas existentes y .qagent no se dibujan como carpetas con casilla
+  // (no se pueden elegir y quizá no existen); la nota de debajo del árbol dice qué queda fuera.
   $('tree').innerHTML = h;
   sincronizarCarpetas();
   renderErroresLectura();
@@ -757,10 +755,11 @@ function actualizarSelectorObjetivos(){
   $('tabFnsN').textContent = nFns;
   $('tabEpsN').textContent = nEps;
   $('tabFns').disabled = nFns === 0;
-  $('tabFns').title = nFns === 0 ? 'No se detectaron funciones en el proyecto' : '';
+  // issue 266 (I1): la pestaña cuenta lo detectado en el proyecto (#66); la tabla, solo las carpetas incluidas.
+  $('tabFns').title = nFns === 0 ? 'No se detectaron funciones en el proyecto' : `${nFns} ${nFns === 1 ? 'función detectada' : 'funciones detectadas'} en el proyecto, incluidas o no`;
   $('tabFns').setAttribute('aria-disabled', String(nFns === 0));
   $('tabEps').disabled = nEps === 0;
-  $('tabEps').title = nEps === 0 ? 'No se detectaron endpoints en el proyecto' : '';
+  $('tabEps').title = nEps === 0 ? 'No se detectaron endpoints en el proyecto' : `${nEps} ${nEps === 1 ? 'endpoint detectado' : 'endpoints detectados'} en el proyecto, incluidos o no`;
   $('tabEps').setAttribute('aria-disabled', String(nEps === 0));
   aplicarVistaObjetivos();
 }
@@ -798,7 +797,7 @@ function renderEndpoints(){
       <td class="fn" title="${detalle}"><span class="endpoint-method">${e.metodo ? escHtml(e.metodo) : 'SIN MÉTODO'}</span> <span class="endpoint-route">${e.ruta ? escHtml(e.ruta) : 'Ruta no disponible'}</span>${tieneDocstring(e) === false ? etiquetaSinDocstring('endpoint') : ''}${elegible ? '' : '<span class="etq-sin-doc etq-no-resuelta" data-tip="Ruta sin resolver: no se podrá probar (su prefijo final no se conoce sin ejecutar la app)" role="note" aria-label="Ruta sin resolver. No se podrá probar">Ruta sin resolver</span>'}<div class="sub">${escHtml(m.path)}</div></td>
       <td>${textoComplejidad(e.br)}</td>
       <td>${textoDesdeUltimaVez(m)}</td>
-      <td class="col-prof"><input type="checkbox" class="exp-caja" aria-label="Profundizar: ${nombreEp}" ${e.crit && elegible ? 'checked' : ''} ${elegible ? '' : 'disabled'} title="${elegible ? 'Profundizar: solicita un análisis más exhaustivo del endpoint. Se aplica si activas Profundizar en la configuración de pruebas.' : 'Ruta no disponible: no se puede probar'}" onchange="toggleEndpointCrit(${mi},${ei})"></td>
+      <td class="col-prof"><input type="checkbox" class="exp-caja" aria-label="Profundizar: ${nombreEp}" ${e.crit && elegible ? 'checked' : ''} ${elegible && e.inc ? '' : 'disabled'} title="${!elegible ? 'Ruta no disponible: no se puede probar' : e.inc ? 'Profundizar: solicita un análisis más exhaustivo del endpoint. Se aplica si activas Profundizar en la configuración de pruebas.' : 'Incluye el endpoint para poder profundizar en él.'}" onchange="toggleEndpointCrit(${mi},${ei})"></td>
     </tr>`;
   }).join('') || `<tr><td colspan="5" class="exp-vacio">${BUSQUEDA ? 'Ningún endpoint coincide con la búsqueda.' : 'No se detectaron endpoints en el proyecto.'}</td></tr>`;
 }
@@ -811,7 +810,7 @@ function renderFns(){
       <td class="fn" title="${escHtml(f.n + f.sig)}">${escHtml(f.n)}${tieneDocstring(f) === false ? etiquetaSinDocstring('funcion') : ''}<div class="sub">${escHtml(m.path)}</div></td>
       <td>${textoComplejidad(f.br)}</td>
       <td>${textoDesdeUltimaVez(m)}</td>
-      <td class="col-prof"><input type="checkbox" class="exp-caja" aria-label="Profundizar: ${escHtml(f.n)}" ${f.crit ? 'checked' : ''} title="Profundizar: solicita un análisis más exhaustivo de la función. Se aplica si activas Profundizar en la configuración de pruebas." onchange="toggle(${mi},${fi},'crit')"></td>
+      <td class="col-prof"><input type="checkbox" class="exp-caja" aria-label="Profundizar: ${escHtml(f.n)}" ${f.crit ? 'checked' : ''} ${f.inc ? '' : 'disabled'} title="${f.inc ? 'Profundizar: solicita un análisis más exhaustivo de la función. Se aplica si activas Profundizar en la configuración de pruebas.' : 'Incluye la función para poder profundizar en ella.'}" onchange="toggle(${mi},${fi},'crit')"></td>
     </tr>`).join('') || `<tr><td colspan="5" class="exp-vacio">${BUSQUEDA ? 'Ninguna función coincide con la búsqueda.' : 'No hay funciones en las carpetas incluidas.'}</td></tr>`;
   renderEndpoints();
   actualizarSelectorObjetivos();
@@ -835,7 +834,10 @@ function renderFns(){
   $('expTodo').disabled = marcables.length === 0;
   $('expTodo').checked = marcables.length > 0 && marcadas === marcables.length;
   $('expTodo').indeterminate = marcadas > 0 && marcadas < marcables.length;
-  $('expMostrando').textContent = `Mostrando ${vistaVisibles.length} de ${vistaTodas.length}`;
+  // issue 266 (I1): la diferencia con la pestaña (que cuenta todo lo detectado) se explica aquí.
+  const fueraDeCarpetas = Math.max(0, (esFns ? totalFuncionesDetectadas() : totalEndpointsDetectados()) - vistaTodas.length);
+  $('expMostrando').textContent = `Mostrando ${vistaVisibles.length} de ${vistaTodas.length} en las carpetas incluidas`
+    + (fueraDeCarpetas ? ` · ${fueraDeCarpetas} más en carpetas no incluidas` : '');
   const sinCambios = vistaVisibles.filter(r => SPEC_STATUS[r.m.path] === 'reuse').length;
   const cambiaron = vistaVisibles.filter(r => SPEC_STATUS[r.m.path] === 'stale').length;
   $('expCambios').textContent = (sinCambios || cambiaron) ? ` · ${sinCambios} sin cambios, ${cambiaron} cambiaron` : '';

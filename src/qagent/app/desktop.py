@@ -393,6 +393,49 @@ class DesktopAPI:
             )
         return {**resultado, "limites": leer_limites()}
 
+    def obtener_espacio_disco(self) -> dict:
+        """Cuánto ocupa QAgent en Docker y cuánto espacio libre queda (Configuración, #267).
+
+        Returns:
+            dict: ver `qagent.sandbox.uso_disco.medir_uso`.
+        """
+        from qagent.sandbox.uso_disco import medir_uso
+
+        return medir_uso()
+
+    def liberar_espacio(self, incluir_cache: bool = False) -> dict:
+        """Borra lo que QAgent puede reconstruir en Docker (botón «Liberar espacio», #267).
+
+        Conserva las imágenes base y no corre mientras haya una corrida en curso (su imagen
+        no se puede borrar). La caché de compilación de Docker, que es de todos los
+        `docker build` y no solo de QAgent, solo se poda con `incluir_cache`, que la interfaz
+        pide tras avisarlo en la confirmación.
+
+        Returns:
+            dict: ver `qagent.sandbox.uso_disco.liberar_espacio`, más `uso` (la medición
+            nueva) y `en_curso` si se rechazó por la corrida.
+        """
+        from qagent.sandbox.uso_disco import liberar_espacio, medir_uso
+
+        if self._corrida is not None and self._corrida.is_alive():
+            return {
+                "ok": False,
+                "en_curso": True,
+                "mensaje": (
+                    "Hay una corrida en curso y está usando el entorno aislado: "
+                    "espera a que termine para liberar espacio."
+                ),
+            }
+        if not _LIBERANDO_ESPACIO.acquire(blocking=False):
+            return {"ok": False, "mensaje": "Ya se está liberando espacio."}
+        try:
+            resultado = liberar_espacio(incluir_cache=bool(incluir_cache))
+            if resultado["ok"]:
+                bitacora.registro.info("Sandbox: %s", resultado["mensaje"])
+            return {**resultado, "uso": medir_uso()}
+        finally:
+            _LIBERANDO_ESPACIO.release()
+
     def detener_corrida(self) -> dict:
         """Detiene de forma controlada la corrida en curso."""
         if self._corrida is not None and self._corrida.is_alive():
@@ -773,6 +816,7 @@ class DesktopAPI:
         finally:
             if bloqueo is not None:
                 bloqueo.liberar()
+            _limpiar_sandbox_tras_corrida()
 
     def descargar_specs_zip(self, ruta: str, modulo: str | None = None) -> dict:
         """Crea un ZIP y abre el diálogo nativo para elegir dónde guardarlo."""
@@ -995,6 +1039,7 @@ class DesktopAPI:
         finally:
             if bloqueo is not None:
                 bloqueo.liberar()
+            _limpiar_sandbox_tras_corrida()
 
     def _correr(
         self,
@@ -1302,6 +1347,9 @@ def _ocultar_claves_en_bitacora() -> None:
     bitacora.configurar_registro(claves)
 
 
+#: Una sola «Liberar espacio» a la vez (#267).
+_LIBERANDO_ESPACIO = threading.Lock()
+
 #: Estados de Docker en los que el servicio responde (aunque falte la imagen).
 DOCKER_RESPONDE = ("ok", "sin_imagen")
 
@@ -1364,6 +1412,29 @@ def _reintentar_limpieza() -> bool:
     return True
 
 
+def _limpiar_sandbox_tras_corrida() -> bool:
+    """Lanza la limpieza del sandbox en segundo plano al terminar una corrida (#267).
+
+    Una construcción cortada o una corrida interrumpida deja contenedores y capas en
+    Docker; limpiar solo al abrir la app deja que se acumulen mientras está abierta. Va en
+    un hilo aparte para no retrasar el fin de la corrida ni mantenerla «en curso». Una
+    sola limpieza a la vez, y solo con la app abierta de verdad (no en las pruebas).
+
+    Returns:
+        True si se lanzó.
+    """
+    if not SEGUIMIENTO.activo:
+        return False
+    with SEGUIMIENTO.candado:
+        if SEGUIMIENTO.limpieza == "en_curso":
+            return False
+        SEGUIMIENTO.limpieza = "en_curso"
+    threading.Thread(
+        target=_limpiar_sandbox, name="limpieza-sandbox", daemon=True
+    ).start()
+    return True
+
+
 def _registrar_estado_configuracion() -> None:
     """Lee config.toml y .env al iniciar y deja en consola un resumen sin claves (EN-06)."""
     from qagent.config import (
@@ -1408,7 +1479,10 @@ def ejecutar(argv: list[str] | None = None) -> None:
 
 
 def _limpiar_sandbox() -> None:
-    """Borra contenedores huérfanos e imágenes viejas del sandbox (en segundo plano).
+    """Limpia lo que el sandbox dejó en Docker (en segundo plano): al abrir y al terminar cada corrida.
+
+    Borra contenedores huérfanos y de construcciones cortadas, capas sin etiqueta, imágenes
+    sin uso o fuera del tope de espacio (#267). La caché de compilación no se toca aquí.
 
     Si Docker no respondió, la limpieza queda pendiente y se reintenta cuando el motor
     pase a estar activo (#251).
@@ -1423,11 +1497,31 @@ def _limpiar_sandbox() -> None:
             "Sandbox: se borraron %d contenedores de corridas interrumpidas.",
             resultado["contenedores"],
         )
+    if resultado.get("construcciones"):
+        bitacora.registro.info(
+            "Sandbox: se borraron %d contenedores de construcciones interrumpidas.",
+            resultado["construcciones"],
+        )
+    if resultado.get("capas"):
+        bitacora.registro.info(
+            "Sandbox: se borraron %d capas sin etiqueta (%s).",
+            resultado["capas"],
+            _texto_tamano(resultado.get("capas_bytes", 0)),
+        )
     if resultado.get("imagenes"):
         bitacora.registro.info(
-            "Sandbox: se borraron imágenes sin uso: %s.",
+            "Sandbox: se borraron imágenes derivadas sin uso o fuera del tope de "
+            "espacio: %s.",
             ", ".join(resultado["imagenes"]),
         )
+
+
+def _texto_tamano(bytes_: float) -> str:
+    """«1,2 GB» o «350 MB» para la bitácora."""
+    gb = bytes_ / 1024**3
+    if gb >= 1:
+        return f"{gb:.1f} GB".replace(".", ",")
+    return f"{bytes_ / 1024**2:.0f} MB"
 
 
 def main() -> None:

@@ -54,6 +54,11 @@ registrarComponente('config-pruebas/config-pruebas', `<!-- ===== 3. PREPARAR ===
       </div>
 
       <div class="np-columna">
+        <!-- issue 266 (I6): lo que no hace falta para iniciar (arquitectura y E2E, con su propio botón)
+             queda plegado. Las pestañas por caja (issue 246) lo siguen filtrando y lo abren al elegir su caja. -->
+        <details class="np-opciones prep-avanzado" id="prepAvanzado" data-caja-grupo>
+          <summary>Opciones avanzadas: arquitectura y E2E de humo</summary>
+          <p class="np-meta">Son opcionales y no hacen falta para iniciar la prueba. Cada una se ejecuta por separado, con su botón.</p>
         <section class="np-tarjeta prep-arquitectura" data-caja="blanca" aria-labelledby="prepArquitecturaTitulo">
           <h2 id="prepArquitecturaTitulo">Reglas de arquitectura</h2>
           <p class="np-meta">La detección de ciclos está activa siempre. Puedes declarar una dependencia prohibida; se analiza en Docker, sin IA ni red.</p>
@@ -77,6 +82,7 @@ registrarComponente('config-pruebas/config-pruebas', `<!-- ===== 3. PREPARAR ===
           </div>
           <div class="np-aviso np-aviso-info hide" id="prepE2EResultado" aria-live="polite"></div>
         </section>
+        </details>
         <section class="np-tarjeta" id="prepComprobaciones" aria-live="polite"></section>
         <section class="np-tarjeta" id="prepLimites"></section>
         <p class="np-meta">Si una prueba revela un posible bug, conservaremos el criterio original. No la debilitamos para hacerla pasar.</p>
@@ -318,7 +324,7 @@ function renderRegresionProfunda(repetibles){
   const motivo = !HAS_PRIOR_RUN
     ? 'Disponible cuando haya pruebas aprobadas y guardadas de este proyecto.'
     : !datosListos
-      ? 'No se pudo comprobar la vigencia de las pruebas guardadas.'
+      ? 'No se pudo confirmar si las pruebas guardadas siguen vigentes. Vuelve a abrir el proyecto para comprobarlo.'
       : repetibles === 0
         ? 'Ninguna función crítica seleccionada tiene una prueba guardada válida.'
         : `${repetibles} ${repetibles === 1 ? 'función crítica elegible' : 'funciones críticas elegibles'}.`;
@@ -440,6 +446,9 @@ function aplicarCaja(){
   panel.querySelectorAll('[data-caja]').forEach(el => el.classList.toggle('hide', cajaActiva !== 'todas' && el.dataset.caja !== cajaActiva));
   // Una tarjeta que agrupa varios tipos (Tipos de prueba) se oculta si ninguno se ve.
   panel.querySelectorAll('[data-caja-grupo]').forEach(g => g.classList.toggle('hide', !g.querySelector('[data-caja]:not(.hide)')));
+  // issue 266 (I6): en «Todas» lo avanzado sigue plegado; al elegir una caja con algo avanzado, se abre.
+  const avanzado = $('prepAvanzado');
+  if (avanzado && cajaActiva !== 'todas' && !avanzado.classList.contains('hide')) avanzado.open = true;
   $('prepCajaVacia').classList.toggle('hide', !!panel.querySelector('[data-caja]:not(.hide)'));
   renderCajas();
 }
@@ -547,6 +556,12 @@ function renderDetallesCorrida(e, bloqueado, prioritarias, epsPrioritarios = 0){
     <button type="button" class="ini-enlace prep-enlace" onclick="go('config')">Ajustar en Configuración</button>`;
 }
 
+// Si lo único que falta son los tipos de prueba de esta pantalla (issue 266).
+function destinoBloqueoPrevio(lista){
+  const pend = lista.filter(c => c.ok === false);
+  return pend.length && pend.every(c => c.tipos) ? 'tipos' : null;
+}
+
 // Botón principal: inicia la corrida si todo está listo; si no, lleva a resolver lo pendiente.
 let destinoBloqueo = null;
 const NUMEROS = ['', 'una', 'dos', 'tres', 'cuatro', 'cinco', 'seis'];
@@ -592,6 +607,7 @@ function calc(){
   $('prepSub').textContent = bloqueado ? 'Resuelve estos puntos antes de empezar.' : resumen;
   $('prepTitulo').textContent = verificando ? 'Comprobando tu entorno…'
     : !bloqueado ? 'Prepara una corrida fiable'
+    : destinoBloqueoPrevio(lista) === 'tipos' ? 'Elige qué tipos de prueba hacer'   // issue 266: dice qué falta, no «una comprobación»
     : pendientes <= 1 ? 'Falta una comprobación' : `Faltan ${NUMEROS[pendientes] || pendientes} comprobaciones`;
   // El botón principal lleva a resolver lo pendiente: Explorar, los tipos de esta pantalla o Configuración.
   const pend = lista.filter(c => c.ok === false);

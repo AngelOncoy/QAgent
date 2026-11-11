@@ -51,6 +51,11 @@ IMAGEN_JAVA = f"{REPOSITORIO}:java"
 IMAGEN_NAVEGADOR = f"{REPOSITORIO}:navegador"
 #: Etiqueta Docker de los contenedores del sandbox (para encontrarlos y limpiarlos).
 ETIQUETA_CONTENEDOR = {"qagent": "sandbox"}
+#: Label de toda construcción de imagen de QAgent (#267). Docker la copia a los contenedores
+#: y capas intermedios del build: así se reconocen los que una construcción cortada deja a
+#: medias, sin tocar lo que sea del usuario. Distinta de `ETIQUETA_CONTENEDOR` para que la
+#: limpieza trate aparte (y con más cuidado) lo que aún puede estar construyéndose.
+ETIQUETA_CONSTRUCCION = {"qagent": "construccion"}
 
 MENSAJE_NO_INSTALADO = "Docker no está instalado. Instala Docker Desktop para ejecutar las pruebas en el sandbox."
 MENSAJE_NO_INICIADO = "Docker Desktop no está iniciado. Ábrelo, espera a que termine de arrancar y vuelve a intentar."
@@ -135,6 +140,13 @@ class DockerNoDisponible(ErrorSandbox):
 
 class ImagenNoEncontrada(ErrorSandbox):
     """La imagen base del sandbox no existe."""
+
+
+class EspacioInsuficiente(ErrorSandbox):
+    """Queda poco espacio libre en el disco de Docker para construir o descargar una imagen (#267).
+
+    Su mensaje está en lenguaje simple: cuánto falta y qué hacer.
+    """
 
 
 class ConstruccionCancelada(ErrorSandbox):

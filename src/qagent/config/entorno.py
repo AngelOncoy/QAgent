@@ -152,12 +152,19 @@ def _estado_docker() -> dict[str, str]:
     return estado_docker()
 
 
+def _estado_espacio() -> dict[str, str]:
+    from qagent.sandbox.espacio import estado_espacio
+
+    return estado_espacio()
+
+
 def verificar_entorno(
     ruta_config: str | Path | None = None,
     ruta_env: str | Path | None = None,
     simulado: bool | None = None,
     docker: Callable[[], dict[str, str]] = _estado_docker,
     git: Callable[[], dict[str, str]] = estado_git,
+    espacio: Callable[[], dict[str, str]] = _estado_espacio,
     carga: ResultadoCarga | None = None,
     ruta_local: str | Path | None = None,
 ) -> dict[str, Any]:
@@ -170,6 +177,8 @@ def verificar_entorno(
             `QAGENT_FAKE_LLM`).
         docker: función que devuelve `{"estado", "mensaje"}` de Docker (inyectable).
         git: función que devuelve `{"estado", "mensaje"}` de Git (inyectable).
+        espacio: función que devuelve `{"estado", "mensaje"}` del espacio libre del disco
+            de Docker (inyectable, #267).
         carga: resultado ya cargado; si es None se lee de disco.
         ruta_local: `config.local.toml` opcional (ver `cargar_configuracion`).
 
@@ -177,13 +186,16 @@ def verificar_entorno(
         Diccionario con `listo` (bool), `simulado` (IA simulada de EN-11),
         `mensaje` ("Entorno listo" o el primer motivo),
         `problemas` (todos los motivos) y `comprobaciones` (lista de
-        `{"id", "ok", "mensaje"}` para config, claves, docker y git).
+        `{"id", "ok", "mensaje"}` para config, claves, docker, git y espacio). El espacio
+        libre es solo informativo: con poco espacio `ok` es False pero no impide `listo`,
+        porque solo hace falta al construir una imagen (lo comprueba la corrida).
     """
     carga = carga or cargar_configuracion(ruta_config, ruta_env, simulado, ruta_local)
     comprobaciones = [
         *_comprobar_configuracion(carga),
         _comprobar_docker(docker(), carga.simulado),
         _comprobar("git", git()),
+        _comprobar_espacio(espacio()),
     ]
     problemas = [
         *carga.avisos,
@@ -225,6 +237,23 @@ def _comprobar_docker(estado: dict[str, str], simulado: bool) -> dict[str, Any]:
         comprobacion["ok"] = True
         comprobacion["opcional"] = True
         comprobacion["mensaje"] = f"{MENSAJE_DOCKER_OPCIONAL} ({estado['mensaje']})"
+    return comprobacion
+
+
+def _comprobar_espacio(estado: dict[str, str]) -> dict[str, Any]:
+    """Espacio libre del disco de Docker (#267): una comprobación más, que no bloquea.
+
+    Hace falta solo para construir o descargar una imagen, y con las imágenes ya hechas
+    una corrida puede correr con el disco justo. Por eso con poco espacio la comprobación
+    se marca no `ok` (y `advertencia`) pero no entra en los `problemas`; la corrida que de
+    verdad necesite construir se detiene con el motivo. Si no se pudo medir, no cuenta.
+    """
+    comprobacion = _comprobar("espacio", estado)
+    if estado["estado"] == "desconocido":
+        comprobacion["ok"] = True
+        comprobacion["opcional"] = True
+    elif estado["estado"] == "poco":
+        comprobacion["advertencia"] = True
     return comprobacion
 
 

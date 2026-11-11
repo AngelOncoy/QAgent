@@ -63,7 +63,7 @@ const EVENTS = [
   {a:'reuse',    f:'services/inventory.py', fn:'reserve_stock_atomic()', t:'Spec vigente reutilizado (<span class="mono">.qagent/specs/inventory.spec.json</span>): contrato con lock atómico y rollback obligatorio ya definido. 0 tokens del Planner.', p:1},
   {a:'generator',f:'services/inventory.py', fn:'reserve_stock_atomic()', t:'Reintento 2/3: Sintetizando nueva prueba con mock de cliente Redis asíncrono.', p:1},
   {a:'guard',    f:'services/inventory.py', fn:'reserve_stock_atomic()', t:'Aserciones rechazadas: se detectó relajación deliberada (Assertion Laundering: <span class="mono">lock.is_acquired()</span> → <span class="mono">assert res is not None</span>). Reintento programado.', guard:['Filtro Anti-Laundering: Aserción modificada no autorizada','RETRY 2/3 ACTIVADO'], p:1},
-  {a:'guard',    f:'services/inventory.py', fn:'reserve_stock_atomic()', t:'Intento 3/3 repite la misma relajación (hash del diff repetido). Se detiene el ciclo: prueba RECHAZADA para revisión humana.', guard:['Filtro Anti-Laundering: relajación repetida','CICLO DETENIDO'], p:2},
+  {a:'stuck',    f:'services/inventory.py', fn:'reserve_stock_atomic()', t:'Intento 3/3 repite la misma relajación (hash del diff repetido). Se detiene el ciclo: prueba RECHAZADA para revisión humana.', guard:['Filtro Anti-Laundering: relajación repetida','CICLO DETENIDO'], p:2},
   {a:'planner',  f:'services/cart.py',      fn:'calculate_tax_breakdown()', t:'cart.py cambió desde la corrida anterior: analizando árbol de dependencias tributarias y excepciones de estados exentos. Spec regenerado en <span class="mono">.qagent/specs/cart.spec.json</span>.', p:2},
   {a:'generator',f:'services/cart.py',      fn:'calculate_tax_breakdown()', t:'Generando pruebas pytest para reglas fiscales complejas (California 7.25% vs Exentos de impuestos).', p:2},
   {a:'reviewer', f:'services/cart.py',      fn:'calculate_tax_breakdown()', t:'Ejecutado en sandbox aislado: 2/2 tests pasaron en 110ms. Aserciones estrictas comprobadas.', p:3},
@@ -77,9 +77,11 @@ const EVENTS = [
   {a:'stuck',    f:'services/payments.py',  fn:'validate_credit_card_token()', t:'Límite de 3/3 intentos alcanzado: el sandbox no tiene red y la prueba no simula la pasarela. Requiere un fixture de mock (intervención humana).', guard:['Control de convergencia: 3/3 intentos sin éxito','ESTANCADO'], p:6},
   {a:'reviewer', f:'services/payments.py',  fn:'refund_charge_idempotent()', t:'Iteración 1 falló por ImportError (causa: importación); iteración 2 aprobada: idempotencia verificada, 19/20 mutantes eliminados.', p:7},
   {a:'reviewer', f:'services/shipping.py',  fn:'estimate_delivery_window()', t:'1/1 test aprobado en 142ms. Cobertura 96%. Función no crítica: mutmut no aplica.', p:8},
-  {a:'reviewer', f:'services/inventory.py', fn:'check_low_stock_alerts()', t:'1/1 test aprobado en 135ms. Cobertura 92%. Corrida completa: 9 de 9 funciones procesadas.', p:9},
+  {a:'reviewer', f:'services/inventory.py', fn:'check_low_stock_alerts()', t:'1/1 test aprobado en 135ms. Cobertura 92%. Las 9 funciones de la demostración están procesadas.', p:9},
 ];
-const RUN_TOTAL = 9;
+const RUN_TOTAL = 9;   // funciones que simula la demostración
+// issue 266 (C1): lo seleccionado en la demostración también cuenta los endpoints, que no se ejecutan aquí.
+const totalDemo = () => RUN_TOTAL + endpointsDeLaDemo().length;
 
 let monitorStarted=false, runDone=false, monTimer=null, agoTimer=null, shown=[], evIdx=0;
 // Cada paso también se imprime, con hora, en la consola de Python (solo en la app de escritorio).
@@ -99,7 +101,7 @@ const ETAPAS_PRG = [
 let PRG = null;   // {inicio, etapa, hechos, total, porEtapa:{k:Set}, reuso:Set, actual, fin, alerta}
 function reiniciarProgreso(){
   PRG = {inicio: Date.now(), etapa: null, hechos: 0, total: null, porEtapa: {analizar:new Set(), escribir:new Set(), verificar:new Set()},
-         reuso: new Set(), actual: null, fin: null, alerta: null, pasos: []};
+         reuso: new Set(), sinPrueba: new Set(), actual: null, fin: null, alerta: null, pasos: []};
   $('timeline').innerHTML = ''; $('evCount').textContent = '0';
   $('prgTokens').textContent = '—'; $('prgTokensSub').textContent = 'Se muestran al terminar la corrida';
   $('prgAlerta').classList.add('hide');
@@ -122,6 +124,8 @@ function registrarPaso({a, f, fn, t, guard, hechos, total, tipo_objetivo, transc
   const etapa = ETAPA_DE[a] || null, clave = [f, fn].filter(Boolean).join('::');
   if (etapa) { PRG.etapa = etapa; if (clave) PRG.porEtapa[etapa].add(clave); }
   if (a === 'reuse' && clave) PRG.reuso.add(clave);
+  // issue 266 (C2): un objetivo estancado o sin veredicto se procesó, pero no tiene prueba.
+  if (clave && (a === 'stuck' || (guard && guard[1] === 'SIN VEREDICTO'))) PRG.sinPrueba.add(clave);
   if (typeof hechos === 'number' && total) { PRG.hechos = hechos; PRG.total = total; }
   if (fn) PRG.actual = {fn, f, tipo: tipo_objetivo, etapa: etapa || PRG.etapa, texto: t, pasos: (PRG.actual && PRG.actual.fn === fn ? PRG.actual.pasos : 0) + 1,
     duracion: typeof duracion_objetivo_s === 'number' ? duracion_objetivo_s : (PRG.actual && PRG.actual.fn === fn ? PRG.actual.duracion : null)};
@@ -154,13 +158,7 @@ function registrarPaso({a, f, fn, t, guard, hechos, total, tipo_objetivo, transc
 function pintarProgreso(){
   if (!PRG) return;
   const etapaActual = ETAPAS_PRG.find(e => e.k === PRG.etapa);
-  $('prgTitulo').textContent = PRG.fin ? (
-      PRG.fin.cancelada ? 'Corrida cancelada'
-      : PRG.fin.conErrores ? 'Corrida completada con errores'
-      : PRG.fin.conAvisos ? 'Corrida completada con avisos'
-      : PRG.fin.ok ? 'Corrida completada'
-      : 'Corrida detenida'
-    )
+  $('prgTitulo').textContent = PRG.fin ? tituloFinCorrida(PRG.fin)
     : etapaActual ? etapaActual.titulo
     : PRG.preparandoEntorno ? 'Preparando el entorno aislado' : 'Preparando la corrida';
   $('prgEntorno').classList.toggle('hide', !(PRG.preparandoEntorno && !PRG.fin));
@@ -188,12 +186,13 @@ function pintarProgreso(){
   // Lo omitido (sin resultado esperado verificable o ruta sin resolver) también está resuelto.
   const omitidos = PRG.fin ? (PRG.fin.omitidos || 0) : 0;
   const pendientes = PRG.fin ? (PRG.fin.pendientes || 0) : Math.max(0, (PRG.total || 0) - PRG.hechos - omitidos);
+  const sinPrueba = PRG.fin && Number.isFinite(PRG.fin.sinPrueba) ? PRG.fin.sinPrueba : PRG.sinPrueba.size;
   const pct = PRG.total ? Math.min(100, Math.round((PRG.hechos + omitidos) / PRG.total * 100)) : (PRG.fin ? 100 : 0);
   const indeterminado = !!(PRG.preparandoEntorno && !PRG.fin && !PRG.etapa);
   $('prgAvanceTxt').textContent = indeterminado
     ? (PRG.pasoEntorno || 'Preparando el entorno Docker…')
     : PRG.total
-    ? `${PRG.hechos} procesados · ${omitidos} omitidos · ${pendientes} pendientes de ${PRG.total} seleccionados`
+    ? `${PRG.hechos} procesados${sinPrueba ? ` (${sinPrueba} sin prueba)` : ''} · ${omitidos} omitidos · ${pendientes} pendientes de ${PRG.total} seleccionados`
     : (PRG.fin ? 'Corrida terminada' : 'Preparando la corrida…');
   $('prgPct').textContent = !indeterminado && (PRG.total || PRG.fin) ? pct + ' %' : '';
   $('prgBarraCont').classList.toggle('prg-indeterminada', indeterminado);
@@ -225,6 +224,16 @@ function pintarProgreso(){
 
   $('prgReuso').textContent = PRG.reuso.size;
   pintarAccionesProgreso();
+}
+// issue 266 (C2): el estado final distingue Completada, Completada con incidencias y Parcial
+// (más Cancelada y Detenida). Mismo criterio que tipo_terminacion() del orquestador: lo que
+// quedó sin prueba, sin veredicto u omitido es una incidencia; lo pendiente deja la corrida parcial.
+function tituloFinCorrida(fin){
+  if (fin.cancelada) return 'Corrida cancelada';
+  if (fin.pendientes > 0) return 'Corrida parcial';
+  if (!fin.ok) return 'Corrida detenida';
+  if (fin.incidencias) return 'Corrida completada con incidencias';
+  return 'Corrida completada';
 }
 // Los textos de la demostración traen etiquetas HTML: se muestran como texto plano (y escapados).
 function textoPlano(t){ const d = document.createElement('div'); d.innerHTML = String(t); return d.textContent || ''; }
@@ -258,7 +267,7 @@ function pushEvent(){
   if(evIdx>=EVENTS.length){ finishRun(); return; }
   const e = EVENTS[evIdx]; evIdx++;
   registrarEnPython({tipo:e.a, archivo:e.f, funcion:e.fn, progreso:`${e.p}/${RUN_TOTAL}`, mensaje: textoPlano(e.t) + (e.guard ? ` [${e.guard[0]}: ${e.guard[1]}]` : '')});
-  registrarPaso({a:e.a, f:e.f, fn:e.fn, t:e.t, guard:e.guard, hechos:e.p, total:RUN_TOTAL});
+  registrarPaso({a:e.a, f:e.f, fn:e.fn, t:e.t, guard:e.guard, hechos:e.p, total:totalDemo()});
   if(evIdx>=EVENTS.length) finishRun();
 }
 async function startMonitor(){
@@ -299,7 +308,12 @@ function finishRun(){
   registrarEnPython({tipo:'fin', agente:'Corrida #' + RUN_ID, mensaje:`completada: ${RUN_TOTAL} funciones procesadas`});
   $('skipBtn').classList.add('hide');
   if (typeof desbloquearVista === 'function') { desbloquearVista('exec'); desbloquearVista('history'); }
-  PRG.fin = {ok: true, t: Date.now(), runId: null};
+  // issue 266: la demostración termina con incidencias: funciones sin prueba y endpoints que aquí no se ejecutan.
+  const sinPrueba = sinPruebaDemo(), endpoints = endpointsDeLaDemo().length;
+  PRG.total = totalDemo(); PRG.hechos = RUN_TOTAL;
+  PRG.fin = {ok: true, incidencias: sinPrueba > 0 || endpoints > 0, omitidos: endpoints, pendientes: 0, sinPrueba, t: Date.now(), runId: null};
+  PRG.alerta = {titulo: `Corrida de demostración: ${sinPrueba} ${sinPrueba === 1 ? 'función quedó' : 'funciones quedaron'} sin prueba${endpoints ? ` y ${endpoints} ${endpoints === 1 ? 'endpoint no se ejecutó' : 'endpoints no se ejecutaron'}` : ''}`,
+    texto: 'La demostración simula solo las 9 funciones de ejemplo; los endpoints seleccionados aparecen en Resultados como «No se probaron». Con la app de escritorio se procesan funciones y endpoints.'};
   if (typeof metrics === 'function') { const m = metrics(); $('prgTokens').textContent = Number(m.tokens).toLocaleString('es-PE'); $('prgTokensSub').textContent = 'Datos de la demostración'; }
   pintarProgreso();
 }
@@ -378,7 +392,11 @@ function monitorFinReal(r){
   if (duracion !== null) PRG.inicio = Date.now() - duracion * 1000;
   const omitidos = Number(r.objetivos_omitidos || 0);
   const pendientes = Number(r.total_pendientes || 0);
-  PRG.fin = {ok, cancelada, conErrores, conAvisos: ok && omitidos > 0, omitidos, pendientes, t: Date.now(), runId: r.run_id && r.carpeta ? r.run_id : null, duracion};
+  // issue 266 (C2): un objetivo estancado o sin veredicto cuenta como procesado, pero sin prueba: no deja la corrida en verde.
+  const estancadas = Number(r.estancadas || 0);
+  const sinPrueba = estancadas + Number(r.sin_veredicto || 0);
+  const incidencias = ok && (conErrores || omitidos > 0 || sinPrueba > 0);
+  PRG.fin = {ok, cancelada, conErrores, incidencias, omitidos, pendientes, estancadas, sinPrueba, tipo: r.tipo_terminacion || null, t: Date.now(), runId: r.run_id && r.carpeta ? r.run_id : null, duracion};
   // El total y lo procesado salen del resumen final, no de los eventos en vivo.
   if (Number(r.total_seleccionados) > 0) PRG.total = Number(r.total_seleccionados);
   if (Number.isFinite(Number(r.total_procesados))) PRG.hechos = Number(r.total_procesados);
@@ -389,13 +407,16 @@ function monitorFinReal(r){
   $('prgTokensSub').textContent = `${Number(r.aceptadas)} ${Number(r.aceptadas) === 1 ? 'aprobada' : 'aprobadas'} · ${Number(r.bugs_detectados)} ${Number(r.bugs_detectados) === 1 ? 'posible bug' : 'posibles bugs'} · ${Number(r.estancadas)} sin prueba${sinVeredictoTxt}${omitidosTxt}`;
   if (r.motivo) {
     const titulo = cancelada ? 'Corrida cancelada por el usuario'
-      : conErrores ? 'Corrida completada con errores'
-      : ok ? 'Corrida completada con avisos'
+      : pendientes > 0 ? `Corrida parcial: ${pendientes} ${pendientes === 1 ? 'objetivo quedó pendiente' : 'objetivos quedaron pendientes'}`
+      : ok ? 'Corrida completada con incidencias'
       : 'La corrida se detuvo';
     PRG.alerta = {titulo, texto: r.motivo};
   } else if (omitidos) {
     PRG.alerta = {titulo: `${omitidos} ${omitidos === 1 ? 'objetivo no se probó' : 'objetivos no se probaron'}`,
       texto: 'No tienen un resultado esperado verificable en su especificación o su ruta no se pudo resolver. Revísalos en Resultados, en «No se probaron».'};
+  } else if (estancadas) {
+    PRG.alerta = {titulo: `${estancadas} ${estancadas === 1 ? 'objetivo quedó sin prueba' : 'objetivos quedaron sin prueba'}`,
+      texto: 'Se agotaron los intentos sin lograr una prueba válida. Revísalos en Resultados, en «Sin prueba».'};
   }
   if(PRG.fin.runId){   // HU-18: Resultados lee el results.json de esta corrida
     if (typeof desbloquearVista === 'function') { desbloquearVista('exec'); desbloquearVista('history'); }
