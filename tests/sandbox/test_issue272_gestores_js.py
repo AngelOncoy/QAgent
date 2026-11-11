@@ -190,7 +190,7 @@ def test_conserva_el_hash_de_integridad_de_package_manager(tmp_path):
     gestor = detectar_gestor(tmp_path)
 
     assert gestor.version == "10.33.4+sha512.abc123"
-    assert gestor.descripcion == "pnpm 10.33.4 (package.json)"
+    assert gestor.descripcion == "pnpm 10.33.4 sin lockfile"
 
 
 @pytest.mark.parametrize(
@@ -583,7 +583,7 @@ def test_el_error_nombra_el_gestor_la_causa_y_no_la_orden_de_docker(monorepo_pnp
 
     assert mensaje.startswith(
         "No se pudieron instalar las dependencias del proyecto con "
-        "pnpm 10.33.4 (pnpm-lock.yaml): el proyecto pide otra versión de Node."
+        "pnpm 10.33.4 y pnpm-lock.yaml: el proyecto pide otra versión de Node."
     )
     assert "ERR_PNPM_UNSUPPORTED_ENGINE" in mensaje
     assert "/bin/sh" not in mensaje and "RUN" not in mensaje
@@ -619,5 +619,5 @@ def test_el_monitor_nombra_el_gestor_y_los_paquetes_de_pnpm(monorepo_pnpm):
 
     preparar_imagen(monorepo_pnpm, docker.cliente, avisos.append, IMAGEN_NODE)
 
-    assert aviso_dependencias("pnpm 10.33.4 (pnpm-lock.yaml)") in avisos
+    assert aviso_dependencias("pnpm 10.33.4 y pnpm-lock.yaml") in avisos
     assert "Instalando 1234 paquetes" in avisos

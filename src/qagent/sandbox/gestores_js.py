@@ -78,13 +78,13 @@ class GestorJS:
 
     @property
     def descripcion(self) -> str:
-        """Texto para personas: «pnpm 10.33.4 (pnpm-lock.yaml)»."""
+        """Texto para personas: «pnpm 10.33.4 y pnpm-lock.yaml», «npm sin lockfile»."""
         nombre = {"yarn-classic": "yarn", "yarn-berry": "yarn"}.get(
             self.nombre, self.nombre
         )
         version = f" {self.version.split('+')[0]}" if self.version else ""
-        origen = self.lockfile or "package.json"
-        return f"{nombre}{version} ({origen})"
+        origen = f"y {self.lockfile}" if self.lockfile else "sin lockfile"
+        return f"{nombre}{version} {origen}"
 
 
 _LOCKFILES = (
@@ -433,7 +433,9 @@ def dockerfile_js(
             ]
         preparar = (
             f"    && export {' '.join(variables)} \\\n"
-            f"    && npm install -g corepack@{VERSION_COREPACK} --no-audit --no-fund \\\n"
+            # Sin «added 1 package» en el log: el Monitor solo cuenta los del proyecto.
+            f"    && npm install -g corepack@{VERSION_COREPACK} --no-audit --no-fund"
+            " --loglevel=error \\\n"
         )
         limpiar = (
             " /tmp/qagent-store /tmp/qagent-yarn-cache /tmp/qagent-corepack"

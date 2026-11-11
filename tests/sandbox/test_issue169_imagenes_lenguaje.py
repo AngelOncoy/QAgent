@@ -369,7 +369,7 @@ def test_avisa_el_avance_de_la_construccion_de_node(proyecto_node):
     assert avisos == [
         modulo_imagen.AVISO_CONSTRUYENDO,
         # #272: el Monitor nombra el gestor detectado y su lockfile.
-        aviso_dependencias("npm (package-lock.json)"),
+        aviso_dependencias("npm y package-lock.json"),
         "Instalados 57 paquetes",
         modulo_imagen.AVISO_GUARDANDO,
         modulo_imagen.AVISO_LISTO,
