@@ -169,6 +169,10 @@ Una imagen base que ya existe no se reconstruye sola al cambiar su Dockerfile du
 python -c "from qagent.sandbox import construir_imagen_base; from qagent.sandbox.modelos import IMAGEN_NODE; construir_imagen_base(imagen=IMAGEN_NODE)"
 ```
 
+### Dependencias de proyectos JavaScript y TypeScript (#272, ADR-015)
+
+La imagen derivada de Node instala con el gestor del proyecto: **npm**, **pnpm** o **yarn** (classic o berry), elegido por el lockfile y el campo `packageManager`. pnpm y yarn se instalan con corepack fijado solo durante esa construcción. Nunca se ejecutan los scripts del proyecto (`postinstall`, `prepare`…), y `.npmrc`/`.yarnrc.yml` se copian sin credenciales. En los monorepos (`pnpm-workspace.yaml` o `workspaces` del `package.json`) se copia el `package.json` de cada workspace y las dependencias quedan en `/work/node_modules`. La lógica está en `src/qagent/sandbox/gestores_js.py` y `sandbox/node/reubicar_workspaces.cjs`. Si la instalación falla, el Monitor muestra el gestor, la causa probable y las últimas líneas de error. Prueba con Docker real: `pytest --docker tests/sandbox/test_issue272_gestores_js_docker.py`.
+
 ## Espacio en disco y limpieza del sandbox (#267)
 
 Docker guarda imágenes, capas y caché en un disco virtual. En Windows ese disco (`docker_data.vhdx`) **no se achica solo**: crece en `C:` y, aunque se borre contenido dentro de Docker, `C:` no recupera el espacio hasta compactarlo. En una prueba real con IA y un proyecto de `bench/` llegó a 23,4 GB y Docker dejó de responder. La causa eran cinco huecos; esta es la política que los cierra.

@@ -33,6 +33,7 @@ RECURSOS = (
     "qagent/llm/proveedores.toml",
     "qagent/llm/ia_simulada.json",
     "qagent/sandbox/Dockerfile",
+    "qagent/sandbox/node/reubicar_workspaces.cjs",
 )
 
 #: Prueba de humo que corre con el Python del entorno nuevo, fuera del repositorio.
