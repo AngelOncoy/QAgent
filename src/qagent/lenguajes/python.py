@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import ast
 import os
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
@@ -222,6 +223,19 @@ class PythonAdapter(LanguageAdapter):
     def reglas_planificacion(self) -> ReglasPlanificacionPython:
         """Prompts y filtros de casos de pytest y FastAPI para el Planner (#168)."""
         return REGLAS_PLANIFICACION_PYTHON
+
+    def proveedor_inferencia(
+        self,
+        raiz: str | os.PathLike[str],
+        analisis: Estructura,
+        max_caracteres: int,
+    ) -> Callable[[str, str], Any]:
+        """Contexto estático de las funciones sin docstring (#275, ADR-016)."""
+        from qagent.analysis.inferencia import ProveedorInferencia
+
+        return ProveedorInferencia(
+            raiz, analisis.get("modulos", []), max_caracteres
+        ).contexto
 
     def prompt_generator(
         self,

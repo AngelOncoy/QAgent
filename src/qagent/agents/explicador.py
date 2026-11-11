@@ -204,6 +204,8 @@ class _Hechos:
     entrada: str | None
     esperado: str | None
     obtenido: str | None
+    #: #275 (ADR-016): sin docstring, lo esperado se dedujo del código y su uso.
+    inferido: bool = False
 
     @classmethod
     def de(cls, objetivo: dict[str, Any], funcion: dict[str, Any] | None) -> _Hechos:
@@ -226,6 +228,7 @@ class _Hechos:
             entrada=_entrada(caso.get("entrada")) if caso else None,
             esperado=_valor(esperado),
             obtenido=_valor((fallido or {}).get("obtenido")),
+            inferido=contracts.es_contrato_inferido(contrato),
         )
 
     @property
@@ -239,6 +242,11 @@ class _Hechos:
     @property
     def promesa(self) -> str:
         """Qué prometía el objetivo según su documentación (los casos del Planner)."""
+        if self.inferido:
+            return (
+                f"{self.sujeto.capitalize()} no tiene documentación: QAgent dedujo lo "
+                "esperado leyendo su código y cómo se usa en el proyecto."
+            )
         if not self.promesas:
             return (
                 f"Que {self.sujeto} hiciera lo que dicen su documentación y sus tipos."
@@ -269,6 +277,18 @@ def _bug(h: _Hechos) -> dict[str, str]:
             f"En al menos uno de los casos, {h.sujeto} no se comportó como prometía. "
             f"La prueba se ejecutó en un entorno aislado{h.veces}."
         )
+    if h.inferido:  # #275: un hallazgo a revisar, no un error confirmado
+        return {
+            "resumen": f"Hallazgo a revisar en {h.sujeto}: se comporta distinto de lo "
+            "que se dedujo de su código y su uso.",
+            "que_se_esperaba": h.promesa,
+            "que_paso": que_paso,
+            "que_hacer": (
+                f"Revisa si {h.sujeto} hace lo que quieres. Si sí, lo deducido no era "
+                "correcto: descríbela en su docstring para que la prueba use tu "
+                "definición. Si no, corrige la función y vuelve a ejecutar las pruebas."
+            ),
+        }
     return {
         "resumen": f"Se encontró un posible error en {h.sujeto}.",
         "que_se_esperaba": h.promesa,
@@ -465,6 +485,10 @@ Reglas:
 - No propongas relajar, quitar ni debilitar una comprobación, ni cambiar el valor
   esperado: lo que promete la documentación es lo correcto.
 - Usa toda la traza de intentos, no solo el último error.
+- Si algún caso tiene "origen": "inferido", la función no tenía documentación: lo
+  esperado se dedujo leyendo su código y su uso. Dilo con esas palabras y presenta un
+  fallo como un hallazgo a revisar (el código se comporta distinto de lo deducido),
+  nunca como un error confirmado.
 - Si la decisión es "stalled" o no hay decisión, aclara que eso no prueba que el
   código tenga un error.
 - Frases cortas y concretas. Sin rutas de archivos ni datos que no estén abajo.

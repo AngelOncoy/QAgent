@@ -511,6 +511,20 @@ class LanguageAdapter(ABC):
         """Prompts y filtros de casos del Planner para este lenguaje."""
         raise NoImplementado(self.lenguaje, "reglas_planificacion")
 
+    def proveedor_inferencia(
+        self,
+        raiz: str | os.PathLike[str],
+        analisis: Estructura,
+        max_caracteres: int,
+    ) -> Callable[[str, str], Any] | None:
+        """Cómo obtener el contexto estático para inferir funciones sin contrato (#275).
+
+        Devuelve una función ``(ruta_del_módulo, nombre) -> contexto | None`` o None si
+        el lenguaje no infiere contratos (ADR-016: piloto solo en Python). El contexto
+        tiene ``a_dict()`` y ``referencias``, y se arma sin ejecutar el código.
+        """
+        return None
+
     def reglas_componentes(self) -> Any | None:
         """Prompt y filtros del Planner para componentes de interfaz (#171).
 

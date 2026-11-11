@@ -9,7 +9,7 @@ function toastError(html){ toast(html, I('alertc','var(--bug-t)',16), 8000); }
    cambia la selección. El dato sale del análisis AST de Explorar (MODULES): `doc` es 1 o 0;
    si no se conoce (por ejemplo, un endpoint sin el dato), no se muestra nada: nunca se supone. */
 const TIP_SIN_DOCSTRING = {
-  funcion: 'Esta función no tiene docstring. Se puede probar igual, pero el valor esperado solo saldrá de su firma y sus tipos: las pruebas tendrán menos información.',
+  funcion: 'Esta función no tiene docstring. Se puede probar igual: si su firma y sus tipos no bastan, QAgent (en Python) infiere el resultado leyendo su código y cómo se usa en el proyecto, sin ejecutarlo. Esa prueba es de regresión, sin contrato documentado.',
   endpoint: 'Este endpoint no tiene docstring. Se puede probar igual: el valor esperado saldrá de lo declarado en la ruta (response_model, status_code y modelos).',
 };
 // true si tiene docstring, false si no tiene y null si el análisis no lo informa.

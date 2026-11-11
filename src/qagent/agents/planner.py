@@ -82,6 +82,8 @@ class PlannerAgent:
         es_simulado: bool = False,
         perfil: str | None = None,
         adaptador: LanguageAdapter | None = None,
+        proveedor_inferencia: Callable[[str, str], Any] | None = None,
+        max_inferidas: int = 20,
     ) -> None:
         """Inicializa el Planner con su cliente y registro de tokens.
 
@@ -91,6 +93,10 @@ class PlannerAgent:
             adaptador: adaptador del lenguaje del proyecto (#168): pone `lenguaje` y
                 los frameworks del contrato. Sin él, el de los contratos anteriores
                 a EN-17.
+            proveedor_inferencia: `(ruta_del_módulo, función) -> contexto estático`
+                (#275, ADR-016). Con él, las funciones sin docstring que quedarían
+                omitidas se infieren leyendo su código y su uso; sin él, se omiten.
+            max_inferidas: funciones por módulo que se infieren; el resto se omite.
         """
         self.adaptador = adaptador or adaptador_para(
             contracts.LENGUAJE_CONTRATOS_ANTERIORES
@@ -101,6 +107,8 @@ class PlannerAgent:
         self.tracker = tracker
         self.es_simulado = es_simulado
         self.perfil = perfil
+        self.proveedor_inferencia = proveedor_inferencia
+        self.max_inferidas = max_inferidas
         #: Qué se descartó en la última llamada (objetivos o casos) y por qué.
         self.descartados: list[str] = []
         #: Casos mínimos que faltan en el último plan de endpoints (no lo descartan) y,
@@ -184,6 +192,8 @@ class PlannerAgent:
         for nombre, funcion in funciones.items():
             if nombre not in cubiertas and nombre not in intentadas:
                 self._omitir(nombre, funcion)
+
+        self._inferir(modulo, funciones, plan)
 
         if not plan and self.descartados and not self.omitidas:
             detalle = "; ".join(self.descartados[:3])
@@ -350,6 +360,16 @@ class PlannerAgent:
                 self.descartados.append(f"{nombre}: sin casos válidos")
             return None
 
+        return self._contrato_de_funcion(modulo, nombre, funcion, casos)
+
+    def _contrato_de_funcion(
+        self,
+        modulo: dict[str, Any],
+        nombre: str,
+        funcion: dict[str, Any],
+        casos: list[dict[str, Any]],
+    ) -> dict[str, Any] | None:
+        """`planner_contract.v3` de una función con sus casos; None si no valida."""
         contrato = {
             **self._encabezado("funcion"),
             "modulo": modulo["ruta"],
@@ -369,6 +389,102 @@ class PlannerAgent:
             self.descartados.append(f"{nombre}: {error}")
             return None
         return contrato
+
+    # --- Contrato inferido (#275, ADR-016) --------------------------------------------
+
+    def _inferir(
+        self,
+        modulo: dict[str, Any],
+        funciones: dict[str, dict[str, Any]],
+        plan: list[dict[str, Any]],
+    ) -> None:
+        """Infiere los casos de las funciones omitidas por no tener docstring.
+
+        Segundo paso del Planner: solo para las funciones que el primero omitió y que
+        no tienen docstring. Recibe el contexto estático de cada una (cuerpo,
+        dependencias, llamadores y tests existentes) y propone casos con origen
+        `inferido` y evidencia citada. Nunca ejecuta el código ni tumba la corrida: lo
+        que no se puede respaldar sigue omitido, con el motivo.
+        """
+        prompt_inferidas = getattr(self.reglas, "prompt_funciones_inferidas", None)
+        if self.proveedor_inferencia is None or prompt_inferidas is None:
+            return
+        pendientes = [
+            nombre
+            for nombre in self.omitidas
+            if nombre in funciones
+            and not funciones[nombre].get("docstring")
+            and not funciones[nombre].get("solo_integracion")
+        ]
+        contextos: dict[str, Any] = {}
+        for nombre in pendientes:
+            if len(contextos) >= self.max_inferidas:
+                self.omitidas[nombre] += (
+                    f"; no se infirió: tope de {self.max_inferidas} funciones "
+                    "inferidas por módulo"
+                )
+                continue
+            contexto = self.proveedor_inferencia(modulo["ruta"], nombre)
+            if contexto is not None:
+                contextos[nombre] = contexto
+        if not contextos:
+            return
+
+        reducido = {**modulo, "funciones": [funciones[n] for n in contextos]}
+        prompt = prompt_inferidas(
+            reducido, {n: c.a_dict() for n, c in contextos.items()}, self.es_humo
+        )
+        respuesta = self.cliente.generar(prompt, rol="planner")
+        self.tracker.registrar(
+            agente="planner",
+            modelo=respuesta.modelo,
+            tokens_entrada=respuesta.tokens_entrada,
+            tokens_salida=respuesta.tokens_salida,
+            costo_usd=respuesta.costo_usd,
+            es_simulado=self.es_simulado,
+            es_estimado=getattr(respuesta, "es_estimado", False),
+        )
+        try:
+            propuesta = _leer_lista(respuesta.contenido)
+        except ErrorRespuestaPlanner as error:
+            self.avisos.append(f"inferencia: respuesta no válida ({error})")
+            self._sin_inferencia(contextos)
+            return
+
+        for elemento in propuesta:
+            nombre = elemento.get("objetivo") if isinstance(elemento, dict) else None
+            if nombre not in contextos or any(c["objetivo"] == nombre for c in plan):
+                continue
+            funcion = {
+                **funciones[nombre],
+                "contexto_inferencia": contextos[nombre].a_dict(),
+            }
+            casos = self._casos_validos(nombre, elemento.get("casos"), funcion)
+            if self.es_humo:
+                casos = self._solo_un_caso_normal(nombre, casos, es_normal_funcion)
+            if not casos:
+                continue
+            contrato = self._contrato_de_funcion(
+                modulo, nombre, funciones[nombre], casos
+            )
+            if contrato is None:
+                continue
+            plan.append(contrato)
+            self.omitidas.pop(nombre, None)
+            self.avisos.append(
+                f"{nombre}: sin docstring; se infirieron {len(casos)} caso(s) leyendo "
+                "su código y su uso (prueba de regresión, sin contrato documentado)"
+            )
+        self._sin_inferencia(contextos)
+
+    def _sin_inferencia(self, contextos: dict[str, Any]) -> None:
+        """Deja constancia en las omitidas de que la inferencia tampoco alcanzó."""
+        for nombre in contextos:
+            if nombre in self.omitidas:
+                self.omitidas[nombre] += (
+                    "; la inferencia estática tampoco encontró evidencia suficiente "
+                    "(agrega un docstring o tipos para poder probarla)"
+                )
 
     def _casos_validos(
         self, nombre: str, casos: Any, funcion: dict[str, Any] | None = None

@@ -17,6 +17,7 @@ from qagent.contracts import (
     ContratoInvalido,
     categoria_de,
     contar_categorias,
+    es_contrato_inferido,
     validar,
     validar_explicacion,
 )
@@ -241,6 +242,8 @@ def vista_reporte(
         or resumen.get("duracion_etapas"),
         "total_funciones": resumen["total_funciones"],
         "total_objetivos": len(funciones),
+        # #275: las cifras de los dos respaldos no se suman como «verificadas».
+        **_resumen_respaldo(funciones),
         # #76: casos de la corrida por categoría; None en corridas anteriores.
         "categorias": total_categorias,
         "texto_categorias": texto_categorias(total_categorias),
@@ -333,6 +336,11 @@ def _funcion(
         "firma": contrato.get("firma") if isinstance(contrato, dict) else None,
         "manejador": contrato.get("manejador") if isinstance(contrato, dict) else None,
         "critical": objetivo["critical"],
+        # #275 (ADR-016): «inferido» = prueba de regresión sin contrato documentado.
+        "respaldo": RESPALDO_INFERIDO
+        if es_contrato_inferido(contrato)
+        else RESPALDO_CONTRATO,
+        "evidencia_inferida": _evidencia_inferida(contrato),
         # #76: casos por categoría, el aviso si no hay límites (no es un fallo) y la
         # categoría de cada caso para mostrarla junto a su resultado de pytest.
         "categorias": categorias,
@@ -400,6 +408,46 @@ def _intentos(crudos: Any) -> list[dict[str, Any]]:
             }
         )
     return intentos
+
+
+#: Respaldo del valor esperado de un objetivo (#275, ADR-016).
+RESPALDO_CONTRATO = "contrato"
+RESPALDO_INFERIDO = "inferido"
+
+#: Cómo se dice, en el informe, que un fallo de una prueba inferida no es un bug firme.
+AVISO_HALLAZGO_INFERIDO = (
+    "La prueba se infirió del código y su uso, sin contrato documentado: un fallo es un "
+    "hallazgo a revisar (el código se comporta distinto de lo inferido), no un bug confirmado."
+)
+
+
+def _evidencia_inferida(contrato: Any) -> list[str]:
+    """Fuentes estáticas citadas por los casos inferidos, sin repetir y en orden."""
+    if not es_contrato_inferido(contrato):
+        return []
+    vistas: dict[str, None] = {}
+    for caso in contrato.get("casos") or []:
+        if isinstance(caso, dict) and caso.get("origen") == "inferido":
+            for fuente in caso.get("evidencia") or []:
+                vistas.setdefault(str(fuente), None)
+    return list(vistas)
+
+
+def _resumen_respaldo(funciones: list[dict[str, Any]]) -> dict[str, Any]:
+    """Objetivos con contrato y de regresión sin contrato, separados (#275)."""
+    inferidos = sum(1 for f in funciones if f.get("respaldo") == RESPALDO_INFERIDO)
+    con_contrato = len(funciones) - inferidos
+    return {
+        "con_contrato": con_contrato,
+        "de_regresion": inferidos,
+        "texto_respaldo": (
+            f"{con_contrato} con contrato · {inferidos} de regresión sin contrato "
+            "documentado"
+            if inferidos
+            else None
+        ),
+        "aviso_hallazgo_inferido": AVISO_HALLAZGO_INFERIDO if inferidos else None,
+    }
 
 
 def _contrato_http(contrato: Any) -> dict[str, Any] | None:

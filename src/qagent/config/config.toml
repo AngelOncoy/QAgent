@@ -29,6 +29,14 @@ tiempo_maximo_por_funcion_s = 120   # segundos por función crítica
 profundidad_max = 2   # niveles de llamadas internas desde la raíz
 max_funciones = 4      # funciones por cadena, contando la raíz
 
+# Contrato inferido para funciones sin docstring (#275, ADR-016): el Planner infiere los
+# casos leyendo el código y su contexto (nunca ejecutándolo) y los marca como `inferido`.
+# Con `activa = false` esas funciones se omiten como antes.
+[inferencia]
+activa = true
+max_funciones_por_modulo = 20    # funciones sin contrato que se infieren por módulo
+max_caracteres_contexto = 6000   # contexto estático por función (cuerpo, llamadores, tests)
+
 # Límites de cada contenedor del sandbox Docker (EN-03). Si Docker Desktop tiene menos
 # CPU asignados que `cpus`, se usan los que tenga. La memoria es también el tope de swap.
 # Solo los cambia el equipo aquí: ~/.qagent/config.local.toml no puede tocarlos.

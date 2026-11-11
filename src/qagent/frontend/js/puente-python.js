@@ -9,6 +9,8 @@ window.onQAgentEvent = function(event) {
     finClonado(event.data);
   } else if (event.type === 'corrida_evento') {
     monitorEventoReal(event.data);   // una fila del Monitor (monitor.js)
+  } else if (event.type === 'revision_inferidos') {
+    abrirRevisionInferidos(event.data);   // la corrida espera esta revisión (modal-revision-inferidos.js, issue 275)
   } else if (event.type === 'corrida_fin') {
     monitorFinReal(event.data);      // resumen de la corrida real (monitor.js)
   }

@@ -151,6 +151,8 @@ def ejecutar_corrida(
     reloj: Callable[[], float] = time.monotonic,
     ahora: Callable[[], str] = iso_utc,
     cancelado: Callable[[], bool] | None = None,
+    inferir: bool | None = None,
+    revisor_inferidos: Callable[[list[dict[str, Any]]], set[str]] | None = None,
 ) -> ResumenCorrida:
     """Ejecuta la corrida completa de un proyecto y devuelve su resumen.
 
@@ -177,6 +179,10 @@ def ejecutar_corrida(
         reloj: reloj monotónico inyectable para medir duraciones (#115).
         ahora: marca UTC ISO inyectable para inicio y fin (#115).
         cancelado: consulta inyectable para detener la corrida de forma controlada.
+        inferir: si se infiere el contrato de las funciones sin docstring (#275,
+            ADR-016). None usa `[inferencia] activa` de la configuración.
+        revisor_inferidos: revisión humana opcional de esos contratos: recibe las
+            propuestas y devuelve los objetivos aceptados.
     """
     if perfil in PERFILES_REGRESION:
         from qagent.orchestrator.regresion import ejecutar_regresion
@@ -416,7 +422,21 @@ def ejecutar_corrida(
             "ahora": ahora,
             "limite_tokens": tope_tokens,
             "cancelado": cancelado,
+            "revisor_inferidos": revisor_inferidos,
         }
+        # #275 (ADR-016): contexto estático para inferir las funciones sin docstring.
+        inferencia = getattr(configuracion, "inferencia", None)
+        crear_proveedor = getattr(adaptador, "proveedor_inferencia", None)
+        proveedor_inferencia = (
+            crear_proveedor(
+                ruta, analisis, getattr(inferencia, "max_caracteres_contexto", 6000)
+            )
+            if crear_proveedor is not None
+            and (
+                inferir if inferir is not None else getattr(inferencia, "activa", True)
+            )
+            else None
+        )
         orquestador = Orquestador(
             PlannerAgent(
                 clientes["planner"],
@@ -424,6 +444,8 @@ def ejecutar_corrida(
                 es_simulado=simulado,
                 perfil=perfil,
                 adaptador=adaptador,
+                proveedor_inferencia=proveedor_inferencia,
+                max_inferidas=getattr(inferencia, "max_funciones_por_modulo", 20),
             ),
             GeneratorAgent(
                 clientes["generator"], tracker, es_simulado=simulado, ruta_proyecto=ruta

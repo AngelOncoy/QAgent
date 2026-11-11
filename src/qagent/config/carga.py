@@ -177,6 +177,19 @@ class Integracion:
 
 
 @dataclass(frozen=True)
+class Inferencia:
+    """Contrato inferido para funciones sin docstring (#275, ADR-016)."""
+
+    #: Si el Planner infiere casos de las funciones que quedarían omitidas por no tener
+    #: contrato documentado. Apagado, esas funciones se omiten como antes.
+    activa: bool = True
+    #: Funciones sin contrato que se infieren por módulo; el resto se omite con aviso.
+    max_funciones_por_modulo: int = 20
+    #: Tope de caracteres del contexto estático (cuerpo, llamadores, tests) por función.
+    max_caracteres_contexto: int = 6000
+
+
+@dataclass(frozen=True)
 class Explicador:
     """Agente Explicador (HU-32, ADR-008): explica los hallazgos tras el veredicto."""
 
@@ -231,6 +244,7 @@ class Configuracion:
     sandbox_python: SandboxPython = field(default_factory=SandboxPython)
     recomendador: Recomendador = Recomendador()
     integracion: Integracion = Integracion()
+    inferencia: Inferencia = Inferencia()
 
     def limites_sandbox(self, lenguaje: str | None = None) -> LimitesSandbox:
         """Límites del sandbox para `lenguaje`; los de `[sandbox]` si no tiene propios.
@@ -674,6 +688,7 @@ def _leer_config(
         (datos.get("agentes") or {}).get("recomendador", {}), avisos
     )
     integracion = _leer_integracion(datos.get("integracion", {}), avisos)
+    inferencia = _leer_inferencia(datos.get("inferencia", {}), avisos)
     if len(avisos) > antes:
         return None
     return Configuracion(
@@ -688,6 +703,7 @@ def _leer_config(
         sandbox_python,
         recomendador,
         integracion,
+        inferencia,
     )  # type: ignore[arg-type]
 
 
@@ -813,6 +829,30 @@ def _leer_integracion(tabla: Mapping[str, Any], avisos: list[str]) -> Integracio
             valor = defecto
         valores[clave] = valor
     return Integracion(valores["profundidad_max"], valores["max_funciones"])
+
+
+def _leer_inferencia(tabla: Mapping[str, Any], avisos: list[str]) -> Inferencia:
+    """`[inferencia]` es opcional: `activa` es booleano y los topes, enteros positivos."""
+    if not isinstance(tabla, Mapping):
+        avisos.append("[inferencia] de config.toml debe ser una sección.")
+        return Inferencia()
+    activa = tabla.get("activa", True)
+    if not isinstance(activa, bool):
+        avisos.append("activa en [inferencia] debe ser true o false.")
+        activa = True
+    valores = {}
+    for clave, defecto in (
+        ("max_funciones_por_modulo", 20),
+        ("max_caracteres_contexto", 6000),
+    ):
+        valor = tabla.get(clave, defecto)
+        if isinstance(valor, bool) or not isinstance(valor, int) or valor < 1:
+            avisos.append(f"{clave} en [inferencia] debe ser un entero positivo.")
+            valor = defecto
+        valores[clave] = valor
+    return Inferencia(
+        activa, valores["max_funciones_por_modulo"], valores["max_caracteres_contexto"]
+    )
 
 
 def _leer_explicador(tabla: Mapping[str, Any], avisos: list[str]) -> Explicador | None:

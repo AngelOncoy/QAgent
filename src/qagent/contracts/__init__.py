@@ -146,6 +146,22 @@ def contar_categorias(casos: Any) -> dict[str, int]:
     return conteo
 
 
+#: Origen de un caso cuyo valor esperado se infirió por lectura estática del código y
+#: su contexto, sin contrato documentado (ADR-016, #275). Exige `evidencia`.
+ORIGEN_INFERIDO = "inferido"
+
+
+def es_caso_inferido(caso: Any) -> bool:
+    """Si el valor esperado del caso es una inferencia estática, no un contrato."""
+    return isinstance(caso, dict) and caso.get("origen") == ORIGEN_INFERIDO
+
+
+def es_contrato_inferido(contrato: Any) -> bool:
+    """Si algún caso del contrato es inferido: es una prueba de regresión (ADR-016)."""
+    casos = contrato.get("casos") if isinstance(contrato, dict) else None
+    return isinstance(casos, list) and any(es_caso_inferido(c) for c in casos)
+
+
 def valor_esperado_python(caso: dict[str, Any]) -> Any:
     """Recupera la semántica Python del valor esperado serializado en JSON.
 

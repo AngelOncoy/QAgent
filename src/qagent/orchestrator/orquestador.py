@@ -367,6 +367,7 @@ class Orquestador:
         ahora: Callable[[], str] = iso_utc,
         limite_tokens: int | None = None,
         cancelado: Callable[[], bool] | None = None,
+        revisor_inferidos: Callable[[list[dict[str, Any]]], set[str]] | None = None,
     ) -> None:
         """Crea el orquestador.
 
@@ -380,6 +381,10 @@ class Orquestador:
             ahora: marca UTC ISO inyectable (los tests usan una fija).
             limite_tokens: presupuesto máximo de tokens de la corrida, si existe.
             cancelado: consulta inyectable para detener la corrida.
+            revisor_inferidos: revisión humana opcional de los contratos inferidos
+                (#275, ADR-016). Recibe las propuestas y devuelve los nombres de los
+                objetivos aceptados; los demás se omiten. Corre fuera del límite de
+                tiempo de los agentes, porque espera a una persona.
         """
         if not 1 <= max_intentos <= MAX_INTENTOS_CONTRATO:
             raise ValueError(
@@ -398,6 +403,7 @@ class Orquestador:
         self._ahora = ahora
         self.limite_tokens = limite_tokens
         self.cancelado = cancelado
+        self.revisor_inferidos = revisor_inferidos
         self._aviso_80_emitido = False
         self._estado = Estado.PLANIFICAR
         self._traza: list[Estado] = []
@@ -802,7 +808,50 @@ class Orquestador:
                 f"Función omitida: {motivo}",
                 datos={"omitida": True},
             )
-        return plan
+        return self._revisar_inferidos(plan)
+
+    def _revisar_inferidos(self, plan: list[Contrato]) -> list[Contrato]:
+        """Pasa por una persona los contratos inferidos, si hay revisor (#275, ADR-016).
+
+        Lo que no se acepta se omite con su motivo; el resto del plan sigue igual.
+        """
+        if self.revisor_inferidos is None:
+            return plan
+        inferidos = [c for c in plan if contracts.es_contrato_inferido(c)]
+        if not inferidos:
+            return plan
+        propuestas = [
+            {
+                "modulo": c["modulo"],
+                "objetivo": c["objetivo"],
+                "firma": c["firma"],
+                "casos": [
+                    {
+                        clave: caso[clave]
+                        for clave in (
+                            "id",
+                            "descripcion",
+                            "entrada",
+                            "valor_esperado",
+                            "excepcion",
+                            "evidencia",
+                        )
+                        if clave in caso
+                    }
+                    for caso in c["casos"]
+                ],
+            }
+            for c in inferidos
+        ]
+        aceptados = set(self.revisor_inferidos(propuestas))
+        descartados = {c["objetivo"] for c in inferidos} - aceptados
+        for nombre in sorted(descartados):
+            motivo = "descartada en la revisión de los contratos inferidos"
+            self._motivos_omision[nombre] = motivo
+            self._emitir(
+                "planner", nombre, f"Función omitida: {motivo}", datos={"omitida": True}
+            )
+        return [c for c in plan if c["objetivo"] not in descartados]
 
     def _planificar_endpoints(self, modulo: dict[str, Any]) -> list[Contrato]:
         """Pide los endpoints al Planner usando las reglas del adaptador del módulo."""
