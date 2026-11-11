@@ -12,8 +12,12 @@ from unittest.mock import MagicMock
 
 from docker.errors import APIError
 
+from qagent.config.disco import LimitesDisco
 from qagent.sandbox import limpieza
-from qagent.sandbox.modelos import ETIQUETA_CONTENEDOR, IMAGEN_BASE
+from qagent.sandbox.modelos import (
+    ETIQUETA_CONTENEDOR,
+    IMAGEN_BASE,
+)
 
 AHORA = datetime(2026, 10, 18, 12, 0, tzinfo=timezone.utc).timestamp()
 DIA = 24 * 60 * 60
@@ -31,9 +35,18 @@ def _contenedor(estado: str, hace_s: float) -> MagicMock:
     return contenedor
 
 
-def _imagen(etiquetas: list[str], hace_dias: float) -> MagicMock:
+def _imagen(
+    etiquetas: list[str],
+    hace_dias: float,
+    tamano: int | None = None,
+    capas: list[str] | None = None,
+) -> MagicMock:
     imagen = MagicMock(tags=etiquetas)
     imagen.attrs = {"Created": _fecha(AHORA - hace_dias * DIA)}
+    if tamano is not None:
+        imagen.attrs["Size"] = tamano
+    if capas is not None:
+        imagen.attrs["RootFS"] = {"Type": "layers", "Layers": capas}
     return imagen
 
 
@@ -180,12 +193,10 @@ def test_limpiar_al_iniciar_hace_las_dos_cosas_y_olvida_las_imagenes_borradas(
         ],
     )
 
-    resultado = limpieza.limpiar_al_iniciar(cliente, ruta)
+    resultado = limpieza.limpiar_al_iniciar(cliente, ruta, limites=LimitesDisco())
 
-    assert resultado == {
-        "contenedores": 1,
-        "imagenes": ["qagent-sandbox:req-aaaaaaaaaaaa"],
-    }
+    assert resultado["contenedores"] == 1
+    assert resultado["imagenes"] == ["qagent-sandbox:req-aaaaaaaaaaaa"]
     assert list(json.loads(ruta.read_text(encoding="utf-8"))) == [
         "qagent-sandbox:req-bbbbbbbbbbbb"
     ]

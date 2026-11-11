@@ -1,4 +1,4 @@
-// configuracion.js — pantalla «Configuración»: conexión de IA por etapa (HU-30), motor, límites y apariencia
+// configuracion.js — pantalla «Configuración»: conexión de IA por etapa (HU-30), motor, límites, espacio en disco (issue 267) y apariencia
 // HTML del componente (se monta en el marcador data-componente="configuracion/configuracion" de index.html)
 // Cada etapa (analizar, escribir pruebas, verificar, explicar) tiene su propio proveedor, modelo y clave: así lo guarda
 // el backend. Los íconos compartidos (ICO_*) vienen de inicio/modal-abrir.js y modal-clonar.js.
@@ -52,6 +52,8 @@ registrarComponente('configuracion/configuracion', `<!-- ===== CONFIGURACIÓN ==
             </div>
             <span class="np-meta cfg-estado-guardado" id="cfgLimitesEstado" role="status" aria-live="polite"></span>
           </section>
+
+          <section class="np-tarjeta" id="cfgEspacio" aria-live="polite"></section>
         </div>
 
         <div class="np-columna">
@@ -345,4 +347,5 @@ function renderConfig(){
   renderMotorConfig();
   cargarLimites();
   cargarTema();
+  if(typeof cargarEspacioDisco === 'function') cargarEspacioDisco();   // issue 267: espacio-disco.js
 }

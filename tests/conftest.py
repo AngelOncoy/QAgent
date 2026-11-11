@@ -177,6 +177,18 @@ def sin_config_local(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
 
 
 @pytest.fixture(autouse=True)
+def disco_con_espacio(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Las pruebas no dependen del espacio libre del disco donde se ejecutan (#267).
+
+    Antes de construir una imagen QAgent comprueba que quede espacio libre en el disco de
+    Docker. Aquí siempre sobra; las pruebas de esa comprobación fijan su propio valor.
+    """
+    from qagent.sandbox import espacio
+
+    monkeypatch.setattr(espacio, "espacio_libre_bytes", lambda: 10**15)
+
+
+@pytest.fixture(autouse=True)
 def corridas_lanzadas(monkeypatch: pytest.MonkeyPatch) -> list[tuple]:
     """Ninguna prueba lanza el pipeline real en un hilo al llamar a `start_run`.
 
