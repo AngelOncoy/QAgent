@@ -1,4 +1,4 @@
-# Banco sin docstrings (#275, ADR-015)
+# Banco sin docstrings (#275, ADR-016)
 
 Proyecto mínimo cuyas funciones **no tienen docstring ni tipos**. Mide si el contrato
 inferido (leyendo cuerpo, llamadores y tests existentes) encuentra defectos que, sin
@@ -19,7 +19,7 @@ inferencia, QAgent omitiría.
      falla contra el código).
    - `doble`: la prueba de regresión pasa.
 4. Anota aquí el resultado. Si la inferencia no aporta hallazgos útiles frente a omitir, o
-   produce más falsos hallazgos que útiles, el tipo queda **apagado por defecto** (ADR-015,
+   produce más falsos hallazgos que útiles, el tipo queda **apagado por defecto** (ADR-016,
    sección 4.7).
 
 Resultados: _pendientes de la primera medición con un modelo real_.

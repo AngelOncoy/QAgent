@@ -29,7 +29,7 @@ class DesktopAPI:
         self._window: webview.Window | None = None
         self._corrida: threading.Thread | None = None  # corrida real en curso
         self._cancelar_corrida = threading.Event()
-        # #275 (ADR-015): la corrida espera aquí a que la persona revise los contratos
+        # #275 (ADR-016): la corrida espera aquí a que la persona revise los contratos
         # inferidos; `responder_revision_inferidos` la despierta.
         self._revision_evento: threading.Event | None = None
         self._revision_aceptados: set[str] = set()
@@ -449,7 +449,7 @@ class DesktopAPI:
         return {"ok": False, "mensaje": "No hay una corrida en ejecución."}
 
     def _revisar_inferidos(self, propuestas: list[dict[str, Any]]) -> set[str]:
-        """Espera a que la persona revise los contratos inferidos (#275, ADR-015).
+        """Espera a que la persona revise los contratos inferidos (#275, ADR-016).
 
         Envía el evento ``revision_inferidos`` y bloquea el hilo de la corrida hasta que
         llegue ``responder_revision_inferidos`` o se detenga la corrida (en ese caso no
@@ -908,7 +908,7 @@ class DesktopAPI:
     ) -> dict:
         """Inicia la corrida del sistema sobre el proyecto seleccionado.
 
-        ``inferir`` (#275, ADR-015) decide si se infiere el contrato de las funciones
+        ``inferir`` (#275, ADR-016) decide si se infiere el contrato de las funciones
         sin docstring (None usa ``[inferencia] activa``); con ``revisar_inferidos`` la
         corrida se detiene a que la persona acepte o descarte cada contrato inferido
         (evento ``revision_inferidos`` y ``responder_revision_inferidos``).

@@ -1,4 +1,4 @@
-"""Planner: contrato inferido para funciones sin docstring (#275, ADR-015)."""
+"""Planner: contrato inferido para funciones sin docstring (#275, ADR-016)."""
 
 from __future__ import annotations
 

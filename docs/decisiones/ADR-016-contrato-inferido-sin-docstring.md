@@ -1,4 +1,4 @@
-# ADR-015: Contrato inferido para funciones sin docstring
+# ADR-016: Contrato inferido para funciones sin docstring
 
 - **Estado:** Propuesto (2026-11-11)
 - **Fecha:** 2026-11-11

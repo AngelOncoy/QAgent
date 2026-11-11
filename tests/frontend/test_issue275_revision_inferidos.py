@@ -1,4 +1,4 @@
-"""Estructura de la interfaz para el contrato inferido (#275, ADR-015)."""
+"""Estructura de la interfaz para el contrato inferido (#275, ADR-016)."""
 
 from __future__ import annotations
 

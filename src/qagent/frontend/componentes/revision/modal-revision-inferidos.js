@@ -1,4 +1,4 @@
-// modal-revision-inferidos.js — revisión opcional de los contratos inferidos (issue 275, ADR-015)
+// modal-revision-inferidos.js — revisión opcional de los contratos inferidos (issue 275, ADR-016)
 // Python envía el evento `revision_inferidos` con una propuesta por función sin docstring y la corrida espera;
 // aquí la persona acepta o descarta cada una y `responder_revision_inferidos` la reanuda.
 // HTML del componente (se monta en el marcador data-componente="revision/modal-revision-inferidos" de index.html)

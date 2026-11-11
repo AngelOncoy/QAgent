@@ -147,7 +147,7 @@ def contar_categorias(casos: Any) -> dict[str, int]:
 
 
 #: Origen de un caso cuyo valor esperado se infirió por lectura estática del código y
-#: su contexto, sin contrato documentado (ADR-015, #275). Exige `evidencia`.
+#: su contexto, sin contrato documentado (ADR-016, #275). Exige `evidencia`.
 ORIGEN_INFERIDO = "inferido"
 
 
@@ -157,7 +157,7 @@ def es_caso_inferido(caso: Any) -> bool:
 
 
 def es_contrato_inferido(contrato: Any) -> bool:
-    """Si algún caso del contrato es inferido: es una prueba de regresión (ADR-015)."""
+    """Si algún caso del contrato es inferido: es una prueba de regresión (ADR-016)."""
     casos = contrato.get("casos") if isinstance(contrato, dict) else None
     return isinstance(casos, list) and any(es_caso_inferido(c) for c in casos)
 

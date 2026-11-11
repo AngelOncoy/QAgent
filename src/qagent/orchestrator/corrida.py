@@ -180,7 +180,7 @@ def ejecutar_corrida(
         ahora: marca UTC ISO inyectable para inicio y fin (#115).
         cancelado: consulta inyectable para detener la corrida de forma controlada.
         inferir: si se infiere el contrato de las funciones sin docstring (#275,
-            ADR-015). None usa `[inferencia] activa` de la configuración.
+            ADR-016). None usa `[inferencia] activa` de la configuración.
         revisor_inferidos: revisión humana opcional de esos contratos: recibe las
             propuestas y devuelve los objetivos aceptados.
     """
@@ -424,7 +424,7 @@ def ejecutar_corrida(
             "cancelado": cancelado,
             "revisor_inferidos": revisor_inferidos,
         }
-        # #275 (ADR-015): contexto estático para inferir las funciones sin docstring.
+        # #275 (ADR-016): contexto estático para inferir las funciones sin docstring.
         inferencia = getattr(configuracion, "inferencia", None)
         crear_proveedor = getattr(adaptador, "proveedor_inferencia", None)
         proveedor_inferencia = (

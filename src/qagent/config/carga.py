@@ -178,7 +178,7 @@ class Integracion:
 
 @dataclass(frozen=True)
 class Inferencia:
-    """Contrato inferido para funciones sin docstring (#275, ADR-015)."""
+    """Contrato inferido para funciones sin docstring (#275, ADR-016)."""
 
     #: Si el Planner infiere casos de las funciones que quedarían omitidas por no tener
     #: contrato documentado. Apagado, esas funciones se omiten como antes.

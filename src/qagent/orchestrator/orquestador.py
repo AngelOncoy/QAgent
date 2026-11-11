@@ -382,7 +382,7 @@ class Orquestador:
             limite_tokens: presupuesto máximo de tokens de la corrida, si existe.
             cancelado: consulta inyectable para detener la corrida.
             revisor_inferidos: revisión humana opcional de los contratos inferidos
-                (#275, ADR-015). Recibe las propuestas y devuelve los nombres de los
+                (#275, ADR-016). Recibe las propuestas y devuelve los nombres de los
                 objetivos aceptados; los demás se omiten. Corre fuera del límite de
                 tiempo de los agentes, porque espera a una persona.
         """
@@ -811,7 +811,7 @@ class Orquestador:
         return self._revisar_inferidos(plan)
 
     def _revisar_inferidos(self, plan: list[Contrato]) -> list[Contrato]:
-        """Pasa por una persona los contratos inferidos, si hay revisor (#275, ADR-015).
+        """Pasa por una persona los contratos inferidos, si hay revisor (#275, ADR-016).
 
         Lo que no se acepta se omite con su motivo; el resto del plan sigue igual.
         """

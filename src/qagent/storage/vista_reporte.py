@@ -336,7 +336,7 @@ def _funcion(
         "firma": contrato.get("firma") if isinstance(contrato, dict) else None,
         "manejador": contrato.get("manejador") if isinstance(contrato, dict) else None,
         "critical": objetivo["critical"],
-        # #275 (ADR-015): «inferido» = prueba de regresión sin contrato documentado.
+        # #275 (ADR-016): «inferido» = prueba de regresión sin contrato documentado.
         "respaldo": RESPALDO_INFERIDO
         if es_contrato_inferido(contrato)
         else RESPALDO_CONTRATO,
@@ -410,7 +410,7 @@ def _intentos(crudos: Any) -> list[dict[str, Any]]:
     return intentos
 
 
-#: Respaldo del valor esperado de un objetivo (#275, ADR-015).
+#: Respaldo del valor esperado de un objetivo (#275, ADR-016).
 RESPALDO_CONTRATO = "contrato"
 RESPALDO_INFERIDO = "inferido"
 

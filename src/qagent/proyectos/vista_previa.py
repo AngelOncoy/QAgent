@@ -53,7 +53,7 @@ from qagent.llm.tracker import TokenTracker
 _log = logging.getLogger(__name__)
 
 AVISO_ORACULO_DEBIL = "el valor esperado no tendrá fuente (oráculo débil)"
-#: #275 (ADR-015): sin docstring, QAgent infiere el contrato leyendo el código y su uso.
+#: #275 (ADR-016): sin docstring, QAgent infiere el contrato leyendo el código y su uso.
 AVISO_CONTRATO_INFERIDO = (
     "Sin docstring: contrato inferido por QAgent (prueba de regresión, sin contrato "
     "documentado)"
@@ -89,7 +89,7 @@ def priorizar_modulos(modulos: list[dict[str, Any]]) -> list[dict[str, Any]]:
 
 
 def _inferencia_activa(adaptador: Any) -> bool:
-    """Si QAgent inferirá el contrato de las funciones sin docstring (#275, ADR-015).
+    """Si QAgent inferirá el contrato de las funciones sin docstring (#275, ADR-016).
 
     Solo si el lenguaje lo soporta y `[inferencia] activa` no está apagada; ante
     cualquier problema con la configuración se asume activa, como la corrida.

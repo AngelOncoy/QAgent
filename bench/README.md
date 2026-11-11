@@ -23,7 +23,7 @@ bench/
 │   └── resultados_spk04.json        # Resultados de la última medición de SPK-04
 ├── integracion/                     # Banco de integración interna (#245, ADR-014): defecto que solo se ve al combinar funciones
 │   └── README.md                    # Cadenas, qué se simula y cómo medir contra las unitarias (necesita Docker y un modelo real)
-├── sin_docstring/                   # Banco sin docstrings (#275, ADR-015): defectos que solo delata el uso y los tests existentes
+├── sin_docstring/                   # Banco sin docstrings (#275, ADR-016): defectos que solo delata el uso y los tests existentes
 │   └── README.md                    # Qué se siembra y cómo medir la inferencia activa contra omitir (necesita Docker y un modelo real)
 └── dependencias/                    # Banco modular de dependencias entre archivos (SPK #196)
     ├── README.md                    # Explicación del caso de dependencias entre módulos

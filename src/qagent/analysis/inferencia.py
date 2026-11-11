@@ -1,4 +1,4 @@
-"""Contexto estático para inferir el contrato de una función sin docstring (#275, ADR-015).
+"""Contexto estático para inferir el contrato de una función sin docstring (#275, ADR-016).
 
 Cuando una función no tiene docstring ni tipos que determinen su resultado, el Planner
 la omitiría. Con la inferencia activa, el Planner recibe de este módulo lo que se puede

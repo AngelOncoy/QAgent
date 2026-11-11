@@ -364,7 +364,7 @@
         },
         "origen": {
           "enum": ["firma", "tipo", "docstring", "response_model", "status_code", "modelo_pydantic", "inferido"],
-          "description": "De dónde sale el valor esperado. `docstring` incluye JSDoc y Javadoc. `inferido` (ADR-015, #275) es una lectura estática del código y su contexto cuando no hay contrato documentado: exige `evidencia`. No existe la opción 'ejecucion' a propósito."
+          "description": "De dónde sale el valor esperado. `docstring` incluye JSDoc y Javadoc. `inferido` (ADR-016, #275) es una lectura estática del código y su contexto cuando no hay contrato documentado: exige `evidencia`. No existe la opción 'ejecucion' a propósito."
         },
         "evidencia": {
           "type": "array",

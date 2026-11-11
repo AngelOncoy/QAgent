@@ -94,7 +94,7 @@ class PlannerAgent:
                 los frameworks del contrato. Sin él, el de los contratos anteriores
                 a EN-17.
             proveedor_inferencia: `(ruta_del_módulo, función) -> contexto estático`
-                (#275, ADR-015). Con él, las funciones sin docstring que quedarían
+                (#275, ADR-016). Con él, las funciones sin docstring que quedarían
                 omitidas se infieren leyendo su código y su uso; sin él, se omiten.
             max_inferidas: funciones por módulo que se infieren; el resto se omite.
         """
@@ -390,7 +390,7 @@ class PlannerAgent:
             return None
         return contrato
 
-    # --- Contrato inferido (#275, ADR-015) --------------------------------------------
+    # --- Contrato inferido (#275, ADR-016) --------------------------------------------
 
     def _inferir(
         self,

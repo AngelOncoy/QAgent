@@ -204,7 +204,7 @@ class _Hechos:
     entrada: str | None
     esperado: str | None
     obtenido: str | None
-    #: #275 (ADR-015): sin docstring, lo esperado se dedujo del código y su uso.
+    #: #275 (ADR-016): sin docstring, lo esperado se dedujo del código y su uso.
     inferido: bool = False
 
     @classmethod

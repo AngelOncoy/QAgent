@@ -29,7 +29,7 @@ tiempo_maximo_por_funcion_s = 120   # segundos por función crítica
 profundidad_max = 2   # niveles de llamadas internas desde la raíz
 max_funciones = 4      # funciones por cadena, contando la raíz
 
-# Contrato inferido para funciones sin docstring (#275, ADR-015): el Planner infiere los
+# Contrato inferido para funciones sin docstring (#275, ADR-016): el Planner infiere los
 # casos leyendo el código y su contexto (nunca ejecutándolo) y los marca como `inferido`.
 # Con `activa = false` esas funciones se omiten como antes.
 [inferencia]

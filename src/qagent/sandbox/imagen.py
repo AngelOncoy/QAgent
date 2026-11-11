@@ -30,7 +30,7 @@ from typing import Any
 import docker
 from docker.errors import APIError, BuildError, ImageNotFound
 
-from qagent.sandbox import espacio
+from qagent.sandbox import espacio, gestores_js
 from qagent.sandbox.cliente import obtener_cliente
 from qagent.sandbox.modelos import (
     ETIQUETA_CONSTRUCCION,
@@ -90,6 +90,8 @@ _INSTALANDO = re.compile(r"^Installing collected packages:\s*(.+)$")
 _INSTALADO = re.compile(r"^Successfully installed\b")
 # npm («added 57 packages in 3s»), Maven y Gradle al terminar de bajar dependencias.
 _NPM_INSTALADO = re.compile(r"^added\s+(\d+)\s+packages?\b")
+# pnpm («Packages: +1234») al resolver las dependencias (#272).
+_PNPM_PAQUETES = re.compile(r"^Packages:\s*\+(\d+)\b")
 _BUILD_EXITOSO = re.compile(r"^(?:\[INFO\]\s+)?BUILD SUCCESS(?:FUL)?\b")
 
 _CARPETA_DEPENDENCIAS = "/tmp/qagent-deps"
@@ -107,13 +109,23 @@ class Dependencias:
         nombre: texto para personas («package-lock.json», «pom.xml»...).
         obligatorios: el proyecto usa esta forma si tiene al menos uno de estos archivos.
         opcionales: archivos que se copian también si existen (lockfiles, settings).
-        dockerfile: arma el Dockerfile derivado a partir de los archivos presentes.
+        dockerfile: arma el Dockerfile derivado a partir de los archivos presentes
+            (ruta relativa → contenido).
+        recolectar: si está, decide qué archivos copiar en lugar de `opcionales`
+            (proyectos JS: lockfile del gestor, workspaces y parches, #272).
+        describir: texto para personas a partir de los archivos («pnpm 10.33.4
+            (pnpm-lock.yaml)»); si falta, se usa `nombre`.
+        explicar_fallo: arma el mensaje de error a partir de los archivos y del log
+            de la construcción; si falta, se muestra el error de Docker.
     """
 
     nombre: str
     obligatorios: tuple[str, ...]
     opcionales: tuple[str, ...]
-    dockerfile: Callable[[str, list[str]], str]
+    dockerfile: Callable[[str, Mapping[str, bytes]], str]
+    recolectar: Callable[[Path], dict[str, bytes]] | None = None
+    describir: Callable[[Mapping[str, bytes]], str] | None = None
+    explicar_fallo: Callable[[Mapping[str, bytes], str], str] | None = None
 
 
 @dataclass(frozen=True)
@@ -135,7 +147,7 @@ class RecetaImagen:
     dependencias: tuple[Dependencias, ...]
 
 
-def _dockerfile_pip(base: str, archivos: list[str]) -> str:
+def _dockerfile_pip(base: str, archivos: Mapping[str, bytes]) -> str:
     """Dockerfile derivado de Python."""
     return (
         f"FROM {base}\n"
@@ -146,39 +158,28 @@ def _dockerfile_pip(base: str, archivos: list[str]) -> str:
     )
 
 
-def _copiar(archivos: list[str]) -> str:
+def _copiar(archivos: Iterable[str]) -> str:
     """Una línea COPY por archivo, conservando su ruta relativa."""
     return "".join(
         f"COPY {archivo} {_CARPETA_DEPENDENCIAS}/{archivo}\n" for archivo in archivos
     )
 
 
-def _dockerfile_npm(base: str, archivos: list[str]) -> str:
-    """Dependencias de Node en `/work/node_modules` (fuera del montaje del proyecto).
+def _dockerfile_npm(base: str, archivos: Mapping[str, bytes]) -> str:
+    """Dependencias JS en `/work/node_modules` (fuera del montaje del proyecto).
 
-    Con `package-lock.json` se usa `npm ci` (versiones exactas); sin él, `npm install`
-    sin escribir lockfile.
+    Instala con el gestor del proyecto (npm, pnpm o yarn) sin ejecutar sus scripts y
+    sube las dependencias de los workspaces a la raíz (#272, `gestores_js`).
     """
-    instalar = (
-        "npm ci" if "package-lock.json" in archivos else "npm install --no-package-lock"
-    )
-    return (
-        f"FROM {base}\n"
-        "USER root\n"
-        f"{_copiar(archivos)}"
-        f"RUN cd {_CARPETA_DEPENDENCIAS} && {instalar} --no-audit --no-fund \\\n"
-        f"    && mv node_modules /work/node_modules \\\n"
-        f"    && cd / && rm -rf {_CARPETA_DEPENDENCIAS} && npm cache clean --force\n"
-        "USER sandbox\n"
-    )
+    return gestores_js.dockerfile_js(base, archivos, _CARPETA_DEPENDENCIAS, "sandbox")
 
 
-def _dockerfile_npm_navegador(base: str, archivos: list[str]) -> str:
+def _dockerfile_npm_navegador(base: str, archivos: Mapping[str, bytes]) -> str:
     """Dependencias web como la receta Node, conservando el usuario `pwuser`."""
-    return _dockerfile_npm(base, archivos).replace("USER sandbox\n", "USER pwuser\n")
+    return gestores_js.dockerfile_js(base, archivos, _CARPETA_DEPENDENCIAS, "pwuser")
 
 
-def _dockerfile_maven(base: str, archivos: list[str]) -> str:
+def _dockerfile_maven(base: str, archivos: Mapping[str, bytes]) -> str:
     """Descarga dependencias, plugins y el lanzador JUnit del proyecto.
 
     Surefire resuelve el launcher dinámicamente según el engine. Go-offline no
@@ -201,7 +202,7 @@ def _dockerfile_maven(base: str, archivos: list[str]) -> str:
     )
 
 
-def _dockerfile_gradle(base: str, archivos: list[str]) -> str:
+def _dockerfile_gradle(base: str, archivos: Mapping[str, bytes]) -> str:
     """Dependencias de Gradle en una caché de solo lectura (`GRADLE_RO_DEP_CACHE`).
 
     Gradle no tiene `go-offline`: `java/resolver.gradle` resuelve todas las
@@ -245,6 +246,9 @@ RECETAS: dict[str, RecetaImagen] = {
                 ("package.json",),
                 ("package-lock.json",),
                 _dockerfile_npm,
+                gestores_js.recolectar_archivos,
+                lambda archivos: gestores_js.gestor_de_archivos(archivos).descripcion,
+                gestores_js.explicar_fallo,
             ),
         ),
     ),
@@ -279,6 +283,9 @@ RECETAS: dict[str, RecetaImagen] = {
                 ("package.json",),
                 ("package-lock.json",),
                 _dockerfile_npm_navegador,
+                gestores_js.recolectar_archivos,
+                lambda archivos: gestores_js.gestor_de_archivos(archivos).descripcion,
+                gestores_js.explicar_fallo,
             ),
         ),
     ),
@@ -450,6 +457,10 @@ def etiqueta_para_dependencias(
     if prefijo == "browser-":
         # Invalida la primera receta de #186, que heredaba por error USER sandbox.
         huella.update(b"browser-runner-exit-v3\0")
+    if prefijo in ("node-", "browser-"):
+        # #272: gestor del proyecto, sin scripts y con workspaces. Las derivadas de
+        # antes ejecutaban los scripts del proyecto: no se reutilizan.
+        huella.update(b"js-gestores-v1\0")
     for nombre in sorted(archivos):
         huella.update(nombre.encode("utf-8") + b"\0" + archivos[nombre] + b"\0")
     return f"{REPOSITORIO}:{prefijo}{huella.hexdigest()[:12]}"
@@ -503,7 +514,8 @@ def preparar_imagen(
         return etiqueta
 
     _avisar(avanzar, AVISO_CONSTRUYENDO)
-    _avisar(avanzar, aviso_dependencias(forma.nombre))
+    nombre = forma.describir(archivos) if forma.describir else forma.nombre
+    _avisar(avanzar, aviso_dependencias(nombre))
     contexto = Path(tempfile.mkdtemp(prefix="qagent-req-"))
     try:
         for nombre, contenido in archivos.items():
@@ -511,15 +523,23 @@ def preparar_imagen(
             destino.parent.mkdir(parents=True, exist_ok=True)
             destino.write_bytes(contenido)
         (contexto / "Dockerfile").write_text(
-            forma.dockerfile(receta.imagen, list(archivos)), encoding="utf-8"
+            forma.dockerfile(receta.imagen, archivos), encoding="utf-8"
         )
-        _construir(
-            cliente,
-            contexto,
-            etiqueta,
-            f"No se pudieron instalar las dependencias del {forma.nombre} del proyecto",
-            avanzar,
-        )
+        try:
+            _construir(
+                cliente,
+                contexto,
+                etiqueta,
+                f"No se pudieron instalar las dependencias del {forma.nombre} del proyecto",
+                avanzar,
+            )
+        except ErrorConstruccionImagen as error:
+            if forma.explicar_fallo is None:
+                raise
+            # #272: la causa probable y qué hacer, no la orden RUN de Docker.
+            raise ErrorConstruccionImagen(
+                forma.explicar_fallo(archivos, error.log or str(error)), error.log
+            ) from error
     finally:
         shutil.rmtree(contexto, ignore_errors=True)
     _avisar(avanzar, AVISO_LISTO)
@@ -588,6 +608,8 @@ def _buscar_dependencias(
     for forma in receta.dependencias:
         if not any((raiz / nombre).is_file() for nombre in forma.obligatorios):
             continue
+        if forma.recolectar is not None:
+            return forma, forma.recolectar(raiz)
         archivos = {
             nombre: (raiz / nombre).read_bytes()
             for nombre in (*forma.obligatorios, *forma.opcionales)
@@ -625,6 +647,9 @@ def describir_linea(linea: str) -> str | None:
     if coincidencia := _NPM_INSTALADO.match(texto):
         cantidad = int(coincidencia.group(1))
         return f"Instalados {cantidad} {'paquete' if cantidad == 1 else 'paquetes'}"
+    if coincidencia := _PNPM_PAQUETES.match(texto):
+        cantidad = int(coincidencia.group(1))
+        return f"Instalando {cantidad} {'paquete' if cantidad == 1 else 'paquetes'}"
     if _INSTALADO.match(texto) or _BUILD_EXITOSO.match(texto):
         return AVISO_DEPENDENCIAS_LISTAS
     texto_minusculas = texto.lower()

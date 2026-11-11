@@ -520,7 +520,7 @@ class LanguageAdapter(ABC):
         """Cómo obtener el contexto estático para inferir funciones sin contrato (#275).
 
         Devuelve una función ``(ruta_del_módulo, nombre) -> contexto | None`` o None si
-        el lenguaje no infiere contratos (ADR-015: piloto solo en Python). El contexto
+        el lenguaje no infiere contratos (ADR-016: piloto solo en Python). El contexto
         tiene ``a_dict()`` y ``referencias``, y se arma sin ejecutar el código.
         """
         return None

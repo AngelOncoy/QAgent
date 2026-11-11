@@ -185,7 +185,7 @@ function detalleDeReporte(f){
     esperado: esperado || null,
     debilitada: intentos.some(i => i.laundering_detectado),
     firma: f.firma || f.manejador || null,
-    // issue 275 (ADR-015): contrato inferido leyendo el código, sin docstring: es una prueba de regresión.
+    // issue 275 (ADR-016): contrato inferido leyendo el código, sin docstring: es una prueba de regresión.
     inferido: f.respaldo === 'inferido',
     evidenciaInferida: Array.isArray(f.evidencia_inferida) ? f.evidencia_inferida : [],
     // Ejecución del último intento que llegó al sandbox: cada caso con esperado y obtenido.

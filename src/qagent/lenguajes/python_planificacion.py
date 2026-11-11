@@ -168,7 +168,7 @@ Ejemplo: {ejemplo}
         contextos: dict[str, dict[str, Any]],
         humo: bool = False,
     ) -> str:
-        """Prompt de la inferencia (#275, ADR-015) para funciones sin contrato.
+        """Prompt de la inferencia (#275, ADR-016) para funciones sin contrato.
 
         Cada función lleva su contexto estático: cuerpo, dependencias, llamadores y
         tests existentes, con las referencias que el caso puede citar como evidencia.
@@ -376,7 +376,7 @@ def motivo_limite_funcion(funcion: dict[str, Any], caso: dict[str, Any]) -> str 
     if origen == "tipo" and "Annotated[" in (funcion.get("firma") or ""):
         return None
     if origen == "inferido" and caso.get("evidencia"):
-        return None  # ADR-015: el límite está respaldado por la evidencia citada
+        return None  # ADR-016: el límite está respaldado por la evidencia citada
     return "caso límite sin una especificación que describa ese límite"
 
 
@@ -391,7 +391,7 @@ def motivo_oraculo_funcion(funcion: dict[str, Any], caso: dict[str, Any]) -> str
     """
     origen = caso.get("origen")
     if origen == "inferido":
-        # ADR-015: solo en la fase de inferencia, y con evidencia que se entregó.
+        # ADR-016: solo en la fase de inferencia, y con evidencia que se entregó.
         contexto = funcion.get("contexto_inferencia")
         if not isinstance(contexto, dict):
             return "el origen 'inferido' solo vale en la fase de inferencia"

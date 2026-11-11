@@ -230,7 +230,7 @@ class PythonAdapter(LanguageAdapter):
         analisis: Estructura,
         max_caracteres: int,
     ) -> Callable[[str, str], Any]:
-        """Contexto estático de las funciones sin docstring (#275, ADR-015)."""
+        """Contexto estático de las funciones sin docstring (#275, ADR-016)."""
         from qagent.analysis.inferencia import ProveedorInferencia
 
         return ProveedorInferencia(

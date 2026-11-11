@@ -1,4 +1,4 @@
-"""Banco sin docstrings (#275, ADR-015): ninguna función está documentada ni tiene tipos.
+"""Banco sin docstrings (#275, ADR-016): ninguna función está documentada ni tiene tipos.
 
 Cada defecto sembrado solo se puede ver con el contexto del proyecto: el cuerpo, quien
 llama a la función o un test existente dicen qué debería hacer.

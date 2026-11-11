@@ -1,4 +1,4 @@
-"""Revisión opcional de los contratos inferidos (#275, ADR-015)."""
+"""Revisión opcional de los contratos inferidos (#275, ADR-016)."""
 
 from __future__ import annotations
 

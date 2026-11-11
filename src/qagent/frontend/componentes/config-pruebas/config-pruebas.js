@@ -378,7 +378,7 @@ function renderTiposPrueba(){
       <input type="checkbox" class="exp-caja" ${eleccionPruebas[clave] === true && n ? 'checked' : ''} ${n ? '' : 'disabled'} onchange="elegirPruebas({${clave}:this.checked})">
       <span><b>${titulo}</b><span class="prep-desc">${n} ${n === 1 ? singular : plural}</span></span>
     </label>`;
-  // issue 275 (ADR-015): funciones sin docstring que QAgent puede inferir (solo Python) entre las unitarias elegidas.
+  // issue 275 (ADR-016): funciones sin docstring que QAgent puede inferir (solo Python) entre las unitarias elegidas.
   const nInferibles = eleccionPruebas.unitarias === true ? mods.flatMap(m=>m.fns).filter(f=>f.inc && f.inferible).length : 0;
   const tokInferidas = nInferibles && INFERIR_SIN_DOCSTRING ? (estFor(profile==='reg_deep' ? 'reg' : profile).tokInferidas || 0) : 0;
   const filaInferencia = !mods.some(m=>m.fns.some(f=>f.inferible)) ? '' : `<label class="prep-casilla ${nInferibles ? '' : 'dis'}" data-caja="negra">
