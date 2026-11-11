@@ -29,6 +29,10 @@ class DesktopAPI:
         self._window: webview.Window | None = None
         self._corrida: threading.Thread | None = None  # corrida real en curso
         self._cancelar_corrida = threading.Event()
+        # #275 (ADR-015): la corrida espera aquí a que la persona revise los contratos
+        # inferidos; `responder_revision_inferidos` la despierta.
+        self._revision_evento: threading.Event | None = None
+        self._revision_aceptados: set[str] = set()
 
     def set_window(self, window: webview.Window) -> None:
         """Asigna la instancia de la ventana activa."""
@@ -443,6 +447,36 @@ class DesktopAPI:
             bitacora.registro.info("Solicitud de detención de corrida recibida.")
             return {"ok": True, "mensaje": "Deteniendo corrida de forma controlada..."}
         return {"ok": False, "mensaje": "No hay una corrida en ejecución."}
+
+    def _revisar_inferidos(self, propuestas: list[dict[str, Any]]) -> set[str]:
+        """Espera a que la persona revise los contratos inferidos (#275, ADR-015).
+
+        Envía el evento ``revision_inferidos`` y bloquea el hilo de la corrida hasta que
+        llegue ``responder_revision_inferidos`` o se detenga la corrida (en ese caso no
+        se acepta nada).
+        """
+        self._revision_aceptados = set()
+        evento = threading.Event()
+        self._revision_evento = evento
+        self.emit_event("revision_inferidos", {"propuestas": propuestas})
+        while not evento.wait(0.5):
+            if self._cancelar_corrida.is_set():
+                self._revision_evento = None
+                return set()
+        self._revision_evento = None
+        return set(self._revision_aceptados)
+
+    def responder_revision_inferidos(self, aceptados: list[str]) -> dict:
+        """Recibe de la interfaz los objetivos cuyo contrato inferido se acepta."""
+        evento = self._revision_evento
+        if evento is None or evento.is_set():
+            return {
+                "ok": False,
+                "mensaje": "No hay una revisión de contratos pendiente.",
+            }
+        self._revision_aceptados = {str(n) for n in aceptados or []}
+        evento.set()
+        return {"ok": True}
 
     def obtener_tema(self) -> dict:
         """Tema visual vigente (oscuro o claro) para la interfaz de escritorio."""
@@ -869,8 +903,15 @@ class DesktopAPI:
         folder_path: str,
         profile: str = "deep",
         seleccion: list[dict[str, Any]] | None = None,
+        inferir: bool | None = None,
+        revisar_inferidos: bool = False,
     ) -> dict:
         """Inicia la corrida del sistema sobre el proyecto seleccionado.
+
+        ``inferir`` (#275, ADR-015) decide si se infiere el contrato de las funciones
+        sin docstring (None usa ``[inferencia] activa``); con ``revisar_inferidos`` la
+        corrida se detiene a que la persona acepte o descarte cada contrato inferido
+        (evento ``revision_inferidos`` y ``responder_revision_inferidos``).
 
         Primero verifica que Docker responde (HU-13) y luego que el entorno completo
         esté listo: config.toml, claves de .env, Docker y Git (EN-06). Con la IA
@@ -984,7 +1025,15 @@ class DesktopAPI:
             "log", {"message": f"Corrida iniciada: {nombre_perfil(profile)}"}
         )
         if modo == "real":
-            self._lanzar_corrida(folder_path, profile, run_id, simulado, seleccion)
+            # Solo viajan las opciones de #275 que la persona cambió.
+            extra: dict[str, Any] = {}
+            if inferir is not None:
+                extra["inferir"] = inferir
+            if revisar_inferidos:
+                extra["revisar_inferidos"] = True
+            self._lanzar_corrida(
+                folder_path, profile, run_id, simulado, seleccion, **extra
+            )
         return {
             "status": "started",
             "folder": folder_path,
@@ -1008,6 +1057,9 @@ class DesktopAPI:
         run_id: str | None,
         simulado: bool,
         seleccion: list[dict[str, Any]] | None,
+        *,
+        inferir: bool | None = None,
+        revisar_inferidos: bool = False,
     ) -> None:
         """Ejecuta la corrida en un hilo para no congelar la ventana.
 
@@ -1019,6 +1071,14 @@ class DesktopAPI:
         self._corrida = threading.Thread(
             target=self._correr_y_liberar,
             args=(ruta, perfil, run_id, simulado, seleccion, bloqueo),
+            kwargs={
+                clave: valor
+                for clave, valor in (
+                    ("inferir", inferir),
+                    ("revisar_inferidos", revisar_inferidos),
+                )
+                if valor is not None and valor is not False
+            },
             name="qagent-corrida",
             daemon=True,
         )
@@ -1032,10 +1092,24 @@ class DesktopAPI:
         simulado: bool,
         seleccion: list[dict[str, Any]] | None,
         bloqueo: BloqueoCorrida | None,
+        *,
+        inferir: bool | None = None,
+        revisar_inferidos: bool = False,
     ) -> None:
         """Corre la corrida y suelta su bloqueo al terminar, pase lo que pase (#139)."""
         try:
-            self._correr(ruta, perfil, run_id, simulado, seleccion)
+            if inferir is None and not revisar_inferidos:
+                self._correr(ruta, perfil, run_id, simulado, seleccion)
+            else:
+                self._correr(
+                    ruta,
+                    perfil,
+                    run_id,
+                    simulado,
+                    seleccion,
+                    inferir=inferir,
+                    revisar_inferidos=revisar_inferidos,
+                )
         finally:
             if bloqueo is not None:
                 bloqueo.liberar()
@@ -1048,6 +1122,9 @@ class DesktopAPI:
         run_id: str | None,
         simulado: bool,
         seleccion: list[dict[str, Any]] | None = None,
+        *,
+        inferir: bool | None = None,
+        revisar_inferidos: bool = False,
     ) -> None:
         """Cuerpo del hilo: lee la configuración, corre el pipeline y avisa el final."""
         from qagent.config import carga as config_carga
@@ -1084,6 +1161,10 @@ class DesktopAPI:
 
             if seleccion is not None:
                 opciones_corrida["seleccion"] = seleccion
+            if inferir is not None:
+                opciones_corrida["inferir"] = inferir
+            if revisar_inferidos:
+                opciones_corrida["revisor_inferidos"] = self._revisar_inferidos
             resumen = ejecutar_corrida(
                 ruta,
                 perfil,

@@ -228,6 +228,7 @@ def generar_vista_previa(
     # Anotamos los módulos con su conteo de funciones con ramas y aviso en funciones sin docstring
     modulos_procesados: list[dict[str, Any]] = []
     infiere = _inferencia_activa(adaptador)
+    es_python = adaptador.lenguaje == "python"
     for mod in resultado_ast["modulos"]:
         funciones_mod: list[dict[str, Any]] = []
         for f in mod.get("funciones", []):
@@ -243,6 +244,9 @@ def generar_vista_previa(
                     "aviso_inferencia": (
                         AVISO_CONTRATO_INFERIDO if doc is None and infiere else None
                     ),
+                    # Se puede inferir (Python sin docstring); que se haga lo decide la
+                    # casilla de Preparar, con `inferencia_activa` como valor inicial.
+                    "inferible": doc is None and es_python,
                     "critica_propuesta": f.get("ramas", 0) > 0,
                 }
             )
@@ -282,6 +286,7 @@ def generar_vista_previa(
         "lenguaje": adaptador.lenguaje,
         "nombre_lenguaje": adaptador.nombre_visible,
         "framework_pruebas": adaptador.frameworks_pruebas[0],
+        "inferencia_activa": infiere,
         "solo_e2e": solo_e2e,
         "e2e_humo_disponible": adaptador.e2e_humo_disponible,
         "modulos": modulos_priorizados,
