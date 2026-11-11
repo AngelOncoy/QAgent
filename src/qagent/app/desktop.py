@@ -1436,7 +1436,7 @@ def _limpiar_sandbox() -> None:
     """Limpia lo que el sandbox dejó en Docker (en segundo plano): al abrir y al terminar cada corrida.
 
     Borra contenedores huérfanos y de construcciones cortadas, capas sin etiqueta, imágenes
-    sin uso o fuera del tope de espacio, y poda la caché de compilación (#267).
+    sin uso o fuera del tope de espacio (#267). La caché de compilación no se toca aquí.
 
     Si Docker no respondió, la limpieza queda pendiente y se reintenta cuando el motor
     pase a estar activo (#251).
@@ -1467,11 +1467,6 @@ def _limpiar_sandbox() -> None:
             "Sandbox: se borraron imágenes derivadas sin uso o fuera del tope de "
             "espacio: %s.",
             ", ".join(resultado["imagenes"]),
-        )
-    if resultado.get("cache_bytes"):
-        bitacora.registro.info(
-            "Sandbox: se podó la caché de compilación (%s).",
-            _texto_tamano(resultado["cache_bytes"]),
         )
 
 

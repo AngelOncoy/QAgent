@@ -1,4 +1,4 @@
-"""Limpieza de lo que el sandbox deja en Docker (#267): huérfanos, capas, imágenes y caché.
+"""Limpieza de lo que el sandbox deja en Docker (#267): huérfanos, capas e imágenes.
 
 Cada ejecución borra su contenedor al terminar (`ejecucion._eliminar`), pero si la app se
 cierra de golpe a mitad de una corrida ese paso no llega a correr y el contenedor queda.
@@ -8,19 +8,21 @@ Además, `preparar_imagen` guarda una imagen `qagent-sandbox:req-<hash>` por cad
 requirements.txt distinto (y `node-`, `java-` y `browser-`, #169); sirve de caché, pero
 cada una ocupa cientos de MB o varios GB.
 
-`limpiar_al_iniciar` hace, al abrir la app y al terminar cada corrida:
+`limpiar_al_iniciar` (la automática) hace, al abrir la app y al terminar cada corrida:
 
 1. borra los contenedores de corridas interrumpidas (label `ETIQUETA_CONTENEDOR`);
 2. borra los contenedores de construcciones cortadas (label `ETIQUETA_CONSTRUCCION`);
 3. borra las capas sin etiqueta que dejaron esas construcciones (mismo label);
 4. borra las imágenes derivadas sin uso en `DIAS_SIN_USO` días;
-5. aplica el tope de espacio de las imágenes derivadas (`[disco]` de config.toml);
-6. poda la caché de compilación más vieja que el máximo de `[disco]`.
+5. aplica el tope de espacio de las imágenes derivadas (`[disco]` de config.toml).
 
 Solo se borra lo que lleva un label de QAgent o el repositorio `qagent-sandbox`: el usuario
-tiene otras imágenes, contenedores y volúmenes en el mismo Docker. La única excepción es la
-caché de compilación de Docker, que no admite labels: se poda solo por antigüedad, y es
-caché reconstruible. Nunca toca las imágenes base y nunca lanza excepciones.
+tiene otras imágenes, contenedores y volúmenes en el mismo Docker. Nunca toca las imágenes
+base y nunca lanza excepciones.
+
+La caché de compilación de Docker NO se poda aquí: no admite labels, así que podarla
+alcanzaría también la de los `docker build` del usuario. Solo se poda cuando la persona lo
+pide y lo confirma (`liberar_espacio`, botón «Liberar espacio» de Configuración).
 """
 
 from __future__ import annotations
@@ -215,8 +217,10 @@ def podar_cache_compilacion(cliente: Any, dias: float) -> int:
     """Poda la caché de compilación de Docker que lleva más de `dias` sin usarse.
 
     La caché de compilación (BuildKit) no admite labels: no se puede saber de quién es cada
-    entrada, así que se poda solo por antigüedad. Es caché pura: si hace falta se
-    reconstruye. No toca imágenes, contenedores ni volúmenes.
+    entrada, así que se poda solo por antigüedad y **alcanza también la caché de los
+    `docker build` del usuario**. Por eso no forma parte de la limpieza automática: solo
+    se llama desde `liberar_espacio`, tras la confirmación de la persona. Es caché pura: si
+    hace falta se reconstruye. No toca imágenes, contenedores ni volúmenes.
 
     Returns:
         Bytes liberados.
@@ -308,7 +312,7 @@ def limpiar_al_iniciar(
 
     Returns:
         `{"contenedores", "construcciones", "capas", "capas_bytes", "imagenes",
-        "imagenes_tope", "cache_bytes"}`, o `{}` si Docker no respondió. `imagenes` son las
+        "imagenes_tope"}`, o `{}` si Docker no respondió. `imagenes` son las
         derivadas borradas (por falta de uso o por el tope); `imagenes_tope`, solo las
         borradas por el tope.
     """
@@ -344,7 +348,7 @@ def _limpiar_el_resto(
     limites: LimitesDisco | None,
     protegidas: Collection[str],
 ) -> dict:
-    """Los pasos 2 a 6 de `limpiar_al_iniciar`; cada uno falla sin detener los demás."""
+    """Los pasos 2 a 5 de `limpiar_al_iniciar`; cada uno falla sin detener los demás."""
     limites = limites or leer_limites_disco()
     usos = leer_usos(ruta_usos)
     construcciones = _intentar(
@@ -371,19 +375,12 @@ def _limpiar_el_resto(
             ),
             [],
         )
-    cache_bytes = 0
-    dias = limites.cache_antiguedad_dias
-    if dias is not None:
-        cache_bytes = _intentar(
-            "caché de compilación", lambda: podar_cache_compilacion(cliente, dias), 0
-        )
     return {
         "construcciones": construcciones,
         "capas": capas,
         "capas_bytes": capas_bytes,
         "imagenes": [*imagenes, *imagenes_tope],
         "imagenes_tope": imagenes_tope,
-        "cache_bytes": cache_bytes,
     }
 
 

@@ -396,7 +396,6 @@ def test_la_limpieza_completa_hace_todos_los_pasos_y_olvida_lo_borrado(
         "ImagesDeleted": [{"Deleted": "sha256:x"}],
         "SpaceReclaimed": GB,
     }
-    cliente.api.prune_builds.return_value = {"SpaceReclaimed": 2 * GB}
     limites = LimitesDisco(tope_imagenes_derivadas_gb=10, cache_antiguedad_dias=7)
 
     resultado = limpieza.limpiar_al_iniciar(cliente, ruta, limites=limites)
@@ -405,7 +404,8 @@ def test_la_limpieza_completa_hace_todos_los_pasos_y_olvida_lo_borrado(
     assert resultado["construcciones"] == 1
     assert resultado["capas"] == 1
     assert resultado["capas_bytes"] == GB
-    assert resultado["cache_bytes"] == 2 * GB
+    assert "cache_bytes" not in resultado
+    cliente.api.prune_builds.assert_not_called()  # la caché no es automática
     assert resultado["imagenes_tope"] == ["qagent-sandbox:req-bbbbbbbbbbbb"]
     assert "qagent-sandbox:req-aaaaaaaaaaaa" in resultado["imagenes"]
     assert list(json.loads(ruta.read_text(encoding="utf-8"))) == [
@@ -413,7 +413,7 @@ def test_la_limpieza_completa_hace_todos_los_pasos_y_olvida_lo_borrado(
     ]
 
 
-def test_sin_limites_configurados_no_se_aplica_tope_ni_se_poda_la_cache(
+def test_sin_limites_configurados_no_se_aplica_el_tope(
     tmp_path: Path,
 ):
     cliente = _cliente([_base(), _derivada("req-aaaaaaaaaaaa", 1, propio_gb=50)])
@@ -423,14 +423,12 @@ def test_sin_limites_configurados_no_se_aplica_tope_ni_se_poda_la_cache(
     )
 
     assert resultado["imagenes_tope"] == []
-    cliente.api.prune_builds.assert_not_called()
     cliente.images.remove.assert_not_called()
 
 
 def test_un_paso_que_falla_no_impide_los_demas(tmp_path: Path):
     cliente = _cliente([_base(), _derivada("req-aaaaaaaaaaaa", 40, propio_gb=20)])
     cliente.images.prune.side_effect = APIError("prune no disponible")
-    cliente.api.prune_builds.side_effect = APIError("sin BuildKit")
     limites = LimitesDisco(tope_imagenes_derivadas_gb=5, cache_antiguedad_dias=7)
 
     resultado = limpieza.limpiar_al_iniciar(
@@ -438,7 +436,6 @@ def test_un_paso_que_falla_no_impide_los_demas(tmp_path: Path):
     )
 
     assert resultado["capas"] == 0
-    assert resultado["cache_bytes"] == 0
     assert resultado["imagenes_tope"] == ["qagent-sandbox:req-aaaaaaaaaaaa"]
 
 
@@ -466,6 +463,7 @@ def test_la_limpieza_solo_usa_filtros_de_qagent_para_borrar(tmp_path: Path):
 
     cliente.containers.prune.assert_not_called()
     cliente.volumes.prune.assert_not_called()
+    cliente.api.prune_builds.assert_not_called()  # la caché de otros builds no es nuestra
     cliente.networks.prune.assert_not_called()
     for llamada in cliente.containers.list.call_args_list:
         assert llamada.kwargs["filters"]["label"]  # siempre filtrado por label

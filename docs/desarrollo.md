@@ -175,7 +175,7 @@ Docker guarda imágenes, capas y caché en un disco virtual. En Windows ese disc
 
 ### Qué se limpia y cuándo
 
-`qagent.sandbox.limpieza.limpiar_al_iniciar` corre en segundo plano **al abrir la app y al terminar cada corrida** (aunque haya fallado), nunca durante una corrida. Una sola a la vez. Si Docker no responde, queda pendiente y se reintenta cuando el motor responda (#251). Nunca lanza excepciones ni bloquea el arranque, y un paso que falla se anota en el registro sin impedir los demás. Sus pasos, en orden:
+`qagent.sandbox.limpieza.limpiar_al_iniciar` (la limpieza automática) corre en segundo plano **al abrir la app y al terminar cada corrida** (aunque haya fallado), nunca durante una corrida. Una sola a la vez. Si Docker no responde, queda pendiente y se reintenta cuando el motor responda (#251). Nunca lanza excepciones ni bloquea el arranque, y un paso que falla se anota en el registro sin impedir los demás. Sus pasos, en orden:
 
 | Paso | Qué borra | Cómo reconoce lo suyo |
 |---|---|---|
@@ -184,7 +184,6 @@ Docker guarda imágenes, capas y caché en un disco virtual. En Windows ese disc
 | 3. Capas sin nombre | Imágenes sin tag que dejaron esas construcciones | label `qagent=construccion`, sin tag y de más de 1 h |
 | 4. Imágenes sin uso | Imágenes derivadas (`req-`, `node-`, `java-`, `browser-`) sin uso en 30 días | repositorio `qagent-sandbox` |
 | 5. Tope de espacio | Imágenes derivadas, de la menos usada a la más usada, hasta quedar bajo `tope_imagenes_derivadas_gb` | repositorio `qagent-sandbox` |
-| 6. Caché de compilación | Caché de `docker build` sin usar en más de `cache_antiguedad_dias` días | por antigüedad (ver abajo) |
 
 Toda construcción de QAgent lleva el label `qagent=construccion` (`ETIQUETA_CONSTRUCCION` en `sandbox/modelos.py`); Docker lo copia a los contenedores y capas intermedios del build, y así se reconocen los que quedan a medias. Las que se construyeron antes de #267 no lo tienen y no se pueden reconocer: no se tocan.
 
@@ -193,7 +192,7 @@ Toda construcción de QAgent lleva el label `qagent=construccion` (`ETIQUETA_CON
 - Lo que no lleve un label de QAgent ni esté en el repositorio `qagent-sandbox`: el usuario tiene otras imágenes, contenedores y volúmenes (postgres, node, etc.) en el mismo Docker. No se usa `docker system prune` ni ningún `prune` de contenedores, volúmenes o redes.
 - Las imágenes base (`base`, `base-pyX.Y`, `node`, `java`, `navegador`): se reconstruyen con internet y varios minutos.
 - Una imagen derivada que la corrida en curso usa, o que se usó o creó hace menos de 1 h (puede ser de otra ventana). Si Docker rechaza borrar una (la usa un contenedor), se salta y se sigue con la siguiente.
-- La excepción es la **caché de compilación**: Docker no permite ponerle labels, así que no se puede saber de quién es cada entrada y se poda solo por antigüedad. Es caché pura y se reconstruye si hace falta, pero también alcanza la de los `docker build` del usuario que lleven más de ese tiempo sin usarse.
+- La **caché de compilación** de Docker: no admite labels, así que no se puede saber de quién es cada entrada y podarla alcanzaría también la de los `docker build` del usuario. Por eso **la limpieza automática no la toca**; solo se poda a petición de la persona y con confirmación (ver «Liberar espacio»).
 
 ### Límites (`[disco]` de `config.toml`)
 
@@ -202,7 +201,7 @@ Los define el equipo en `src/qagent/config/config.toml`, nunca en el código; `~
 | Clave | Valor | Qué hace |
 |---|---|---|
 | `tope_imagenes_derivadas_gb` | 10 | Espacio total máximo de las imágenes derivadas. Cuenta lo propio de cada imagen, sin las capas de la imagen base que comparten. |
-| `cache_antiguedad_dias` | 7 | Antigüedad máxima de la caché de compilación. |
+| `cache_antiguedad_dias` | 7 | Antigüedad mínima de la caché de compilación para podarla; solo se usa en la poda manual de «Liberar espacio». |
 | `espacio_libre_minimo_gb` | 10 | Espacio libre mínimo del disco de Docker para construir o descargar una imagen (ver abajo). |
 
 ### Espacio libre antes de construir

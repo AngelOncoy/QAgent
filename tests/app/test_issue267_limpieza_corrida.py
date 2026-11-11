@@ -114,7 +114,6 @@ def test_el_resultado_de_la_limpieza_queda_en_la_bitacora(monkeypatch, caplog):
             "capas_bytes": 6 * gb,
             "imagenes": ["qagent-sandbox:req-aaaaaaaaaaaa"],
             "imagenes_tope": ["qagent-sandbox:req-aaaaaaaaaaaa"],
-            "cache_bytes": 512 * 1024**2,
         },
     )
     with caplog.at_level(logging.INFO):
@@ -124,5 +123,5 @@ def test_el_resultado_de_la_limpieza_queda_en_la_bitacora(monkeypatch, caplog):
     assert "2 contenedores de construcciones interrumpidas" in texto
     assert "3 capas sin etiqueta (6,0 GB)" in texto
     assert "qagent-sandbox:req-aaaaaaaaaaaa" in texto
-    assert "caché de compilación (512 MB)" in texto
+    assert "caché" not in texto
     assert SEGUIMIENTO.limpieza == "hecha"

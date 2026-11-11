@@ -63,7 +63,7 @@ timeout_s = 300                  # arranque de la JVM y compilación antes de la
 [disco]
 tope_imagenes_derivadas_gb = 10  # suma de las imágenes req-, node-, java- y browser-; al superarla
                                  # se borran las menos usadas (nunca la base ni la de la corrida en curso)
-cache_antiguedad_dias = 7        # la caché de compilación de Docker más vieja que esto se poda
+cache_antiguedad_dias = 7        # solo en «Liberar espacio» (manual, con confirmación): poda la caché de Docker sin usar en más de esto
 espacio_libre_minimo_gb = 10     # por debajo, no se construye ni se descarga ninguna imagen
 
 # Cada agente usa la URL de chat de su proveedor (src/qagent/llm/fabrica.py).
