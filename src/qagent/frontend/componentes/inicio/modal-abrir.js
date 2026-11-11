@@ -77,9 +77,11 @@ let pickedFolder = null;   // carpeta elegida en el selector de ejemplo (navegad
 let estadoAbrir = null;    // lo que devolvió la inspección: {ok, ruta, cantidad_py, rama, error}
 const MSG_INCOMPATIBLE = 'La carpeta no contiene archivos fuente analizables de un lenguaje soportado.';
 // Datos de ejemplo del modo demostración (sin pywebview).
+// issue 266 (I1): las carpetas de ejemplo abren los módulos de estado.js; cuentan los mismos
+// archivos que luego muestra Exploración (con Python, ambos salen de listar_archivos_py).
 const DEMO_CARPETAS = {
-  'ecommerce-core':    {ok:true,  ruta:'E:\\Proyectos\\ecommerce-core',    cantidad_py:12, rama:'main'},
-  'banco-pruebas-mvp': {ok:true,  ruta:'E:\\Proyectos\\banco-pruebas-mvp', cantidad_py:9,  rama:'main'},
+  'ecommerce-core':    {ok:true,  ruta:'E:\\Proyectos\\ecommerce-core',    cantidad_py:MODULES.length, rama:'main'},
+  'banco-pruebas-mvp': {ok:true,  ruta:'E:\\Proyectos\\banco-pruebas-mvp', cantidad_py:MODULES.length, rama:'main'},
   'landing-web':       {ok:false, ruta:'E:\\Proyectos\\landing-web',       cantidad_py:0,  rama:null, error:MSG_INCOMPATIBLE},
 };
 const nombreCarpeta = ruta => String(ruta || '').split(/[\\/]/).filter(Boolean).pop() || '';

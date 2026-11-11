@@ -55,7 +55,7 @@ registrarComponente('vista-previa/vista-previa', `<!-- ===== 2. EXPLORAR ===== -
       <section class="np-tarjeta exp-carpetas" aria-labelledby="expCarpetasTitulo">
         <h2 id="expCarpetasTitulo">Carpetas incluidas</h2>
         <div class="tree" id="tree"></div>
-        <p class="exp-nota">Las dependencias y pruebas existentes no se incluyen en la selección.</p>
+        <p class="exp-nota" id="expCarpetasNota">No se analizan ni se pueden seleccionar: las pruebas existentes (<span class="mono">tests</span>), los entornos virtuales y dependencias, y las carpetas ocultas como <span class="mono">.qagent</span>.</p>
       </section>
 
       <!-- Funciones y endpoints -->
@@ -632,10 +632,8 @@ function renderTree(){
     const habilitada = modulosDeCarpeta(dir).length > 0;
     h += `<label class="row ${habilitada ? '' : 'no-targets'}" style="--nivel:${partes.length}" ${habilitada ? '' : 'title="sin objetivos analizables"'}><input type="checkbox" class="exp-caja exp-carpeta" data-dir="${escHtml(dir)}" ${habilitada ? '' : 'disabled'} onchange="seleccionarCarpeta(this.dataset.dir, this.checked)">${ICO_CARPETA_ARBOL}<span class="mono">${escHtml(partes[partes.length - 1])}</span></label>`;
   });
-  // Siempre fuera de la selección: las pruebas existentes y la carpeta de QAgent.
-  ['tests', '.qagent'].forEach(n => {
-    h += `<div class="row ign" style="--nivel:1"><input type="checkbox" class="exp-caja" disabled aria-label="${n} no se incluye">${ICO_CARPETA_ARBOL}<span class="mono">${n}</span></div>`;
-  });
+  // issue 266 (I2): las pruebas existentes y .qagent no se dibujan como carpetas con casilla
+  // (no se pueden elegir y quizá no existen); la nota de debajo del árbol dice qué queda fuera.
   $('tree').innerHTML = h;
   sincronizarCarpetas();
   renderErroresLectura();
@@ -757,10 +755,11 @@ function actualizarSelectorObjetivos(){
   $('tabFnsN').textContent = nFns;
   $('tabEpsN').textContent = nEps;
   $('tabFns').disabled = nFns === 0;
-  $('tabFns').title = nFns === 0 ? 'No se detectaron funciones en el proyecto' : '';
+  // issue 266 (I1): la pestaña cuenta lo detectado en el proyecto (#66); la tabla, solo las carpetas incluidas.
+  $('tabFns').title = nFns === 0 ? 'No se detectaron funciones en el proyecto' : `${nFns} ${nFns === 1 ? 'función detectada' : 'funciones detectadas'} en el proyecto, incluidas o no`;
   $('tabFns').setAttribute('aria-disabled', String(nFns === 0));
   $('tabEps').disabled = nEps === 0;
-  $('tabEps').title = nEps === 0 ? 'No se detectaron endpoints en el proyecto' : '';
+  $('tabEps').title = nEps === 0 ? 'No se detectaron endpoints en el proyecto' : `${nEps} ${nEps === 1 ? 'endpoint detectado' : 'endpoints detectados'} en el proyecto, incluidos o no`;
   $('tabEps').setAttribute('aria-disabled', String(nEps === 0));
   aplicarVistaObjetivos();
 }
@@ -835,7 +834,10 @@ function renderFns(){
   $('expTodo').disabled = marcables.length === 0;
   $('expTodo').checked = marcables.length > 0 && marcadas === marcables.length;
   $('expTodo').indeterminate = marcadas > 0 && marcadas < marcables.length;
-  $('expMostrando').textContent = `Mostrando ${vistaVisibles.length} de ${vistaTodas.length}`;
+  // issue 266 (I1): la diferencia con la pestaña (que cuenta todo lo detectado) se explica aquí.
+  const fueraDeCarpetas = Math.max(0, (esFns ? totalFuncionesDetectadas() : totalEndpointsDetectados()) - vistaTodas.length);
+  $('expMostrando').textContent = `Mostrando ${vistaVisibles.length} de ${vistaTodas.length} en las carpetas incluidas`
+    + (fueraDeCarpetas ? ` · ${fueraDeCarpetas} más en carpetas no incluidas` : '');
   const sinCambios = vistaVisibles.filter(r => SPEC_STATUS[r.m.path] === 'reuse').length;
   const cambiaron = vistaVisibles.filter(r => SPEC_STATUS[r.m.path] === 'stale').length;
   $('expCambios').textContent = (sinCambios || cambiaron) ? ` · ${sinCambios} sin cambios, ${cambiaron} cambiaron` : '';
