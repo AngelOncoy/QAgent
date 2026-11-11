@@ -975,7 +975,9 @@ Una función sin docstring cuyo resultado la firma y los tipos no determinan ya 
 - **Qué se infiere:** solo lo que el primer paso omitió y no tiene docstring, hasta `max_funciones_por_modulo` por módulo (`[inferencia]` de `config.toml`, que también permite apagarlo con `activa = false`). Lo que no alcanza queda omitido con un motivo accionable.
 - **Honestidad del resultado:** cada objetivo sale con `respaldo` (`contrato` o `inferido`) y el resumen del reporte separa «N con contrato · M de regresión sin contrato documentado». Un fallo de una prueba inferida es un **hallazgo a revisar**, no un bug confirmado; el Explicador lo dice así. La interfaz muestra la marca «Regresión · contrato inferido» con la evidencia.
 - **Orquestador sin cambios:** sigue determinista (ADR-008). El valor esperado nunca sale de ejecutar el código.
-- **Pendiente:** el interruptor «Revisar contratos inferidos» (confirmación por función, opción C del ADR) y la estimación aparte en Preparar; la medición con `bench/sin_docstring/` necesita Docker y un modelo real.
+- **Preparar:** la casilla «Inferir funciones sin docstring» (su valor inicial es `[inferencia] activa`) muestra cuántas funciones entran y estima sus tokens aparte; se envía a `start_run(inferir=…)`.
+- **Revisión opcional:** con «Revisar contratos inferidos» la corrida se detiene tras planificar el módulo (`Orquestador._revisar_inferidos`, fuera del límite de tiempo de los agentes): Python envía `revision_inferidos`, la persona acepta o descarta cada función en el modal y `responder_revision_inferidos` reanuda la corrida. Lo descartado queda omitido con su motivo; detener la corrida descarta lo pendiente.
+- **Pendiente:** editar un contrato inferido desde el modal, y la medición con `bench/sin_docstring/` (necesita Docker y un modelo real).
 
 #### Verificación arquitectónica implementada (#185)
 

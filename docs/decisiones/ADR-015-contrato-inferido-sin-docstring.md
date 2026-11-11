@@ -119,8 +119,8 @@ Cada fase con sus pruebas, con la IA simulada y sin Docker ni red (salvo las mar
 | 2. Índice de llamadores y tests existentes | Hecha (`analysis/inferencia.py`) |
 | 3. Contexto del Planner y validación | Hecha (segundo paso del Planner; la evidencia solo vale si QAgent la entregó) |
 | 4. Informe, Vista previa y Explicador | Hecha (`respaldo`, `texto_respaldo`, «hallazgo a revisar», marca en Vista previa y en el detalle) |
-| 5. Preparar: estimación aparte y selección | **Pendiente**: hoy se controla con `[inferencia]` en `config.toml` (`activa`, `max_funciones_por_modulo`, `max_caracteres_contexto`) |
-| 5b. Interruptor «Revisar contratos inferidos» (opción C) | **Pendiente**: la revisión humana no está en la interfaz todavía |
+| 5. Preparar: casilla «Inferir funciones sin docstring», estimación aparte y selección | Hecha (la estimación de tokens de la inferencia sale aparte; los topes están en `[inferencia]` de `config.toml`; la selección de qué funciones entran es la de *Incluir* de Explorar) |
+| 5b. Interruptor «Revisar contratos inferidos» (opción C) | Hecha con **aceptar o descartar** por función y «Aceptar/Descartar todas» (modal `revision/modal-revision-inferidos`, la corrida espera la respuesta). **Editar** un contrato queda para un ítem posterior |
 | 6. Banco en `bench/sin_docstring/` | Banco creado; **medición pendiente** (necesita Docker y un modelo real) |
 | 7. Documentación | Hecha (AGENTS.md, este ADR); falta `docs/arquitectura.md` |
 
