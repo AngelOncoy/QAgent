@@ -32,6 +32,7 @@ from docker.errors import APIError, BuildError, ImageNotFound
 
 from qagent.sandbox.cliente import obtener_cliente
 from qagent.sandbox.modelos import (
+    ETIQUETA_CONSTRUCCION,
     IMAGEN_BASE,
     IMAGEN_JAVA,
     IMAGEN_NAVEGADOR,
@@ -709,12 +710,14 @@ def _construir_con_avance(
 def _opciones_build(
     buildargs: dict[str, str] | None, labels: dict[str, str] | None
 ) -> dict[str, Any]:
-    """Argumentos opcionales de `docker build`: solo los que tienen valor."""
-    opciones: dict[str, Any] = {}
+    """Argumentos de `docker build`. Toda construcción lleva `ETIQUETA_CONSTRUCCION` (#267).
+
+    Con ese label, la limpieza reconoce los contenedores y capas que una construcción
+    cortada (cancelada, app cerrada, Docker caído) deja a medias.
+    """
+    opciones: dict[str, Any] = {"labels": {**ETIQUETA_CONSTRUCCION, **(labels or {})}}
     if buildargs:
         opciones["buildargs"] = buildargs
-    if labels:
-        opciones["labels"] = labels
     return opciones
 
 

@@ -133,7 +133,7 @@ TIEMPO_RECOMENDADOR_POR_DEFECTO_S = 30.0
 #: Memoria en formato Docker: un entero y una unidad (b, k, m o g), p. ej. "512m" o "3g".
 #: Secciones que solo define el equipo en `config.toml`: `config.local.toml` no las
 #: cambia. Los límites del sandbox no son un ajuste del usuario final (EN-03).
-SECCIONES_SOLO_EQUIPO = frozenset({"sandbox"})
+SECCIONES_SOLO_EQUIPO = frozenset({"sandbox", "disco"})
 
 _MEMORIA_DOCKER = re.compile(r"^[1-9][0-9]*[bkmg]$", re.IGNORECASE)
 

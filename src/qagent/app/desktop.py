@@ -773,6 +773,7 @@ class DesktopAPI:
         finally:
             if bloqueo is not None:
                 bloqueo.liberar()
+            _limpiar_sandbox_tras_corrida()
 
     def descargar_specs_zip(self, ruta: str, modulo: str | None = None) -> dict:
         """Crea un ZIP y abre el diálogo nativo para elegir dónde guardarlo."""
@@ -995,6 +996,7 @@ class DesktopAPI:
         finally:
             if bloqueo is not None:
                 bloqueo.liberar()
+            _limpiar_sandbox_tras_corrida()
 
     def _correr(
         self,
@@ -1364,6 +1366,29 @@ def _reintentar_limpieza() -> bool:
     return True
 
 
+def _limpiar_sandbox_tras_corrida() -> bool:
+    """Lanza la limpieza del sandbox en segundo plano al terminar una corrida (#267).
+
+    Una construcción cortada o una corrida interrumpida deja contenedores y capas en
+    Docker; limpiar solo al abrir la app deja que se acumulen mientras está abierta. Va en
+    un hilo aparte para no retrasar el fin de la corrida ni mantenerla «en curso». Una
+    sola limpieza a la vez, y solo con la app abierta de verdad (no en las pruebas).
+
+    Returns:
+        True si se lanzó.
+    """
+    if not SEGUIMIENTO.activo:
+        return False
+    with SEGUIMIENTO.candado:
+        if SEGUIMIENTO.limpieza == "en_curso":
+            return False
+        SEGUIMIENTO.limpieza = "en_curso"
+    threading.Thread(
+        target=_limpiar_sandbox, name="limpieza-sandbox", daemon=True
+    ).start()
+    return True
+
+
 def _registrar_estado_configuracion() -> None:
     """Lee config.toml y .env al iniciar y deja en consola un resumen sin claves (EN-06)."""
     from qagent.config import (
@@ -1408,7 +1433,10 @@ def ejecutar(argv: list[str] | None = None) -> None:
 
 
 def _limpiar_sandbox() -> None:
-    """Borra contenedores huérfanos e imágenes viejas del sandbox (en segundo plano).
+    """Limpia lo que el sandbox dejó en Docker (en segundo plano): al abrir y al terminar cada corrida.
+
+    Borra contenedores huérfanos y de construcciones cortadas, capas sin etiqueta, imágenes
+    sin uso o fuera del tope de espacio, y poda la caché de compilación (#267).
 
     Si Docker no respondió, la limpieza queda pendiente y se reintenta cuando el motor
     pase a estar activo (#251).
@@ -1423,11 +1451,36 @@ def _limpiar_sandbox() -> None:
             "Sandbox: se borraron %d contenedores de corridas interrumpidas.",
             resultado["contenedores"],
         )
+    if resultado.get("construcciones"):
+        bitacora.registro.info(
+            "Sandbox: se borraron %d contenedores de construcciones interrumpidas.",
+            resultado["construcciones"],
+        )
+    if resultado.get("capas"):
+        bitacora.registro.info(
+            "Sandbox: se borraron %d capas sin etiqueta (%s).",
+            resultado["capas"],
+            _texto_tamano(resultado.get("capas_bytes", 0)),
+        )
     if resultado.get("imagenes"):
         bitacora.registro.info(
-            "Sandbox: se borraron imágenes sin uso: %s.",
+            "Sandbox: se borraron imágenes derivadas sin uso o fuera del tope de "
+            "espacio: %s.",
             ", ".join(resultado["imagenes"]),
         )
+    if resultado.get("cache_bytes"):
+        bitacora.registro.info(
+            "Sandbox: se podó la caché de compilación (%s).",
+            _texto_tamano(resultado["cache_bytes"]),
+        )
+
+
+def _texto_tamano(bytes_: float) -> str:
+    """«1,2 GB» o «350 MB» para la bitácora."""
+    gb = bytes_ / 1024**3
+    if gb >= 1:
+        return f"{gb:.1f} GB".replace(".", ",")
+    return f"{bytes_ / 1024**2:.0f} MB"
 
 
 def main() -> None:

@@ -22,7 +22,7 @@ from qagent.sandbox.imagen import (
     imagen_desactualizada,
     receta_de,
 )
-from qagent.sandbox.modelos import IMAGEN_BASE, IMAGEN_JAVA
+from qagent.sandbox.modelos import ETIQUETA_CONSTRUCCION, IMAGEN_BASE, IMAGEN_JAVA
 
 
 def _receta(tmp_path: Path) -> RecetaImagen:
@@ -93,7 +93,11 @@ def test_construir_imagen_base_guarda_la_huella_en_un_label():
     cliente = MagicMock()
     construir_imagen_base(cliente, imagen=IMAGEN_JAVA)
     labels = cliente.images.build.call_args.kwargs["labels"]
-    assert labels == {LABEL_RECETA: huella_receta(receta_de(IMAGEN_JAVA))}
+    # #267: además de la huella, toda construcción lleva el label de QAgent.
+    assert labels == {
+        **ETIQUETA_CONSTRUCCION,
+        LABEL_RECETA: huella_receta(receta_de(IMAGEN_JAVA)),
+    }
 
 
 def test_construir_con_avance_tambien_guarda_la_huella():
@@ -107,5 +111,6 @@ def test_construir_con_avance_tambien_guarda_la_huella():
     assert kwargs["buildargs"] == {"PYTHON_VERSION": "3.11"}
 
 
-def test_sin_labels_ni_buildargs_no_se_pasan_opciones():
-    assert imagen._opciones_build(None, None) == {}
+def test_sin_labels_ni_buildargs_solo_se_pasa_la_etiqueta_de_construccion():
+    # #267: el label de QAgent va siempre, para reconocer lo que deja una construcción cortada.
+    assert imagen._opciones_build(None, None) == {"labels": ETIQUETA_CONSTRUCCION}
