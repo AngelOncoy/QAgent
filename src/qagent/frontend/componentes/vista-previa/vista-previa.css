@@ -52,7 +52,7 @@
 .tree .row.raiz{font-weight:var(--peso-medio)}
 .tree .row.raiz .mono{font-family:var(--fuente-ui)}
 .tree .row .mono{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.tree .row.ign,.tree .row.no-targets{color:var(--texto-2)}
+.tree .row.no-targets{color:var(--texto-2)}
 .tree .row.no-targets{cursor:default}
 .exp-nota{color:var(--texto-3);font-size:var(--texto-meta);line-height:1.5}
 

@@ -6,6 +6,7 @@
 .bnj-acciones{display:flex;flex-direction:column;align-items:flex-end;gap:var(--esp-3)}
 .bnj-cifras{grid-template-columns:repeat(4,minmax(0,1fr))}
 .bnj-cifra-bug{color:var(--bug-t)}
+.bnj-cifra-aviso{color:var(--aviso-t)}   /* issue 266: aprobados con objetivos sin prueba o pendientes */
 #bnjResumen{margin-top:calc(var(--esp-3) * -1)}
 /* issue 139: sin resultados (en la app) solo queda el aviso; nada de cifras, filtros ni bandejas */
 #s-exec.bnj-sin-datos :is(.bnj-acciones,.bnj-cifras,#bnjResumen,.bnj-comparacion,.bnj-filtros,.bnj-rejilla,.bnj-prioridades,.bnj-definiciones){display:none}

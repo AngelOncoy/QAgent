@@ -187,8 +187,16 @@ def test_frontend_distingue_todas_las_categorias_sin_mezclar_denominadores() -> 
     ejecucion = (raiz / "ejecucion/ejecucion.js").read_text(encoding="utf-8")
     historial = (raiz / "historial/historial.js").read_text(encoding="utf-8")
 
-    assert "procesados · ${omitidos} omitidos · ${pendientes} pendientes" in monitor
+    # issue 266 (C2): lo procesado sin prueba se muestra aparte, nunca como terminado.
+    assert (
+        "procesados${sinPrueba ? ` (${sinPrueba} sin prueba)` : ''} · ${omitidos} omitidos"
+        " · ${pendientes} pendientes"
+    ) in monitor
     assert "${pasaron} / ${procesados}" in ejecucion
+    assert (
+        "${procesados} procesados${sinPrueba ? ` (${sinPrueba} sin prueba)` : ''}"
+        in (ejecucion)
+    )
     assert "seleccionados · ${elegibles} elegibles" in ejecucion
     assert "${noSeProbaron} y ${quedaronPendientes}" in ejecucion
     assert "etiquetasResumen[k][c === 1 ? 0 : 1]" in ejecucion
