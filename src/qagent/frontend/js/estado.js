@@ -83,7 +83,7 @@ let profile = 'deep';
 // `profile` se deriva de ella con perfilDeEleccion() (config-pruebas.js).
 // Preparar: modo = 'nuevas' | 'repetir' | 'fondo' (análisis a fondo de críticas) y los tipos de prueba incluidos.
 let eleccionPruebas = {modo:'nuevas', unitarias:false, endpoints:false, integracion:false, profundizarRepetir:false};   // los tipos se eligen a propósito
-// #275 (ADR-015): contrato inferido para funciones sin docstring. El valor inicial sale de `[inferencia] activa`;
+// issue 275 (ADR-015): contrato inferido para funciones sin docstring. El valor inicial sale de `[inferencia] activa`;
 // la revisión por función (aceptar o descartar antes de generar) empieza apagada.
 let INFERIR_SIN_DOCSTRING = true;
 let REVISAR_INFERIDOS = false;

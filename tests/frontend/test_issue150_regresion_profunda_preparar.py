@@ -76,7 +76,7 @@ def test_reg_deep_conserva_cero_tokens_y_llega_a_start_run() -> None:
     assert "profile==='reg_deep' ? 'reg' : profile" in config
     assert "profile==='reg_deep'" in config
     assert (
-        "window.pywebview.api.start_run(projectPath, profile, obtenerSeleccionObjetivos())"
+        "window.pywebview.api.start_run(projectPath, profile, obtenerSeleccionObjetivos(), INFERIR_SIN_DOCSTRING"
         in monitor
     )
 

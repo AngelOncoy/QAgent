@@ -283,14 +283,14 @@ function estFor(k){
   const reused = k==='reg' ? 0 : objetivos.filter(objetivo=>objetivo.reuse).length;
   const total = objetivos.length;
   const et = {P: (total - reused) * p.tok * EST_SPLIT.P, G: total * p.tok * EST_SPLIT.G, R: total * p.tok * EST_SPLIT.R};
-  // #275: la inferencia es un segundo paso del Planner solo para las funciones sin docstring; su costo se estima aparte.
+  // issue 275: la inferencia es un segundo paso del Planner solo para las funciones sin docstring; se estima aparte.
   const inferidas = INFERIR_SIN_DOCSTRING && k!=='reg' && eleccionPruebas.unitarias !== false
     ? mods.filter(m=>SPEC_STATUS[m.path]!=='reuse').flatMap(m=>m.fns).filter(f=>f.inc && f.inferible).length : 0;
   const tokInferidas = Math.round(inferidas * p.tok * EST_SPLIT.P);
   const tok = Math.round(et.P + et.G + et.R) + tokInferidas;
   return {p, fns, endpoints, total, reused, tok, inferidas, tokInferidas, time: Math.max(1, Math.round(total * p.t))};
 }
-// #275: la persona activa o apaga la inferencia y la revisión; se recalcula la estimación.
+// issue 275: la persona activa o apaga la inferencia y la revisión; se recalcula la estimación.
 function elegirInferencia(cambio){
   if ('inferir' in cambio) INFERIR_SIN_DOCSTRING = !!cambio.inferir;
   if ('revisar' in cambio) REVISAR_INFERIDOS = !!cambio.revisar;
@@ -378,7 +378,7 @@ function renderTiposPrueba(){
       <input type="checkbox" class="exp-caja" ${eleccionPruebas[clave] === true && n ? 'checked' : ''} ${n ? '' : 'disabled'} onchange="elegirPruebas({${clave}:this.checked})">
       <span><b>${titulo}</b><span class="prep-desc">${n} ${n === 1 ? singular : plural}</span></span>
     </label>`;
-  // #275 (ADR-015): funciones sin docstring que QAgent puede inferir (solo Python) entre las unitarias elegidas.
+  // issue 275 (ADR-015): funciones sin docstring que QAgent puede inferir (solo Python) entre las unitarias elegidas.
   const nInferibles = eleccionPruebas.unitarias === true ? mods.flatMap(m=>m.fns).filter(f=>f.inc && f.inferible).length : 0;
   const tokInferidas = nInferibles && INFERIR_SIN_DOCSTRING ? (estFor(profile==='reg_deep' ? 'reg' : profile).tokInferidas || 0) : 0;
   const filaInferencia = !mods.some(m=>m.fns.some(f=>f.inferible)) ? '' : `<label class="prep-casilla ${nInferibles ? '' : 'dis'}" data-caja="negra">

@@ -184,7 +184,7 @@ let PROYECTO_E2E_DISPONIBLE = null;
 function mostrarLenguajeProyecto(res = {}) {
   PROYECTO_NOMBRE_LENGUAJE = res.nombre_lenguaje || 'Python';
   PROYECTO_E2E_DISPONIBLE = typeof res.e2e_humo_disponible === 'boolean' ? res.e2e_humo_disponible : null;
-  INFERIR_SIN_DOCSTRING = res.inferencia_activa !== false;   // #275: valor inicial de la casilla de Preparar
+  INFERIR_SIN_DOCSTRING = res.inferencia_activa !== false;   // issue 275: valor inicial de la casilla de Preparar
   const framework = res.framework_pruebas || 'pytest';
   const etiqueta = `${PROYECTO_NOMBRE_LENGUAJE} · ${{junit5:'JUnit 5'}[framework] || framework}`;
   $('projLenguaje').textContent = etiqueta;
@@ -207,7 +207,7 @@ function cargarDatosVistaPrevia(res) {
       sig: f.firma || '()',
       typed: f.tipada ? 1 : 0,
       doc: f.docstring ? 1 : 0,
-      inferible: !!f.inferible,   // #275: sin docstring y en Python, el contrato se puede inferir
+      inferible: !!f.inferible,   // issue 275: sin docstring y en Python, el contrato se puede inferir
       br: f.ramas || 0,
       crit: f.critica_propuesta ?? ((f.ramas || 0) > 0),
       inc: true,
