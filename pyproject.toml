@@ -71,7 +71,7 @@ where = ["src"]
 "qagent.frontend" = ["**/*"]
 "qagent.config" = ["config.toml", "config.local.ejemplo.toml"]
 "qagent.contracts" = ["*.schema.json", "ejemplos/*.json"]
-"qagent.sandbox" = ["Dockerfile", "Dockerfile.*", "java/**/*", "navegador/**/*"]
+"qagent.sandbox" = ["Dockerfile", "Dockerfile.*", "java/**/*", "navegador/**/*", "node/**/*"]
 "qagent.llm" = ["proveedores.toml", "ia_simulada.json"]
 
 [tool.pytest.ini_options]
