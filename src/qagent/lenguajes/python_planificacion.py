@@ -22,6 +22,7 @@ from typing import Any
 from tree_sitter import Node
 
 from qagent.analysis import arbol_ts, texto_ts
+from qagent.analysis.inferencia import motivo_evidencia
 from qagent.llm.fake import MARCA_MODULO, MARCA_OBJETIVOS
 
 #: Orígenes válidos de un valor esperado para una función (`planner_contract.v2`).
@@ -156,6 +157,76 @@ Prueba de humo pytest: UN caso normal por función (entrada válida y su resulta
   [{{"objetivo": nombre, "casos": [caso]}}]. Si ninguna tiene un caso deducible,
   devuelve la lista vacía [].
 Ejemplo: {ejemplo}
+
+{MARCA_MODULO} {modulo["ruta"]}
+{MARCA_OBJETIVOS} {json.dumps(objetivos, ensure_ascii=False)}
+""".strip()
+
+    @staticmethod
+    def prompt_funciones_inferidas(
+        modulo: dict[str, Any],
+        contextos: dict[str, dict[str, Any]],
+        humo: bool = False,
+    ) -> str:
+        """Prompt de la inferencia (#275, ADR-015) para funciones sin contrato.
+
+        Cada función lleva su contexto estático: cuerpo, dependencias, llamadores y
+        tests existentes, con las referencias que el caso puede citar como evidencia.
+        """
+        objetivos = [
+            {
+                "nombre": funcion["nombre"],
+                "firma": funcion.get("firma"),
+                "contexto": contextos[funcion["nombre"]],
+            }
+            for funcion in modulo.get("funciones", [])
+            if funcion["nombre"] in contextos
+        ]
+        caso = {
+            "id": "calcular_producto",
+            "entrada": {"a": 2, "b": 3},
+            "valor_esperado": 6,
+            "origen": "inferido",
+            "evidencia": ["test_existente:tests/test_calc.py::test_producto", "cuerpo"],
+            "categoria": "normal",
+        }
+        ejemplo = json.dumps(
+            [{"objetivo": "producto", "casos": [caso]}], ensure_ascii=False
+        )
+        regla_humo = (
+            '- Humo: UN solo caso normal por función; sin "excepcion" ni casos límite.\n'
+            if humo
+            else ""
+        )
+        return f"""
+Infiere casos de prueba pytest de REGRESIÓN para funciones Python que NO tienen
+docstring ni tipos que determinen su resultado. Lo que verifican es que la función
+siga haciendo lo que su código y su uso en el proyecto indican, no que sea correcta.
+
+REGLAS OBLIGATORIAS:
+- No ejecutes ni importes nada. Solo tienes, por función, su "contexto": "codigo",
+  "dependencias" (firma y docstring de lo que usa), "llamadores" (cómo la usan otras
+  funciones del proyecto) y "tests_existentes" (lo que otros tests ya afirman).
+- El valor esperado debe deducirse con certeza leyendo ese contexto. Prefiere lo que
+  afirma un test existente o lo que revela un llamador; el cuerpo solo basta si es
+  lógica simple y determinista. Si no hay certeza, omite la función.
+- Cada caso lleva "origen": "inferido" y "evidencia": lista no vacía con referencias
+  copiadas EXACTAMENTE de "referencias" de esa función. No inventes referencias.
+- No propongas valores que dependan de la hora, el azar, la red, archivos o el entorno.
+- No propongas llamadas con argumentos que no encajan con la firma.
+- Un caso "limite" solo si el código tiene un umbral explícito; si no, no lo inventes.
+- No sustituyas una igualdad por `is not None`, una mera invocación ni otra aserción
+  débil.
+{regla_humo}- Cada caso tiene: "id" (minúsculas, números y _), "entrada" (argumentos por nombre),
+  "valor_esperado" o "excepcion" (nombre de la excepción), "origen", "evidencia" y
+  "categoria" ("normal", "limite" o "error"). "descripcion" es opcional.
+- Si un resultado es una tupla Python, serialízalo como array JSON y agrega
+  "tipo_valor_esperado": "tuple".
+- Devuelve SOLO una lista JSON con un objeto por función:
+  {{"objetivo": nombre, "casos": [...]}}. Sin explicaciones ni bloques Markdown.
+
+EJEMPLO DE RESPUESTA:
+{ejemplo}
 
 {MARCA_MODULO} {modulo["ruta"]}
 {MARCA_OBJETIVOS} {json.dumps(objetivos, ensure_ascii=False)}
@@ -304,6 +375,8 @@ def motivo_limite_funcion(funcion: dict[str, Any], caso: dict[str, Any]) -> str 
         return None
     if origen == "tipo" and "Annotated[" in (funcion.get("firma") or ""):
         return None
+    if origen == "inferido" and caso.get("evidencia"):
+        return None  # ADR-015: el límite está respaldado por la evidencia citada
     return "caso límite sin una especificación que describa ese límite"
 
 
@@ -317,6 +390,13 @@ def motivo_oraculo_funcion(funcion: dict[str, Any], caso: dict[str, Any]) -> str
     función, pero no su comportamiento funcional.
     """
     origen = caso.get("origen")
+    if origen == "inferido":
+        # ADR-015: solo en la fase de inferencia, y con evidencia que se entregó.
+        contexto = funcion.get("contexto_inferencia")
+        if not isinstance(contexto, dict):
+            return "el origen 'inferido' solo vale en la fase de inferencia"
+        permitidas = frozenset(contexto.get("referencias") or ())
+        return motivo_evidencia(caso.get("evidencia"), permitidas)
     if origen == "docstring":
         if caso.get("tipo_valor_esperado") == "tuple":
             if _docstring_respalda_tupla(funcion.get("docstring"), caso):
@@ -751,6 +831,7 @@ def faltantes(endpoint: dict[str, Any], casos: list[dict[str, Any]]) -> list[str
 
 prompt_funciones_completo = _PromptsPython.prompt_funciones_completo
 prompt_funciones_humo = _PromptsPython.prompt_funciones_humo
+prompt_funciones_inferidas = _PromptsPython.prompt_funciones_inferidas
 prompt_endpoints_completo = _PromptsPython.prompt_endpoints_completo
 prompt_endpoints_humo = _PromptsPython.prompt_endpoints_humo
 
@@ -780,6 +861,7 @@ class ReglasPlanificacionPython:
             return prompt_endpoints_humo(modulo, endpoints)
         return prompt_endpoints_completo(modulo, endpoints, fuente)
 
+    prompt_funciones_inferidas = staticmethod(prompt_funciones_inferidas)
     preparar_caso = staticmethod(_preservar_tipo_valor_esperado)
     es_caso_trivial = staticmethod(es_caso_trivial)
     motivo_limite_funcion = staticmethod(motivo_limite_funcion)

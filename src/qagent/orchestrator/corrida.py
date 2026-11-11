@@ -417,6 +417,16 @@ def ejecutar_corrida(
             "limite_tokens": tope_tokens,
             "cancelado": cancelado,
         }
+        # #275 (ADR-015): contexto estático para inferir las funciones sin docstring.
+        inferencia = getattr(configuracion, "inferencia", None)
+        crear_proveedor = getattr(adaptador, "proveedor_inferencia", None)
+        proveedor_inferencia = (
+            crear_proveedor(
+                ruta, analisis, getattr(inferencia, "max_caracteres_contexto", 6000)
+            )
+            if crear_proveedor is not None and getattr(inferencia, "activa", True)
+            else None
+        )
         orquestador = Orquestador(
             PlannerAgent(
                 clientes["planner"],
@@ -424,6 +434,8 @@ def ejecutar_corrida(
                 es_simulado=simulado,
                 perfil=perfil,
                 adaptador=adaptador,
+                proveedor_inferencia=proveedor_inferencia,
+                max_inferidas=getattr(inferencia, "max_funciones_por_modulo", 20),
             ),
             GeneratorAgent(
                 clientes["generator"], tracker, es_simulado=simulado, ruta_proyecto=ruta
