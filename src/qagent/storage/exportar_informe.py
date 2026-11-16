@@ -51,6 +51,11 @@ from qagent.storage.informe_pdf import (
     _envolver_linea,
     _explicacion,
 )
+from qagent.storage.respaldo_inferido import (
+    datos_para_informe,
+    es_inferida,
+    respuesta_con_respaldo,
+)
 
 NOMBRES_ETAPAS = dict(ETAPAS)
 NOMBRES_AGENTE = NOMBRES_ETAPAS
@@ -402,7 +407,8 @@ def _simple(f: dict[str, Any], campo: str) -> str | None:
 
 def _salud_proyecto(datos: dict[str, Any]) -> dict[str, Any]:
     """Sintetiza métricas prácticas, fortalezas, deficiencias y plan de mejora del proyecto."""
-    funciones = datos.get("funciones") or []
+    inferidas = [f for f in datos.get("funciones", []) if es_inferida(f)]
+    funciones = [f for f in datos.get("funciones", []) if not es_inferida(f)]
     total = len(funciones)
     aprobadas = sum(1 for f in funciones if f.get("estado") == "aprobado")
     bugs = sum(1 for f in funciones if f.get("estado") == "bug_detectado")
@@ -652,6 +658,17 @@ def _salud_proyecto(datos: dict[str, Any]) -> dict[str, Any]:
             f"El proyecto presenta observaciones de calidad: {', '.join(partes)}. "
             "Consulte las deficiencias y el plan de mejora para corregir las líneas afectadas en su código."
         )
+
+    if inferidas:
+        aviso = f"{len(inferidas)} pruebas son de regresión inferida, sin contrato documentado; sus fallos requieren revisión."
+        diagnostico = diagnostico + " " + aviso if funciones else aviso
+        if not funciones:
+            nivel_madurez = "Sin evaluación de corrección: solo regresión inferida"
+            fortalezas = ["Se conserva la evidencia de los casos inferidos."]
+            deficiencias = ["Falta un contrato documentado independiente."]
+            recomendaciones = [
+                "Revisar las expectativas inferidas y documentar el comportamiento deseado."
+            ]
 
     return {
         "total": total,
@@ -1234,6 +1251,7 @@ def construir_markdown_informe(
     claves: Claves | None = None,
 ) -> str:
     """Construye el informe en formato Markdown (.md) según las opciones elegidas."""
+    datos = datos_para_informe(datos)
     opts = normalizar_opciones(opciones)
     run_id = datos["run_id"]
     rama = datos.get("rama") or "sin repositorio Git"
@@ -1270,6 +1288,7 @@ def construir_markdown_informe(
         incompleta=corrida_incompleta(datos),
     )
 
+    respuesta = respuesta_con_respaldo(respuesta, funciones)
     meta_parts = [
         f"**Proyecto:** {datos['proyecto']}",
         f"**Rama:** {rama}",
@@ -1854,6 +1873,7 @@ def construir_html_informe(
     claves: Claves | None = None,
 ) -> str:
     """Construye un informe HTML interactivo con la identidad del rediseño."""
+    datos = datos_para_informe(datos)
     import html as html_mod
 
     opts = normalizar_opciones(opciones)
@@ -1920,7 +1940,9 @@ def construir_html_informe(
         omitidos=len(datos.get("omitidos") or []),
         incompleta=corrida_incompleta(datos),
     )
-    respuesta = esc(respuesta)  # lleva el nombre de una función del proyecto
+    respuesta = esc(
+        respuesta_con_respaldo(respuesta, funciones)
+    )  # nombre del proyecto saneado
 
     m_dict = {x["clave"]: x for x in metricas}
     pasaron = sum(

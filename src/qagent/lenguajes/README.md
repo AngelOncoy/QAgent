@@ -186,6 +186,13 @@ los límites de Spring se documentan por separado y no habilitan Gradle.
 `reglas_planificacion()` conecta el Planner común con los prompts y filtros Java.
 Los casos se basan en Javadoc funcional; los tipos filtran incompatibilidades y
 no permiten inventar valores concretos. Se conservan los contratos v3 existentes.
+Desde #292 ([ADR-018](../../../docs/decisiones/ADR-018-regresion-java-sin-javadoc.md)),
+`java_inferencia.py` aporta evidencia estática acotada para métodos sin Javadoc:
+cuerpo, dependencias resueltas, llamadores y tests existentes. Los casos llevan
+`origen: inferido` y referencias a fuentes entregadas al Planner. Se presentan
+como regresión sin contrato documentado; un fallo es un hallazgo a revisar.
+`[inferencia] activa`, sus límites y la revisión opcional de contratos también
+se aplican a Java. No habilita inferencia de endpoints ni ejecución en el anfitrión.
 La [documentación de #181](../../../docs/java/analisis-planificacion.md) explica
 el mapa de llamadas, las exclusiones, las reglas y la validación con IA simulada.
 

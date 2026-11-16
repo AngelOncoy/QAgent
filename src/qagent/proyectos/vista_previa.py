@@ -94,7 +94,7 @@ def _inferencia_activa(adaptador: Any) -> bool:
     Solo si el lenguaje lo soporta y `[inferencia] activa` no está apagada; ante
     cualquier problema con la configuración se asume activa, como la corrida.
     """
-    if getattr(adaptador, "lenguaje", None) != "python":
+    if not getattr(adaptador, "inferencia_disponible", False):
         return False
     from qagent.config import carga as config_carga
     from qagent.config import cargar_configuracion
@@ -228,7 +228,7 @@ def generar_vista_previa(
     # Anotamos los módulos con su conteo de funciones con ramas y aviso en funciones sin docstring
     modulos_procesados: list[dict[str, Any]] = []
     infiere = _inferencia_activa(adaptador)
-    es_python = adaptador.lenguaje == "python"
+    admite_inferencia = adaptador.inferencia_disponible
     for mod in resultado_ast["modulos"]:
         funciones_mod: list[dict[str, Any]] = []
         for f in mod.get("funciones", []):
@@ -244,9 +244,9 @@ def generar_vista_previa(
                     "aviso_inferencia": (
                         AVISO_CONTRATO_INFERIDO if doc is None and infiere else None
                     ),
-                    # Se puede inferir (Python sin docstring); que se haga lo decide la
+                    # La capacidad depende del adaptador; que se haga lo decide la
                     # casilla de Preparar, con `inferencia_activa` como valor inicial.
-                    "inferible": doc is None and es_python,
+                    "inferible": doc is None and admite_inferencia,
                     "critica_propuesta": f.get("ramas", 0) > 0,
                 }
             )

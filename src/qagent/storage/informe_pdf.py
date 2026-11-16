@@ -16,6 +16,10 @@ from pathlib import Path
 from typing import Any
 
 from qagent import __version__
+from qagent.storage.respaldo_inferido import (
+    datos_para_informe,
+    respuesta_con_respaldo,
+)
 from qagent.storage.vista_ejecucion import corrida_incompleta, respuesta_principal
 from qagent.storage.vista_reporte import etiqueta_ia
 
@@ -44,6 +48,7 @@ ESTADOS: dict[str, tuple[Color, Color]] = {  # (texto, fondo)
 
 # Estado del backend → (bandeja, etiqueta, clase de color, orden). Igual que la bandeja.
 BANDEJA = {
+    "hallazgo_inferido": ("revision", "Hallazgo a revisar", "aviso", 0),
     "bug_detectado": ("bug", "Posible bug en tu código", "bug", 0),
     "estancado": ("sin", "No se pudo generar la prueba", "error", 1),
     "rechazado_laundering": ("sin", "No se pudo generar la prueba", "error", 1),
@@ -467,6 +472,7 @@ def _portada(
         omitidos=len(datos.get("omitidos") or []),
         incompleta=corrida_incompleta(datos),
     )
+    respuesta = respuesta_con_respaldo(respuesta, funciones)
     lz.parrafo(limpiar(respuesta), 20, "F2", TEXTO, interlineado=1.3)
 
     meta = [
@@ -833,6 +839,7 @@ def construir_pdf(
         opts: `normalizar_opciones` (detalle, trazas, codigo, contratos).
         limpiar: quita secretos de cada texto antes de escribirlo (defensa extra).
     """
+    datos = datos_para_informe(datos)
     funciones = sorted(
         datos.get("funciones") or [],
         key=lambda f: (_clase_bandeja(f)[3], not f.get("critical")),
