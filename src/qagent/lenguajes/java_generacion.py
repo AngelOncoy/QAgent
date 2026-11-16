@@ -172,6 +172,8 @@ def prompt_java(
         "REGLAS OBLIGATORIAS:\n"
         "- El valor esperado y la excepción proceden exclusivamente del contrato del Planner. "
         "No ejecutes el código para descubrirlos ni los cambies al reparar una prueba.\n"
+        "- Los casos de origen inferido son regresión sin contrato documentado. Conserva "
+        "su evidencia y sus expectativas; no los presentes como prueba de corrección.\n"
         "- Usa exactamente el paquete y clase_test del contexto; si paquete está vacío, no declares package. "
         "Una clase de prueba, en el archivo indicado, con @Test void test_<id>() por caso.\n"
         "- Una aserción directa por caso, sin helpers, campos, bucles, condicionales ni "

@@ -224,6 +224,8 @@ class PythonAdapter(LanguageAdapter):
         """Prompts y filtros de casos de pytest y FastAPI para el Planner (#168)."""
         return REGLAS_PLANIFICACION_PYTHON
 
+    inferencia_disponible = True
+
     def proveedor_inferencia(
         self,
         raiz: str | os.PathLike[str],

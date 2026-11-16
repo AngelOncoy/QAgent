@@ -409,6 +409,18 @@ class JavaAdapter(AdaptadorEnDesarrollo):
 
         return REGLAS_PLANIFICACION_JAVA
 
+    inferencia_disponible = True
+
+    def proveedor_inferencia(
+        self, raiz: str | os.PathLike[str], analisis: Estructura, max_caracteres: int
+    ) -> Callable[[str, str], Any]:
+        """Evidencia estática Java para métodos sin Javadoc (#292, ADR-018)."""
+        from qagent.lenguajes.java_inferencia import ProveedorInferenciaJava
+
+        return ProveedorInferenciaJava(
+            raiz, analisis.get("modulos", []), max_caracteres
+        ).contexto
+
     def reglas_revision(self) -> ReglasRevision:
         """Reglas de generación, oráculo y ejecución Java integradas (#184, #182)."""
         from qagent.lenguajes.java_revision import ReglasRevisionJava

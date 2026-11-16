@@ -314,9 +314,11 @@ function renderExec(){
   const cuenta = k => filtrados.filter(e => e.bandeja === k).length;
   $('bnjBandejas').innerHTML = [{k:'todos', t:'Todos', ico:() => ICO_CAPAS}, ...BANDEJAS].map(b => {
     const n = b.k === 'todos' ? filtrados.length : cuenta(b.k);
+    const inferidos = b.k === 'bug' ? filtrados.filter(e => e.bandeja === 'bug' && e.inferido).length : 0;
+    const titulo = inferidos ? (inferidos === n ? 'Hallazgos a revisar' : 'Posibles bugs y hallazgos') : b.t;
     if (b.k !== 'todos' && b.k !== 'paso' && !n && filterState !== b.k) return '';
     return `<button type="button" class="bnj-bandeja ${filterState === b.k ? 'on' : ''} ${b.cls ? 'bnj-' + b.cls : ''}" onclick="filterState='${b.k}';renderExec()">
-      <span class="bnj-bandeja-ico">${b.ico()}</span><span class="bnj-bandeja-n">${n}</span><span class="bnj-bandeja-t">${b.t}</span></button>`;
+      <span class="bnj-bandeja-ico">${b.ico()}</span><span class="bnj-bandeja-n">${n}</span><span class="bnj-bandeja-t">${titulo}</span></button>`;
   }).join('') + '<span class="np-meta bnj-orden">Orden: prioridad y archivo</span>';
 
   const lista = filtrados.filter(e => filterState === 'todos' || e.bandeja === filterState);
@@ -328,7 +330,7 @@ function renderExec(){
         onclick="seleccionarBandeja(${ELEMENTOS_BANDEJA.indexOf(e)})" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click()}">
       <div class="bnj-item-cab"><span class="bnj-nombre">${escHtml(e.nombre)}</span>${e.sinDocstring ? etiquetaSinDocstring(e.tipo, {enfocable: false}) : ''}${e.critica ? '<span class="bnj-critica">Crítica</span>' : ''}</div>
       <span class="bnj-ruta">${escHtml(e.modulo)} · Lenguaje: ${escHtml(e.lenguaje || 'no registrado')}</span>
-      <span class="np-chip np-chip-${b.cls}">${b.ico()}${b.chip}</span>${accion}
+      <span class="np-chip np-chip-${b.cls}">${b.ico()}${e.inferido && e.bandeja === 'bug' ? 'Hallazgo a revisar' : b.chip}</span>${accion}
     </div>`;
   }).join('') || `<div class="bnj-vacio">${execSearchQuery ? 'Nada coincide con la búsqueda.' : 'No hay resultados en esta bandeja.'}
       ${execSearchQuery ? '<button type="button" class="ini-enlace" onclick="limpiarBusquedaEjecucion()">Limpiar búsqueda</button>' : ''}</div>`;
@@ -376,7 +378,9 @@ function renderComparacionCorridas(comparacion){
 // corrida terminó.
 function estadoGeneral(todos, v){
   const n = k => todos.filter(e => e.bandeja === k).length;
-  const bugs = todos.filter(e => e.bandeja === 'bug');
+  const bugs = todos.filter(e => e.bandeja === 'bug' && !e.inferido);
+  const hallazgos = todos.filter(e => e.bandeja === 'bug' && e.inferido).length;
+  const inferidas = todos.filter(e => e.inferido).length;
   const omitidas = n('omitida'), probados = todos.length - omitidas;
   const sinPrueba = n('sin') + n('tiempo') + n('repetir');
   const incompleta = !!(v && (v.es_parcial || ['detenida_error', 'cancelada', 'limitada_recursos'].includes(v.tipo_terminacion)));
@@ -385,14 +389,15 @@ function estadoGeneral(todos, v){
   const quedaronPendientes = `${pendientes} ${pendientes === 1 ? 'objetivo quedó pendiente' : 'objetivos quedaron pendientes'}`;
   // `corto`: la etiqueta del chip de Exportar.
   if (bugs.length) return {tipo:'bug', corto:`${bugs.length} ${bugs.length === 1 ? 'posible bug' : 'posibles bugs'}`,
-    texto:`${bugs.length} ${bugs.length === 1 ? 'posible bug' : 'posibles bugs'}. Empieza por ${bugs[0].nombre}.`};
+    texto:`${bugs.length} ${bugs.length === 1 ? 'posible bug' : 'posibles bugs'}. Empieza por ${bugs[0].nombre}.${hallazgos ? ` Además, ${hallazgos} hallazgo(s) de regresión inferida a revisar.` : ''}`};
+  if (hallazgos) return {tipo:'aviso', corto:'Hallazgos inferidos a revisar', texto:`${hallazgos} hallazgo(s) de regresión inferida a revisar. Revisa la expectativa inferida antes de atribuir un defecto al código.`};
   if (!probados) return {tipo:'aviso', corto:'Nada probado', texto: incompleta ? `La corrida se detuvo antes de probar algo: ${quedaronPendientes}.`
     : omitidas ? `No se probó nada: ${noSeProbaron}.` : 'No se probó ninguna función ni endpoint.'};
   if (sinPrueba) return {tipo:'aviso', corto:'Faltan pruebas por revisar', texto:'Sin posibles bugs, pero faltan pruebas por revisar.'};
   if (omitidas && incompleta) return {tipo:'aviso', corto:'Corrida incompleta', texto:`Sin posibles bugs en lo probado, pero ${noSeProbaron} y ${quedaronPendientes}.`};
   if (omitidas) return {tipo:'aviso', corto:`${omitidas} sin probar`, texto:`Sin posibles bugs en lo probado, pero ${noSeProbaron}.`};
   if (incompleta) return {tipo:'aviso', corto:'Corrida incompleta', texto:`Sin posibles bugs en lo probado, pero la corrida no terminó: ${quedaronPendientes}.`};
-  return {tipo:'exito', corto:'Todo pasó', texto:`Todo pasó: ${probados} ${probados === 1 ? 'función o endpoint verificado' : 'funciones y endpoints verificados'}.`};
+  return {tipo:'exito', corto:'Todo pasó', texto:`Todo pasó: ${probados} ${probados === 1 ? (inferidas ? 'función o endpoint probado' : 'función o endpoint verificado') : (inferidas ? 'funciones y endpoints probados' : 'funciones y endpoints verificados')}.${inferidas ? ' Incluye regresión sin contrato documentado.' : ''}`};
 }
 
 // Título que responde la pregunta: cuántos posibles bugs y por dónde empezar.
@@ -407,7 +412,9 @@ function renderFueraDeLaCorridaResultados(fuera){
 
 function renderCabeceraBandeja(todos, v){
   const n = k => todos.filter(e => e.bandeja === k).length;
-  const bugs = todos.filter(e => e.bandeja === 'bug');
+  const bugs = todos.filter(e => e.bandeja === 'bug' && !e.inferido);
+  const hallazgosInferidos = todos.filter(e => e.bandeja === 'bug' && e.inferido).length;
+  const nInferidos = todos.filter(e => e.inferido).length;
   $('bnjTitulo').textContent = estadoGeneral(todos, v).texto;
   const duracion = v && typeof v.duracion_total_s === 'number' ? v.duracion_total_s : null;
   const nombresLenguaje = {python:'Python', java:'Java', javascript:'JavaScript', typescript:'TypeScript'};
@@ -457,7 +464,7 @@ function renderCabeceraBandeja(todos, v){
     : 'Sumando las tres etapas';
   $('kpis').innerHTML = `
     <div class="exp-cifra"><span class="exp-cifra-etq">Aprobados</span><b class="${avisoAprobados ? 'bnj-cifra-aviso' : ''}">${pasaron} / ${procesados}</b><span class="exp-cifra-sub">${subPasaron}</span></div>
-    <div class="exp-cifra"><span class="exp-cifra-etq">Posibles bugs</span><b class="${bugs.length ? 'bnj-cifra-bug' : ''}">${bugs.length}</b><span class="exp-cifra-sub">En ${bugs.length} de ${procesados} ${procesados === 1 ? 'objetivo procesado' : 'objetivos procesados'}</span></div>
+    <div class="exp-cifra"><span class="exp-cifra-etq">Posibles bugs</span><b class="${bugs.length ? 'bnj-cifra-bug' : ''}">${bugs.length}</b><span class="exp-cifra-sub">En ${bugs.length} de ${procesados} ${procesados === 1 ? 'objetivo procesado' : 'objetivos procesados'}${hallazgosInferidos ? ` · ${hallazgosInferidos} hallazgo(s) inferidos a revisar` : ''}</span></div>
     <div class="exp-cifra"><span class="exp-cifra-etq" title="Porcentaje de líneas del código que ejecutaron las pruebas">Cobertura ⓘ</span><b>${pctTexto(cobertura)}</b><span class="exp-cifra-sub">${subCobertura} · ${k && k.cobertura.exige_ramas === false ? 'Ramas no exigidas en Humo' : ramas !== null && ramas !== undefined ? pctTexto(ramas) + ' de las ramas' : 'De las líneas del código'}</span></div>
     <div class="exp-cifra"><span class="exp-cifra-etq">Tokens de la corrida</span><b>${tokens === null ? '—' : Number(tokens).toLocaleString('es-PE')}</b><span class="exp-cifra-sub">${subTokens}</span></div>`;
   const etiquetasResumen = {
@@ -466,7 +473,9 @@ function renderCabeceraBandeja(todos, v){
     omitida: ['no se probó', 'no se probaron'], paso: ['pasó', 'pasaron'],
   };
   $('bnjResumen').textContent = `${seleccionados} seleccionados · ${elegibles} elegibles · ${procesados} procesados${sinPrueba ? ` (${sinPrueba} sin prueba)` : ''} · ${omitidas} omitidos · ${pendientes} pendientes: ` +
-    BANDEJAS.map(b => [n(b.k), b.k]).filter(([c]) => c).map(([c, k]) => `${c} ${etiquetasResumen[k][c === 1 ? 0 : 1]}`).join(' · ');
+    BANDEJAS.map(b => [b.k === 'bug' ? bugs.length : n(b.k), b.k]).filter(([c]) => c).map(([c, k]) => `${c} ${etiquetasResumen[k][c === 1 ? 0 : 1]}`).join(' · ')
+    + (hallazgosInferidos ? ` · ${hallazgosInferidos} hallazgo(s) inferidos a revisar` : '')
+    + (nInferidos ? ` · ${todos.filter(e => !e.omitido && !e.inferido).length} con contrato · ${nInferidos} de regresión sin contrato documentado` : '');
 }
 function renderFiltrosBandeja(todos){
   const tipos = [...new Set(todos.map(e => e.tipo))];
@@ -502,7 +511,7 @@ function renderDetalleBandeja(e){
       <div><h2 class="bnj-det-nombre">${escHtml(e.nombre)}${e.sinDocstring ? etiquetaSinDocstring(e.tipo) : ''}</h2><span class="bnj-ruta">${escHtml(e.modulo)}${e.firma ? ' · ' + escHtml(e.firma) : ''}</span><p class="np-meta">Lenguaje: ${escHtml(e.lenguaje || 'no registrado')}</p></div>
       ${e.critica ? '<span class="np-chip np-chip-progreso">Crítica</span>' : ''}
     </div>
-    <span class="np-chip np-chip-${b.cls}">${b.ico()}${e.bandeja === 'bug' ? 'Posible bug en tu código' : e.bandeja === 'paso' ? (e.perfil === 'humo' ? 'Pasó el caso probado' : 'Pasaron los casos probados') : b.chip}</span>
+    <span class="np-chip np-chip-${b.cls}">${b.ico()}${e.bandeja === 'bug' ? (e.inferido ? 'Hallazgo a revisar' : 'Posible bug en tu código') : e.bandeja === 'paso' ? (e.perfil === 'humo' ? 'Pasó el caso probado' : 'Pasaron los casos probados') : b.chip}</span>
     ${e.inferido ? `<div class="bnj-bloque"><span class="np-chip np-chip-progreso">Regresión · contrato inferido</span>
       <p class="np-meta">Sin docstring: QAgent infirió lo esperado leyendo el código y su uso, sin ejecutarlo. ${e.bandeja === 'bug' ? 'Un fallo aquí es un hallazgo a revisar (el código se comporta distinto de lo inferido), no un bug confirmado.' : 'Verifica que la función siga haciendo lo mismo, no que sea correcta.'}</p>
       ${e.evidenciaInferida.length ? `<details class="np-detalle"><summary>Ver en qué se basó</summary><ul>${e.evidenciaInferida.map(x => `<li><code>${escHtml(x)}</code></li>`).join('')}</ul></details>` : ''}</div>` : ''}
@@ -592,6 +601,6 @@ function copiarPruebaBandeja(){
 function renderPrioridades(todos){
   const bugs = todos.filter(e => e.bandeja === 'bug').slice(0, 3);
   $('bnjPrioridades').innerHTML = bugs.map((e, i) => `<button type="button" class="np-tarjeta bnj-prioridad" onclick="filterState='todos';seleccionarBandeja(${ELEMENTOS_BANDEJA.indexOf(e)})">
-      <span class="bnj-prioridad-n">Prioridad ${i + 1}</span><b>Corrige ${escHtml(e.nombre)}</b>
+      <span class="bnj-prioridad-n">Prioridad ${i + 1}</span><b>${e.inferido ? 'Revisa la inferencia de' : 'Corrige'} ${escHtml(e.nombre)}</b>
       <span class="np-meta">${escHtml((e.explicacion || 'La prueba encontró un comportamiento distinto al esperado.').split(/(?<=\.)\s/)[0])}</span></button>`).join('');
 }
