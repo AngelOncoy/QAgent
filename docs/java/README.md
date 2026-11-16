@@ -4,6 +4,8 @@
 > con Java se describen en [perfiles-resultados.md](perfiles-resultados.md) (#262).
 > La corrección del almacenamiento en rutas largas de Windows (#268) se describe
 > en [rutas-windows.md](rutas-windows.md), incluida la compatibilidad histórica.
+> La preparación de padres públicos/locales y reactores Maven de #290, sus
+> comprobaciones y límites están en [preparacion-maven.md](preparacion-maven.md).
 
 > La matriz de criterios y los comandos de validación de la épica #174 están en
 > [validacion-ep12.md](validacion-ep12.md). Esa página reúne banco original,

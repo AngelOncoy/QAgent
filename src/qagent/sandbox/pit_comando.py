@@ -7,6 +7,7 @@ import xml.etree.ElementTree as ET
 from pathlib import Path, PurePosixPath
 
 from qagent.lenguajes.base import ComandoSandbox
+from qagent.sandbox.maven import separar_fuente
 
 IDENTIFICADOR = re.compile(r"[A-Za-z_$][A-Za-z0-9_$]*\Z")
 POM_TEMPORAL = "/work/proyecto/.qagent-pit.xml"
@@ -17,9 +18,9 @@ def comando_pit(modulo: str, funciones: list[str]) -> ComandoSandbox:
     """Construye un comando Maven offline limitado a una clase y sus métodos.
 
     Args:
-        modulo: ruta Maven/Gradle estándar src/main/java/paquete/Clase.java.
-            En esta primera etapa no se admiten proyectos multimódulo ni clases
-            anidadas. La ejecución deberá contrastar el paquete con la fuente.
+        modulo: fuente Maven estándar src/main/java/paquete/Clase.java,
+            opcionalmente bajo un módulo declarado del reactor. No se admiten
+            clases anidadas. La ejecución contrasta el paquete con la fuente.
         funciones: objetivos Clase.metodo, sin comodines, ya seleccionados como
             críticos y aprobados por el orquestador. Una lista vacía es un error.
 
@@ -37,7 +38,8 @@ def comando_pit(modulo: str, funciones: list[str]) -> ComandoSandbox:
     Raises:
         ValueError: si la ruta o los objetivos no permiten un alcance inequívoco.
     """
-    ruta = PurePosixPath(modulo.replace("\\", "/"))
+    carpeta, fuente = separar_fuente(modulo)
+    ruta = PurePosixPath(fuente)
     partes = ruta.parts
     if (
         ruta.is_absolute()
@@ -76,7 +78,8 @@ def comando_pit(modulo: str, funciones: list[str]) -> ComandoSandbox:
             "--no-transfer-progress",
             "-Dmaven.repo.local=/opt/qagent/m2",
             "-f",
-            POM_TEMPORAL,
+            "/work/proyecto/.qagent-maven/pom.xml" if carpeta else POM_TEMPORAL,
+            *(["-pl", carpeta, "-am"] if carpeta else []),
             "test-compile",
             f"org.pitest:pitest-maven:{_version_pit()}:mutationCoverage",
             f"-DtargetClasses={filtro_clase}",

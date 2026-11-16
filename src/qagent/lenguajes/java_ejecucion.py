@@ -13,11 +13,13 @@ from pathlib import Path, PurePosixPath
 
 from qagent.lenguajes.treesitter import obtener_parser
 from qagent.sandbox.informe_pytest import LIMITE_XML, JUnitInvalido
-from qagent.sandbox.modelos import ErrorPreparacionSandbox
+from qagent.sandbox.maven import inspeccionar, separar_fuente
+from qagent.sandbox.modelos import ErrorConstruccionImagen, ErrorPreparacionSandbox
 
 POM = ".qagent-junit.xml"
 TESTS = ".qagent-junit-tests"
 TARGET = ".qagent-junit-target"
+REACTOR = ".qagent-maven"
 MARCA = "QAGENT_JAVA_ETAPA="
 _NS = "http://maven.apache.org/POM/4.0.0"
 _BASE = "/work/proyecto/"
@@ -31,40 +33,63 @@ def comando_java(modulo: str) -> list[str]:
     son constantes; modulo se valida y no se interpola en un script de shell.
     La etapa final y el código de salida permiten distinguir errores técnicos.
     """
+    separar_fuente(modulo)
     ruta = PurePosixPath(modulo.replace("\\", "/"))
-    if (
-        ruta.parts[:3] != ("src", "main", "java")
-        or ruta.suffix != ".java"
-        or any(p in {"", ".", ".."} for p in modulo.replace("\\", "/").split("/"))
-        or ":" in modulo
-        or not all(
-            p.replace("$", "_").isidentifier() for p in (*ruta.parts[3:-1], ruta.stem)
-        )
-    ):
-        raise ValueError(
-            "Se requiere una fuente Maven src/main/java/paquete/Clase.java."
-        )
     receta = _xml(_RECETA.read_text(encoding="utf-8"))
     version = receta.findtext("{*}properties/{*}jacoco.version")
     if not version or not re.fullmatch(r"[0-9]+(?:\.[0-9]+)+", version):
         raise ValueError("La receta Java no declara una versión JaCoCo válida.")
     script = f"""set -u
+cd /work/proyecto || exit $?
+case "$1" in
+  src/main/java/*) seleccion=. ;;
+  *) seleccion="${{1%/src/main/java/*}}" ;;
+esac
+pom=/work/proyecto/{POM}
+reactor=false
+if [ -f /work/proyecto/{REACTOR}/pom.xml ]; then
+  pom=/work/proyecto/{REACTOR}/pom.xml
+  reactor=true
+fi
 ejecutar_maven() {{
-  mvn --offline --batch-mode --no-transfer-progress -Dmaven.repo.local=/opt/qagent/m2 -f /work/proyecto/{POM} "$@"
+  mvn --offline --batch-mode --no-transfer-progress -Dmaven.repo.local=/opt/qagent/m2 -f "$pom" "$@"
+}}
+ejecutar_compilacion() {{
+  if [ "$reactor" = true ]; then
+    ejecutar_maven -pl "$2" -am "$1"
+  else
+    ejecutar_maven "$1"
+  fi
 }}
 echo '{MARCA}proyecto'
 if [ ! -f "/work/proyecto/$1" ]; then
   echo 'La fuente Java seleccionada no existe en la copia' >&2
   exit 1
 fi
-ejecutar_maven compile || exit $?
+if [ "$reactor" = true ]; then
+  ejecutar_compilacion compile "$seleccion" || exit $?
+else
+  ejecutar_maven compile || exit $?
+fi
 echo '{MARCA}prueba'
-ejecutar_maven test-compile || exit $?
+if [ "$reactor" = true ]; then
+  ejecutar_compilacion test-compile "$seleccion" || exit $?
+else
+  ejecutar_maven test-compile || exit $?
+fi
 echo '{MARCA}ejecucion'
-ejecutar_maven org.jacoco:jacoco-maven-plugin:{version}:prepare-agent surefire:test
+if [ "$reactor" = true ]; then
+  ejecutar_maven -pl "$seleccion" -am test-compile org.jacoco:jacoco-maven-plugin:{version}:prepare-agent surefire:test
+else
+  ejecutar_maven org.jacoco:jacoco-maven-plugin:{version}:prepare-agent surefire:test
+fi
 estado_test=$?
 echo '{MARCA}cobertura'
-ejecutar_maven org.jacoco:jacoco-maven-plugin:{version}:report
+if [ "$reactor" = true ]; then
+  ejecutar_maven -pl "$seleccion" org.jacoco:jacoco-maven-plugin:{version}:report
+else
+  ejecutar_maven org.jacoco:jacoco-maven-plugin:{version}:report
+fi
 estado_cobertura=$?
 if [ "$estado_cobertura" -ne 0 ]; then exit "$estado_cobertura"; fi
 if [ ! -f /out/jacoco-report/jacoco.xml ]; then
@@ -78,12 +103,99 @@ exit "$estado_test"
     return ["sh", "-c", script, "qagent-java", ruta.as_posix()]
 
 
-def preparar_java(copia: Path, pruebas: Path) -> None:
+def preparar_java(copia: Path, pruebas: Path, modulo: str | None = None) -> None:
+    """Dispone una prueba en su módulo y un reactor aislado sin tocar los POM originales.
+
+    Sin módulo mantiene la entrada histórica de un solo proyecto. Los proyectos
+    con agregación requieren la selección explícita para no adivinar el módulo.
+    El modelo Maven se resuelve después dentro de Docker, nunca en el anfitrión.
+    """
+    try:
+        proyecto = inspeccionar(copia)
+        carpeta = separar_fuente(modulo)[0] if modulo else ""
+        if carpeta and carpeta + "/pom.xml" not in proyecto.archivos:
+            raise ValueError(
+                "La fuente seleccionada no pertenece a un módulo Maven declarado."
+            )
+        if (copia / REACTOR).exists() or (copia / REACTOR).is_symlink():
+            raise ValueError("El proyecto contiene una ruta reservada de QAgent Maven.")
+        hay_modulos = any(d.modulos for d in proyecto.descriptores)
+        versiones = {d.ruta: d.java for d in proyecto.descriptores}
+        if not hay_modulos and not carpeta:
+            _preparar_un_modulo(copia, pruebas, version_java=versiones.get("pom.xml"))
+            return
+        if modulo is None:
+            raise ValueError(
+                "La ejecución multimódulo requiere una fuente seleccionada explícitamente."
+            )
+        # Los POM se espejan; fuentes y recursos apuntan a la copia original.
+        # Solo el objetivo recibe pruebas. Los demás módulos compilan con una
+        # carpeta de tests vacía, nunca con los src/test del repositorio.
+        for nombre in proyecto.archivos:
+            relativa = Path(nombre).parent
+            seleccionada = relativa.as_posix() == (carpeta or ".")
+            base = _BASE + (
+                relativa.as_posix() + "/" if relativa.as_posix() != "." else ""
+            )
+            _preparar_un_modulo(
+                copia / relativa,
+                pruebas,
+                base=base,
+                objetivo=seleccionada,
+                version_java=versiones.get(nombre),
+            )
+            temporal = copia / relativa / POM
+            arbol = _xml(temporal.read_text(encoding="utf-8"))
+            ns = f"{{{_NS}}}" if arbol.tag.startswith("{") else ""
+            build = _hijo(arbol, ns + "build")
+            _hijo(build, ns + "sourceDirectory").text = base + "src/main/java"
+            recursos = build.find(ns + "resources")
+            if recursos is None:
+                recursos = ET.SubElement(build, ns + "resources")
+                recurso = ET.SubElement(recursos, ns + "resource")
+                ET.SubElement(recurso, ns + "directory").text = (
+                    base + "src/main/resources"
+                )
+            else:
+                for recurso in recursos:
+                    directorio = recurso.find(ns + "directory")
+                    if (
+                        directorio is not None
+                        and directorio.text
+                        and not directorio.text.startswith("/")
+                    ):
+                        directorio.text = base + directorio.text
+            destino = copia / REACTOR / nombre
+            destino.parent.mkdir(parents=True, exist_ok=True)
+            if ns:
+                for nodo in arbol.iter():
+                    nodo.tag = nodo.tag.removeprefix(ns)
+                arbol.set("xmlns", _NS)
+            ET.ElementTree(arbol).write(destino, encoding="utf-8", xml_declaration=True)
+        opciones = copia / ".mvn/maven.config"
+        if opciones.is_file():
+            destino = copia / REACTOR / ".mvn/maven.config"
+            destino.parent.mkdir(parents=True, exist_ok=True)
+            destino.write_bytes(opciones.read_bytes())
+    except (ErrorConstruccionImagen, OSError, ValueError, ET.ParseError) as error:
+        raise ErrorPreparacionSandbox(
+            f"{MARCA}proyecto\nNo se pudo preparar Java: {error}"
+        ) from error
+
+
+def _preparar_un_modulo(
+    copia: Path,
+    pruebas: Path,
+    *,
+    base: str = _BASE,
+    objetivo: bool = True,
+    version_java: str | None = None,
+) -> None:
     """Crea POM, fuente de prueba y salidas reservadas en la copia, sin compilar.
 
-    Conserva el POM y src/test originales. Admite Maven de un módulo sin padre;
-    añade herramientas de la receta del equipo y mantiene las dependencias del
-    proyecto. Solo incluye una fuente recibida; no copia pruebas preexistentes.
+    Conserva el POM y src/test originales y la herencia declarada. Añade las
+    herramientas de la receta del equipo y mantiene las dependencias del proyecto.
+    Solo el objetivo incluye una fuente recibida; no copia pruebas preexistentes.
     Errores de preparación se marcan como proyecto o prueba para su clasificación.
     """
     etapa = "proyecto"
@@ -97,22 +209,22 @@ def preparar_java(copia: Path, pruebas: Path) -> None:
         original = _xml(_leer(copia / "pom.xml", copia))
         if original.tag not in {"project", f"{{{_NS}}}project"}:
             raise ValueError("Se requiere un pom.xml Maven válido.")
-        if (
-            original.find("{*}parent") is not None
-            or original.find("{*}modules") is not None
+        padre = original.find("{*}parent")
+        if padre is not None and not all(
+            padre.findtext("{*}" + c) for c in ("groupId", "artifactId", "version")
         ):
             raise ValueError(
-                "La ejecución requiere resolver primero la herencia o los módulos Maven."
+                "El POM padre debe declarar groupId, artifactId y version."
             )
         receta = _xml(_RECETA.read_text(encoding="utf-8"))
         preparado = copy.deepcopy(original)
         ns = f"{{{_NS}}}" if preparado.tag.startswith("{") else ""
         build = _hijo(preparado, ns + "build")
         for nombre, valor in (
-            ("directory", _BASE + TARGET),
-            ("outputDirectory", _BASE + TARGET + "/classes"),
-            ("testOutputDirectory", _BASE + TARGET + "/test-classes"),
-            ("testSourceDirectory", _BASE + TESTS),
+            ("directory", base + TARGET),
+            ("outputDirectory", base + TARGET + "/classes"),
+            ("testOutputDirectory", base + TARGET + "/test-classes"),
+            ("testSourceDirectory", base + TESTS),
         ):
             _hijo(build, ns + nombre).text = valor
         plugins = _hijo(build, ns + "plugins")
@@ -121,12 +233,15 @@ def preparar_java(copia: Path, pruebas: Path) -> None:
         }
         propiedades_proyecto = _hijo(preparado, ns + "properties")
         if (
-            propiedades_proyecto.find(ns + "maven.compiler.release") is None
+            padre is None
+            and propiedades_proyecto.find(ns + "maven.compiler.release") is None
             and propiedades_proyecto.find(ns + "maven.compiler.source") is None
         ):
-            _hijo(
-                propiedades_proyecto, ns + "maven.compiler.release"
-            ).text = propiedades["maven.compiler.release"]
+            _hijo(propiedades_proyecto, ns + "maven.compiler.release").text = (
+                version_java
+                or propiedades_proyecto.findtext(ns + "java.version")
+                or propiedades["maven.compiler.release"]
+            )
         for nombre in (
             "maven-resources-plugin",
             "maven-compiler-plugin",
@@ -169,7 +284,7 @@ def preparar_java(copia: Path, pruebas: Path) -> None:
                 for campo, valor in (
                     ("reportsDirectory", "/out/junit-raw"),
                     ("testFailureIgnore", "false"),
-                    ("failIfNoTests", "true"),
+                    ("failIfNoTests", "true" if objetivo else "false"),
                     ("skip", "false"),
                     ("skipTests", "false"),
                     ("forkCount", "1"),
@@ -192,22 +307,27 @@ def preparar_java(copia: Path, pruebas: Path) -> None:
                     _hijo(config, ns + campo).text = valor
         _dependencia_junit(preparado, ns, propiedades["junit.version"])
         etapa = "prueba"
-        candidatas = [
-            p for p in pruebas.rglob("*") if p.is_file() and p.suffix == ".java"
-        ]
-        if len(candidatas) != 1:
+        candidatas = (
+            [p for p in pruebas.rglob("*") if p.is_file() and p.suffix == ".java"]
+            if objetivo
+            else []
+        )
+        if objetivo and len(candidatas) != 1:
             raise ValueError(
                 "Se requiere exactamente una fuente .java de prueba generada."
             )
-        codigo = _leer(candidatas[0], pruebas)
-        relativa, selector = _identidad_prueba(codigo)
-        destino = copia / TESTS / relativa
-        destino.parent.mkdir(parents=True)
-        destino.write_text(codigo, encoding="utf-8", newline="")
+        selector = None
+        if objetivo:
+            codigo = _leer(candidatas[0], pruebas)
+            relativa, selector = _identidad_prueba(codigo)
+            destino = copia / TESTS / relativa
+            destino.parent.mkdir(parents=True)
+            destino.write_text(codigo, encoding="utf-8", newline="")
         surefire = next(
             p for p in plugins if p.findtext("{*}artifactId") == "maven-surefire-plugin"
         )
-        _hijo(_hijo(surefire, ns + "configuration"), ns + "test").text = selector
+        if selector:
+            _hijo(_hijo(surefire, ns + "configuration"), ns + "test").text = selector
         if ns:
             for nodo in preparado.iter():
                 nodo.tag = nodo.tag.removeprefix(ns)

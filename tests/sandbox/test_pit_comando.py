@@ -76,7 +76,6 @@ def test_rechaza_selecciones_no_acotadas(funciones: list[str]) -> None:
         "src/main/java/../Banco.java",
         "src/main/java/paquete*/Banco.java",
         "src/main/java/Banco.py",
-        "submodulo/src/main/java/Banco.java",
     ],
 )
 def test_rechaza_rutas_no_admitidas(modulo: str) -> None:

@@ -89,7 +89,12 @@ def contexto_java(
         ),
         "",
     )
+    from qagent.sandbox.maven import separar_fuente
+
+    carpeta_maven, _ = separar_fuente(modulo)
     archivo = archivo_java(objetivo_metodo, paquete)
+    if carpeta_maven:
+        archivo = PurePosixPath(carpeta_maven, archivo).as_posix()
     # También valida nombres reservados del anfitrión antes de pedir código al LLM.
     ruta_de_prueba(ruta_proyecto, archivo)
     constructores = [

@@ -300,6 +300,15 @@ def ejecutar_corrida(
             adaptador = adaptador_del_proyecto(ruta)
         except LenguajeNoSoportado as error:
             raise ErrorCorrida(str(error)) from error
+        preparacion_proyecto = adaptador.comprobar_preparacion(ruta)
+        if not preparacion_proyecto["compatible"]:
+            resumen.estado = FALLO
+            resumen.tipo_terminacion = "detenida_error"
+            resumen.motivo = preparacion_proyecto["mensaje"]
+            avisar(resumen.motivo, "fallo")
+            avisar_entorno(resumen.motivo, ENTORNO_FALLO, "fallo")
+            _cerrar_run(almacen, resumen, tipos)
+            return resumen
         version_python = None
         if adaptador.lenguaje == "python" and hasattr(
             adaptador, "resolver_version_python"
@@ -566,6 +575,11 @@ def ejecutar_corrida(
             resumen.motivo = (
                 f"No se pudo preparar el entorno aislado: {_texto_error(error)}"
             )
+            from qagent.storage.diagnostico_entorno import guardar_diagnostico
+
+            detalle = guardar_diagnostico(ruta, resumen.run_id, error)
+            if detalle:
+                resumen.motivo += f" Detalle técnico: {detalle}"
             avisar_entorno(resumen.motivo, ENTORNO_FALLO, "fallo")
         finally:
             etapas_entorno.update(

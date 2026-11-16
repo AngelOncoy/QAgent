@@ -7,12 +7,15 @@ nunca la carpeta original. Los POM y pruebas existentes no se sobrescriben.
 from __future__ import annotations
 
 import copy
+import tempfile
 import xml.etree.ElementTree as ET
 from pathlib import Path
 
 from tree_sitter import Node
 
 from qagent.lenguajes.treesitter import obtener_parser
+from qagent.sandbox.maven import inspeccionar, separar_fuente
+from qagent.sandbox.modelos import ErrorConstruccionImagen
 from qagent.sandbox.pit_comando import comando_pit
 
 NS = "http://maven.apache.org/POM/4.0.0"
@@ -28,6 +31,106 @@ class ConfiguracionPitPropia(ValueError):
 def preparar_pit(
     copia: Path, pruebas: Path, modulo: str, funciones: list[str]
 ) -> dict[str, tuple[str, str]]:
+    """Prepara PIT conservando la herencia y aislando la mutación en su módulo.
+
+    Reutiliza el reactor de compilación Java para los módulos auxiliares. La
+    configuración PIT propia se detecta antes de crear archivos y no se reemplaza.
+    """
+    from qagent.lenguajes.java_ejecucion import REACTOR, preparar_java
+
+    carpeta, fuente_relativa = separar_fuente(modulo)
+    try:
+        proyecto = inspeccionar(copia)
+    except ErrorConstruccionImagen as error:
+        raise ValueError(
+            f"No se pudo resolver herencia o módulos Maven: {error}"
+        ) from error
+    for contenido in proyecto.archivos.values():
+        pom = _xml_seguro(contenido.decode("utf-8-sig"))
+        if any(
+            (n.text or "").strip() == "pitest-maven"
+            for n in pom.findall(".//{*}artifactId")
+        ):
+            raise ConfiguracionPitPropia(
+                "El proyecto declara PIT; QAgent no sobrescribe su configuración."
+            )
+    if not carpeta and not any(d.modulos for d in proyecto.descriptores):
+        return _preparar_pit_un_modulo(copia, pruebas, modulo, funciones)
+    candidatas = [p for p in sorted(pruebas.rglob("*")) if p.is_file()]
+    if not candidatas:
+        raise ValueError("No hay pruebas aprobadas para evaluar los mutantes.")
+    # La preparación JUnit exige una sola fuente. Solo se utiliza para construir
+    # el reactor; PIT recibe después todas las pruebas aprobadas y sus aserciones.
+    with tempfile.TemporaryDirectory(prefix="qagent-pit-reactor-") as temporal:
+        recibida = Path(temporal) / "QAgentTest.java"
+        recibida.write_text(_leer_dentro(pruebas, candidatas[0]), encoding="utf-8")
+        preparar_java(copia, Path(temporal), modulo)
+    seleccion = copia / carpeta
+    base = "/work/proyecto/" + (carpeta + "/" if carpeta else "")
+    objetivos = _preparar_pit_un_modulo(
+        seleccion,
+        pruebas,
+        fuente_relativa,
+        funciones,
+        base=base,
+        pom_base=copia / REACTOR / carpeta / "pom.xml",
+    )
+    receta = _xml_seguro(
+        (Path(__file__).parent / "java/calentamiento/pom.xml").read_text(
+            encoding="utf-8"
+        )
+    )
+    propiedades = {
+        n.tag.rsplit("}", 1)[-1]: n.text for n in receta.find("{*}properties")
+    }
+    plantilla = next(
+        n
+        for n in receta.findall(".//{*}plugin")
+        if n.findtext("{*}artifactId") == "pitest-maven"
+    )
+    for descriptor in proyecto.descriptores:
+        relativa = Path(descriptor.ruta).parent.as_posix()
+        elegida = relativa == (carpeta or ".")
+        destino = copia / REACTOR / descriptor.ruta
+        arbol = (
+            _xml_seguro((seleccion / POM_NOMBRE).read_text(encoding="utf-8"))
+            if elegida
+            else _xml_seguro(destino.read_text(encoding="utf-8"))
+        )
+        _quitar_marcador_jacoco(arbol)
+        ns = f"{{{NS}}}" if arbol.tag.startswith("{") else ""
+        plugins = _hijo(_hijo(arbol, ns + "build"), ns + "plugins")
+        plugin = next(
+            (p for p in plugins if p.findtext("{*}artifactId") == "pitest-maven"), None
+        )
+        if plugin is None:
+            plugin = copy.deepcopy(plantilla)
+            for nodo in plugin.iter():
+                if nodo.text and nodo.text.startswith("${"):
+                    nodo.text = propiedades[nodo.text[2:-1]]
+                if not ns:
+                    nodo.tag = nodo.tag.rsplit("}", 1)[-1]
+            plugins.append(plugin)
+        _hijo(_hijo(plugin, ns + "configuration"), ns + "skip").text = (
+            "false" if elegida else "true"
+        )
+        if ns:
+            for nodo in arbol.iter():
+                nodo.tag = nodo.tag.removeprefix(ns)
+            arbol.set("xmlns", NS)
+        ET.ElementTree(arbol).write(destino, encoding="utf-8", xml_declaration=True)
+    return objetivos
+
+
+def _preparar_pit_un_modulo(
+    copia: Path,
+    pruebas: Path,
+    modulo: str,
+    funciones: list[str],
+    *,
+    base: str = "/work/proyecto/",
+    pom_base: Path | None = None,
+) -> dict[str, tuple[str, str]]:
     """Prepara POM y pruebas aprobadas en una copia y devuelve objetivos exactos.
 
     Args:
@@ -41,8 +144,8 @@ def preparar_pit(
     Returns:
         Objetivo -> (clase binaria completa, método), para verificar el XML PIT.
         Genera .qagent-pit.xml y .qagent-pit-tests; nunca cambia pom.xml ni src/test.
-        Solo admite un módulo Maven con fuente estándar. Padres Maven, módulos
-        y proyectos Gradle requieren resolución adicional; se rechazan explícitamente.
+        Recibe un módulo con fuente estándar y su POM ya resuelto por el reactor.
+        Los proyectos Gradle requieren otro preparador.
 
     Raises:
         ConfiguracionPitPropia: si se detecta PIT en POM o scripts Gradle.
@@ -55,7 +158,11 @@ def preparar_pit(
     reservados = (destino, carpeta_tests, copia / ".qagent-pit-target")
     if any(p.exists() or p.is_symlink() for p in reservados):
         raise ValueError("La copia ya contiene los archivos reservados de QAgent PIT.")
-    pom = _xml_seguro(_leer_dentro(copia, copia / "pom.xml"))
+    pom = _xml_seguro(
+        pom_base.read_text(encoding="utf-8-sig")
+        if pom_base
+        else _leer_dentro(copia, copia / "pom.xml")
+    )
     if pom.tag not in {"project", f"{{{NS}}}project"}:
         raise ValueError("El POM no contiene una raíz project válida.")
     if any(
@@ -76,7 +183,10 @@ def preparar_pit(
             raise ConfiguracionPitPropia(
                 "El proyecto declara PIT en Gradle; se conserva su configuración."
             )
-    if pom.find("{*}parent") is not None or pom.find("{*}modules") is not None:
+    padre = pom.find("{*}parent")
+    if padre is not None and not all(
+        padre.findtext("{*}" + campo) for campo in ("groupId", "artifactId", "version")
+    ):
         raise ValueError(
             "PIT requiere resolver herencia o módulos Maven antes de preparar este proyecto."
         )
@@ -110,6 +220,10 @@ def preparar_pit(
         raise ValueError("No hay pruebas aprobadas para evaluar los mutantes.")
     preparado = copy.deepcopy(pom)
     ns = f"{{{NS}}}" if pom.tag.startswith("{") else ""
+    # JaCoCo añade este marcador tardío solo para Surefire. PIT interpreta '@'
+    # como un archivo de argumentos JVM y no ejecuta el goal prepare-agent.
+    # Vaciar exclusivamente nuestro marcador conserva los argumentos del usuario.
+    _quitar_marcador_jacoco(preparado)
     build = _hijo(preparado, ns + "build")
     # Salidas nuevas: nunca se reutilizan clases compiladas de otra corrida.
     for nombre, sufijo in (
@@ -117,8 +231,8 @@ def preparar_pit(
         ("outputDirectory", "/classes"),
         ("testOutputDirectory", "/test-classes"),
     ):
-        _hijo(build, ns + nombre).text = "/work/proyecto/.qagent-pit-target" + sufijo
-    _hijo(build, ns + "testSourceDirectory").text = "/work/proyecto/" + TESTS_NOMBRE
+        _hijo(build, ns + nombre).text = base + ".qagent-pit-target" + sufijo
+    _hijo(build, ns + "testSourceDirectory").text = base + TESTS_NOMBRE
     # Mantiene las dependencias del proyecto y añade solo el proveedor JUnit de PIT.
     receta = _xml_seguro(
         (Path(__file__).parent / "java/calentamiento/pom.xml").read_text(
@@ -153,6 +267,25 @@ def preparar_pit(
     with destino.open("xb") as archivo:
         ET.ElementTree(preparado).write(archivo, encoding="utf-8", xml_declaration=True)
     return objetivos
+
+
+def _quitar_marcador_jacoco(pom: ET.Element) -> None:
+    """Retira solo el marcador propio; PIT interpreta un argLine vacío como null."""
+    for plugin in pom.findall(".//{*}plugin"):
+        if plugin.findtext("{*}artifactId") != "maven-surefire-plugin":
+            continue
+        configuracion = plugin.find("{*}configuration")
+        if configuracion is None:
+            continue
+        argumento = configuracion.find("{*}argLine")
+        if argumento is None or not argumento.text:
+            continue
+        texto = argumento.text.replace("@{qagentJacocoArgLine}", "").strip()
+        if texto:
+            argumento.text = texto
+            argumento.set("combine.self", "override")
+        else:
+            configuracion.remove(argumento)
 
 
 def _renombrar_clase_prueba(fuente: str, clase: Node, nombre: str) -> str:

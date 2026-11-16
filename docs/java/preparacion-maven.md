@@ -1,0 +1,76 @@
+# Preparación Maven de proyectos externos (#290)
+
+La apertura de una carpeta y la clonación desde GitHub convergen en la misma
+vista previa y el mismo adaptador Java. El origen del proyecto no cambia los
+requisitos de construcción. Este documento describe la ampliación de ADR-017;
+los informes anteriores de EP-12 conservan el alcance que se validó entonces.
+
+## Comportamiento
+
+- Antes de crear clientes IA se inspeccionan el POM raíz, los padres locales,
+  módulos, propiedades Java y las opciones Maven admitidas. Preparar muestra el
+  diagnóstico. Un requisito conocido incompatible bloquea el inicio; se puede
+  seguir explorando el código.
+- Durante la preparación Docker puede descargar padres públicos, dependencias,
+  plugins, lanzadores JUnit y recursos declarados por Remote Resources Plugin.
+  El POM efectivo se obtiene dentro de Docker. No se compila el proyecto ni se
+  ejecutan sus pruebas durante la descarga.
+- El contexto de construcción conserva las rutas de los POM necesarios y
+  `.mvn/maven.config` validado. También contiene el lector Java propio de QAgent;
+  no incluye las fuentes, `.env`, `settings.xml` ni credenciales del proyecto.
+- Las dependencias internas se comparan por grupo, artefacto y versión. Solo en
+  la copia de descarga se omiten las que se compilarán en el reactor. Las demás
+  dependencias se conservan, aunque compartan nombre con un módulo interno.
+- La ejecución usa una copia con un reactor reservado `.qagent-maven/`. Compila
+  los módulos auxiliares necesarios y ejecuta exclusivamente la prueba generada
+  elegida. No ejecuta automáticamente los tests existentes del repositorio.
+- Los comandos de prueba siguen siendo offline, en contenedores sin red, con
+  límites de CPU, memoria y tiempo. PIT solo muta los métodos críticos elegidos.
+- Un fallo al preparar el entorno se distingue de un bug del código. Cuando hay
+  log técnico se guarda `entorno.log` en la carpeta de la corrida, acotado a
+  512 KiB y con secretos saneados; el mensaje muestra su ruta relativa.
+
+El sandbox sigue usando JDK 25. La versión objetivo declarada por el proyecto
+se conserva: el fixture de perfil `compat` compila con `release=17` y su prueba
+comprueba que el bytecode resultante tiene versión mayor 61 (Java 17).
+
+## Límites explícitos
+
+No se declara compatibilidad universal con proyectos Maven. Gradle,
+`systemPath`, fuentes fuera de `src/main/java`, extensiones Maven y opciones JVM
+adicionales requieren trabajo separado. Tampoco se preparan credenciales privadas.
+Un BOM interno o un artefacto interno con classifier/tipo distinto de jar requiere
+instalación adicional y se rechaza explícitamente.
+
+En `.mvn/maven.config` se admiten perfiles compactos `-P...` y propiedades de
+versión `revision`, `changelist`, `sha1`. Otras opciones se rechazan; no se ignoran.
+La inspección estática no sustituye al modelo efectivo de Maven ni demuestra que
+una biblioteca o plugin arbitrario sea compatible con JDK 25.
+
+La falta de un resultado esperado verificable en métodos Java sin Javadoc es
+otro problema. Resolver Maven no convierte esos métodos omitidos en pruebas
+aprobadas y no autoriza a inventar el valor esperado leyendo su ejecución.
+
+## Comprobaciones reproducibles
+
+Con el entorno virtual activo y Docker Desktop abierto:
+
+```powershell
+python -m pytest tests/sandbox/test_issue290_dependencias_docker.py tests/sandbox/test_issue290_pit_maven_docker.py --docker -q -s
+```
+
+Son tres comprobaciones: padre Apache 35 con Commons Lang 3.17.0, reactor con
+dependencia pública y mutación aislada en el módulo seleccionado. El padre Apache
+expuso el recurso heredado `apache-jar-resource-bundle:1.7` que faltaba offline;
+la prueba conserva ese padre después de la corrección. No se utiliza IA real.
+
+Para volver a comprobar los perfiles existentes, preparar primero las imágenes:
+
+```powershell
+python -c "from pathlib import Path; from qagent.sandbox.imagen import preparar_imagen; from qagent.sandbox.modelos import IMAGEN_JAVA; [preparar_imagen(Path(ruta), imagen=IMAGEN_JAVA, avanzar=print) for ruta in ('bench_java', 'bench_java/src/test/resources/spring')]"
+python -m pytest tests/sandbox/test_issue262_perfiles_java_docker.py tests/sandbox/test_ep174_java_integrado_docker.py tests/sandbox/test_pit_corrida_docker.py tests/sandbox/test_spring_corrida_docker.py --docker -q -s
+```
+
+La segunda orden comprueba Humo, Estándar, Regresión, Profundo/PIT y Spring
+MockMvc con los bancos anteriores. Es una comprobación adicional de regresión;
+no sustituye los fixtures externos ni una comprobación visual de la aplicación.

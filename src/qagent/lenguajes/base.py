@@ -399,7 +399,17 @@ class LanguageAdapter(ABC):
         """Variables de entorno extra del contenedor al correr las pruebas."""
         return {}
 
-    def preparador_sandbox(self) -> Callable[[Path, Path], None] | None:
+    def comprobar_preparacion(self, raiz: Path) -> dict[str, Any]:
+        """Requisitos estáticos del proyecto antes de generar pruebas; no ejecuta código.
+
+        Por defecto no añade restricciones. El adaptador devuelve compatible=False
+        y un mensaje cuando puede detectar una configuración no admitida.
+        """
+        return {"compatible": True, "mensaje": ""}
+
+    def preparador_sandbox(
+        self, modulo: str | None = None
+    ) -> Callable[[Path, Path], None] | None:
         """Preparación estática opcional sobre la copia y tests, antes del contenedor.
 
         None conserva la ejecución actual. Nunca se ejecuta código del usuario

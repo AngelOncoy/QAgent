@@ -112,6 +112,7 @@ registrarComponente('vista-previa/vista-previa', `<!-- ===== 2. EXPLORAR ===== -
 `);
 
 let PROYECTO_RESUMEN = null;
+let PROYECTO_PREPARACION = null;
 let PROYECTO_ERRORES = [];
 // issue 197: recomendación que llega con la vista previa ({recomendacion, proximamente}); null = no hay.
 let RECOMENDACION = null;
@@ -196,6 +197,7 @@ function cargarDatosVistaPrevia(res) {
   mostrarLenguajeProyecto(res);
   reiniciarVistaExplorar();
   PROYECTO_RESUMEN = res.resumen;
+  PROYECTO_PREPARACION = res.preparacion_proyecto || null;
   PROYECTO_ERRORES = res.errores || [];
   renderFueraDeLaCorrida(res.fuera_de_la_corrida || []);
   RECOMENDACION = res.recomendacion ? {recomendacion: res.recomendacion, proximamente: res.proximamente || []} : null;
@@ -436,6 +438,7 @@ function vaciarVistaPrevia() {
   mostrarLenguajeProyecto();
   reiniciarVistaExplorar();
   PROYECTO_RESUMEN = null;
+  PROYECTO_PREPARACION = null;
   PROYECTO_ERRORES = [];
   RECOMENDACION = null;
   renderRecomendacion();

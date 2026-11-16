@@ -92,6 +92,12 @@ def ejecutar_pit(
         with tempfile.TemporaryDirectory(prefix="qagent-pit-") as carpeta:
             copia = copiar_proyecto(ruta_proyecto, Path(carpeta) / "proyecto")
             objetivos = preparar_pit(copia, Path(ruta_tests), modulo, funciones)
+            if (
+                copia / ".qagent-maven/pom.xml"
+            ).is_file() and "-pl" not in comando.comando:
+                indice = comando.comando.index("-f") + 1
+                comando.comando[indice] = "/work/proyecto/.qagent-maven/pom.xml"
+                comando.comando[indice + 1 : indice + 1] = ["-pl", ".", "-am"]
             ejecucion = ejecutar_en_sandbox(
                 imagen or IMAGEN_JAVA,
                 comando.comando,

@@ -182,6 +182,9 @@ todavía no distingue sus firmas. `validar_sintaxis` no reemplaza `javac`:
 un árbol válido no demuestra que los tipos o dependencias sean correctos.
 La ejecución Maven/JUnit/JaCoCo usa el pipeline compartido de la aplicación;
 los límites de Spring se documentan por separado y no habilitan Gradle.
+La ampliación Maven de #290 conserva padres públicos/locales y módulos internos
+en un reactor temporal. La comprobación previa, las opciones admitidas y los
+límites se describen en [preparacion-maven.md](../../../docs/java/preparacion-maven.md).
 
 `reglas_planificacion()` conecta el Planner común con los prompts y filtros Java.
 Los casos se basan en Javadoc funcional; los tipos filtran incompatibilidades y

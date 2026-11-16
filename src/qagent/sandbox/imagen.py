@@ -18,6 +18,7 @@ reenvía al Monitor. Sin `avanzar`, la construcción es la de siempre (`images.b
 from __future__ import annotations
 
 import hashlib
+import json
 import logging
 import re
 import shutil
@@ -30,7 +31,7 @@ from typing import Any
 import docker
 from docker.errors import APIError, BuildError, ImageNotFound
 
-from qagent.sandbox import espacio, gestores_js
+from qagent.sandbox import espacio, gestores_js, maven
 from qagent.sandbox.cliente import obtener_cliente
 from qagent.sandbox.modelos import (
     ETIQUETA_CONSTRUCCION,
@@ -59,6 +60,7 @@ DOCKERFILE_JAVA = _CARPETA / "Dockerfile.java"
 DOCKERFILE_NAVEGADOR = _CARPETA / "Dockerfile.navegador"
 #: Proyecto de calentamiento y script de Gradle que usa la imagen de Java.
 RECURSOS_JAVA = _CARPETA / "java"
+_RESOLVER_MAVEN = RECURSOS_JAVA / "ResolverRecursosMaven.java"
 
 DOCKERFILE_DERIVADO = f"""\
 FROM {IMAGEN_BASE}
@@ -126,6 +128,7 @@ class Dependencias:
     recolectar: Callable[[Path], dict[str, bytes]] | None = None
     describir: Callable[[Mapping[str, bytes]], str] | None = None
     explicar_fallo: Callable[[Mapping[str, bytes], str], str] | None = None
+    preparar_contexto: Callable[[dict[str, bytes]], dict[str, bytes]] | None = None
 
 
 @dataclass(frozen=True)
@@ -186,18 +189,25 @@ def _dockerfile_maven(base: str, archivos: Mapping[str, bytes]) -> str:
     descarga ese artefacto si el POM no lo declara. Se obtiene su versión de las
     dependencias resueltas (incluidos BOM), sin compilar ni ejecutar fuentes.
     """
+    copias = "".join(
+        "COPY " + json.dumps([nombre, f"{_CARPETA_DEPENDENCIAS}/{nombre}"]) + "\n"
+        for nombre in archivos
+    )
     return (
         f"FROM {base}\n"
         "USER root\n"
-        f"{_copiar(archivos)}"
+        f"{copias}"
+        "COPY .qagent-resolver/ResolverRecursosMaven.java /tmp/qagent-resolver/ResolverRecursosMaven.java\n"
         f"RUN cd {_CARPETA_DEPENDENCIAS} && MAVEN_OPTS= mvn dependency:go-offline dependency:resolve \\\n"
+        "    && MAVEN_OPTS= mvn org.apache.maven.plugins:maven-help-plugin:3.5.1:effective-pom -Doutput=/tmp/qagent-effective.xml \\\n"
+        "    && java /tmp/qagent-resolver/ResolverRecursosMaven.java /tmp/qagent-effective.xml \\\n"
         "    && MAVEN_OPTS= mvn dependency:list -DincludeGroupIds=org.junit.platform \\\n"
-        "       -DincludeArtifactIds=junit-platform-engine -DoutputFile=/tmp/qagent-junit-platform.txt \\\n"
+        "       -DincludeArtifactIds=junit-platform-engine -DappendOutput=true -DoutputFile=/tmp/qagent-junit-platform.txt \\\n"
         "    && for version in $(awk -F: '/org.junit.platform:junit-platform-engine:jar:/ {print $4}' /tmp/qagent-junit-platform.txt); do \\\n"
         '         MAVEN_OPTS= mvn dependency:get "-Dartifact=org.junit.platform:junit-platform-launcher:$version" || exit 1; \\\n'
         "       done \\\n"
         "    && rm /tmp/qagent-junit-platform.txt \\\n"
-        f"    && cd / && rm -rf {_CARPETA_DEPENDENCIAS}\n"
+        f"    && cd / && rm -rf {_CARPETA_DEPENDENCIAS} /tmp/qagent-resolver /tmp/qagent-effective.xml\n"
         "USER sandbox\n"
     )
 
@@ -258,7 +268,15 @@ RECETAS: dict[str, RecetaImagen] = {
         recursos=(RECURSOS_JAVA,),
         prefijo="java-",
         dependencias=(
-            Dependencias("pom.xml", ("pom.xml",), (), _dockerfile_maven),
+            Dependencias(
+                "pom.xml",
+                ("pom.xml",),
+                (),
+                _dockerfile_maven,
+                maven.recolectar_archivos,
+                explicar_fallo=maven.explicar_fallo,
+                preparar_contexto=maven.contexto_dependencias,
+            ),
             Dependencias(
                 "build.gradle",
                 ("build.gradle", "build.gradle.kts"),
@@ -453,7 +471,8 @@ def etiqueta_para_dependencias(
     if prefijo == "java-" and "pom.xml" in archivos:
         # #174: Surefire necesita el launcher de la versión del engine resuelto.
         # No reutilizar derivadas anteriores que solo usaban go-offline/resolve.
-        huella.update(b"maven-junit-launcher-v3\0")
+        huella.update(b"maven-reactor-terceros-v7\0")
+        huella.update(_RESOLVER_MAVEN.read_bytes())
     if prefijo == "browser-":
         # Invalida la primera receta de #186, que heredaba por error USER sandbox.
         huella.update(b"browser-runner-exit-v3\0")
@@ -518,10 +537,17 @@ def preparar_imagen(
     _avisar(avanzar, aviso_dependencias(nombre))
     contexto = Path(tempfile.mkdtemp(prefix="qagent-req-"))
     try:
-        for nombre, contenido in archivos.items():
+        construccion = (
+            forma.preparar_contexto(archivos) if forma.preparar_contexto else archivos
+        )
+        for nombre, contenido in construccion.items():
             destino = contexto / nombre
             destino.parent.mkdir(parents=True, exist_ok=True)
             destino.write_bytes(contenido)
+        if forma.nombre == "pom.xml":
+            auxiliar = contexto / ".qagent-resolver/ResolverRecursosMaven.java"
+            auxiliar.parent.mkdir(parents=True, exist_ok=True)
+            auxiliar.write_bytes(_RESOLVER_MAVEN.read_bytes())
         (contexto / "Dockerfile").write_text(
             forma.dockerfile(receta.imagen, archivos), encoding="utf-8"
         )

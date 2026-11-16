@@ -219,7 +219,13 @@ def cobertura_de_metodo(
     Una sobrecarga sin descriptor, fuente desconocida o ausencia de datos devuelve
     None. Un método sin ramas conserva ramas=None; no se fabrica un 100 %.
     """
-    datos = ((cobertura or {}).get("files") or {}).get(modulo.replace("\\", "/"), {})
+    from qagent.sandbox.maven import separar_fuente
+
+    try:
+        _, relativa = separar_fuente(modulo)
+    except ValueError:
+        return None
+    datos = ((cobertura or {}).get("files") or {}).get(relativa, {})
     metodo = datos.get("functions", {}).get(objetivo)
     resumen = (metodo or {}).get("summary")
     if resumen is None or resumen["percent_covered"] is None:
