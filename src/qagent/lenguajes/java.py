@@ -332,11 +332,21 @@ class JavaAdapter(AdaptadorEnDesarrollo):
         self.elegir_framework(framework)
         return comando_java(modulo)
 
-    def preparador_sandbox(self) -> Callable[[Path, Path], None]:
+    def comprobar_preparacion(self, raiz: Path) -> dict[str, Any]:
+        """Comprueba descriptores y límites Maven antes de gastar tokens (#290)."""
+        from qagent.sandbox.maven import comprobar_preparacion
+
+        return comprobar_preparacion(raiz)
+
+    def preparador_sandbox(
+        self, modulo: str | None = None
+    ) -> Callable[[Path, Path], None]:
         """Prepara el POM y la prueba Java únicamente en la copia temporal (#182)."""
+        from functools import partial
+
         from qagent.lenguajes.java_ejecucion import preparar_java
 
-        return preparar_java
+        return partial(preparar_java, modulo=modulo) if modulo else preparar_java
 
     def lector_informe_sandbox(self) -> Callable[[Path], str | None]:
         """Recoge las suites Surefire de esta ejecución antes de limpiar /out (#182)."""

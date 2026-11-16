@@ -223,6 +223,7 @@ def generar_vista_previa(
                 "errores": [],
                 **recomendar_para_vista({"modulos": []}, carpeta),
             }
+    preparacion_proyecto = adaptador.comprobar_preparacion(carpeta)
     resultado_ast = adaptador.analizar(carpeta)
 
     # Anotamos los módulos con su conteo de funciones con ramas y aviso en funciones sin docstring
@@ -286,6 +287,7 @@ def generar_vista_previa(
         "lenguaje": adaptador.lenguaje,
         "nombre_lenguaje": adaptador.nombre_visible,
         "framework_pruebas": adaptador.frameworks_pruebas[0],
+        "preparacion_proyecto": preparacion_proyecto,
         "inferencia_activa": infiere,
         "solo_e2e": solo_e2e,
         "e2e_humo_disponible": adaptador.e2e_humo_disponible,
@@ -305,4 +307,6 @@ def generar_vista_previa(
         },
     }
     # #197/#200: recomendación (reglas o IA). Solo informa; no cambia la selección.
+    if not preparacion_proyecto["compatible"]:
+        return {**vista, **recomendar_para_vista(vista, carpeta)}
     return {**vista, **_recomendar(vista, carpeta, recomendador)}

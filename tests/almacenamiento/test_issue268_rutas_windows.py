@@ -267,6 +267,15 @@ def test_regresion_ejecuta_una_prueba_java_historica_sin_ia(
     historial_corto, monkeypatch
 ):
     """Repite una spec y archivo del formato anterior; el ejecutor es simulado."""
+    # #290 comprueba el descriptor antes de preparar cualquier ejecución Java.
+    pom = historial_corto / "pom.xml"
+    pom.write_text(
+        "<project><modelVersion>4.0.0</modelVersion><groupId>org.qagent</groupId>"
+        "<artifactId>historico</artifactId><version>1</version><properties>"
+        "<maven.compiler.release>21</maven.compiler.release></properties></project>",
+        encoding="utf-8",
+    )
+    pom_original = pom.read_bytes()
     almacen = AlmacenProyecto(historial_corto)
     origen = almacen.crear_run()
     fuente = historial_corto / MODULO
@@ -320,3 +329,4 @@ def test_regresion_ejecuta_una_prueba_java_historica_sin_ia(
     assert resultado.tokens == 0
     assert len(llamadas) == 1
     assert ruta.read_bytes() == bytes_anteriores
+    assert pom.read_bytes() == pom_original

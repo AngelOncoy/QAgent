@@ -262,10 +262,19 @@ def test_maven_usa_dependency_go_offline(proyecto_maven):
 
     [construccion] = docker.construcciones
     assert etiqueta.startswith("qagent-sandbox:java-")
-    assert construccion["archivos"] == ["Dockerfile", "pom.xml"]
+    assert construccion["archivos"] == [
+        ".qagent-resolver/ResolverRecursosMaven.java",
+        "Dockerfile",
+        "pom.xml",
+    ]
     assert construccion["dockerfile"].startswith(f"FROM {IMAGEN_JAVA}\n")
     assert "mvn dependency:go-offline" in construccion["dockerfile"]
     assert "dependency:resolve" in construccion["dockerfile"]
+    assert "maven-help-plugin:3.5.1:effective-pom" in construccion["dockerfile"]
+    assert (
+        "java /tmp/qagent-resolver/ResolverRecursosMaven.java"
+        in construccion["dockerfile"]
+    )
     # JUnit puede declararse mediante BOM: usar el engine resuelto, no una
     # versión fija ni la versión del POM de calentamiento de QAgent.
     assert "-DincludeArtifactIds=junit-platform-engine" in construccion["dockerfile"]
@@ -321,7 +330,11 @@ def test_con_pom_y_gradle_se_prefiere_maven(proyecto_maven):
 
     preparar_imagen(proyecto_maven, docker.cliente, imagen=IMAGEN_JAVA)
 
-    assert docker.construcciones[0]["archivos"] == ["Dockerfile", "pom.xml"]
+    assert docker.construcciones[0]["archivos"] == [
+        ".qagent-resolver/ResolverRecursosMaven.java",
+        "Dockerfile",
+        "pom.xml",
+    ]
 
 
 # --- Etiquetas y limpieza --------------------------------------------------------------

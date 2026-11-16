@@ -465,6 +465,9 @@ def ejecutar_regresion(
                 continue
             adaptador = adaptador_de_contrato(contrato)
             if imagen is None:
+                preparacion = adaptador.comprobar_preparacion(raiz)
+                if not preparacion["compatible"]:
+                    raise ValueError(preparacion["mensaje"])
                 emitir("Preparando sandbox Docker sin red; no se llamara a ninguna IA")
                 imagen = (
                     preparar_imagen(raiz)
@@ -485,7 +488,9 @@ def ejecutar_regresion(
                     salida = ejecutor_propio(imagen, raiz, temporal, modulo_cov)
                 else:
                     opciones_sandbox = {}
-                    if (preparar := adaptador.preparador_sandbox()) is not None:
+                    if (
+                        preparar := adaptador.preparador_sandbox(modulo_cov)
+                    ) is not None:
                         opciones_sandbox["preparar"] = preparar
                     if (leer := adaptador.lector_informe_sandbox()) is not None:
                         opciones_sandbox["leer_informe"] = leer
@@ -672,6 +677,11 @@ def ejecutar_regresion(
     except Exception as error:  # noqa: BLE001
         resumen.estado = "fallo_controlado"
         resumen.motivo = f"{type(error).__name__}: {error}"
+        from qagent.storage.diagnostico_entorno import guardar_diagnostico
+
+        detalle = guardar_diagnostico(raiz, resumen.run_id, error)
+        if detalle:
+            resumen.motivo += f" Detalle técnico: {detalle}"
         emitir(f"Regresion detenida: {resumen.motivo}", tipo="fallo")
     resumen.tokens = 0
     resumen.costo_usd = 0.0

@@ -505,6 +505,10 @@ const algunTipoElegido = () => eleccionPruebas.unitarias === true || eleccionPru
 
 function comprobacionesPrevias(total, reused){
   const lista = [];
+  const preparacion = typeof PROYECTO_PREPARACION !== 'undefined' ? PROYECTO_PREPARACION : null;
+  if (preparacion && preparacion.mensaje) {
+    lista.push({ok:preparacion.compatible === true, t:preparacion.compatible ? 'Estructura del proyecto admitida' : 'Preparación del proyecto no disponible', d:preparacion.mensaje});
+  }
   const r = typeof ENTORNO_VERIFICADO !== 'undefined' ? ENTORNO_VERIFICADO : null;
   const demo = !(window.pywebview && window.pywebview.api);
   const porId = id => r && (r.comprobaciones || []).find(c => c.id === id);

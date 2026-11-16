@@ -178,7 +178,7 @@ class ReviewerAgent:
                 )
             else:
                 opciones_sandbox = {}
-                if (preparar := adaptador.preparador_sandbox()) is not None:
+                if (preparar := adaptador.preparador_sandbox(modulo_cov)) is not None:
                     opciones_sandbox["preparar"] = preparar
                 if (leer_informe := adaptador.lector_informe_sandbox()) is not None:
                     opciones_sandbox["leer_informe"] = leer_informe
