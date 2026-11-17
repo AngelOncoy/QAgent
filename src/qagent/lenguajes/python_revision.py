@@ -20,6 +20,7 @@ from pathlib import Path
 from typing import Any
 
 from qagent import contracts
+from qagent.lenguajes import python_dependencias
 from qagent.lenguajes.base import Clasificacion
 
 _NO_LITERAL = object()
@@ -61,6 +62,52 @@ _PATRONES_ENTORNO = (
 # lanza esta excepción en vez de devolver un 500. Es un bug de la API (EN-16).
 _PATRON_RESPUESTA_INVALIDA = "responsevalidationerror"
 _MODULO_FALTANTE = re.compile(r"No module named '([A-Za-z0-9_.]+)'")
+#: Línea `E` de pytest con el módulo faltante y marco del traceback (`ruta.py:12: in f`).
+_LINEA_MODULO_FALTANTE = re.compile(
+    r"^E\s+ModuleNotFoundError: No module named '([A-Za-z0-9_.]+)'"
+)
+_MARCO_TRACEBACK = re.compile(r"^(\S[^\n]*?\.py):\d+: in ")
+#: Carpeta donde el sandbox monta el proyecto (rutas absolutas en el traceback).
+_CARPETA_PROYECTO_SANDBOX = "/work/proyecto/"
+
+
+def _mensaje_dependencia(distribucion: str, modulo: str) -> str:
+    """Nombra la dependencia que falta y, si se llama distinto, el módulo importado."""
+    if distribucion.lower().replace("-", "_") == modulo.lower():
+        return f"la dependencia '{distribucion}' no está instalada en el sandbox"
+    return (
+        f"la dependencia '{distribucion}' (módulo '{modulo}') no está instalada "
+        "en el sandbox"
+    )
+
+
+def _imports_fallidos_en_el_proyecto(salida: str, raiz: Path) -> list[tuple[str, str]]:
+    """`(módulo, archivo)` de cada import que falló dentro de un archivo del proyecto.
+
+    El archivo es el último marco del traceback antes de la línea `E`. Cuenta solo si
+    existe dentro del proyecto: los de la prueba (`../tests/...`) y los de
+    `site-packages` quedan fuera.
+    """
+    lineas = salida.splitlines()
+    base = raiz.resolve()
+    encontrados = []
+    for indice, linea in enumerate(lineas):
+        faltante = _LINEA_MODULO_FALTANTE.match(linea)
+        if faltante is None:
+            continue
+        for anterior in reversed(lineas[:indice]):
+            marco = _MARCO_TRACEBACK.match(anterior)
+            if marco is None:
+                continue
+            ruta = marco.group(1).removeprefix(_CARPETA_PROYECTO_SANDBOX)
+            if not ruta.startswith(("/", "..")):
+                archivo = (raiz / ruta).resolve()
+                if archivo.is_relative_to(base) and archivo.is_file():
+                    encontrados.append((faltante.group(1), ruta))
+            break
+    return encontrados
+
+
 #: El cargador dinámico no encontró una librería del sistema (issue 142).
 _LIBRERIA_SISTEMA_FALTANTE = re.compile(
     r"(lib[A-Za-z0-9_.+\-]*?\.so(?:\.[0-9]+)*): cannot open shared object file"
@@ -383,31 +430,25 @@ class ReglasRevisionPython:
                 f"falta la librería del sistema '{libreria.group(1)}' en el entorno "
                 "aislado (la necesita una dependencia del proyecto)"
             )
-        for nombre in _MODULO_FALTANTE.findall(salida):
+        faltantes = _MODULO_FALTANTE.findall(salida)
+        if not faltantes:
+            return None
+        # #287: el módulo se busca entre los que importan las dependencias declaradas
+        # (PyYAML → yaml, python-dotenv → dotenv), en todos los formatos de proyecto.
+        declaradas = python_dependencias.dependencias_declaradas(raiz)
+        for nombre in faltantes:
             raiz_modulo = nombre.split(".")[0]
-            if raiz_modulo in cls._dependencias_declaradas(raiz):
-                return f"la dependencia '{raiz_modulo}' no está instalada en el sandbox"
+            distribucion = declaradas.get(raiz_modulo)
+            if distribucion is not None:
+                return _mensaje_dependencia(distribucion, raiz_modulo)
+        # Si el import que falló está en un archivo del proyecto (no en la prueba), la
+        # prueba no puede arreglarlo: el proyecto usa algo que no está instalado.
+        for nombre, archivo in _imports_fallidos_en_el_proyecto(salida, raiz):
+            return (
+                f"el archivo del proyecto '{archivo}' importa '{nombre.split('.')[0]}', "
+                "que no está instalado en el sandbox ni declarado como dependencia"
+            )
         return None
-
-    @staticmethod
-    def _dependencias_declaradas(raiz: Path) -> set[str]:
-        """Nombres de paquete de requirements*.txt y pyproject.toml (en minúsculas)."""
-        nombres: set[str] = set()
-        archivos = [
-            *raiz.glob("requirements*.txt"),
-            raiz / "pyproject.toml",
-        ]
-        for archivo in archivos:
-            try:
-                texto = archivo.read_text(encoding="utf-8")
-            except (OSError, UnicodeDecodeError):
-                continue
-            for linea in texto.splitlines():
-                coincidencia = re.match(r"\s*[\"']?([A-Za-z0-9_.-]+)", linea)
-                if coincidencia and not linea.lstrip().startswith(("#", "[", "-")):
-                    nombre = coincidencia.group(1).lower().replace("-", "_")
-                    nombres.add(nombre)
-        return nombres
 
     @staticmethod
     def _es_error_del_test(salida: str) -> bool:
