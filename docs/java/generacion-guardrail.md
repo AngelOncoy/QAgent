@@ -113,7 +113,7 @@ anteriores. Estas comprobaciones suceden antes de crear el comando o ejecutar.
 ### Subconjunto verificable
 
 Este guardrail no pretende resolver todos los tipos y programas Java. Admite
-JUnit @Test con instrucciones directas, una aserción por caso, literales,
+JUnit @Test con instrucciones directas, una comprobación por caso, literales,
 variables locales de una asignación y construcción del objetivo con sus mocks.
 Rechaza helpers, campos, herencia de la clase de prueba, inicializadores, bucles,
 condicionales, proveedores de mensajes y operaciones ajenas a los casos. Así no
@@ -124,6 +124,34 @@ cadenas/char simples, List y arrays de valores reconocibles. No se evalúan
 expresiones arbitrarias o constantes de bibliotecas. Los nombres de rutas e
 identificadores del artefacto se restringen al subconjunto portable ASCII y $.
 La compilación, resolución completa de tipos y ejecución real siguen en #182.
+
+### Comparaciones textuales (#295)
+
+Para un esperado textual, un retorno `String` admite igualdad directa. Los retornos
+`CharSequence`, `StringBuilder` y `StringBuffer` de `java.lang` admiten comparación
+exacta mediante una sola conversión `resultado.toString()` o
+`String.valueOf(resultado)` (también con nombre completo). No se aceptan tipos
+arbitrarios, casts, `trim`, cambios de mayúsculas ni cadenas de transformaciones.
+La llamada real y sus entradas siguen comprobándose contra el contrato.
+
+El Generator pide guardar el resultado en una variable local estable y, para
+`CharSequence` y los builders, emitir `assertNotNull(resultado)` antes de
+`assertEquals(esperado, resultado.toString())`. El guardrail permite esa aserción
+auxiliar únicamente sobre la misma evaluación del método en el mismo test; no
+puede sustituir la comparación de contenido. Duplicados y aserciones ajenas se
+rechazan. La comparación anti-laundering conserva las aserciones entre intentos.
+
+Un esperado `null` se comprueba sin conversión. Para el esperado textual `"null"`,
+`String.valueOf` requiere la comprobación previa de no nulidad sobre la misma
+evaluación, porque convertir un resultado nulo produciría ese texto y ocultaría
+un incumplimiento. Una cadena vacía conserva su esperado exacto. La regla no
+depende del nombre de una biblioteca ni modifica los contratos JSON.
+
+El caso externo de #295 también reveló que serializar el descriptor Maven
+auxiliar eliminaba los comentarios de licencia anteriores a la raíz XML.
+La preparación conserva ahora ese prólogo desde el POM original, tanto en
+proyectos simples como en el espejo del reactor. No añade licencias ajenas ni
+desactiva Apache RAT u otros controles del ciclo Maven.
 
 Los tests del guardrail usan el Generator y Reviewer reales, fuentes estáticas
 y respuestas de IA grabadas. Las pruebas de aceptación/reintento que llegan al

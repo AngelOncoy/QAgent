@@ -68,6 +68,23 @@ def reactor(tmp_path):
     return raiz, pruebas
 
 
+def test_issue295_espejo_reactor_conserva_avisos_de_cada_pom(reactor):
+    """Cada descriptor derivado mantiene su propia cabecera, sin atribuirle otra."""
+    raiz, pruebas = reactor
+    originales = {}
+    for indice, relativa in enumerate(["pom.xml", "api/pom.xml", "core/pom.xml"]):
+        archivo = raiz / relativa
+        aviso = f"<!-- Aviso de licencia del modulo {indice}. -->\n"
+        original = aviso + archivo.read_text(encoding="utf-8")
+        archivo.write_text(original, encoding="utf-8")
+        originales[relativa] = original
+    preparar_java(raiz, pruebas, "api/src/main/java/demo/Banco.java")
+    for relativa, original in originales.items():
+        assert (raiz / relativa).read_text(encoding="utf-8") == original
+        cabecera = original.split("\n", 1)[0]
+        assert cabecera in (raiz / REACTOR / relativa).read_text(encoding="utf-8")
+
+
 def test_reactor_compila_auxiliares_pero_solo_incluye_la_prueba_seleccionada(reactor):
     """Los descriptores originales y tests existentes permanecen intactos."""
     raiz, pruebas = reactor

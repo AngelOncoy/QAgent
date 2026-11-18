@@ -171,7 +171,9 @@ def preparar_java(copia: Path, pruebas: Path, modulo: str | None = None) -> None
                 for nodo in arbol.iter():
                     nodo.tag = nodo.tag.removeprefix(ns)
                 arbol.set("xmlns", _NS)
-            ET.ElementTree(arbol).write(destino, encoding="utf-8", xml_declaration=True)
+            destino.write_bytes(
+                _serializar_pom(arbol, temporal.read_text(encoding="utf-8"))
+            )
         opciones = copia / ".mvn/maven.config"
         if opciones.is_file():
             destino = copia / REACTOR / ".mvn/maven.config"
@@ -333,13 +335,28 @@ def _preparar_un_modulo(
                 nodo.tag = nodo.tag.removeprefix(ns)
             preparado.set("xmlns", _NS)
         with (copia / POM).open("xb") as archivo:
-            ET.ElementTree(preparado).write(
-                archivo, encoding="utf-8", xml_declaration=True
-            )
+            archivo.write(_serializar_pom(preparado, _leer(copia / "pom.xml", copia)))
     except (OSError, UnicodeError, ValueError, ET.ParseError) as error:
         raise ErrorPreparacionSandbox(
             f"{MARCA}{etapa}\nNo se pudo preparar Java: {error}"
         ) from error
+
+
+def _serializar_pom(pom: ET.Element, original: str) -> bytes:
+    """Conserva avisos del prólogo del descriptor del que deriva el POM auxiliar.
+
+    ElementTree descarta comentarios anteriores a la raíz. No se inventa una
+    licencia ni se omiten controles Maven: se conservan los avisos originales.
+    """
+    prologo = re.match(
+        r"\s*(?:<\?xml[^?]*\?>\s*)?((?:<!--.*?-->\s*)*)", original, re.DOTALL
+    )
+    comentarios = prologo.group(1) if prologo else ""
+    return (
+        b'<?xml version="1.0" encoding="utf-8"?>\n'
+        + comentarios.encode("utf-8")
+        + ET.tostring(pom, encoding="utf-8")
+    )
 
 
 def _dependencia_junit(pom: ET.Element, ns: str, version: str) -> None:

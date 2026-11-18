@@ -71,9 +71,27 @@ def _validar(contrato, analisis, contexto):
     for prueba in analisis.pruebas:
         if not any(a.prueba == prueba for a in analisis.aserciones):
             return f"el método {prueba} no comprueba ningún caso."
-    if len(analisis.aserciones) != len(contrato["casos"]):
-        return "debe haber una aserción del contrato por caso, sin aserciones ajenas o tautologías."
     parametros, es_static, retorno = _firma(contrato["firma"])
+    if any(_conversion_texto(a) is not None for a in analisis.aserciones):
+        imports = [
+            texto(n)
+            for n in analisis.raiz.named_children
+            if n.type == "import_declaration"
+        ]
+        imports += (contexto or {}).get("imports", [])
+        for declaracion in imports:
+            sin_comentarios = re.sub(
+                r"/\*.*?\*/|//[^\r\n]*", "", declaracion, flags=re.DOTALL
+            )
+            nombre = (
+                re.sub(r"\s+", "", sin_comentarios)
+                .removeprefix("import")
+                .removesuffix(";")
+            )
+            if nombre.rsplit(".", 1)[-1] in _TIPOS_TEXTO and nombre not in {
+                "java.lang." + tipo for tipo in _TIPOS_TEXTO
+            }:
+                return "la conversión textual requiere tipos de java.lang, sin imports que los sustituyan."
     disponibles = list(analisis.aserciones)
     usados: set[int] = set()
     for caso in contrato["casos"]:
@@ -124,11 +142,25 @@ def _validar(contrato, analisis, contexto):
                 continue
             if not _comprueba(asercion, caso, retorno):
                 continue
+            conversion = _conversion_texto(asercion)
+            apoyo = _apoyo_no_nulo(asercion, disponibles) if conversion else None
+            if (
+                conversion
+                and conversion[1] == "valueOf"
+                and caso.get("valor_esperado") == "null"
+                and apoyo is None
+            ):
+                continue
             encontrada = indice
             break
         if encontrada is None:
             return f"el caso '{caso['id']}' no comprueba sus entradas y valor esperado o excepción sobre el método real."
-        disponibles.pop(encontrada)
+        comprobacion = disponibles.pop(encontrada)
+        apoyo = _apoyo_no_nulo(comprobacion, disponibles)
+        if apoyo is not None:
+            disponibles.remove(apoyo)
+    if disponibles:
+        return "debe haber una aserción del contrato por caso, sin aserciones ajenas o tautologías."
     if contexto is not None:
         problema = _mockito(analisis.raiz, analisis.aserciones, usados)
         if problema:
@@ -162,6 +194,11 @@ def _instrucciones(analisis, mocks: set[int]) -> str | None:
             if a.tipo in {"excepcion", "excepcion_exacta"}
         }
         verificaciones = {a.actual.parent.parent.start_byte for a in aserciones}
+        conversiones = {
+            resolver(a.actual, a.alias).start_byte
+            for a in aserciones
+            if _conversion_texto(a) is not None
+        }
         cuerpo = metodo.child_by_field_name("body")
         if cuerpo is None:
             continue
@@ -181,7 +218,12 @@ def _instrucciones(analisis, mocks: set[int]) -> str | None:
                     if (
                         literal(valor, alias) is not NO_LITERAL
                         or valor.start_byte
-                        in llamadas | receptores | mocks | lambdas | verificaciones
+                        in llamadas
+                        | receptores
+                        | mocks
+                        | lambdas
+                        | verificaciones
+                        | conversiones
                     ):
                         continue
                     return "una variable local ejecuta una operación ajena al caso o al constructor declarado."
@@ -240,9 +282,56 @@ def _firma(firma: str) -> tuple[list[str], bool, str]:
     )
 
 
+_TIPOS_TEXTO = {"String", "CharSequence", "StringBuilder", "StringBuffer"}
+
+
+def _conversion_texto(asercion: AsercionJava) -> tuple[Node, str] | None:
+    """Una sola conversión de contenido; no admite cadenas de transformaciones."""
+    actual = resolver(asercion.actual, asercion.alias)
+    if asercion.tipo != "igualdad" or actual.type != "method_invocation":
+        return None
+    nombre = texto(actual.child_by_field_name("name"))
+    receptor = actual.child_by_field_name("object")
+    args = argumentos(actual)
+    if nombre == "toString" and receptor is not None and not args:
+        return resolver(receptor, asercion.alias), nombre
+    if (
+        nombre == "valueOf"
+        and texto(receptor) in {"String", "java.lang.String"}
+        and texto(receptor).split(".")[0] not in asercion.alias
+        and len(args) == 1
+    ):
+        return resolver(args[0], asercion.alias), nombre
+    return None
+
+
+def _apoyo_no_nulo(
+    asercion: AsercionJava, disponibles: list[AsercionJava]
+) -> AsercionJava | None:
+    """Solo complementa una igualdad sobre la MISMA evaluación local del método."""
+    conversion = _conversion_texto(asercion)
+    if conversion is None:
+        return None
+    resultado, _ = conversion
+    for apoyo in disponibles:
+        if (
+            apoyo.tipo == "no_nulo"
+            and apoyo.prueba == asercion.prueba
+            and apoyo.actual.start_byte
+            < resolver(asercion.actual, asercion.alias).start_byte
+            and _argumentos_asercion_validos(apoyo)
+            and resolver(apoyo.actual, apoyo.alias) == resultado
+        ):
+            return apoyo
+    return None
+
+
 def _llamada(asercion: AsercionJava) -> Node | None:
     """Exige una llamada directa o una lambda de assertThrows que solo la invoque."""
     actual = resolver(asercion.actual, asercion.alias)
+    conversion = _conversion_texto(asercion)
+    if conversion is not None:
+        actual = conversion[0]
     if asercion.tipo in {"excepcion", "excepcion_exacta"}:
         if actual.type != "lambda_expression":
             return None
@@ -283,6 +372,8 @@ def _comprueba(asercion: AsercionJava, caso: dict[str, Any], retorno: str) -> bo
             == caso["excepcion"].removeprefix("java.lang.")
         )
     esperado = caso.get("valor_esperado", NO_LITERAL)
+    if _conversion_texto(asercion) is not None and not isinstance(esperado, str):
+        return False
     if not _tipo_comparacion(asercion, esperado, retorno):
         return False
     if asercion.tipo in {"igualdad", "array"}:
@@ -327,6 +418,13 @@ def _tipo_comparacion(asercion: AsercionJava, esperado: Any, retorno: str) -> bo
     if asercion.tipo == "array":
         return False
     if isinstance(esperado, str):
+        conversion = _conversion_texto(asercion)
+        if conversion is not None:
+            return (
+                retorno in _TIPOS_TEXTO | {"java.lang." + t for t in _TIPOS_TEXTO}
+                and valor is not None
+                and valor.type == "string_literal"
+            )
         return valor is not None and (
             valor.type == "character_literal"
             if simple in {"char", "Character"}
