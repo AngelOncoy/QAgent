@@ -49,7 +49,7 @@ def _validar(contrato, analisis, contexto):
         return "el test no contiene aserciones JUnit verificables."
     if any(n.type == "field_declaration" for n in nodos(analisis.raiz)):
         return "usa variables locales estables; los campos de la prueba no son oráculos demostrables."
-    clase, metodo = contrato["objetivo"].rsplit(".", 1)
+    clase, metodo = contrato["objetivo"].partition("(")[0].rsplit(".", 1)
     clase_test = "_".join(clase.split(".")) + "Test"
     clases = [n for n in analisis.raiz.named_children if n.type == "class_declaration"]
     if len(clases) != 1 or texto(clases[0].child_by_field_name("name")) != clase_test:
@@ -136,8 +136,20 @@ def _validar(contrato, analisis, contexto):
                         return problema
                     usados.update(mocks)
             args = argumentos(llamada)
+            identidad = (contexto or {}).get("identidad_metodo", contrato["objetivo"])
+            if "(" in identidad:
+                from qagent.lenguajes.java_sobrecargas import entradas_exactas
+
+                if not entradas_exactas(args, asercion.alias, identidad, esperados):
+                    continue
             if len(args) != len(esperados) or not all(
-                _igual(literal(a, asercion.alias), e) for a, e in zip(args, esperados)
+                _igual(literal(a, asercion.alias), e)
+                or (
+                    "(" in identidad
+                    and e is None
+                    and resolver(a, asercion.alias).type == "cast_expression"
+                )
+                for a, e in zip(args, esperados)
             ):
                 continue
             if not _comprueba(asercion, caso, retorno):
@@ -262,15 +274,9 @@ def _firma(firma: str) -> tuple[list[str], bool, str]:
     if raiz.has_error:
         raise ValueError("La firma Java del contrato no es verificable.")
     metodo = next(n for n in nodos(raiz) if n.type == "method_declaration")
-    parametros = metodo.child_by_field_name("parameters")
-    nombres = []
-    for parametro in parametros.named_children:
-        nombre = parametro.child_by_field_name("name")
-        if parametro.type != "formal_parameter" or nombre is None:
-            raise ValueError(
-                "Este guardrail necesita parámetros fijos; no admite varargs."
-            )
-        nombres.append(texto(nombre))
+    from qagent.lenguajes.java import _parametros
+
+    nombres = [p["nombre"] for p in _parametros(metodo)]
     modificadores = next(
         (n for n in metodo.named_children if n.type == "modifiers"), None
     )

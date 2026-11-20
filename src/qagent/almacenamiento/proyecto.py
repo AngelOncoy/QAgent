@@ -162,7 +162,13 @@ def id_de_spec(modulo: str, objetivo: str) -> str:
     `("api.py", "GET /items/{id}")` -> `api_py__GET_items_id` (endpoint).
     """
 
-    return _acotar_id(_id_spec_anterior(modulo, objetivo), f"{modulo}\0{objetivo}")
+    identidad = f"{modulo}\0{objetivo}"
+    nombre = _id_spec_anterior(modulo, objetivo)
+    if "(" in objetivo:
+        # La limpieza de puntuación confunde f(int) con f(int[]) y tipos
+        # calificados con clases anidadas. Los históricos no se reescriben.
+        nombre += "_" + hashlib.sha256(identidad.encode("utf-8")).hexdigest()[:16]
+    return _acotar_id(nombre, identidad)
 
 
 def nombre_prueba(spec_id: str) -> str:

@@ -85,14 +85,16 @@ def agregar_llamadas(modulos: list[dict[str, Any]], arboles: dict[str, Node]) ->
             clases[(ruta, nombre)] = clase
             por_tipo[clase.calificado].append(clase)
     for modulo in modulos:
+        from qagent.lenguajes.java_firmas import indexar_metodos
+
+        indice_metodos = indexar_metodos(arboles[modulo["ruta"]])
         imports, estaticos = _imports(arboles[modulo["ruta"]])
         for funcion in modulo["funciones"]:
             clase = clases[(modulo["ruta"], funcion["clase"])]
-            declaraciones = clase.metodos[funcion["nombre"].rsplit(".", 1)[-1]]
             funcion["llama_a"] = []
-            if len(declaraciones) != 1:
+            metodo = indice_metodos.get(funcion["nombre"])
+            if metodo is None:
                 continue
-            metodo = declaraciones[0]
             imports_metodo = {
                 **imports,
                 **{n: [] for n in _tipos_ocultos(clase.nodo, metodo)},

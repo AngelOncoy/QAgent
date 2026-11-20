@@ -47,7 +47,7 @@
       "description": "Nombre de la función (calcular_descuento, Precios.calcular), método y ruta del endpoint (GET /items/{id}) o nombre del componente (Boton)."
     },
     "manejador": {
-      "$ref": "#/$defs/nombre_calificado",
+      "anyOf": [{ "$ref": "#/$defs/nombre_calificado" }, { "$ref": "#/$defs/metodo_java" }],
       "description": "Endpoints: función o método que atiende la ruta. Sirve para medir la cobertura de su cuerpo."
     },
     "aplicacion": {
@@ -130,12 +130,21 @@
       },
       "then": {
         "properties": {
-          "objetivo": { "$ref": "#/$defs/nombre_calificado" },
+          "objetivo": { "anyOf": [{ "$ref": "#/$defs/nombre_calificado" }, { "$ref": "#/$defs/metodo_java" }] },
           "casos": {
             "items": { "not": { "required": ["tipo_valor_esperado"] } }
           }
         }
       }
+    },
+    {
+      "if": { "properties": { "lenguaje": { "not": { "const": "java" } } } },
+      "then": { "properties": {
+        "manejador": { "$ref": "#/$defs/nombre_calificado" }
+      }, "allOf": [{
+        "if": { "properties": { "tipo": { "const": "funcion" } } },
+        "then": { "properties": { "objetivo": { "$ref": "#/$defs/nombre_calificado" } } }
+      }] }
     },
     {
       "description": "Integración interna (#245, ADR-014): solo Python; el objetivo se llama `integracion_<raíz>` (así no choca con la unitaria de la misma función) y es obligatoria la `cadena`, que empieza por la raíz. El valor esperado sigue saliendo de la firma y la documentación de la raíz.",
@@ -185,6 +194,11 @@
     }
   ],
   "$defs": {
+    "metodo_java": {
+      "type": "string",
+      "pattern": "^[A-Za-z_$][A-Za-z0-9_$]*(?:\\.[A-Za-z_$][A-Za-z0-9_$]*)+\\((?:[A-Za-z_$][A-Za-z0-9_$]*(?:\\.[A-Za-z_$][A-Za-z0-9_$]*)*(?:\\[\\])*(?:,[A-Za-z_$][A-Za-z0-9_$]*(?:\\.[A-Za-z_$][A-Za-z0-9_$]*)*(?:\\[\\])*)*)?\\)$",
+      "description": "Java #299: clase y método con tipos borrados canónicos; varargs usa []. Los objetivos históricos sin firma siguen siendo válidos."
+    },
     "identificador_python": {
       "type": "string",
       "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
