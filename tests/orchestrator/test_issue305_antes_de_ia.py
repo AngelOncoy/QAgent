@@ -4,6 +4,7 @@ import json
 
 import pytest
 
+from qagent import contracts
 from qagent.config import cargar_configuracion
 from qagent.lenguajes.base import ResultadoConstruccion
 from qagent.llm import FakeLLMClient, RespuestaLLM
@@ -122,8 +123,17 @@ def test_compatible_llama_agentes_solo_despues_de_la_comprobacion(
         ejecutor=ejecutar,
     )
     assert "planner" in llamadas and "generator" in llamadas
+    assert resultado.estado == corrida.FIN, resultado.motivo
     assert resultado.aceptadas == 1, resultado.motivo
     assert resultado.construccion["estado"] == "aprobado"
+    # La etapa nueva debe guardarse; su ausencia histórica sigue siendo válida.
+    for nombre in ("log.json", "results.json"):
+        archivo = ruta / ".qagent/runs" / resultado.run_id / nombre
+        datos = json.loads(archivo.read_text(encoding="utf-8"))
+        if nombre == "results.json":
+            assert datos["duracion_etapas"].pop("construccion") == 0
+            datos["resumen"]["duracion_etapas"].pop("construccion")
+        contracts.validar(contracts.RUN_LOG, datos)
 
 
 def test_error_de_preparar_imagen_tambien_bloquea_la_planificacion(

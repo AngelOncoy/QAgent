@@ -170,6 +170,7 @@ def test_compatible_construye_antes_de_ia_y_omite_tests_existentes(
         preparar_imagen=lambda r: IMAGEN_JAVA,
         validar_construccion=validar,
     )
+    assert resultado.estado == corrida.FIN, resultado.motivo
     assert resultado.aceptadas == 1, resultado.motivo
     assert (
         llamadas.index("planner") < llamadas.index("generator") and estado["comprobada"]

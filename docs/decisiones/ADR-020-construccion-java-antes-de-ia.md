@@ -46,7 +46,12 @@ explícitamente en los tests del sistema, igual que la ejecución de Docker.
 Se distinguen dependencias ausentes, configuración, incompatibilidad de herramienta,
 compilación y fallos técnicos no clasificables. Timeout y cancelación no son bugs
 del proyecto. El resultado y un log acotado y saneado quedan en la corrida; no se
-deducen resultados esperados ejecutando la aplicación ni se modifican contratos.
+deducen resultados esperados ejecutando la aplicación ni se modifican contratos
+entre agentes.
+
+El informe de la corrida admite la duración opcional `construccion` en
+`run_log.schema.json`. La versión 1 conserva los registros anteriores sin esa
+etapa; los contratos de Planner, Generator y Reviewer no cambian.
 
 ## Reutilización
 
