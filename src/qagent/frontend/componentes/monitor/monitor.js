@@ -31,7 +31,7 @@ registrarComponente('monitor/monitor', `<!-- ===== 4. EN CURSO: PROGRESO EN VIVO
       <div class="np-barra prg-barra" id="prgBarraCont"><i id="prgBarra"></i></div>
     </div>
 
-    <div class="np-aviso np-aviso-info hide" id="prgEntorno">${ICO_GIRANDO}<div><b id="prgEntornoTitulo">Preparando el entorno Docker</b><span>La primera corrida con este requirements.txt puede tardar varios minutos. QAgent mostrará cada etapa disponible sin inventar porcentajes.</span><span class="prg-entorno-paralelo" id="prgEntornoParalelo">Mientras tanto ya se analiza tu código; las pruebas se escriben y verifican cuando el entorno esté listo.</span><span class="prg-entorno-paso" id="prgEntornoPaso"></span></div></div>
+    <div class="np-aviso np-aviso-info hide" id="prgEntorno">${ICO_GIRANDO}<div><b id="prgEntornoTitulo">Preparando el entorno Docker</b><span id="prgEntornoDescripcion">La primera preparación de las dependencias puede tardar varios minutos. QAgent mostrará cada etapa disponible sin inventar porcentajes.</span><span class="prg-entorno-paralelo" id="prgEntornoParalelo">Mientras tanto ya se analiza tu código; las pruebas se escriben y verifican cuando el entorno esté listo.</span><span class="prg-entorno-paso" id="prgEntornoPaso"></span></div></div>
 
     <div class="np-aviso np-aviso-aviso hide" id="prgAlerta">${ICO_AVISO_CLON}<div><b id="prgAlertaTitulo"></b><span id="prgAlertaTxt"></span></div></div>
 
@@ -164,7 +164,12 @@ function pintarProgreso(){
   $('prgEntorno').classList.toggle('hide', !(PRG.preparandoEntorno && !PRG.fin));
   $('prgEntornoParalelo').classList.toggle('hide', !PRG.etapa);
   const pasoEntorno = String(PRG.pasoEntorno || '');
-  $('prgEntornoTitulo').textContent = /guardando/i.test(pasoEntorno) ? 'Guardando la imagen Docker'
+  const construccionPrevia = /construcción.*antes de usar IA/i.test(pasoEntorno);
+  $('prgEntornoDescripcion').textContent = construccionPrevia
+    ? 'Se comprueba la construcción en Docker sin internet, antes de consumir IA y sin ejecutar las pruebas existentes.'
+    : 'La primera preparación de las dependencias puede tardar varios minutos. QAgent mostrará cada etapa disponible sin inventar porcentajes.';
+  $('prgEntornoTitulo').textContent = construccionPrevia ? 'Comprobando la construcción del proyecto'
+    : /guardando/i.test(pasoEntorno) ? 'Guardando la imagen Docker'
     : /dependencias|descargando|instalando|preparando [a-z0-9_.-]+$/i.test(pasoEntorno) ? 'Instalando dependencias'
     : 'Construyendo la imagen Docker';
   $('prgEntornoPaso').textContent = PRG.pasoEntorno && !/^Preparando el entorno aislado/i.test(PRG.pasoEntorno) ? PRG.pasoEntorno : '';
@@ -397,7 +402,9 @@ function monitorFinReal(r){
   const estancadas = Number(r.estancadas || 0);
   const sinPrueba = estancadas + Number(r.sin_veredicto || 0);
   const incidencias = ok && (conErrores || omitidos > 0 || sinPrueba > 0);
-  PRG.fin = {ok, cancelada, conErrores, incidencias, omitidos, pendientes, estancadas, sinPrueba, tipo: r.tipo_terminacion || null, t: Date.now(), runId: r.run_id && r.carpeta ? r.run_id : null, duracion};
+  // Una construcción bloqueada conserva diagnóstico, pero aún no tiene resultados de pruebas.
+  const sinResultados = r.construccion && r.construccion.estado !== 'aprobado';
+  PRG.fin = {ok, cancelada, conErrores, incidencias, omitidos, pendientes, estancadas, sinPrueba, tipo: r.tipo_terminacion || null, t: Date.now(), runId: r.run_id && r.carpeta && !sinResultados ? r.run_id : null, duracion};
   // El total y lo procesado salen del resumen final, no de los eventos en vivo.
   if (Number(r.total_seleccionados) > 0) PRG.total = Number(r.total_seleccionados);
   if (Number.isFinite(Number(r.total_procesados))) PRG.hechos = Number(r.total_procesados);

@@ -53,6 +53,7 @@ from qagent.lenguajes import (
     adaptador_del_proyecto,
     fuera_de_la_corrida,
 )
+from qagent.lenguajes.base import ResultadoConstruccion
 from qagent.llm import TokenTracker, crear_cliente
 from qagent.llm.fabrica import ConfiguracionLLMIncompleta, FuenteClaves
 from qagent.orchestrator.eventos import BusEventos, Evento
@@ -86,6 +87,7 @@ from qagent.storage.registro import (
 
 AlEvento = Callable[[dict[str, Any]], None]
 PrepararImagen = Callable[[Path], str]
+ValidarConstruccion = Callable[..., ResultadoConstruccion]
 
 FIN = "fin"
 #: Clave de `datos` y estados del entorno aislado para el Monitor (#148).
@@ -128,6 +130,7 @@ class ResumenCorrida:
     total_pendientes: int = 0
     tipo_terminacion: str = "completada"
     objetivos_omitidos: int = 0
+    construccion: dict[str, Any] | None = None
 
     def a_dict(self) -> dict[str, Any]:
         """Versión serializable a JSON (evento `corrida_fin` de la interfaz)."""
@@ -153,6 +156,7 @@ def ejecutar_corrida(
     cancelado: Callable[[], bool] | None = None,
     inferir: bool | None = None,
     revisor_inferidos: Callable[[list[dict[str, Any]]], set[str]] | None = None,
+    validar_construccion: ValidarConstruccion | None = None,
 ) -> ResumenCorrida:
     """Ejecuta la corrida completa de un proyecto y devuelve su resumen.
 
@@ -183,6 +187,8 @@ def ejecutar_corrida(
             ADR-016). None usa `[inferencia] activa` de la configuración.
         revisor_inferidos: revisión humana opcional de esos contratos: recibe las
             propuestas y devuelve los objetivos aceptados.
+        validar_construccion: comprobación previa del adaptador, sustituible en
+            tests. La IA simulada no la omite; Java la exige antes de planificar.
     """
     if perfil in PERFILES_REGRESION:
         from qagent.orchestrator.regresion import ejecutar_regresion
@@ -378,6 +384,11 @@ def ejecutar_corrida(
                 "El proyecto no tiene funciones públicas ni endpoints que revisar."
             )
 
+        if adaptador.requiere_construccion_previa and resumen.run_id is None:
+            # También se conserva el diagnóstico si falla la descarga/preparación
+            # antes de llegar a la comprobación offline (#305).
+            resumen.run_id = almacen.crear_run(tipos_prueba=tipos)["run_id"]
+
         tracker = TokenTracker(configuracion.agentes)
         # El Explicador crea su cliente al final (`_redactor_ia`): sin su clave la
         # corrida no se detiene, usa la plantilla (ADR-008).
@@ -545,6 +556,8 @@ def ejecutar_corrida(
         # ejecución, al llegar a ese módulo.
         preparados: dict[str, _ModuloPreparado] = {}
         for modulo in modulos:
+            if adaptador.requiere_construccion_previa:
+                break  # #305: primero imagen y construcción, después cualquier IA.
             if (
                 entorno.listo()
                 or (cancelado is not None and cancelado())
@@ -588,6 +601,45 @@ def ejecutar_corrida(
                     "espera_entorno": segundos(inicio_espera, reloj()),
                 }
             )
+        if imagen is not None and adaptador.requiere_construccion_previa:
+            from qagent.storage.construccion import guardar_construccion
+
+            avisar_entorno(
+                "Comprobando la construcción del proyecto antes de usar IA",
+                ENTORNO_AVANCE,
+            )
+            if resumen.run_id is None:
+                resumen.run_id = almacen.crear_run(tipos_prueba=tipos)["run_id"]
+            comprobacion = (validar_construccion or adaptador.comprobar_construccion)(
+                ruta, imagen, [m["ruta"] for m in modulos], limites, cancelado=cancelado
+            )
+            resumen.construccion = guardar_construccion(
+                ruta, resumen.run_id, comprobacion
+            )
+            resumen.carpeta = str(almacen.carpeta_run(resumen.run_id))
+            etapas_entorno["construccion"] = comprobacion.duracion_s
+            if comprobacion.aprobado:
+                # Ejecutar después con la misma imagen que se comprobó, aunque
+                # otra construcción cambie la etiqueta durante la corrida.
+                imagen = comprobacion.imagen_id or imagen
+                avisar_entorno(comprobacion.mensaje, ENTORNO_AVANCE)
+            else:
+                imagen = None
+                resumen.estado = FALLO
+                resumen.cancelada = comprobacion.estado == "cancelado"
+                resumen.tipo_terminacion = (
+                    "cancelada" if resumen.cancelada else "detenida_error"
+                )
+                resumen.motivo = (
+                    comprobacion.mensaje
+                    + " Detalle técnico: "
+                    + resumen.construccion["log"]
+                )
+                avisar_entorno(
+                    resumen.motivo,
+                    ENTORNO_CANCELADO if resumen.cancelada else ENTORNO_FALLO,
+                    "fallo",
+                )
         a_ejecutar = modulos
         if imagen is None:
             # #148: sin entorno no se ejecuta nada, pero las specs ya planificadas se

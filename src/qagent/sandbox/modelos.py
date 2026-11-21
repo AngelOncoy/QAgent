@@ -112,6 +112,7 @@ class ResultadoSandbox:
         comando: el comando que de verdad se ejecutó, para el informe (EN-17).
         limites: los límites que de verdad se aplicaron (con los CPU ya recortados a
             los de Docker), o None si no se llegó a crear el contenedor.
+        cancelado: True si la solicitud de cancelación detuvo este contenedor.
     """
 
     exit_code: int
@@ -124,6 +125,7 @@ class ResultadoSandbox:
     junit_xml: str | None = None
     comando: list[str] | None = None
     limites: LimitesSandbox | None = None
+    cancelado: bool = False
 
 
 class ErrorSandbox(Exception):

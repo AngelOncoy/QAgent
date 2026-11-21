@@ -319,6 +319,11 @@
           "type": "number",
           "minimum": 0,
           "description": "#148. Segundos que la corrida esperó el entorno después de planificar."
+        },
+        "construccion": {
+          "type": "number",
+          "minimum": 0,
+          "description": "#305. Segundos comprobando la construcción antes de usar IA. Opcional en corridas anteriores."
         }
       }
     },

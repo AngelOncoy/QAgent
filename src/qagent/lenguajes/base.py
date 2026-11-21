@@ -25,9 +25,37 @@ from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path, PurePosixPath
 from types import NotImplementedType
-from typing import Any, ClassVar, Protocol
+from typing import TYPE_CHECKING, Any, ClassVar, Protocol
+
+if TYPE_CHECKING:
+    from qagent.sandbox.modelos import LimitesSandbox
 
 Estructura = dict[str, Any]
+
+
+@dataclass
+class ResultadoConstruccion:
+    """Resultado previo a la IA; no es un veredicto sobre una prueba generada."""
+
+    estado: str
+    categoria: str
+    mensaje: str
+    log: str = ""
+    huella: str | None = None
+    imagen_id: str | None = None
+    comando: list[str] = field(default_factory=list)
+    reutilizado: bool = False
+    duracion_s: float = 0.0
+    entorno: dict[str, Any] = field(default_factory=dict)
+
+    @property
+    def aprobado(self) -> bool:
+        """Solo una aprobación explícita permite continuar hacia los agentes."""
+        return self.estado == "aprobado" and self.categoria == "aprobado"
+
+    def metadatos(self) -> dict[str, Any]:
+        """Información serializable de la comprobación, sin el log técnico."""
+        return {k: v for k, v in vars(self).items() if k != "log"}
 
 
 @dataclass(frozen=True)
@@ -259,6 +287,8 @@ class LanguageAdapter(ABC):
     motor_mutacion: ClassVar[str] = "mutación"
     #: Comprobación opcional de librerías del sistema propia del entorno Python.
     comprobar_librerias_sistema: ClassVar[bool] = False
+    #: Si es True, no se permite planificar mientras se prepara Docker (#305).
+    requiere_construccion_previa: ClassVar[bool] = False
     extensiones: ClassVar[tuple[str, ...]]
     marcadores: ClassVar[tuple[str, ...]] = ()
     frameworks_pruebas: ClassVar[tuple[str, ...]]
@@ -406,6 +436,17 @@ class LanguageAdapter(ABC):
         y un mensaje cuando puede detectar una configuración no admitida.
         """
         return {"compatible": True, "mensaje": ""}
+
+    def comprobar_construccion(
+        self,
+        raiz: Path,
+        imagen: str,
+        modulos: list[str],
+        limites: LimitesSandbox,
+        cancelado: Callable[[], bool] | None = None,
+    ) -> ResultadoConstruccion:
+        """Valida construcción en sandbox antes de IA si lo exige el adaptador."""
+        raise NotImplementedError("El adaptador no implementa la construcción previa.")
 
     def preparador_sandbox(
         self, modulo: str | None = None
