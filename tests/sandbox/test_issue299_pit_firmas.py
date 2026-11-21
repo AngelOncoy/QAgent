@@ -1,6 +1,8 @@
 """PIT distingue descriptores y excluye declaraciones antes de mutar (#299)."""
 
+import copy
 import shutil
+import xml.etree.ElementTree as ET
 from pathlib import Path
 
 import pytest
@@ -84,3 +86,30 @@ def test_objetivo_historico_no_suma_mutantes_de_otras_firmas():
     )
     assert resultado.funciones["Criticos.critico"].estado == ERROR
     assert resultado.funciones["Criticos.critico"].puntuacion is None
+
+
+def test_dos_firmas_criticas_seleccionadas_conservan_scores_independientes():
+    xml = (Path(__file__).parents[1] / "fixtures/pit/critico-real.xml").read_text(
+        encoding="utf-8"
+    )
+    raiz = ET.fromstring(xml)
+    otro = copy.deepcopy(raiz[0])
+    otro.find("methodDescription").text = "(J)I"
+    otro.set("status", "KILLED")
+    otro.set("detected", "true")
+    raiz.append(otro)
+    resultado = interpretar_pit(
+        ET.tostring(raiz, encoding="unicode"),
+        "Criticos.java",
+        {
+            "Criticos.critico(int)": ("qagent.Criticos", "critico", "(I)I"),
+            "Criticos.critico(long)": ("qagent.Criticos", "critico", "(J)I"),
+        },
+    )
+    entero = resultado.funciones["Criticos.critico(int)"]
+    largo = resultado.funciones["Criticos.critico(long)"]
+    assert entero.estado == largo.estado == OK
+    assert entero.puntuacion == 60.0
+    assert largo.puntuacion == 100.0
+    assert entero.detectados == 3 and len(entero.sobrevivientes) == 2
+    assert largo.detectados == 1 and largo.sobrevivientes == []
