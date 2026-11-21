@@ -49,7 +49,7 @@ def _recorrer(nodo: Node):
 
 
 def _metodos(raiz: Node, prefijo: str = "") -> dict[str, Node]:
-    """Identifica métodos por clase, sin entrar en cuerpos ni elegir sobrecargas."""
+    """Identifica métodos por clase y firma, sin entrar en cuerpos locales."""
     from qagent.lenguajes.java_firmas import indexar_metodos
 
     return {prefijo + n: m for n, m in indexar_metodos(raiz).items()}

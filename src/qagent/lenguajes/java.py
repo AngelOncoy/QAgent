@@ -274,8 +274,8 @@ class JavaAdapter(AdaptadorEnDesarrollo):
         La huella incluye nombre, ruta y fuente completa: cambios de campos,
         imports o métodos auxiliares también invalidan la caché para evitar
         reutilizar un score con un contexto distinto. Es conservadora: incluso
-        un comentario puede forzar otra ejecución. Sintaxis inválida o nombres
-        ambiguos devuelven None; nunca se reutiliza un resultado por conjetura.
+        un comentario puede forzar otra ejecución. La sintaxis inválida devuelve
+        None; las firmas borradas duplicadas se omiten individualmente.
         """
         arbol = obtener_parser("java").parse(fuente.encode("utf-8"))
         if arbol.root_node.has_error:

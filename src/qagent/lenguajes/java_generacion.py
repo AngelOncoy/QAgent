@@ -212,7 +212,7 @@ def prompt_java(
         "@BeforeEach/@Mock/@InjectMocks. Usa variables locales de una sola asignación.\n"
         "- Conserva las entradas de cada caso y llama al método real. Para métodos static usa Clase.metodo. "
         "Para métodos de instancia construye la clase real con un constructor accesible del contexto.\n"
-        "- Si identidad_metodo incluye firma, cada argumento debe tener exactamente el tipo declarado: "
+        "- Si identidad_metodo incluye firma, cada argumento debe tener exactamente el tipo de esa identidad: "
         "usa sufijos L/f/d para long/float/double y arrays explícitos para arrays o varargs. "
         "Para null usa un cast al tipo completo de la firma; no uses conversiones numéricas para resolver sobrecargas.\n"
         "- Usa Assertions de org.junit.jupiter.api: assertEquals(esperado, obtenido), assertTrue/assertFalse "

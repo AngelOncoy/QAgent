@@ -55,7 +55,42 @@ def tipos_de_parametros(metodo: Node) -> list[str]:
     """Extrae tipos declarados, incluidas dimensiones pospuestas y varargs."""
     from qagent.lenguajes.java import _parametros
 
-    return [tipo_borrado(p["tipo"]) for p in _parametros(metodo)]
+    return [borrar_tipo_en_contexto(p["tipo"], metodo) for p in _parametros(metodo)]
+
+
+def borrar_tipo_en_contexto(tipo: str, metodo: Node) -> str:
+    """Borra variables genéricas según su primer bound declarado, o java.lang.Object."""
+    ancestros = []
+    actual = metodo
+    while actual is not None:
+        ancestros.append(actual)
+        actual = actual.parent
+    variables = {}
+    for nodo in reversed(ancestros):
+        parametros = nodo.child_by_field_name("type_parameters")
+        for parametro in parametros.named_children if parametros is not None else []:
+            if parametro.type != "type_parameter":
+                continue
+            nombre = next(
+                h for h in parametro.named_children if h.type == "type_identifier"
+            )
+            limite = next(
+                (h for h in parametro.named_children if h.type == "type_bound"), None
+            )
+            variables[nombre.text.decode("utf-8")] = (
+                tipo_borrado(limite.named_children[0].text.decode("utf-8"))
+                if limite is not None
+                else "java.lang.Object"
+            )
+    tipo = tipo_borrado(tipo)
+    dimensiones = ""
+    while tipo.endswith("[]"):
+        tipo, dimensiones = tipo[:-2], dimensiones + "[]"
+    vistos = set()
+    while tipo in variables and tipo not in vistos:
+        vistos.add(tipo)
+        tipo = variables[tipo]
+    return tipo + dimensiones
 
 
 def sufijo_firma(tipos: list[str]) -> str:
@@ -65,7 +100,10 @@ def sufijo_firma(tipos: list[str]) -> str:
 
 def tipos_descriptor(descriptor: str) -> list[str] | None:
     """Lee parámetros JVM; conserva tipos completos y dimensiones de arrays."""
-    if not descriptor.startswith("(") or ")" not in descriptor:
+    tipo = r"(?:[ZBCSIJFD]|L[\w$]+(?:/[\w$]+)*;)"
+    if len(descriptor) > 8192 or not re.fullmatch(
+        r"\((?:\[*" + tipo + r")*\)(?:V|\[*" + tipo + r")", descriptor
+    ):
         return None
     entrada = descriptor[1 : descriptor.index(")")]
     tipos = []
@@ -178,7 +216,7 @@ def descriptor_metodo(metodo: Node, raiz: Node) -> str:
     clases = [{"nombre": separar_objetivo(n)[0]} for n in indexar_metodos(raiz)]
 
     def descriptor(tipo: str) -> str:
-        tipo = calificar_tipo(tipo, raiz, clases)
+        tipo = calificar_tipo(borrar_tipo_en_contexto(tipo, metodo), raiz, clases)
         dimensiones = 0
         while tipo.endswith("[]"):
             dimensiones += 1

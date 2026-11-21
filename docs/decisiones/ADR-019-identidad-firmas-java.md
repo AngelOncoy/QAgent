@@ -16,7 +16,9 @@ contadores JaCoCo ni resultados PIT sin mezclar firmas.
 Los nombres únicos conservan su identidad histórica. Cuando hay varias
 declaraciones del mismo nombre en una clase, incluso no públicas, cada objetivo
 usa `Clase.metodo(tipo1,tipo2)`: nombres de parámetros excluidos, genéricos
-borrados, arrays conservados y varargs normalizado a `[]`. Las clases miembro
+borrados, arrays conservados y varargs normalizado a `[]`. Las variables genéricas
+usan su primer bound declarado, o `java.lang.Object` cuando
+no hay bound; renombrar esa variable no cambia la firma borrada. Las clases miembro
 conservan su ruta `Exterior.Interior`. No se recorren clases locales o anónimas.
 Dos declaraciones con la misma firma borrada son inválidas; se omiten
 individualmente con diagnóstico, conservando los otros objetivos del archivo.
@@ -55,6 +57,9 @@ aserciones y números de línea. La anotación y la fuente modificada nunca se
 escriben en el proyecto original. Una colisión con su ruta reservada es un error.
 El XML se contrasta por clase, método **y descriptor**; cualquier firma ajena
 invalida el score. No basta con filtrar resultados después de mutar otros métodos.
+El nombre configurado en FANN usa separadores JVM (`/`), porque el interceptor
+contrasta el descriptor de la anotación. Los informes con descriptores inválidos
+o varias firmas bajo un único nombre histórico quedan sin score.
 
 ## Límites y consecuencias
 
@@ -72,6 +77,7 @@ requieren semántica de compilador no se resuelven por IA.
 
 - [PIT: excludedMethods](https://pitest.org/quickstart/maven/#excludedmethods).
 - [Interceptor FANN y su parámetro annotation](https://github.com/hcoles/pitest/blob/master/pitest-entry/src/main/java/org/pitest/mutationtest/build/intercept/annotations/ExcludedAnnotationInterceptorFactory.java).
+- [Comparación de descriptores de anotación en PIT](https://github.com/hcoles/pitest/blob/master/pitest-entry/src/main/java/org/pitest/mutationtest/build/intercept/annotations/ExcludedAnnotationInterceptor.java).
 - [Pruebas de #299](../../tests/lenguajes/test_issue299_sobrecargas.py),
   [PIT estático](../../tests/sandbox/test_issue299_pit_firmas.py) y
   [JUnit/PIT en Docker](../../tests/sandbox/test_issue299_sobrecargas_docker.py).

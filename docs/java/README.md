@@ -64,8 +64,8 @@ Sin `--salida`, imprime el JSON completo en la salida estándar.
 
 El banco debe producir dos módulos, dos clases, seis métodos públicos y cero
 errores. Los archivos con errores quedan registrados; no se extraen objetivos
-de esos archivos. Los casos públicos sobrecargados se reportan como limitación
-del prototipo para evitar confundir objetivos `Clase.metodo`.
+de esos archivos. Desde #299, las sobrecargas usan `Clase.metodo(tipos)` y las
+firmas duplicadas se reportan individualmente sin descartar sus vecinos.
 
 [ejemplo-analisis.json](ejemplo-analisis.json) es una salida real de referencia.
 Al repetir el comando, el bloque de medición puede cambiar. El tiempo incluye
@@ -81,7 +81,8 @@ no un promedio ni una garantía de rendimiento. No mide memoria nativa ni CPU.
 - `resumen`: totales de módulos, clases, métodos públicos, endpoints y errores.
 - `medicion`: duración, alcance y versiones del entorno del exportador.
 
-Los métodos usan `nombre: Clase.metodo`; contienen firma, parámetros, retorno,
+Los métodos usan `nombre: Clase.metodo`, con tipos entre paréntesis cuando están
+sobrecargados ([ADR-019](../decisiones/ADR-019-identidad-firmas-java.md)); contienen firma, parámetros, retorno,
 línea y Javadoc literal en `docstring`. No se inventan resultados esperados ni
 se convierte un comentario común en Javadoc. Los tipos se conservan tal como
 se escribieron: no se realiza resolución semántica de tipos o dependencias.

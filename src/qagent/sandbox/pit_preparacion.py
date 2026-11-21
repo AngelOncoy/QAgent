@@ -10,6 +10,7 @@ import copy
 import tempfile
 import xml.etree.ElementTree as ET
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from tree_sitter import Node
 
@@ -17,6 +18,9 @@ from qagent.lenguajes.treesitter import obtener_parser
 from qagent.sandbox.maven import inspeccionar, separar_fuente
 from qagent.sandbox.modelos import ErrorConstruccionImagen
 from qagent.sandbox.pit_comando import comando_pit
+
+if TYPE_CHECKING:
+    from qagent.sandbox.pit import ObjetivoPit
 
 NS = "http://maven.apache.org/POM/4.0.0"
 POM_NOMBRE = ".qagent-pit.xml"
@@ -30,7 +34,7 @@ class ConfiguracionPitPropia(ValueError):
 
 def preparar_pit(
     copia: Path, pruebas: Path, modulo: str, funciones: list[str]
-) -> dict[str, tuple[str, str]]:
+) -> dict[str, ObjetivoPit]:
     """Prepara PIT conservando la herencia y aislando la mutación en su módulo.
 
     Reutiliza el reactor de compilación Java para los módulos auxiliares. La
@@ -130,7 +134,7 @@ def _preparar_pit_un_modulo(
     *,
     base: str = "/work/proyecto/",
     pom_base: Path | None = None,
-) -> dict[str, tuple[str, str]]:
+) -> dict[str, ObjetivoPit]:
     """Prepara POM y pruebas aprobadas en una copia y devuelve objetivos exactos.
 
     Args:
@@ -139,10 +143,11 @@ def _preparar_pit_un_modulo(
             de entrada pueden ser los hashes del orquestador; se extrae el paquete
             y la clase pública para escribir el nombre .java exigido por javac.
         modulo: fuente estándar src/main/java/paquete/Clase.java.
-        funciones: objetivos Clase.metodo críticos aprobados, sin sobrecargas.
+        funciones: objetivos críticos aprobados, con firma cuando están sobrecargados.
 
     Returns:
-        Objetivo -> (clase binaria completa, método), para verificar el XML PIT.
+        Objetivo -> (clase binaria, método, descriptor) para las firmas nuevas;
+        las selecciones históricas únicas conservan el par (clase, método).
         Genera .qagent-pit.xml y .qagent-pit-tests; nunca cambia pom.xml ni src/test.
         Recibe un módulo con fuente estándar y su POM ya resuelto por el reactor.
         Los proyectos Gradle requieren otro preparador.
@@ -218,6 +223,10 @@ def _preparar_pit_un_modulo(
         fuentes_tests[relativa] = texto
     if not fuentes_tests:
         raise ValueError("No hay pruebas aprobadas para evaluar los mutantes.")
+    if any("(" in f for f in funciones):
+        from qagent.sandbox.pit_sobrecargas import excluir_sobrecargas
+
+        excluir_sobrecargas(copia, modulo, fuente, funciones)
     preparado = copy.deepcopy(pom)
     ns = f"{{{NS}}}" if pom.tag.startswith("{") else ""
     # JaCoCo añade este marcador tardío solo para Surefire. PIT interpreta '@'
@@ -357,8 +366,8 @@ def _estructura(fuente: str) -> tuple[str, str, Node]:
 
 def _validar_objetivos(
     fuente: str, modulo: str, funciones: list[str]
-) -> dict[str, tuple[str, str]]:
-    """Contrasta paquete, clase y métodos con la fuente, rechazando sobrecargas."""
+) -> dict[str, ObjetivoPit]:
+    """Contrasta paquete, clase y firma; no elige sobrecargas solo por nombre."""
     paquete, clase, raiz = _estructura(fuente)
     esperada = f"{paquete}.{clase}" if paquete else clase
     desde_ruta = modulo.replace("\\", "/")[
@@ -375,12 +384,25 @@ def _validar_objetivos(
         if n.type == "method_declaration"
     ]
     nombres = [n.child_by_field_name("name").text.decode("utf-8") for n in metodos]
+    from qagent.lenguajes.java_firmas import (
+        descriptor_metodo,
+        indexar_metodos,
+        separar_objetivo,
+    )
+
+    indice = indexar_metodos(raiz)
     resultado = {}
     for objetivo in funciones:
-        metodo = objetivo.split(".")[-1]
-        if nombres.count(metodo) != 1:
+        metodo = separar_objetivo(objetivo)[1]
+        if objetivo not in indice or (
+            "(" not in objetivo and nombres.count(metodo) != 1
+        ):
             raise ValueError(
                 "El método crítico no existe o tiene sobrecargas no admitidas."
             )
-        resultado[objetivo] = (esperada, metodo)
+        resultado[objetivo] = (
+            (esperada, metodo, descriptor_metodo(indice[objetivo], raiz))
+            if "(" in objetivo
+            else (esperada, metodo)
+        )
     return resultado

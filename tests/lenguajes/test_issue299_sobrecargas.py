@@ -252,6 +252,31 @@ def test_jacoco_selecciona_descriptor_y_nunca_suma_otras_firmas():
     assert cobertura_de_metodo(cobertura, modulo, "Banco.f") is None
 
 
+def test_genericos_borran_bounds_sin_depender_del_nombre_de_variable(tmp_path):
+    fuente = """class Banco<T extends Number> {
+public int f(T x) {return 1;} public int f(String x) {return 2;}
+public <U> int g(U x) {return 1;} public int g(String x) {return 2;}
+}"""
+    archivo = tmp_path / "Banco.java"
+    archivo.write_text(fuente, encoding="utf-8")
+
+    def objetivos():
+        return {
+            f["nombre"]
+            for f in JavaAdapter().analizar(tmp_path)["modulos"][0]["funciones"]
+        }
+
+    esperados = {
+        "Banco.f(java.lang.Number)",
+        "Banco.f(java.lang.String)",
+        "Banco.g(java.lang.Object)",
+        "Banco.g(java.lang.String)",
+    }
+    assert objetivos() == esperados
+    archivo.write_text(fuente.replace("T", "V").replace("U", "W"), encoding="utf-8")
+    assert objetivos() == esperados
+
+
 def test_herencia_no_invoca_otra_sobrecarga_con_entrada_igual(tmp_path):
     fuente = """package ejemplo;
 class Padre { public static String f(String x) {return "hola";} }

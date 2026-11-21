@@ -12,6 +12,8 @@ from collections import defaultdict
 from pathlib import Path
 from typing import Any
 
+from qagent.lenguajes.java_firmas import tipos_descriptor
+
 LIMITE_XML_JACOCO = 5_000_000
 LIMITE_DATOS = 200_000
 _DOCTYPE = re.compile(
@@ -165,8 +167,7 @@ def interpretar_jacoco(xml: str) -> dict[str, Any] | None:
                 if (
                     not metodo_nombre
                     or not descriptor
-                    or not descriptor.startswith("(")
-                    or ")" not in descriptor
+                    or tipos_descriptor(descriptor) is None
                 ):
                     raise CoberturaJacocoInvalida(
                         "Método JaCoCo sin nombre o descriptor válido."

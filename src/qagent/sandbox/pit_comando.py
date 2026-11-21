@@ -28,8 +28,8 @@ def comando_pit(modulo: str, funciones: list[str]) -> ComandoSandbox:
         ComandoSandbox con argumentos separados, sin shell. targetClasses usa
         una coincidencia exacta y excludedMethods una expresión regular que
         excluye todo nombre no seleccionado, incluidos constructores. PIT admite
-        regex con prefijo ~. Las sobrecargas deben rechazarse antes de ejecutar:
-        el filtro estándar de PIT distingue nombres, no firmas.
+        regex con prefijo ~. Las firmas nuevas requieren además la exclusión
+        por anotación en la copia desechable y el filtro FANN (#299).
 
         El comando requiere que la fase de ejecución prepare .qagent-pit.xml
         dentro de la copia aislada. Esta función no crea archivos, no ejecuta
@@ -55,7 +55,7 @@ def comando_pit(modulo: str, funciones: list[str]) -> ComandoSandbox:
         raise ValueError("No hay métodos críticos seleccionados; no se ejecutará PIT.")
     metodos: set[str] = set()
     for objetivo in funciones:
-        segmentos = objetivo.split(".")
+        segmentos = objetivo.partition("(")[0].split(".")
         if (
             len(segmentos) != 2
             or segmentos[0] != ruta.stem
@@ -88,6 +88,13 @@ def comando_pit(modulo: str, funciones: list[str]) -> ComandoSandbox:
             "-DtimestampedReports=false",
             f"-DreportsDirectory={DIRECTORIO_INFORME}",
             "-Dthreads=1",
+            *(
+                [
+                    "-Dfeatures=+FANN(annotation[qagent/internal/exclusion299/QAgentNoMutar] annotation[Generated] annotation[DoNotMutate] annotation[CoverageIgnore])"
+                ]
+                if any("(" in f for f in funciones)
+                else []
+            ),
         ]
     )
 
