@@ -352,7 +352,7 @@ def comprobar_preparacion(raiz: Path) -> dict[str, object]:
                 )
         return {
             "compatible": True,
-            "mensaje": f"Estructura Maven admitida: {len(proyecto.descriptores)} POM; JDK 25. Las dependencias se comprobarán al preparar Docker.",
+            "mensaje": f"Estructura Maven admitida: {len(proyecto.descriptores)} POM; JDK 25. Las dependencias se comprobarán al preparar Docker. Antes de usar IA se comprobará la construcción sin ejecutar tests existentes.",
             "descriptores": [
                 {
                     "ruta": d.ruta,

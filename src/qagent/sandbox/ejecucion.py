@@ -103,6 +103,7 @@ def ejecutar_en_sandbox(
     cliente: docker.DockerClient | None = None,
     *,
     preparar: Callable[[Path, Path], None] | None = None,
+    cancelado: Callable[[], bool] | None = None,
 ) -> ResultadoSandbox:
     """Ejecuta un comando en un contenedor efímero, sin red y con límites de recursos.
 
@@ -122,6 +123,7 @@ def ejecutar_en_sandbox(
             antes de la limpieza, para leer resultados adicionales.
         cliente: cliente Docker; si es None se crea uno con `obtener_cliente()`.
         preparar: dispone archivos en la copia y tests sin ejecutar código; opcional.
+        cancelado: consulta opcional para detener el contenedor durante la espera.
 
     Returns:
         Resultado con código de salida, stdout, stderr y coverage.json si se generó.
@@ -157,7 +159,13 @@ def ejecutar_en_sandbox(
         contenedor = _crear_contenedor(
             cliente, imagen, comando, copia, tests, salida, limites, variables
         )
-        exit_code, timed_out = _esperar(contenedor, limites.timeout_s)
+        interrumpida = False
+        if cancelado is None:
+            exit_code, timed_out = _esperar(contenedor, limites.timeout_s)
+        else:
+            exit_code, timed_out, interrumpida = _esperar_cancelable(
+                contenedor, limites.timeout_s, cancelado
+            )
         duracion = time.monotonic() - inicio
 
         contenedor.reload()
@@ -171,7 +179,9 @@ def ejecutar_en_sandbox(
             comando=list(comando),
             limites=limites,
             timed_out=timed_out,
-            oom_killed=oom or (exit_code == CODIGO_SIGKILL and not timed_out),
+            oom_killed=oom
+            or (exit_code == CODIGO_SIGKILL and not timed_out and not interrumpida),
+            cancelado=interrumpida,
             duracion_s=round(duracion, 3),
         )
         if al_terminar is not None:
@@ -402,6 +412,27 @@ def _esperar(contenedor: Any, timeout_s: int) -> tuple[int, bool]:
             return int(estado.get("StatusCode", CODIGO_SIGKILL)), True
         except (APIError, RequestException):
             return CODIGO_SIGKILL, True
+
+
+def _esperar_cancelable(
+    contenedor: Any, timeout_s: int, cancelado: Callable[[], bool]
+) -> tuple[int, bool, bool]:
+    """Consulta el estado sin bloquear en wait; cancela o mata al agotar el plazo."""
+    fin = time.monotonic() + timeout_s
+    while True:
+        detener = cancelado()
+        agotado = time.monotonic() >= fin
+        if detener or agotado:
+            try:
+                contenedor.kill()
+            except APIError:
+                pass  # puede haber terminado entre la consulta y el kill
+            return CODIGO_SIGKILL, agotado and not detener, detener
+        contenedor.reload()
+        estado = contenedor.attrs.get("State", {})
+        if not estado.get("Running", True):
+            return int(estado.get("ExitCode", -1)), False, False
+        time.sleep(min(0.1, max(0.0, fin - time.monotonic())))
 
 
 def _leer_logs(contenedor: Any, stdout: bool) -> str:

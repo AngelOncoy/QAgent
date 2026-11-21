@@ -30,6 +30,7 @@ from qagent.lenguajes.base import (
     PlanArquitectura,
     ReglasPlanificacion,
     ReglasRevision,
+    ResultadoConstruccion,
 )
 from qagent.lenguajes.java_cobertura import leer_jacoco
 from qagent.lenguajes.java_estructura import contar_decisiones, desglosar_javadoc
@@ -39,7 +40,7 @@ from qagent.lenguajes.java_spring import extraer_endpoints
 from qagent.lenguajes.registro import listar_archivos
 from qagent.lenguajes.treesitter import extraer_errores_sintaxis, obtener_parser
 from qagent.sandbox.ejecucion import ARCHIVO_JUNIT, DIR_SALIDA, DIR_TESTS
-from qagent.sandbox.modelos import IMAGEN_JAVA, ResultadoSandbox
+from qagent.sandbox.modelos import IMAGEN_JAVA, LimitesSandbox, ResultadoSandbox
 
 if TYPE_CHECKING:
     from qagent.sandbox.mutacion import ResultadoMutacion
@@ -267,6 +268,22 @@ class JavaAdapter(AdaptadorEnDesarrollo):
     tipos_prueba = ("funcion", "endpoint", "mutacion")
     huellas_disponibles = True
     motor_mutacion = "PIT"
+    requiere_construccion_previa = True
+
+    def comprobar_construccion(
+        self,
+        raiz: Path,
+        imagen: str,
+        modulos: list[str],
+        limites: LimitesSandbox,
+        cancelado: Callable[[], bool] | None = None,
+    ) -> ResultadoConstruccion:
+        """Compila los módulos elegidos en Docker sin gastar IA (#305)."""
+        from qagent.lenguajes.java_construccion import comprobar_construccion
+
+        return comprobar_construccion(
+            raiz, imagen, modulos, limites, cancelado=cancelado
+        )
 
     def huellas_de_archivo(self, fuente: str, relativa: str) -> dict[str, str] | None:
         """Devuelve SHA-256 por método público, sin ejecutar Java (#180).
