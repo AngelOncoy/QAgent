@@ -51,6 +51,49 @@ La falta de un resultado esperado verificable en métodos Java sin Javadoc es
 otro problema. Resolver Maven no convierte esos métodos omitidos en pruebas
 aprobadas y no autoriza a inventar el valor esperado leyendo su ejecución.
 
+## Construcción antes de consumir IA (#305)
+
+En Humo, Estándar y Profundo, Java espera a que termine la preparación de la
+imagen y comprueba la construcción antes de llamar al Planner o al Generator.
+La admisión estática mostrada en Preparar sigue siendo una comprobación inicial;
+no equivale a haber compilado. Regresión conserva su flujo sin llamadas de IA.
+
+La comprobación usa una copia del proyecto y su POM original, exclusivamente en
+Docker sin red, con los límites de recursos del sandbox:
+
+```text
+mvn --offline --batch-mode --no-transfer-progress
+    -Dmaven.repo.local=/opt/qagent/m2 -f /work/proyecto/pom.xml
+    [-pl <módulos seleccionados> -am]
+    -DskipTests=true -Dmaven.test.skip=true -DskipITs=true clean compile
+```
+
+En un reactor se incluyen los módulos seleccionados y sus dependencias internas.
+No se ejecutan automáticamente sus tests existentes. Los plugins vinculados a
+las fases de construcción sí se ejecutan dentro del contenedor. No se sustituyen
+versiones de bibliotecas, plugins ni JDK para lograr una compilación aprobada.
+
+Una construcción fallida bloquea el consumo de IA. El Monitor distingue errores
+de compilación, dependencias, configuración e incompatibilidad de herramientas;
+también comunica cancelación, timeout y otros fallos técnicos. Se conservan
+`construccion.json` y `construccion.log` saneado en la carpeta de la corrida.
+Un fallo de descarga anterior conserva `entorno.log`.
+
+Solo se reutiliza una aprobación cuya huella coincide con fuentes, recursos,
+configuración, scripts, selección, política, ID inmutable de imagen y entorno
+Docker/límites. El registro está en `.qagent/cache/construccion_java/`.
+Cambiar una dependencia interna o cualquiera de esas entradas invalida la
+comprobación. Un fallo, timeout, cancelación o registro corrupto no autoriza IA.
+No se certifican todos los perfiles, empaquetados ni el determinismo de plugins
+arbitrarios. Véase [ADR-020](../decisiones/ADR-020-construccion-java-antes-de-ia.md).
+
+Las pruebas de esta comprobación, con IA simulada, se ejecutan con:
+
+```powershell
+python -m pytest tests/lenguajes/test_issue305_construccion_java.py tests/orchestrator/test_issue305_antes_de_ia.py tests/sandbox/test_issue305_cancelacion.py -q
+python -m pytest tests/sandbox/test_issue305_construccion_docker.py --docker -q -s
+```
+
 ## Comprobaciones reproducibles
 
 Con el entorno virtual activo y Docker Desktop abierto:
