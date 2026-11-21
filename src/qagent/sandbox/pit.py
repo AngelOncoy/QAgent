@@ -9,6 +9,7 @@ from __future__ import annotations
 import xml.etree.ElementTree as ET
 from typing import Any
 
+from qagent.lenguajes.java_firmas import tipos_descriptor
 from qagent.sandbox.mutacion import (
     ERROR,
     OK,
@@ -19,6 +20,7 @@ from qagent.sandbox.mutacion import (
 )
 
 LIMITE_XML_PIT = 2_000_000
+ObjetivoPit = tuple[str, str] | tuple[str, str, str]
 DETECTADOS = frozenset({"KILLED", "TIMED_OUT"})
 SOBREVIVIENTES = frozenset({"SURVIVED", "NO_COVERAGE"})
 INCOMPLETOS = frozenset(
@@ -29,14 +31,15 @@ INCOMPLETOS = frozenset(
 def interpretar_pit(
     xml: str,
     modulo: str,
-    objetivos: dict[str, tuple[str, str]],
+    objetivos: dict[str, ObjetivoPit],
 ) -> ResultadoMutacion:
     """Convierte mutations.xml en ResultadoMutacion sin deducir éxitos técnicos.
 
     Args:
         xml: contenido del informe PIT, no una ruta.
         modulo: ruta relativa de la fuente Java.
-        objetivos: objetivo QAgent -> (clase binaria completa, nombre del método).
+        objetivos: objetivo QAgent -> (clase binaria, método, descriptor).
+            Los objetivos históricos únicos conservan el par (clase, método).
             Ejemplo: Banco.sumar -> (org.ejemplo.Banco, sumar). Debe proceder de
             los métodos críticos aprobados seleccionados, nunca de todo el proyecto.
 
@@ -53,6 +56,11 @@ def interpretar_pit(
     try:
         if not objetivos or len(set(objetivos.values())) != len(objetivos):
             raise ValueError("La selección de métodos está vacía o es ambigua.")
+        historicos = {p for p in objetivos.values() if len(p) == 2}
+        if any(len(p) == 3 and p[:2] in historicos for p in objetivos.values()):
+            raise ValueError(
+                "La selección mezcla un nombre histórico con una de sus firmas."
+            )
         if not xml.strip() or len(xml.encode("utf-8")) > LIMITE_XML_PIT:
             raise ValueError("El XML de PIT está vacío o supera el tamaño permitido.")
         if "<!DOCTYPE" in xml or "<!ENTITY" in xml:
@@ -61,17 +69,31 @@ def interpretar_pit(
         if raiz.tag != "mutations":
             raise ValueError("Se esperaba la raíz mutations de PIT.")
         seleccion = {par: nombre for nombre, par in objetivos.items()}
+        descriptores_historicos = {}
         vistos: set[tuple[Any, ...]] = set()
         for nodo in raiz:
             if nodo.tag != "mutation":
                 raise ValueError("El informe contiene elementos ajenos a PIT.")
             clase = _campo(nodo, "mutatedClass")
             metodo = _campo(nodo, "mutatedMethod")
-            nombre = seleccion.get((clase, metodo))
+            descriptor = _campo(nodo, "methodDescription")
+            if tipos_descriptor(descriptor) is None:
+                raise ValueError("PIT informó un descriptor JVM inválido.")
+            nombre = seleccion.get((clase, metodo, descriptor)) or seleccion.get(
+                (clase, metodo)
+            )
             if nombre is None:
                 raise ValueError(
                     "PIT informó una mutación fuera de los métodos seleccionados."
                 )
+            if (clase, metodo) in historicos:
+                anterior = descriptores_historicos.setdefault(
+                    (clase, metodo), descriptor
+                )
+                if anterior != descriptor:
+                    raise ValueError(
+                        "PIT informó varias firmas para un objetivo histórico sin descriptor."
+                    )
             estado = nodo.get("status")
             if estado not in DETECTADOS | SOBREVIVIENTES | INCOMPLETOS:
                 raise ValueError("El informe contiene un estado PIT desconocido.")

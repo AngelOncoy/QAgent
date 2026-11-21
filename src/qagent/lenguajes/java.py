@@ -4,7 +4,7 @@ Solo lee fuentes UTF-8: no importa, compila ni ejecuta el proyecto analizado.
 Extrae clases, constructores, métodos públicos, Javadoc y decisiones (#181). Excluye
 src/test, carpetas generadas y enlaces simbólicos. Resuelve llamadas explícitas
 del proyecto sin inferir tipos ni despacho dinámico. Extrae declaraciones de
-endpoints Spring (#183); no admite sobrecargas. La generación usa el contrato del Planner y el
+endpoints Spring (#183) y distingue sobrecargas por firma (#299). La generación usa el contrato del Planner y el
 guardrail valida aserciones sin ejecutar Java ni consultar IA. Lee informes JUnit
 XML y ejecuta Maven/JUnit/JaCoCo y mutación PIT acotada exclusivamente dentro del
 sandbox (#182, #180).
@@ -103,12 +103,11 @@ def _declaraciones(raiz: Node) -> tuple[list[dict[str, Any]], list[dict[str, Any
     """Extrae clases y métodos públicos, sin entrar en cuerpos de métodos.
 
     Los constructores se describen dentro de su clase, sin ser objetivos.
-    Rechaza nombres de métodos duplicados por sobrecarga para evitar objetivos
-    ambiguos en el contrato Clase.metodo.
+    Las sobrecargas tienen identidad por firma. Una firma borrada duplicada
+    se diagnostica individualmente, sin eliminar los métodos vecinos.
     """
     clases: list[dict[str, Any]] = []
     funciones: list[dict[str, Any]] = []
-    nombres: set[str] = set()
 
     def visitar(contenedor: Node, prefijo: str = "") -> None:
         for nodo in contenedor.named_children:
@@ -123,6 +122,8 @@ def _declaraciones(raiz: Node) -> tuple[list[dict[str, Any]], list[dict[str, Any
             clases.append(
                 {
                     "nombre": nombre,
+                    "hereda": nodo.child_by_field_name("superclass") is not None
+                    or nodo.child_by_field_name("interfaces") is not None,
                     "tipo": nodo.type,
                     "linea": nodo.start_point.row + 1,
                     "docstring": _javadoc(nodo),
@@ -151,11 +152,6 @@ def _declaraciones(raiz: Node) -> tuple[list[dict[str, Any]], list[dict[str, Any
                 if not publico:
                     continue
                 objetivo = nombre + "." + _texto(metodo.child_by_field_name("name"))
-                if objetivo in nombres:
-                    raise ValueError(
-                        f"Sobrecarga no admitida en el prototipo: {objetivo}"
-                    )
-                nombres.add(objetivo)
                 parametros = _parametros(metodo)
                 retorno = _texto(metodo.child_by_field_name("type"))
                 cuerpo_metodo = metodo.child_by_field_name("body")
@@ -174,6 +170,7 @@ def _declaraciones(raiz: Node) -> tuple[list[dict[str, Any]], list[dict[str, Any
                 funciones.append(
                     {
                         "nombre": objetivo,
+                        "_inicio": metodo.start_byte,
                         "clase": nombre,
                         "linea": metodo.start_point.row + 1,
                         "firma": firma,
@@ -191,7 +188,25 @@ def _declaraciones(raiz: Node) -> tuple[list[dict[str, Any]], list[dict[str, Any
                 )
 
     visitar(raiz)
-    return clases, funciones
+    from qagent.lenguajes.java_firmas import indexar_metodos
+
+    por_inicio = {n.start_byte: nombre for nombre, n in indexar_metodos(raiz).items()}
+    admitidas = []
+    for funcion in funciones:
+        inicio = funcion.pop("_inicio")
+        if inicio not in por_inicio:
+            clase = next(c for c in clases if c["nombre"] == funcion["clase"])
+            clase.setdefault("metodos_no_admitidos", []).append(
+                {
+                    "linea": funcion["linea"],
+                    "firma": funcion["firma"],
+                    "motivo": "Firma Java duplicada tras borrar genéricos y normalizar varargs.",
+                }
+            )
+            continue
+        funcion["nombre"] = por_inicio[inicio]
+        admitidas.append(funcion)
+    return clases, admitidas
 
 
 def _constructores(clase: Node, nombre: str) -> list[dict[str, Any]]:
@@ -259,8 +274,8 @@ class JavaAdapter(AdaptadorEnDesarrollo):
         La huella incluye nombre, ruta y fuente completa: cambios de campos,
         imports o métodos auxiliares también invalidan la caché para evitar
         reutilizar un score con un contexto distinto. Es conservadora: incluso
-        un comentario puede forzar otra ejecución. Sintaxis inválida o nombres
-        ambiguos devuelven None; nunca se reutiliza un resultado por conjetura.
+        un comentario puede forzar otra ejecución. La sintaxis inválida devuelve
+        None; las firmas borradas duplicadas se omiten individualmente.
         """
         arbol = obtener_parser("java").parse(fuente.encode("utf-8"))
         if arbol.root_node.has_error:
@@ -588,6 +603,18 @@ class JavaAdapter(AdaptadorEnDesarrollo):
                         "; ".join(extraer_errores_sintaxis(arbol.root_node))
                     )
                 clases, funciones = _declaraciones(arbol.root_node)
+                for clase in clases:
+                    for diagnostico in clase.get("metodos_no_admitidos", []):
+                        errores.append(
+                            {
+                                "ruta": relativa,
+                                "tipo": "FirmaJavaNoAdmitida",
+                                "linea": diagnostico["linea"],
+                                "mensaje": diagnostico["firma"]
+                                + ": "
+                                + diagnostico["motivo"],
+                            }
+                        )
             except (OSError, UnicodeError, ValueError, RecursionError) as error:
                 errores.append(
                     {

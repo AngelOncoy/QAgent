@@ -176,14 +176,17 @@ def test_excluye_pruebas_y_compilados(tmp_path: Path) -> None:
 
 
 def test_reporta_sobrecargas_sin_objetivos_ambiguos(tmp_path: Path) -> None:
-    """Dos métodos con el mismo objetivo generan un error de alcance explícito."""
+    """Dos firmas públicas se conservan como objetivos distintos (#299)."""
     (tmp_path / "Sobrecarga.java").write_text(
         "class A { public void f() {} public void f(int x) {} }",
         encoding="utf-8",
     )
     estructura = JavaAdapter().analizar(tmp_path)
-    assert estructura["modulos"] == []
-    assert "Sobrecarga no admitida" in estructura["errores"][0]["mensaje"]
+    assert estructura["errores"] == []
+    assert [f["nombre"] for f in estructura["modulos"][0]["funciones"]] == [
+        "A.f()",
+        "A.f(int)",
+    ]
 
 
 def test_raiz_inexistente(tmp_path: Path) -> None:

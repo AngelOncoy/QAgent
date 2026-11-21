@@ -36,8 +36,9 @@ ni lambdas. El conteo describe sintaxis, no cobertura de ejecución.
 que sus constructores privados se registran dentro de las clases.
 
 Se mantienen las exclusiones de `target/`, `build/`, `src/test/`, carpetas ocultas
-y enlaces simbólicos. Las sobrecargas de métodos públicos siguen rechazándose
-con un diagnóstico explícito para evitar objetivos `Clase.metodo` ambiguos.
+y enlaces simbólicos. Las sobrecargas usan identidades por firma sin perder los
+otros métodos del archivo (#299, [ADR-019](../decisiones/ADR-019-identidad-firmas-java.md)).
+Las firmas borradas duplicadas generan diagnósticos individuales.
 
 ## Validación del primer bloque
 

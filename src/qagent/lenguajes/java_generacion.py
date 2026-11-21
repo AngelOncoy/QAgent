@@ -26,7 +26,7 @@ def archivo_java(objetivo: str, paquete: str = "") -> str:
     nombre del test. El paquete procede del AST, nunca de instrucciones del LLM.
     Rechaza identificadores y paquetes que no se pueden convertir en una ruta.
     """
-    partes = objetivo.split(".")
+    partes = objetivo.partition("(")[0].split(".")
     segmentos = paquete.split(".") if paquete else []
     if len(partes) < 2 or not all(
         _IDENTIFICADOR.fullmatch(p) for p in (*partes, *segmentos)
@@ -74,6 +74,15 @@ def contexto_java(
         else contrato["objetivo"]
     )
     funcion = next((f for f in funciones if f["nombre"] == objetivo_metodo), None)
+    if funcion is None and "(" not in objetivo_metodo:
+        candidatas = [
+            f
+            for f in funciones
+            if f["nombre"].partition("(")[0] == objetivo_metodo
+            and f["firma"] == contrato["firma"]
+        ]
+        if len(candidatas) == 1:
+            funcion = candidatas[0]
     if funcion is None:
         raise ValueError(
             "El método del contrato no existe como método público en la fuente."
@@ -109,12 +118,13 @@ def contexto_java(
     contexto = {
         "paquete": paquete,
         "clase": funcion["clase"],
-        "metodo": objetivo_metodo.rsplit(".", 1)[-1],
+        "metodo": objetivo_metodo.partition("(")[0].rsplit(".", 1)[-1],
         "archivo": archivo,
         "clase_test": PurePosixPath(archivo).stem,
         "es_static": funcion["es_static"],
         "firma": funcion["firma"],
         "parametros": funcion["parametros"],
+        "identidad_metodo": funcion["nombre"],
         "retorno": funcion["retorno"],
         "constructores": constructores,
         "constructor_implicito": not clase["constructores"]
@@ -125,6 +135,23 @@ def contexto_java(
             if n.type == "import_declaration"
         ],
     }
+    if clase.get("hereda") and "(" not in contexto["identidad_metodo"]:
+        from qagent.lenguajes.java_firmas import calificar_tipo, sufijo_firma
+
+        contexto["identidad_metodo"] += sufijo_firma(
+            [calificar_tipo(p["tipo"], raiz, clases) for p in funcion["parametros"]]
+        )
+    if "(" in contexto["identidad_metodo"]:
+        from qagent.lenguajes.java_firmas import JAVA_LANG, tipo_borrado
+
+        for parametro in funcion["parametros"]:
+            tipo = tipo_borrado(parametro["tipo"]).replace("[]", "")
+            if tipo in JAVA_LANG and (fuente.parent / (tipo + ".java")).is_file():
+                raise ValueError(
+                    "El tipo "
+                    + tipo
+                    + " tiene una declaración vecina; su resolución entre archivos no es demostrable para esta sobrecarga."
+                )
     if contrato.get("tipo") == "endpoint":
         from qagent.lenguajes.java_spring import extraer_endpoints
 
@@ -185,6 +212,9 @@ def prompt_java(
         "@BeforeEach/@Mock/@InjectMocks. Usa variables locales de una sola asignación.\n"
         "- Conserva las entradas de cada caso y llama al método real. Para métodos static usa Clase.metodo. "
         "Para métodos de instancia construye la clase real con un constructor accesible del contexto.\n"
+        "- Si identidad_metodo incluye firma, cada argumento debe tener exactamente el tipo de esa identidad: "
+        "usa sufijos L/f/d para long/float/double y arrays explícitos para arrays o varargs. "
+        "Para null usa un cast al tipo completo de la firma; no uses conversiones numéricas para resolver sobrecargas.\n"
         "- Usa Assertions de org.junit.jupiter.api: assertEquals(esperado, obtenido), assertTrue/assertFalse "
         "para booleanos y assertThrows(Excepcion.class, () -> llamada) para excepciones declaradas. "
         "Los mensajes son opcionales; no sustituyas una comparación por assertNotNull ni assertTrue(true).\n"

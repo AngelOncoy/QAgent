@@ -62,7 +62,6 @@ def test_cambios_de_metodo_o_contexto_invalidan_huella(
     "fuente",
     [
         "public class Rota {",
-        "public class Banco { public int x() { return 1; } public int x(int a) { return a; } }",
     ],
 )
 def test_fuentes_invalidas_o_ambiguas_no_se_reutilizan(

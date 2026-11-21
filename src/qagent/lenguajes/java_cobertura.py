@@ -12,6 +12,8 @@ from collections import defaultdict
 from pathlib import Path
 from typing import Any
 
+from qagent.lenguajes.java_firmas import tipos_descriptor
+
 LIMITE_XML_JACOCO = 5_000_000
 LIMITE_DATOS = 200_000
 _DOCTYPE = re.compile(
@@ -165,8 +167,7 @@ def interpretar_jacoco(xml: str) -> dict[str, Any] | None:
                 if (
                     not metodo_nombre
                     or not descriptor
-                    or not descriptor.startswith("(")
-                    or ")" not in descriptor
+                    or tipos_descriptor(descriptor) is None
                 ):
                     raise CoberturaJacocoInvalida(
                         "Método JaCoCo sin nombre o descriptor válido."
@@ -227,6 +228,17 @@ def cobertura_de_metodo(
         return None
     datos = ((cobertura or {}).get("files") or {}).get(relativa, {})
     metodo = datos.get("functions", {}).get(objetivo)
+    if "(" in objetivo and objetivo.endswith(")"):
+        from qagent.lenguajes.java_firmas import coincide_descriptor
+
+        nombre = objetivo.partition("(")[0]
+        candidatos = [
+            m
+            for k, m in datos.get("functions", {}).items()
+            if k.partition("(")[0] == nombre
+            and coincide_descriptor(objetivo, m.get("descriptor", ""))
+        ]
+        metodo = candidatos[0] if len(candidatos) == 1 else None
     resumen = (metodo or {}).get("summary")
     if resumen is None or resumen["percent_covered"] is None:
         return None

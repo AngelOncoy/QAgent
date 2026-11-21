@@ -49,25 +49,10 @@ def _recorrer(nodo: Node):
 
 
 def _metodos(raiz: Node, prefijo: str = "") -> dict[str, Node]:
-    """Identifica métodos por clase, sin entrar en cuerpos ni elegir sobrecargas."""
-    resultado: dict[str, Node] = {}
-    repetidos: set[str] = set()
-    for clase in raiz.named_children:
-        if clase.type not in _CLASES:
-            continue
-        nombre = prefijo + _texto(clase.child_by_field_name("name"))
-        cuerpo = clase.child_by_field_name("body")
-        if cuerpo is None:
-            continue
-        resultado.update(_metodos(cuerpo, nombre + "."))
-        for metodo in cuerpo.named_children:
-            if metodo.type != "method_declaration":
-                continue
-            clave = nombre + "." + _texto(metodo.child_by_field_name("name"))
-            if clave in resultado:
-                repetidos.add(clave)
-            resultado[clave] = metodo
-    return {n: m for n, m in resultado.items() if n not in repetidos}
+    """Identifica métodos por clase y firma, sin entrar en cuerpos locales."""
+    from qagent.lenguajes.java_firmas import indexar_metodos
+
+    return {prefijo + n: m for n, m in indexar_metodos(raiz).items()}
 
 
 class ProveedorInferenciaJava:
@@ -258,7 +243,7 @@ class ProveedorInferenciaJava:
             ),
             "",
         )
-        clase, metodo = objetivo.rsplit(".", 1)
+        clase, metodo = objetivo.partition("(")[0].rsplit(".", 1)
         completo = paquete + "." + clase if paquete else clase
         resultado = []
         for ruta, raiz in self._cargar_tests():

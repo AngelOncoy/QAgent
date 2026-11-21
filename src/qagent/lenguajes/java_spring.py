@@ -120,6 +120,9 @@ def extraer_endpoints(
         return resultado
 
     por_nombre = {f["nombre"]: f for f in funciones}
+    from qagent.lenguajes.java_firmas import indexar_metodos
+
+    por_inicio = {n.start_byte: nombre for nombre, n in indexar_metodos(raiz).items()}
     resultado = []
     for clase in raiz.named_children:
         if clase.type != "class_declaration":
@@ -135,7 +138,7 @@ def extraer_endpoints(
         for metodo in cuerpo.named_children if cuerpo is not None else []:
             if metodo.type != "method_declaration":
                 continue
-            manejador = nombre + "." + _texto(metodo.child_by_field_name("name"))
+            manejador = por_inicio.get(metodo.start_byte)
             funcion = por_nombre.get(manejador)
             if funcion is None:
                 continue

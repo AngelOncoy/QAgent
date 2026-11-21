@@ -151,7 +151,7 @@ No ejecuta ni compila las fuentes. Utiliza `tree-sitter-java==0.23.5`.
 - `objetivos(estructura)` produce `modulo`, `tipo: funcion`, `objetivo` y `critical`,
   compatibles con los identificadores de los contratos versionados de EN-17.
   La estructura estática no es un contrato del Planner ni propone valores esperados.
-- Los archivos con errores de sintaxis, lectura o sobrecargas no admitidas se
+- Los archivos con errores de sintaxis o lectura se
   reportan en `errores` con `ruta`, `tipo`, `linea` (puede ser `null`) y `mensaje`.
   No se extraen objetivos de esos archivos y se continúa con los demás.
 
@@ -178,8 +178,10 @@ ejecución local del banco; no requiere Maven para verificar su interpretación.
 
 Limitaciones que se conservan: no ofrece objetivos de métodos no públicos ni
 clases locales o anónimas. #182 añadió cobertura JaCoCo y #183 endpoints Spring.
-Las sobrecargas públicas de una misma clase se rechazan porque `Clase.metodo`
-todavía no distingue sus firmas. `validar_sintaxis` no reemplaza `javac`:
+Las sobrecargas se identifican por `Clase.metodo(tipos)` sin descartar el archivo
+(#299, [ADR-019](../../../docs/decisiones/ADR-019-identidad-firmas-java.md)).
+Las firmas borradas duplicadas se omiten individualmente con diagnóstico.
+`validar_sintaxis` no reemplaza `javac`:
 un árbol válido no demuestra que los tipos o dependencias sean correctos.
 La ejecución Maven/JUnit/JaCoCo usa el pipeline compartido de la aplicación;
 los límites de Spring se documentan por separado y no habilitan Gradle.

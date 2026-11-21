@@ -11,8 +11,11 @@ quedan fuera. El motor no llama a un LLM.
 se fija exactamente mediante `targetClasses` y se excluyen los nombres de métodos
 no seleccionados mediante `excludedMethods`. PIT admite expresiones regulares
 con prefijo `~`. Se usa el nombre del método porque el filtro estándar no distingue
-sobrecargas: estas se rechazan antes de ejecutar. El XML se vuelve a contrastar
-con los pares exactos clase/método; un resultado fuera de selección es un error.
+sobrecargas. Desde #299 se excluyen las otras declaraciones mediante FANN y una
+anotación agregada exclusivamente en la copia desechable. El XML se contrasta
+con clase/método/descriptor; un resultado fuera de selección invalida el score.
+Los contratos históricos sin firma conservan su lectura. Véase
+[ADR-019](../decisiones/ADR-019-identidad-firmas-java.md) para los límites y la migración.
 
 ## Ejecución y configuración
 
@@ -207,7 +210,11 @@ aprobados. Se ejecutó con Python 3.10.10, IA simulada, selección
 `not docker and not red`, `--basetemp .qagent/pytest-180-con182` y techo Git en
 `.qagent`. Las dos pruebas Docker se verificaron por separado.
 
-## Límites de esta entrega y dependencias
+## Límites del corte original de #180 y dependencias (histórico)
+
+El siguiente párrafo describe aquel corte. #290 amplió la preparación Maven y
+#299 incorporó identidades por firma y exclusión de otras sobrecargas; siguen
+fuera de PIT las clases anidadas, Gradle y los endpoints.
 
 La ejecución admite proyectos Maven de un módulo sin POM padre, con fuente en
 `src/main/java/paquete/Clase.java` y una sola clase superior inequívoca. No resuelve
