@@ -102,12 +102,14 @@ def test_banco_original_desde_escritorio_hasta_resultados_y_regresion(
         lambda *a, **kw: ProveedorJavaGrabado(),
     )
     contenedores = []
+    comandos = []
     ejecutar_real = ContainerCollection.run
 
     def observar(self, *args, **kwargs):
         """Registra el aislamiento del contenedor sin modificar su ejecución."""
         contenedor = ejecutar_real(self, *args, **kwargs)
         contenedores.append((contenedor.id, kwargs))
+        comandos.append(args[1])
         return contenedor
 
     monkeypatch.setattr(ContainerCollection, "run", observar)
@@ -167,7 +169,10 @@ def test_banco_original_desde_escritorio_hasta_resultados_y_regresion(
     assert repetida.aceptadas == repetida.total_procesados == 3
     assert repetida.tokens == 0
     assert api.abrir_reciente(str(proyecto))["ok"] is True
-    assert len(contenedores) == 9
+    # #305: una construcción previa, seis pruebas nuevas y tres guardadas.
+    assert len(contenedores) == 10
+    assert comandos[0][-2:] == ["clean", "compile"]
+    assert sum(c[-2:] == ["clean", "compile"] for c in comandos) == 1
     for identidad, opciones in contenedores:
         assert opciones["network_mode"] == "none"
         assert opciones["read_only"] is True
