@@ -156,7 +156,7 @@ def _mutar(preparado, codigo: str = PRUEBA):
     mensajes = []
     mutar_modulo(
         raiz,
-        None,
+        "sha256:" + "a" * 64,  # Identidad del entorno simulado; nunca consulta Docker.
         {"funciones": JavaAdapter().funciones_de_modulo(raiz, MODULO)},
         corrida,
         120,
