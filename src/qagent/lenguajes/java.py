@@ -296,6 +296,12 @@ class JavaAdapter(AdaptadorEnDesarrollo):
             raiz, imagen, modulos, limites, cancelado=cancelado
         )
 
+    def preparar_caso_endpoint(
+        self, endpoint: dict[str, Any], caso: dict[str, Any]
+    ) -> dict[str, Any]:
+        """Comparte con funciones Java la normalización exclusiva del ID (#302)."""
+        return self.reglas_planificacion().preparar_caso(endpoint, caso)
+
     requiere_claves_reutilizacion = True
 
     def claves_reutilizacion(

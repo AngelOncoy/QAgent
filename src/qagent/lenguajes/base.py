@@ -625,6 +625,12 @@ class LanguageAdapter(ABC):
         """
         raise NoImplementado(self.lenguaje, "ejecutar_mutacion")
 
+    def preparar_caso_endpoint(
+        self, endpoint: dict[str, Any], caso: dict[str, Any]
+    ) -> dict[str, Any]:
+        """Copia la propuesta HTTP; el adaptador puede reparar solo su forma."""
+        return dict(caso)
+
     requiere_claves_reutilizacion: ClassVar[bool] = False
 
     def claves_reutilizacion(

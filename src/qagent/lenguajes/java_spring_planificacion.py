@@ -84,7 +84,8 @@ def prompt_endpoints(
         "defaultValue permite un error 400 (origen tipo). No inventes otros errores. "
         "No envíes json/json_contiene como respuesta si no hay una especificación "
         "de sus valores. No prepares respuestas de mocks a partir de la implementación. "
-        "Cada caso: id, entrada {metodo,ruta,query,json,headers}, valor_esperado "
+        "Cada caso: id (minúsculas ASCII, números y guion bajo; único por endpoint), "
+        "entrada {metodo,ruta,query,json,headers}, valor_esperado "
         "{status_code}, origen status_code o tipo y categoria normal/error. "
         "La ruta debe sustituir sus parámetros. Omite claves de entrada no usadas. "
         + (
