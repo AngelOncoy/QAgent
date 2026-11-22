@@ -115,6 +115,7 @@ const MOTIVO_SIN_VEREDICTO = {
   error_compilacion_proyecto: 'El proyecto no pudo compilarse. Revisa su diagnóstico; regenerar la prueba no lo corrige.',
   timeout_sandbox: 'La ejecución excedió el tiempo máximo del sandbox.',
   memoria_sandbox: 'La ejecución excedió la memoria del sandbox.',
+  corrida_cancelada: 'La ejecución fue cancelada; no hay veredicto ni cobertura medida.',
   error_cobertura: 'No se pudo producir el informe de cobertura.',
   informe_pruebas_invalido: 'No se recibió un informe de pruebas válido.',
   pruebas_no_ejecutadas: 'Todas las pruebas fueron omitidas; el método no quedó verificado.',

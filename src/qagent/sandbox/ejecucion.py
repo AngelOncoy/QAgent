@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 import shutil
 import tempfile
 import time
@@ -17,6 +18,7 @@ from docker.errors import APIError, ImageNotFound
 from docker.types import Mount
 from requests.exceptions import RequestException
 
+from qagent.recursos import medir, recursos_actuales
 from qagent.sandbox.cliente import obtener_cliente
 from qagent.sandbox.modelos import (
     ETIQUETA_CONTENEDOR,
@@ -83,12 +85,13 @@ def copiar_proyecto(ruta_proyecto: str | Path, destino: str | Path) -> Path:
     if not origen.is_dir():
         raise ErrorSandbox(f"La carpeta del proyecto no existe: {origen}")
     destino = Path(destino)
-    shutil.copytree(
-        origen,
-        destino,
-        symlinks=True,
-        ignore=shutil.ignore_patterns(*EXCLUIDOS_DE_LA_COPIA),
-    )
+    with medir("copias_proyecto"):
+        shutil.copytree(
+            origen,
+            destino,
+            symlinks=True,
+            ignore=shutil.ignore_patterns(*EXCLUIDOS_DE_LA_COPIA),
+        )
     return destino.resolve()
 
 
@@ -133,6 +136,8 @@ def ejecutar_en_sandbox(
         ErrorSandbox: si Docker no puede crear el contenedor.
     """
     cliente = cliente or obtener_cliente()
+    if cancelado is None and (registro := recursos_actuales()) is not None:
+        cancelado = registro.cancelado
     tests = Path(ruta_tests).resolve()
     if not tests.is_dir():
         raise ErrorSandbox(f"La carpeta de tests no existe: {tests}")
@@ -184,6 +189,24 @@ def ejecutar_en_sandbox(
             cancelado=interrumpida,
             duracion_s=round(duracion, 3),
         )
+        if (registro := recursos_actuales()) is not None:
+            from dataclasses import asdict
+
+            registro.registrar("ejecuciones_sandbox", segundos=duracion)
+            registro.fijar("limites_ultimo_contenedor", asdict(limites))
+            # Son observaciones de logs, no equivalencias entre fases Maven y javac.
+            if "QAGENT_JAVA_ETAPA=" in resultado.stdout or comando[-2:] == [
+                "clean",
+                "compile",
+            ]:
+                registro.registrar(
+                    "fases_compile_observadas",
+                    len(re.findall(r"--- compiler:[^\n]*:compile ", resultado.stdout)),
+                )
+                registro.registrar(
+                    "compilaciones_javac_observadas",
+                    len(re.findall(r"Compiling \d+ source files?", resultado.stdout)),
+                )
         if al_terminar is not None:
             al_terminar(copia, salida)
         return resultado
@@ -368,7 +391,7 @@ def _crear_contenedor(
         Mount(DIR_SALIDA, str(salida), type="bind"),
     ]
     try:
-        return cliente.containers.run(
+        contenedor = cliente.containers.run(
             imagen,
             comando,
             detach=True,
@@ -386,6 +409,9 @@ def _crear_contenedor(
             tmpfs={"/tmp": f"rw,size={TMP_TAMANO}"},
             labels=ETIQUETA_CONTENEDOR,
         )
+        if (registro := recursos_actuales()) is not None:
+            registro.anotar_contenedor(contenedor)
+        return contenedor
     except ImageNotFound as exc:
         raise ImagenNoEncontrada(
             f"No existe la imagen '{imagen}'. Prepárala con preparar_imagen()."
@@ -465,5 +491,8 @@ def _eliminar(contenedor: Any) -> None:
     """Elimina el contenedor aunque siga corriendo (equivalente a --rm)."""
     try:
         contenedor.remove(force=True)
+        if (registro := recursos_actuales()) is not None:
+            registro.retirar_contenedor(contenedor)
     except APIError:
-        pass
+        if (registro := recursos_actuales()) is not None:
+            registro.registrar("contenedores_limpieza_fallida")

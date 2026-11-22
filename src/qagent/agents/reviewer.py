@@ -224,6 +224,20 @@ class ReviewerAgent:
                 resultado.coverage, modulo, rango
             ) or self._extraer_cobertura(resultado.coverage)
 
+        if resultado.cancelado:
+            revision = self._resultado(
+                objetivo=contrato["objetivo"],
+                intento=intento,
+                estado_sandbox="error",
+                cobertura=None,
+                laundering_detectado=False,
+                tipo_fallo=None,
+                hash_actual=hash_error("Ejecución cancelada"),
+                decision="stalled",
+                feedback="La ejecución se canceló; no hay veredicto ni cobertura medida.",
+            )
+            revision["motivo_sin_veredicto"] = "corrida_cancelada"
+            return revision
         clasificacion = adaptador.clasificar_ejecucion(resultado)
         if clasificacion is not None and clasificacion.motivo_sin_veredicto:
             revision = self._resultado(

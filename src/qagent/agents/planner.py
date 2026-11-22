@@ -427,6 +427,12 @@ class PlannerAgent:
             contexto = self.proveedor_inferencia(modulo["ruta"], nombre)
             if contexto is not None:
                 contextos[nombre] = contexto
+            proveedor = getattr(self.proveedor_inferencia, "__self__", None)
+            if limite := getattr(proveedor, "ultimo_limite", None):
+                if contexto is None:
+                    self.omitidas[nombre] += "; no se infirió: " + limite
+                else:
+                    self.avisos.append(nombre + ": evidencia parcial por " + limite)
         if not contextos:
             return
 

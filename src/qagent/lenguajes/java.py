@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import os
 from collections.abc import Callable
+from contextlib import AbstractContextManager
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -36,6 +37,7 @@ from qagent.lenguajes.java_cobertura import leer_jacoco
 from qagent.lenguajes.java_estructura import contar_decisiones, desglosar_javadoc
 from qagent.lenguajes.java_junit import interpretar_junit_java
 from qagent.lenguajes.java_llamadas import agregar_llamadas
+from qagent.lenguajes.java_sesion import analizar_fuente
 from qagent.lenguajes.java_spring import extraer_endpoints
 from qagent.lenguajes.registro import listar_archivos
 from qagent.lenguajes.treesitter import extraer_errores_sintaxis, obtener_parser
@@ -43,6 +45,7 @@ from qagent.sandbox.ejecucion import ARCHIVO_JUNIT, DIR_SALIDA, DIR_TESTS
 from qagent.sandbox.modelos import IMAGEN_JAVA, LimitesSandbox, ResultadoSandbox
 
 if TYPE_CHECKING:
+    from qagent.recursos import RegistroRecursos
     from qagent.sandbox.mutacion import ResultadoMutacion
 
 #: Herramientas que trae ``qagent-sandbox:java`` (``sandbox/Dockerfile.java``).
@@ -270,6 +273,14 @@ class JavaAdapter(AdaptadorEnDesarrollo):
     motor_mutacion = "PIT"
     requiere_construccion_previa = True
 
+    def recursos_corrida(
+        self, raiz: Path, cancelado: Callable[[], bool] | None = None
+    ) -> AbstractContextManager[RegistroRecursos]:
+        """Reutiliza análisis estático acotado durante esta corrida, sin compartir salidas."""
+        from qagent.lenguajes.java_sesion import sesion_java
+
+        return sesion_java(raiz, cancelado)
+
     def comprobar_construccion(
         self,
         raiz: Path,
@@ -294,12 +305,11 @@ class JavaAdapter(AdaptadorEnDesarrollo):
         un comentario puede forzar otra ejecución. La sintaxis inválida devuelve
         None; las firmas borradas duplicadas se omiten individualmente.
         """
-        arbol = obtener_parser("java").parse(fuente.encode("utf-8"))
-        if arbol.root_node.has_error:
-            return None
         try:
-            _, funciones = _declaraciones(arbol.root_node)
+            arbol, _, funciones = analizar_fuente(fuente)
         except ValueError:
+            return None
+        if arbol.root_node.has_error:
             return None
         huellas = {
             f["nombre"]: calcular_huella(
@@ -328,10 +338,9 @@ class JavaAdapter(AdaptadorEnDesarrollo):
             return []
         try:
             fuente = archivo.read_text(encoding="utf-8-sig")
-            arbol = obtener_parser("java").parse(fuente.encode("utf-8"))
+            arbol, _, funciones = analizar_fuente(fuente)
             if arbol.root_node.has_error:
                 return []
-            _, funciones = _declaraciones(arbol.root_node)
         except (OSError, UnicodeError, ValueError):
             return []
         return [{"nombre": f["nombre"], "linea": f["linea"]} for f in funciones]
@@ -608,18 +617,16 @@ class JavaAdapter(AdaptadorEnDesarrollo):
         carpeta = Path(raiz)
         modulos = []
         errores = []
-        parser = obtener_parser("java")
         arboles: dict[str, Node] = {}
         for relativa in self.archivos_fuente(carpeta):
             archivo = carpeta / relativa
             try:
                 fuente = archivo.read_text(encoding="utf-8-sig")
-                arbol = parser.parse(fuente.encode("utf-8"))
+                arbol, clases, funciones = analizar_fuente(fuente)
                 if arbol.root_node.has_error:
                     raise ValueError(
                         "; ".join(extraer_errores_sintaxis(arbol.root_node))
                     )
-                clases, funciones = _declaraciones(arbol.root_node)
                 for clase in clases:
                     for diagnostico in clase.get("metodos_no_admitidos", []):
                         errores.append(

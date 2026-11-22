@@ -31,6 +31,7 @@ import time
 from collections.abc import Callable
 from concurrent.futures import Future
 from concurrent.futures import TimeoutError as EsperaAgotada
+from contextlib import ExitStack
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any
@@ -131,6 +132,7 @@ class ResumenCorrida:
     tipo_terminacion: str = "completada"
     objetivos_omitidos: int = 0
     construccion: dict[str, Any] | None = None
+    recursos: dict[str, Any] | None = None
 
     def a_dict(self) -> dict[str, Any]:
         """Versión serializable a JSON (evento `corrida_fin` de la interfaz)."""
@@ -273,6 +275,8 @@ def ejecutar_corrida(
         avisar(mensaje, tipo, datos={ENTORNO: estado})
 
     almacen = AlmacenProyecto(ruta)
+    sesiones = ExitStack()
+    registro_recursos = None
     resumen = ResumenCorrida(
         run_id=run_id,
         estado=FIN,
@@ -306,6 +310,9 @@ def ejecutar_corrida(
             adaptador = adaptador_del_proyecto(ruta)
         except LenguajeNoSoportado as error:
             raise ErrorCorrida(str(error)) from error
+        registro_recursos = sesiones.enter_context(
+            adaptador.recursos_corrida(ruta, cancelado)
+        )
         preparacion_proyecto = adaptador.comprobar_preparacion(ruta)
         if not preparacion_proyecto["compatible"]:
             resumen.estado = FALLO
@@ -343,6 +350,8 @@ def ejecutar_corrida(
             _cerrar_run(almacen, resumen, tipos)
             return resumen
         analisis = adaptador.analizar(ruta)
+        if registro_recursos is not None:
+            registro_recursos.fijar("archivos_analizados", len(analisis["modulos"]))
         modulos = [
             _con_fuente(ruta, m)
             for m in filtrar_modulos(analisis["modulos"], seleccion)
@@ -353,6 +362,11 @@ def ejecutar_corrida(
         n_integraciones = sum(len(m.get("integraciones") or []) for m in modulos)
         n_endpoints = sum(len(m.get("endpoints") or []) for m in modulos)
         n_componentes = sum(len(m.get("componentes") or []) for m in modulos)
+        if registro_recursos is not None:
+            registro_recursos.fijar(
+                "objetivos_seleccionados",
+                n_funciones + n_integraciones + n_endpoints + n_componentes,
+            )
         resumen.total_seleccionados = (
             n_funciones + n_endpoints + n_componentes + n_integraciones
         )
@@ -757,6 +771,11 @@ def ejecutar_corrida(
                 avisar(resumen.motivo, "fallo")
                 break
 
+        if cancelado is not None and cancelado():
+            resumen.estado = FALLO
+            resumen.cancelada = True
+            resumen.tipo_terminacion = "cancelada"
+            resumen.motivo = "Corrida cancelada por el usuario."
         _contar(resumen, resultados, tracker)
         resumen.duracion_etapas.update(etapas_entorno)
         if (
@@ -808,7 +827,29 @@ def ejecutar_corrida(
         resumen.fin = ahora()
         avisar(f"Corrida detenida: {resumen.motivo}", "fallo")
         _cerrar_run(almacen, resumen, tipos)
+    finally:
+        sesiones.close()
+        if registro_recursos is not None:
+            resumen.recursos = registro_recursos.resumen()
+            if resumen.recursos["datos"].get(
+                "contenedores_propios_pendientes_al_cierre"
+            ):
+                avisar(
+                    "No se pudo confirmar la limpieza de todos los contenedores de esta corrida; consulta recursos.json.",
+                    "aviso",
+                )
+            if resumen.run_id is not None and almacen.existe():
+                try:
+                    from qagent.almacenamiento.disco import escribir_json_atomico
 
+                    escribir_json_atomico(
+                        almacen.carpeta_run(resumen.run_id) / "recursos.json",
+                        resumen.recursos,
+                    )
+                except (OSError, ErrorAlmacen) as error:
+                    _registro.warning(
+                        "No se pudieron guardar las mediciones de recursos: %s", error
+                    )
     resumen.duracion_s = resumen.duracion_s or segundos(inicio, reloj())
     resumen.fin = resumen.fin or ahora()
     partes_terminacion = [
