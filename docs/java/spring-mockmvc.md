@@ -37,6 +37,26 @@ JSON no declarado o tipos HTTP incompatibles se rechazan. Las restricciones de
 DTO y las expectativas sobre servicios simulados requieren su validación antes
 de habilitar la generación correspondiente.
 
+## IDs y recuperación de casos del Planner (#302)
+
+Antes de validar cada caso, el adaptador Java aplica la misma normalización de
+IDs que las funciones (#253): minúsculas y sustitución de grupos de caracteres
+ajenos a `[a-z0-9_]` por `_`. Por ejemplo, `CrearPago_Normal` queda como
+`crearpago_normal`. Solo se cambia ese campo; entradas, esperado, excepción y
+origen se conservan. Los tipos de ID incorrectos o un ID vacío no se inventan ni
+convierten para hacerlos válidos.
+
+Las colisiones se comprueban después de normalizar y dentro del endpoint. Se
+conserva el primer caso válido y se diagnostica individualmente el repetido, sin
+eliminar casos u objetivos independientes. Un caso inválido anterior no reserva
+su ID. Las reglas previas de categoría siguen aplicándose después de validar.
+Humo sigue necesitando un caso normal con el estado exitoso declarado: reparar
+el ID de un 400 no lo transforma en el 201 de ResponseStatus(CREATED).
+
+El JSON ilegible sigue siendo un error recuperable del Planner (#127); una
+declaración sin oráculo se omite con su motivo antes de llamar a IA. No se
+amplían oráculos, inferencia, endpoints admitidos ni guardrails de MockMvc.
+
 ## Verificación de este bloque
 
 ```powershell

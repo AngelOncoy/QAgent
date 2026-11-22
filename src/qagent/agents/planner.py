@@ -657,7 +657,7 @@ class PlannerAgent:
                 self.descartados.append("un elemento del plan no es un objeto JSON")
                 continue
             objetivo = elemento.get("objetivo")
-            if objetivo not in endpoints:
+            if not isinstance(objetivo, str) or objetivo not in endpoints:
                 self.descartados.append(f"endpoint desconocido: {objetivo!r}")
                 continue
             if any(c["objetivo"] == objetivo for c in plan):
@@ -709,12 +709,16 @@ class PlannerAgent:
             "llama_a": list(dict.fromkeys(endpoint.get("llama_a") or [])),
         }
         validos: list[dict[str, Any]] = []
-        for caso in casos if isinstance(casos, list) else []:
+        for indice, caso in enumerate(casos if isinstance(casos, list) else [], 1):
             if not isinstance(caso, dict):
                 self.descartados.append(f"{objetivo}: un caso no es un objeto JSON")
                 continue
+            caso = self.adaptador.preparar_caso_endpoint(endpoint, caso)
             if any(caso.get("id") == previo["id"] for previo in validos):
-                self.descartados.append(f"{objetivo}: caso repetido {caso.get('id')!r}")
+                self.descartados.append(
+                    f"{objetivo}: caso {indice}: ID repetido después de normalizar; "
+                    "se conserva el primer caso válido"
+                )
                 continue
             try:
                 contracts.validar(contracts.PLANNER_V3, {**base, "casos": [caso]})
