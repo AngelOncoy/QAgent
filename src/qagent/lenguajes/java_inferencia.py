@@ -11,6 +11,7 @@ from tree_sitter import Node
 
 from qagent.analysis.inferencia import ContextoInferencia, indice_llamadores
 from qagent.lenguajes.treesitter import obtener_parser
+from qagent.recursos import recursos_actuales
 
 MAX_ARCHIVOS = 300
 MAX_BYTES_ARCHIVO = 200_000
@@ -73,11 +74,20 @@ class ProveedorInferenciaJava:
         self._archivos: dict[str, Node | None] = {}
         self._bytes = 0
         self._tests: list[tuple[str, Node]] | None = None
+        self._indices: dict[str, dict[str, Node]] = {}
+        self.ultimo_limite: str | None = None
+
+    def _limite(self, mensaje: str) -> None:
+        self.ultimo_limite = mensaje
+        if (registro := recursos_actuales()) is not None:
+            registro.registrar("limites_inferencia_alcanzados")
+            registro.fijar("ultimo_limite_inferencia", mensaje)
 
     def _leer(self, relativa: str) -> Node | None:
         if relativa in self._archivos:
             return self._archivos[relativa]
         if len(self._archivos) >= MAX_ARCHIVOS or self._bytes >= MAX_BYTES_TOTAL:
+            self._limite("tope de archivos o bytes totales de evidencia estática Java")
             return None
         self._archivos[relativa] = None
         try:
@@ -91,6 +101,9 @@ class ProveedorInferenciaJava:
                 contenido = archivo.read(disponible + 1)
             self._bytes += len(contenido)
             if len(contenido) > disponible:
+                self._limite(
+                    "tope de bytes por archivo o bytes totales de evidencia estática Java"
+                )
                 return None
             fuente = (
                 contenido.decode("utf-8-sig").replace("\r\n", "\n").replace("\r", "\n")
@@ -105,10 +118,15 @@ class ProveedorInferenciaJava:
 
     def _metodo(self, modulo: str, nombre: str) -> Node | None:
         raiz = self._leer(modulo)
-        return _metodos(raiz).get(nombre) if raiz is not None else None
+        if raiz is None:
+            return None
+        if modulo not in self._indices:
+            self._indices[modulo] = _metodos(raiz)
+        return self._indices[modulo].get(nombre)
 
     def contexto(self, modulo: str, nombre: str) -> ContextoInferencia | None:
         """Entrega evidencia de un objetivo analizado; omite cuerpos ausentes o excesivos."""
+        self.ultimo_limite = None
         try:
             return self._contexto(modulo, nombre)
         except (OSError, ValueError, RecursionError):
@@ -123,6 +141,7 @@ class ProveedorInferenciaJava:
             return None
         codigo = _texto(metodo)
         if len(codigo) > self.max_caracteres:
+            self._limite("tope de caracteres del contexto de inferencia Java")
             return None
         raiz = self._leer(modulo)
         imports_estaticos = {
@@ -204,6 +223,7 @@ class ProveedorInferenciaJava:
                 dependencias.pop()
                 simbolos.pop()
             else:
+                self._limite("tope de caracteres del contexto de inferencia Java")
                 return None
 
     def _cargar_tests(self) -> list[tuple[str, Node]]:
@@ -227,6 +247,9 @@ class ProveedorInferenciaJava:
                     continue
                 examinados += 1
                 if examinados > MAX_ARCHIVOS or self._bytes >= MAX_BYTES_TOTAL:
+                    self._limite(
+                        "tope de archivos de pruebas o bytes totales de evidencia estática Java"
+                    )
                     return self._tests
                 raiz = self._leer(relativa)
                 if raiz is not None:

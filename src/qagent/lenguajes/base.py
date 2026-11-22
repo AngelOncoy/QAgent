@@ -22,12 +22,14 @@ from __future__ import annotations
 import os
 from abc import ABC, abstractmethod
 from collections.abc import Callable, Sequence
+from contextlib import AbstractContextManager, nullcontext
 from dataclasses import dataclass, field
 from pathlib import Path, PurePosixPath
 from types import NotImplementedType
 from typing import TYPE_CHECKING, Any, ClassVar, Protocol
 
 if TYPE_CHECKING:
+    from qagent.recursos import RegistroRecursos
     from qagent.sandbox.modelos import LimitesSandbox
 
 Estructura = dict[str, Any]
@@ -436,6 +438,12 @@ class LanguageAdapter(ABC):
         y un mensaje cuando puede detectar una configuración no admitida.
         """
         return {"compatible": True, "mensaje": ""}
+
+    def recursos_corrida(
+        self, raiz: Path, cancelado: Callable[[], bool] | None = None
+    ) -> AbstractContextManager[RegistroRecursos | None]:
+        """Sesión opcional de recursos propios del adaptador; sin caché por defecto."""
+        return nullcontext(None)
 
     def comprobar_construccion(
         self,

@@ -96,6 +96,37 @@ python -m pytest tests/sandbox/test_issue305_construccion_docker.py --docker -q 
 
 ## Comprobaciones reproducibles
 
+### Recursos y análisis por corrida (#308)
+
+Java reutiliza AST de lectura y declaraciones por contenido durante la corrida;
+la sesión se libera al terminar. Consultar el rango de un objetivo solo lee su
+módulo. Las copias, compilaciones y salidas de cada intento siguen aisladas.
+No cambia la política de aprobación de construcción ni las huellas persistentes.
+
+Cada corrida registra `recursos.json` junto a sus resultados: operaciones y
+duraciones observadas, estado de la caché y contenedores propios. CPU/RSS y pico
+de memoria Docker no medidos se expresan como `null`. Los límites efectivos no
+son mediciones de consumo. Las duraciones acumuladas pueden solaparse entre hilos.
+Véase [ADR-021](../decisiones/ADR-021-recursos-y-analisis-java-por-corrida.md).
+
+Para reproducir los escenarios, desde la raíz del repositorio, con IA simulada
+y un directorio de evidencia externo nuevo:
+
+```powershell
+python scripts/medir_java_estatico.py medicion --salida C:/ruta/evidencias-java
+python scripts/medir_java_docker.py medicion --salida C:/ruta/evidencias-java
+```
+
+El primero no ejecuta fuentes. El segundo requiere la receta Java vigente ya
+preparada y ejecuta Maven/JUnit sin red en Docker; usa fixtures y proveedores
+grabados de `tests/`, por lo que es una herramienta del checkout de desarrollo.
+No llama a una API de IA. Separa tiempos, archivos/objetivos, parseos,
+declaraciones, copias, compilaciones observadas y veredictos. Para comparar con
+`fc3ad6f`, copia los scripts fuera del checkout y ejecútalos contra cada revisión
+con `PYTHONPATH` apuntando a su `src`, usando un directorio de salida nuevo para
+cada muestra. Conserva la misma imagen, selección y límites. Una pareja de
+muestras no es una matriz de compatibilidad externa ni una garantía de latencia.
+
 Con el entorno virtual activo y Docker Desktop abierto:
 
 ```powershell

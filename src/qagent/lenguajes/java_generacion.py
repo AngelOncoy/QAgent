@@ -12,7 +12,7 @@ from pathlib import Path, PurePosixPath
 from typing import Any
 
 from qagent.lenguajes.base import Clasificacion, NoImplementado
-from qagent.lenguajes.treesitter import obtener_parser
+from qagent.lenguajes.java_sesion import analizar_fuente
 from qagent.llm.fake import MARCA_CONTRATO
 
 _IDENTIFICADOR = re.compile(r"[A-Za-z_$][A-Za-z0-9_$]*")
@@ -47,7 +47,6 @@ def contexto_java(
     clase. Confirma que el método pertenece al archivo y omite cuerpos e implNote.
     Las rutas externas, enlaces, archivos grandes y fuentes inválidas se rechazan.
     """
-    from qagent.lenguajes.java import _declaraciones
     from qagent.sandbox.archivos_prueba import ruta_de_prueba
 
     if ruta_proyecto is None:
@@ -64,10 +63,10 @@ def contexto_java(
         raise ValueError("La fuente Java excede el límite de contexto.")
     # Igual que Path.read_text del analizador: la firma no cambia por CRLF de Windows.
     texto = contenido.decode("utf-8-sig").replace("\r\n", "\n").replace("\r", "\n")
-    raiz = obtener_parser("java").parse(texto.encode("utf-8")).root_node
+    arbol, clases, funciones = analizar_fuente(texto)
+    raiz = arbol.root_node
     if raiz.has_error:
         raise ValueError("La fuente Java del proyecto contiene errores de sintaxis.")
-    clases, funciones = _declaraciones(raiz)
     objetivo_metodo = (
         contrato.get("manejador")
         if contrato.get("tipo") == "endpoint"

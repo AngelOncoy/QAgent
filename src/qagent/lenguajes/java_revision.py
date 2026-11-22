@@ -117,28 +117,29 @@ class ReglasRevisionJava(ReglasGeneracionJava):
         self, raiz: Path, modulo: str, nombre: str
     ) -> tuple[int, int] | None:
         """Ubica un método por clase y nombre; una sobrecarga no elige al azar."""
-        from qagent.lenguajes.java import JavaAdapter
+        from qagent.lenguajes.java_sesion import analizar_fuente
+        from qagent.sandbox.archivos_prueba import ruta_de_prueba
 
-        estructura = JavaAdapter().analizar(raiz)
+        try:
+            archivo = ruta_de_prueba(raiz, modulo)
+            if archivo.suffix != ".java":
+                return None
+            arbol, _, funciones = analizar_fuente(
+                archivo.read_text(encoding="utf-8-sig")
+            )
+        except (OSError, UnicodeError, ValueError, RecursionError):
+            return None
+        if arbol.root_node.has_error:
+            return None
         funcion = next(
-            (
-                f
-                for m in estructura["modulos"]
-                if m["ruta"] == modulo
-                for f in [
-                    *m["funciones"],
-                    *[{**e, "nombre": e["manejador"]} for e in m.get("endpoints", [])],
-                ]
-                if f["nombre"] == nombre
-            ),
+            (f for f in funciones if f["nombre"] == nombre),
             None,
         )
         if funcion is None:
             return None
         # El rango se usa para mostrar líneas no cubiertas; las métricas se leen
         # directamente de los contadores exactos JaCoCo del método.
-        arbol = obtener_parser("java").parse((raiz / modulo).read_bytes()).root_node
-        pendientes = [arbol]
+        pendientes = [arbol.root_node]
         while pendientes:
             nodo = pendientes.pop()
             if (

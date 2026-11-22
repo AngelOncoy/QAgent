@@ -13,6 +13,7 @@ import copy
 import threading
 import time
 from collections.abc import Callable
+from contextvars import copy_context
 from dataclasses import asdict, dataclass, field
 from typing import Any, TypeVar
 
@@ -1252,8 +1253,11 @@ class Orquestador:
             except BaseException as error:  # noqa: BLE001 — se reporta como fallo controlado
                 salida["error"] = error
 
+        contexto_recursos = copy_context()
         hilo = threading.Thread(
-            target=objetivo_hilo, name=f"qagent-{agente}", daemon=True
+            target=lambda: contexto_recursos.run(objetivo_hilo),
+            name=f"qagent-{agente}",
+            daemon=True,
         )
         hilo.start()
         hilo.join(self.timeout_paso_s)
