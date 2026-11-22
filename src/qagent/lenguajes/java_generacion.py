@@ -151,7 +151,7 @@ def contexto_java(
                 raise ValueError("Tipo de colección no verificable: " + problema)
 
         representaciones = []
-        for caso in contrato["casos"]:
+        for caso in contrato.get("casos", []):
             entradas = _argumentos(funcion, caso.get("entrada"))
             literales = [
                 expresion_coleccion(t, v)
