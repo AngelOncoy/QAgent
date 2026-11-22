@@ -627,6 +627,26 @@ class JavaAdapter(AdaptadorEnDesarrollo):
                     raise ValueError(
                         "; ".join(extraer_errores_sintaxis(arbol.root_node))
                     )
+                from qagent.lenguajes.java_colecciones_ast import problema_origen
+
+                imports = [
+                    _texto(n)
+                    for n in arbol.root_node.named_children
+                    if n.type == "import_declaration"
+                ]
+                for funcion in funciones:
+                    problemas = [
+                        p
+                        for tipo in [
+                            funcion["retorno"],
+                            *[p["tipo"] for p in funcion["parametros"]],
+                        ]
+                        if (p := problema_origen(tipo, imports, clases, archivo.parent))
+                    ]
+                    if problemas:
+                        funcion["colecciones_no_resueltas"] = "; ".join(
+                            dict.fromkeys(problemas)
+                        )
                 for clase in clases:
                     for diagnostico in clase.get("metodos_no_admitidos", []):
                         errores.append(

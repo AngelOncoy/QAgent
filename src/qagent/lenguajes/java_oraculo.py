@@ -22,6 +22,8 @@ from qagent.lenguajes.java_aserciones import (
     resolver,
     texto,
 )
+from qagent.lenguajes.java_colecciones import es_tipo_coleccion, tipo_coleccion
+from qagent.lenguajes.java_colecciones_ast import coincide_coleccion
 from qagent.lenguajes.treesitter import obtener_parser
 
 
@@ -72,6 +74,11 @@ def _validar(contrato, analisis, contexto):
         if not any(a.prueba == prueba for a in analisis.aserciones):
             return f"el método {prueba} no comprueba ningún caso."
     parametros, es_static, retorno = _firma(contrato["firma"])
+    from qagent.lenguajes.java_planificacion import _parametros_de_firma
+
+    tipos_parametros = [
+        p["tipo"] for p in (_parametros_de_firma(contrato["firma"]) or [])
+    ]
     if any(_conversion_texto(a) is not None for a in analisis.aserciones):
         imports = [
             texto(n)
@@ -143,13 +150,23 @@ def _validar(contrato, analisis, contexto):
                 if not entradas_exactas(args, asercion.alias, identidad, esperados):
                     continue
             if len(args) != len(esperados) or not all(
-                _igual(literal(a, asercion.alias), e)
+                (
+                    coincide_coleccion(t, a, e, asercion.alias, entrada=True)
+                    if es_tipo_coleccion(t) and e is not None
+                    else _igual(literal(a, asercion.alias), e)
+                )
                 or (
                     "(" in identidad
                     and e is None
                     and resolver(a, asercion.alias).type == "cast_expression"
                 )
-                for a, e in zip(args, esperados)
+                for a, e, t in zip(
+                    args,
+                    esperados,
+                    tipos_parametros
+                    if len(tipos_parametros) == len(esperados)
+                    else [""] * len(esperados),
+                )
             ):
                 continue
             if not _comprueba(asercion, caso, retorno):
@@ -382,7 +399,13 @@ def _comprueba(asercion: AsercionJava, caso: dict[str, Any], retorno: str) -> bo
         return False
     if not _tipo_comparacion(asercion, esperado, retorno):
         return False
-    if asercion.tipo in {"igualdad", "array"}:
+    if esperado is not None and es_tipo_coleccion(retorno):
+        return (
+            asercion.delta is None
+            and asercion.valor is not None
+            and coincide_coleccion(retorno, asercion.valor, esperado, asercion.alias)
+        )
+    if asercion.tipo in {"igualdad", "array", "iterable"}:
         if not _igual(literal(asercion.valor, asercion.alias), esperado):
             return False
         if asercion.delta is not None:
@@ -415,11 +438,9 @@ def _tipo_comparacion(asercion: AsercionJava, esperado: Any, retorno: str) -> bo
                 and valor is not None
                 and valor.type == "array_creation_expression"
             )
-        return (
-            asercion.tipo == "igualdad"
-            and valor is not None
-            and valor.type == "method_invocation"
-            and simple == "List"
+        modelo = tipo_coleccion(retorno)
+        return modelo is not None and asercion.tipo == (
+            "iterable" if modelo.nombre in {"Collection", "Iterable"} else "igualdad"
         )
     if asercion.tipo == "array":
         return False
@@ -479,7 +500,14 @@ def _argumentos_asercion_validos(asercion: AsercionJava) -> bool:
     base = (
         2
         if asercion.tipo
-        in {"igualdad", "array", "distinto", "excepcion", "excepcion_exacta"}
+        in {
+            "igualdad",
+            "array",
+            "iterable",
+            "distinto",
+            "excepcion",
+            "excepcion_exacta",
+        }
         else 1
     )
     extras = args[base:]
