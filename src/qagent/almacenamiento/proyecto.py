@@ -546,6 +546,7 @@ class AlmacenProyecto:
         ahora: datetime | None = None,
         huella_objetivo: str | None = None,
         perfil: str | None = None,
+        reutilizacion: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         """Guarda la spec de un objetivo: el contrato del Planner y de dónde salió.
 
@@ -583,6 +584,12 @@ class AlmacenProyecto:
             spec["version_huella_objetivo"] = VERSION_HUELLA_OBJETIVO
         if perfil is not None:
             spec["perfil"] = perfil
+        if reutilizacion is not None:
+            from qagent.almacenamiento.reutilizacion import valida
+
+            if not valida(reutilizacion):
+                raise ErrorAlmacen("Metadatos de reutilización no válidos.")
+            spec["reutilizacion"] = dict(reutilizacion)
         _validar_spec(spec)
         self.inicializar()
         escribir_json_atomico(self._ruta_spec(spec["id"]), spec)
@@ -662,6 +669,7 @@ class AlmacenProyecto:
         mutacion: dict[str, Any],
         run_id: str,
         ahora: datetime | None = None,
+        reutilizacion: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         """Guarda el último Mutation Score de una función para reutilizarlo.
 
@@ -687,13 +695,23 @@ class AlmacenProyecto:
             "fecha": _iso(ahora),
             "mutacion": mutacion,
         }
+        if reutilizacion is not None:
+            from qagent.almacenamiento.reutilizacion import valida
+
+            if not valida(reutilizacion):
+                raise ErrorAlmacen("Metadatos de mutación no válidos.")
+            datos["reutilizacion"] = dict(reutilizacion)
         _validar_mutacion(datos)
         self.carpeta_mutacion.mkdir(parents=True, exist_ok=True)
         escribir_json_atomico(self._ruta_mutacion(spec_id), datos)
         return datos
 
     def mutacion_vigente(
-        self, spec_id: str, huella_objetivo: str | None, huella_prueba: str | None
+        self,
+        spec_id: str,
+        huella_objetivo: str | None,
+        huella_prueba: str | None,
+        reutilizacion: dict[str, Any] | None = None,
     ) -> dict[str, Any] | None:
         """Último Mutation Score guardado si la función y su prueba no cambiaron.
 
@@ -713,6 +731,11 @@ class AlmacenProyecto:
             huella_prueba,
         ):
             return None
+        if reutilizacion is not None:
+            from qagent.almacenamiento.reutilizacion import vigente
+
+            if not vigente(datos.get("reutilizacion"), reutilizacion, "mutacion"):
+                return None
         return datos
 
     def migrar_huella_objetivo(self, spec_id: str, anterior: str, nueva: str) -> bool:
@@ -771,6 +794,7 @@ class AlmacenProyecto:
         accion: str,
         ahora: datetime | None = None,
         perfiles: dict[str, str] | None = None,
+        reutilizacion: dict[str, dict[str, Any]] | None = None,
     ) -> dict[str, Any]:
         """Guarda el plan completo de un módulo para reutilizarlo en otra corrida.
 
@@ -802,6 +826,12 @@ class AlmacenProyecto:
         }
         if perfiles:
             plan["perfiles"] = dict(perfiles)
+        if reutilizacion is not None:
+            from qagent.almacenamiento.reutilizacion import valida
+
+            if not all(valida(v) for v in reutilizacion.values()):
+                raise ErrorAlmacen("Metadatos del plan no válidos.")
+            plan["reutilizacion"] = reutilizacion
         _validar_plan_modulo(plan)
         self.inicializar()
         escribir_json_atomico(self._ruta_plan_modulo(modulo), plan)
@@ -819,7 +849,12 @@ class AlmacenProyecto:
             raise DatoCorrupto(f"{ruta}: el módulo no coincide con el archivo.")
         return plan
 
-    def buscar_plan_vigente(self, modulo: str, huella: str) -> dict[str, Any] | None:
+    def buscar_plan_vigente(
+        self,
+        modulo: str,
+        huella: str,
+        reutilizacion: dict[str, dict[str, Any]] | None = None,
+    ) -> dict[str, Any] | None:
         """Devuelve la spec solo cuando sigue vigente y la huella coincide."""
         try:
             plan = self.leer_plan_modulo(modulo)
@@ -827,6 +862,24 @@ class AlmacenProyecto:
             return None
         if plan["estado"] != "vigente" or plan["huella"] != huella:
             return None
+        from qagent.almacenamiento.reutilizacion import requiere_claves, vigente
+
+        metadatos = plan.get("reutilizacion")
+        metadatos = metadatos if isinstance(metadatos, dict) else {}
+        contratos = [
+            c
+            for c in plan["contratos"]
+            if not requiere_claves(c)
+            or vigente(
+                metadatos.get(c["objetivo"]),
+                (reutilizacion or {}).get(c["objetivo"]),
+                "spec",
+            )
+        ]
+        if not contratos:
+            return None
+        if len(contratos) != len(plan["contratos"]):
+            plan = {**plan, "contratos": contratos}
         return plan
 
     def listar_planes_modulo(self) -> list[dict[str, Any]]:

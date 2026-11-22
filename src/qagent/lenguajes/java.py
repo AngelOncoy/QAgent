@@ -296,6 +296,32 @@ class JavaAdapter(AdaptadorEnDesarrollo):
             raiz, imagen, modulos, limites, cancelado=cancelado
         )
 
+    requiere_claves_reutilizacion = True
+
+    def claves_reutilizacion(
+        self,
+        raiz: Path,
+        modulos: list[dict[str, Any]],
+        configuracion: Any = None,
+        imagen: str | None = None,
+        *,
+        inferir: bool | None = None,
+    ) -> dict[tuple[str, str], dict[str, Any]]:
+        """Claves independientes de specs, ejecución y PIT, sin ejecutar fuentes."""
+        from qagent.lenguajes.java_vigencia import claves
+
+        return claves(Path(raiz), modulos, configuracion, imagen, inferir=inferir)
+
+    def identidad_imagen(self, imagen: str) -> str:
+        """Fija la imagen real; no confía en una etiqueta mutable para reutilizar."""
+        from qagent.sandbox import obtener_cliente
+
+        return (
+            imagen
+            if imagen.startswith("sha256:")
+            else obtener_cliente().images.get(imagen).id
+        )
+
     def huellas_de_archivo(self, fuente: str, relativa: str) -> dict[str, str] | None:
         """Devuelve SHA-256 por método público, sin ejecutar Java (#180).
 

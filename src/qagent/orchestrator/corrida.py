@@ -277,6 +277,7 @@ def ejecutar_corrida(
     almacen = AlmacenProyecto(ruta)
     sesiones = ExitStack()
     registro_recursos = None
+    reutilizacion = None
     resumen = ResumenCorrida(
         run_id=run_id,
         estado=FIN,
@@ -500,7 +501,19 @@ def ejecutar_corrida(
         def preparar_modulo(modulo: dict[str, Any]) -> _ModuloPreparado:
             """Decide si se reutiliza la spec vigente y planifica el módulo."""
             plan_guardado = almacen.buscar_plan_vigente(
-                modulo["ruta"], modulo["huella"]
+                modulo["ruta"],
+                modulo["huella"],
+                **(
+                    {
+                        "reutilizacion": {
+                            o: v
+                            for (r, o), v in reutilizacion.items()
+                            if r == modulo["ruta"]
+                        }
+                    }
+                    if reutilizacion is not None
+                    else {}
+                ),
             )
             habia_spec = _existe_plan_modulo(almacen, modulo["ruta"])
             perfiles: dict[str, str] = dict((plan_guardado or {}).get("perfiles") or {})
@@ -554,10 +567,29 @@ def ejecutar_corrida(
                     )
                 elif accion == "regenerado":
                     avisar(
-                        "El código o docstring cambió: regenerando spec",
+                        "El código o docstring cambió: regenerando spec"
+                        if reutilizacion is None
+                        else "El código, las dependencias, la evidencia o la configuración cambió: regenerando spec",
                         archivo=modulo["ruta"],
                     )
-                plan = orquestador.planificar(modulo)
+                if reutilizacion is not None and elegidos and faltan:
+                    parcial = {
+                        **modulo,
+                        "funciones": [
+                            f
+                            for f in modulo.get("funciones", [])
+                            if f["nombre"] in faltan
+                        ],
+                        "endpoints": [
+                            e
+                            for e in modulo.get("endpoints", [])
+                            if e.get("objetivo") in faltan
+                        ],
+                    }
+                    plan = orquestador.planificar(parcial)
+                    plan.contratos = [*elegidos, *plan.contratos]
+                else:
+                    plan = orquestador.planificar(modulo)
             return _ModuloPreparado(plan, accion, plan_guardado, perfiles, completos)
 
         def sin_recursos() -> bool:
@@ -724,6 +756,15 @@ def ejecutar_corrida(
                 )
                 avisar(resumen.motivo, "fallo")
                 break
+            if reutilizacion is None:
+                reutilizacion = adaptador.claves_reutilizacion(
+                    ruta, analisis["modulos"], configuracion, imagen, inferir=inferir
+                )
+                if reutilizacion is not None and not reutilizacion:
+                    avisar(
+                        "No se pudo comprobar todo el contexto estático: se continúa sin reutilizar contratos ni scores guardados.",
+                        "aviso",
+                    )
             preparado = preparados.pop(modulo["ruta"], None) or preparar_modulo(modulo)
             resultado = orquestador.ejecutar(modulo, plan_previo=preparado.plan)
             if perfil == PERFIL_PROFUNDO:
@@ -743,6 +784,11 @@ def ejecutar_corrida(
                     run_id=resumen.run_id,
                     huellas=huellas,
                     limites=limites,
+                    **(
+                        {"reutilizacion": reutilizacion}
+                        if reutilizacion is not None
+                        else {}
+                    ),
                 )
             resultados.append(resultado)
             spec = _spec_de_modulo(modulo, resultado.plan_completo, preparado, perfil)
@@ -808,6 +854,7 @@ def ejecutar_corrida(
             no_soportados=no_soportados,
             fuera_de_la_corrida=fuera,
             al_aviso=lambda mensaje: avisar(mensaje, "aviso"),
+            reutilizacion=reutilizacion,
         )
     except Exception as error:  # noqa: BLE001 — la corrida nunca debe tumbar la app
         if "tracker" in locals():
@@ -1239,6 +1286,7 @@ def _registrar(
     no_soportados: list[dict[str, str]] | None = None,
     fuera_de_la_corrida: list[dict[str, Any]] | None = None,
     al_aviso: Callable[[str], None] | None = None,
+    reutilizacion: dict[tuple[str, str], dict[str, Any]] | None = None,
 ) -> None:
     """log.json y results.json, specs y pruebas aprobadas, y cierre del run.json.
 
@@ -1327,6 +1375,9 @@ def _registrar(
                         archivo,
                         huella_objetivo=huella,
                         perfil=perfil_spec,
+                        reutilizacion=(reutilizacion or {}).get(
+                            (resultado.modulo, objetivo.objetivo)
+                        ),
                     )
         registros = []
         for plan in planes_specs:
@@ -1337,6 +1388,13 @@ def _registrar(
                 resumen.run_id,
                 plan["accion"],
                 perfiles=plan["perfiles"],
+                reutilizacion={
+                    c["objetivo"]: reutilizacion[(plan["modulo"], c["objetivo"])]
+                    for c in plan["contratos"]
+                    if (plan["modulo"], c["objetivo"]) in reutilizacion
+                }
+                if reutilizacion is not None
+                else None,
             )
             registros.append(
                 {
