@@ -235,13 +235,32 @@ def test_evidencia_anterior_conserva_procedencia_y_es_idempotente(historial_cort
     assert antigua["huella_prueba"] == huella_de_prueba(CODIGO)
 
 
-def test_plan_modular_anterior_se_reutiliza_y_exporta(historial_corto):
+@pytest.mark.parametrize("con_contexto", [True, False])
+def test_plan_modular_anterior_se_reutiliza_y_exporta(historial_corto, con_contexto):
     """El hash nuevo no invalida la caché modular ni su descarga histórica."""
     almacen = AlmacenProyecto(historial_corto)
     run = almacen.crear_run()
     contrato = contrato_java()
+    metadatos = (
+        {
+            OBJETIVO: {
+                "version": "1",
+                "spec": "a" * 64,
+                "pruebas": "b" * 64,
+                "mutacion": "c" * 64,
+                "entorno": "imagen-simulada",
+            }
+        }
+        if con_contexto
+        else None
+    )
     plan = almacen.guardar_plan_modulo(
-        MODULO, contrato["huella"], [contrato], run["run_id"], "generado"
+        MODULO,
+        contrato["huella"],
+        [contrato],
+        run["run_id"],
+        "generado",
+        reutilizacion=metadatos,
     )
     historico_id = (
         "src__main__java__org__qagent__bench__BancoDefectuoso--"
@@ -252,7 +271,9 @@ def test_plan_modular_anterior_se_reutiliza_y_exporta(historial_corto):
     actual.rename(historica)
     original = historica.read_bytes()
     assert almacen.leer_plan_modulo(MODULO) == plan
-    assert almacen.buscar_plan_vigente(MODULO, contrato["huella"]) == plan
+    assert almacen.buscar_plan_vigente(MODULO, contrato["huella"], metadatos) == (
+        plan if con_contexto else None
+    )
     assert almacen.crear_zip_specs(MODULO)[1].startswith(b"PK")
     assert almacen.listar_planes_modulo() == [plan]
     reutilizado = almacen.guardar_plan_modulo(
@@ -263,8 +284,9 @@ def test_plan_modular_anterior_se_reutiliza_y_exporta(historial_corto):
     assert historica.read_bytes() == original
 
 
+@pytest.mark.parametrize("con_contexto", [True, False])
 def test_regresion_ejecuta_una_prueba_java_historica_sin_ia(
-    historial_corto, monkeypatch
+    historial_corto, monkeypatch, con_contexto
 ):
     """Repite una spec y archivo del formato anterior; el ejecutor es simulado."""
     # #290 comprueba el descriptor antes de preparar cualquier ejecución Java.
@@ -293,6 +315,15 @@ def test_regresion_ejecuta_una_prueba_java_historica_sin_ia(
         huella_objetivo=huellas_de_objetivos(historial_corto)[(MODULO, OBJETIVO)],
         version_huella_objetivo=2,
     )
+    if con_contexto:
+        from qagent.lenguajes import JavaAdapter
+
+        adaptador = JavaAdapter()
+        antigua["reutilizacion"] = adaptador.claves_reutilizacion(
+            historial_corto,
+            adaptador.analizar(historial_corto)["modulos"],
+            imagen="imagen-simulada",
+        )[(MODULO, OBJETIVO)]
     ruta.write_text(json.dumps(antigua), encoding="utf-8")
     bytes_anteriores = ruta.read_bytes()
     llamadas = []
@@ -325,8 +356,10 @@ def test_regresion_ejecuta_una_prueba_java_historica_sin_ia(
         ejecutor=simular,
     )
     assert resultado.estado == "fin", resultado.motivo
-    assert resultado.aceptadas == resultado.total_procesados == 1
+    assert resultado.total_procesados == 1
+    assert resultado.aceptadas == int(con_contexto)
+    assert resultado.requieren_corrida_nueva == int(not con_contexto)
     assert resultado.tokens == 0
-    assert len(llamadas) == 1
+    assert len(llamadas) == int(con_contexto)
     assert ruta.read_bytes() == bytes_anteriores
     assert pom.read_bytes() == pom_original

@@ -625,6 +625,24 @@ class LanguageAdapter(ABC):
         """
         raise NoImplementado(self.lenguaje, "ejecutar_mutacion")
 
+    requiere_claves_reutilizacion: ClassVar[bool] = False
+
+    def claves_reutilizacion(
+        self,
+        raiz: Path,
+        modulos: list[dict[str, Any]],
+        configuracion: Any = None,
+        imagen: str | None = None,
+        *,
+        inferir: bool | None = None,
+    ) -> dict[tuple[str, str], dict[str, Any]] | None:
+        """Snapshot adicional de vigencia; None conserva la política del adaptador."""
+        return None
+
+    def identidad_imagen(self, imagen: str) -> str:
+        """Identidad del entorno preparado para comparar reutilización."""
+        return imagen
+
     def huellas_de_archivo(self, fuente: str, relativa: str) -> dict[str, str] | None:
         """Huella de cada función y endpoint de un archivo fuente (HU-24, HU-25).
 

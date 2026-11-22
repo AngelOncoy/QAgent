@@ -5,6 +5,7 @@ from pathlib import Path
 import pytest
 
 from qagent.almacenamiento import AlmacenProyecto, ErrorAlmacen, id_de_modulo
+from qagent.lenguajes import JavaAdapter
 from tests.agents.test_generator_java import preparar
 
 
@@ -30,9 +31,19 @@ def test_plan_java_se_guarda_y_se_reutiliza(tmp_path: Path) -> None:
     contrato = preparar(tmp_path)
     almacen = AlmacenProyecto(tmp_path)
     modulo, huella = contrato["modulo"], contrato["huella"]
+    adaptador = JavaAdapter()
+    contexto = adaptador.claves_reutilizacion(
+        tmp_path, adaptador.analizar(tmp_path)["modulos"]
+    )
+    metadatos = {contrato["objetivo"]: contexto[(modulo, contrato["objetivo"])]}
     plan = almacen.guardar_plan_modulo(
-        modulo, huella, [contrato], "20261031-000000-0182", "generado"
+        modulo,
+        huella,
+        [contrato],
+        "20261031-000000-0182",
+        "generado",
+        reutilizacion=metadatos,
     )
     assert almacen.leer_plan_modulo(modulo) == plan
-    assert almacen.buscar_plan_vigente(modulo, huella) == plan
+    assert almacen.buscar_plan_vigente(modulo, huella, metadatos) == plan
     assert almacen.buscar_plan_vigente(modulo, "0" * 64) is None

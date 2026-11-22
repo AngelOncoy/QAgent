@@ -15,6 +15,7 @@ from qagent import contracts
 from qagent.agents.planner import contrato_sin_triviales
 from qagent.almacenamiento import AlmacenProyecto, id_de_spec
 from qagent.almacenamiento.proyecto import VERSION_HUELLA_OBJETIVO
+from qagent.almacenamiento.reutilizacion import requiere_claves, vigente
 from qagent.analysis.analyzer import calcular_huella
 from qagent.lenguajes import REGISTRO, LanguageAdapter, adaptador_de_contrato
 from qagent.llm.tracker import TokenTracker
@@ -22,6 +23,7 @@ from qagent.orchestrator.estados import Estado
 from qagent.orchestrator.eventos import Evento
 from qagent.orchestrator.mutacion import mutar_modulo
 from qagent.orchestrator.orquestador import ResultadoCorrida, ResultadoObjetivo
+from qagent.orchestrator.reutilizacion import claves_actuales
 from qagent.orchestrator.tiempos import (
     etapas_vacias,
     iso_utc,
@@ -99,6 +101,8 @@ def _migrar_huellas_guardadas(raiz: Path, huellas: dict[tuple[str, str], str]) -
             continue
         anterior = spec.get("huella_objetivo")
         contrato = spec["contrato"]
+        if requiere_claves(contrato):
+            continue  # No certificar retrospectivamente el contexto de registros Java.
         nueva = huellas.get((contrato["modulo"], contrato["objetivo"]))
         if not anterior or nueva is None:
             continue
@@ -203,6 +207,7 @@ def objetivos_repetibles(ruta_proyecto: str | Path) -> list[dict[str, str]]:
     raiz = Path(ruta_proyecto)
     almacen = AlmacenProyecto(raiz)
     huellas = huellas_de_objetivos(raiz)
+    contextos = claves_actuales(raiz)
     repetibles = []
     for spec in _specs_aprobadas(almacen):
         contrato = _contrato_para_regresion(spec)
@@ -214,6 +219,13 @@ def objetivos_repetibles(ruta_proyecto: str | Path) -> list[dict[str, str]]:
             spec.get("_motivo_regresion")
             or not esperada
             or huellas.get(clave) != esperada
+            or requiere_claves(contrato)
+            and not vigente(
+                spec.get("reutilizacion"),
+                contextos.get(clave),
+                "pruebas",
+                comprobar_entorno=False,
+            )
         ):
             continue
         if not (almacen.carpeta_tests / spec["archivo_prueba"]).is_file():
@@ -303,6 +315,7 @@ def ejecutar_regresion(
     tracker = TokenTracker(configuracion.agentes)
     resultados: list[ResultadoCorrida] = []
     huellas = huellas_de_objetivos(raiz)
+    contextos = claves_actuales(raiz, configuracion)
     marcadas = (
         None
         if seleccion is None
@@ -427,6 +440,17 @@ def ejecutar_regresion(
                 motivo = "huella_distinta"
             elif motivo is None and codigo is None:
                 motivo = "prueba_ausente"
+            if (
+                motivo is None
+                and requiere_claves(contrato)
+                and not vigente(
+                    spec.get("reutilizacion"),
+                    contextos.get((modulo, objetivo)),
+                    "pruebas",
+                    comprobar_entorno=False,
+                )
+            ):
+                motivo = "huella_distinta"
             if motivo:
                 fin_objetivo = ahora()
                 obj = ResultadoObjetivo(
@@ -474,6 +498,38 @@ def ejecutar_regresion(
                     if preparar_imagen is not None
                     else _preparar_imagen(raiz, adaptador)
                 )
+                if preparar_imagen is None:
+                    imagen = adaptador.identidad_imagen(imagen)
+            if requiere_claves(contrato):
+                actual_contexto = dict(contextos.get((modulo, objetivo)) or {})
+                actual_contexto["entorno"] = imagen
+                if not vigente(spec.get("reutilizacion"), actual_contexto, "pruebas"):
+                    obj = ResultadoObjetivo(
+                        objetivo,
+                        es_critica(modulo, objetivo, contrato),
+                        decision="requiere_corrida_nueva",
+                        contrato=contrato,
+                        codigo=codigo,
+                        motivo_regresion="huella_distinta",
+                    )
+                    resultados.append(
+                        ResultadoCorrida(
+                            modulo,
+                            Estado.FIN,
+                            None,
+                            [obj],
+                            [Estado.PLANIFICAR, Estado.FIN],
+                            {},
+                            0.0,
+                        )
+                    )
+                    emitir(
+                        f"{objetivo}: requiere corrida nueva (entorno distinto)",
+                        modulo,
+                        "veredicto",
+                        {"decision": "requiere_corrida_nueva", "objetivo": objetivo},
+                    )
+                    continue
             emitir(f"Reejecutando prueba aprobada: {objetivo} (sin IA)", modulo)
             t0 = reloj()
             with tempfile.TemporaryDirectory(prefix="qagent-regresion-") as temporal:
@@ -718,6 +774,7 @@ def _mutar_criticas(
     from qagent.orchestrator.corrida import limites_del_lenguaje
 
     tiempo = getattr(configuracion, "mutacion", Mutacion()).tiempo_maximo_por_funcion_s
+    contextos = claves_actuales(raiz, configuracion, imagen)
     por_modulo: dict[str, list[ResultadoObjetivo]] = {}
     for resultado in resultados:
         por_modulo.setdefault(resultado.modulo, []).extend(resultado.objetivos)
@@ -737,6 +794,11 @@ def _mutar_criticas(
             huellas=huellas,
             con_endpoints=False,
             limites=limites_del_lenguaje(configuracion, adaptador.lenguaje),
+            **(
+                {"reutilizacion": contextos}
+                if adaptador.requiere_claves_reutilizacion
+                else {}
+            ),
         )
 
 

@@ -18,6 +18,7 @@ ni ella ni las pruebas usadas cambiaron (`.qagent/mutacion/`, #70) y guarda los 
 
 from __future__ import annotations
 
+import json
 import logging
 import tempfile
 from collections.abc import Callable
@@ -71,6 +72,7 @@ def mutar_modulo(
     huellas: dict[tuple[str, str], str] | None = None,
     con_endpoints: bool = True,
     limites: LimitesSandbox = LIMITES_POR_DEFECTO,
+    reutilizacion: dict[tuple[str, str], dict[str, Any]] | None = None,
 ) -> None:
     """Ejecuta mutmut sobre las funciones críticas aprobadas y anota el resultado.
 
@@ -98,6 +100,14 @@ def mutar_modulo(
     objetivos = criticas_aprobadas(resultado, con_endpoints)
     if not objetivos:
         return
+    contrato = objetivos[0].contrato
+    adaptador = adaptador_de_contrato(contrato) if contrato else None
+    if adaptador and adaptador.requiere_claves_reutilizacion and mutador is None:
+        imagen = adaptador.identidad_imagen(imagen)
+    if reutilizacion is None and adaptador and adaptador.requiere_claves_reutilizacion:
+        reutilizacion = adaptador.claves_reutilizacion(
+            raiz, adaptador.analizar(raiz)["modulos"], imagen=imagen
+        )
     avisar = avisar or (lambda _mensaje: None)
     aprobadas = _aprobadas(resultado)
     # Las pruebas que se usan contra los mutantes son todas las aprobadas del módulo:
@@ -105,11 +115,31 @@ def mutar_modulo(
     huella_pruebas = huella_de_prueba(
         "\n".join(sorted(o.codigo or "" for o in aprobadas))
     )
+    if adaptador and adaptador.requiere_claves_reutilizacion:
+        huella_pruebas = huella_de_prueba(
+            json.dumps(
+                [
+                    huella_pruebas,
+                    imagen,
+                    tiempo_por_funcion_s,
+                    limites.cpus,
+                    limites.memoria,
+                    limites.timeout_s,
+                ]
+            )
+        )
 
     pendientes: list[ResultadoObjetivo] = []
     for objetivo in objetivos:
         guardado = _guardado(
-            almacen, huellas, resultado.modulo, objetivo, huella_pruebas
+            almacen,
+            huellas,
+            resultado.modulo,
+            objetivo,
+            huella_pruebas,
+            (reutilizacion or {}).get((resultado.modulo, objetivo.objetivo), {})
+            if reutilizacion is not None
+            else None,
         )
         if guardado is None:
             pendientes.append(objetivo)
@@ -191,7 +221,17 @@ def mutar_modulo(
         )
         objetivo.mutacion = a_dict(mutacion)
         avisar(texto_para_monitor(mutacion))
-        _guardar(almacen, huellas, run_id, resultado.modulo, objetivo, huella_pruebas)
+        _guardar(
+            almacen,
+            huellas,
+            run_id,
+            resultado.modulo,
+            objetivo,
+            huella_pruebas,
+            (reutilizacion or {}).get((resultado.modulo, objetivo.objetivo), {})
+            if reutilizacion is not None
+            else None,
+        )
 
 
 def a_dict(mutacion: MutacionFuncion) -> dict[str, Any]:
@@ -260,6 +300,7 @@ def _guardado(
     modulo: str,
     objetivo: ResultadoObjetivo,
     huella_pruebas: str,
+    reutilizacion: dict[str, Any] | None = None,
 ) -> dict[str, Any] | None:
     """Resultado guardado de la función si sigue valiendo (#70)."""
     if almacen is None or huellas is None:
@@ -268,6 +309,7 @@ def _guardado(
         id_de_spec(modulo, objetivo.objetivo),
         huellas.get((modulo, objetivo.objetivo)),
         huella_pruebas,
+        **({"reutilizacion": reutilizacion} if reutilizacion is not None else {}),
     )
 
 
@@ -278,9 +320,14 @@ def _guardar(
     modulo: str,
     objetivo: ResultadoObjetivo,
     huella_pruebas: str,
+    reutilizacion: dict[str, Any] | None = None,
 ) -> None:
     """Guarda un resultado con puntuación para la próxima corrida (#70)."""
     mutacion = objetivo.mutacion or {}
+    from qagent.almacenamiento.reutilizacion import valida
+
+    if reutilizacion is not None and not valida(reutilizacion):
+        return
     huella = (huellas or {}).get((modulo, objetivo.objetivo))
     if (
         almacen is None
@@ -297,6 +344,7 @@ def _guardar(
             huella_pruebas,
             mutacion,
             run_id,
+            **({"reutilizacion": reutilizacion} if reutilizacion is not None else {}),
         )
     except (ErrorAlmacen, OSError) as error:
         _registro.warning(
