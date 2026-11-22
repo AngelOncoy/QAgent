@@ -8,6 +8,12 @@ import re
 from typing import Any
 
 from qagent.lenguajes import java_spring_planificacion as spring
+from qagent.lenguajes.java_colecciones import (
+    compatible_coleccion,
+    es_tipo_coleccion,
+    reglas_colecciones,
+    tipo_coleccion,
+)
 from qagent.llm.fake import MARCA_MODULO, MARCA_OBJETIVOS
 
 _ENTEROS = {
@@ -70,7 +76,9 @@ def prompt_funciones(modulo: dict[str, Any], humo: bool) -> str:
         "devuelve casos: [] para ese objetivo. No pruebes errores de compilación ni "
         "argumentos que no correspondan a la firma. No uses notas de implementación "
         "ni los defectos sembrados como oráculo. Los números JSON deben ser finitos.\n"
-        f"{MARCA_MODULO} {modulo['ruta']}\n"
+        + reglas_colecciones()
+        + "\n"
+        + f"{MARCA_MODULO} {modulo['ruta']}\n"
         f"{MARCA_OBJETIVOS} {json.dumps(objetivos, ensure_ascii=False)}"
     )
 
@@ -144,14 +152,13 @@ def _compatible(tipo: str, valor: Any) -> bool:
     if valor is None:
         return not primitivo
     if tipo.endswith("[]"):
+        if es_tipo_coleccion(tipo[:-2]):
+            return False
         return isinstance(valor, list) and all(_compatible(tipo[:-2], v) for v in valor)
-    coleccion = re.fullmatch(
-        r"(?:java\.util\.)?(?:List|Collection|Iterable|Set)<(.+)>", tipo
-    )
-    if coleccion:
-        return isinstance(valor, list) and all(
-            _compatible(coleccion[1], v) for v in valor
-        )
+    if es_tipo_coleccion(tipo):
+        return compatible_coleccion(tipo, valor)
+    if isinstance(valor, (list, dict)):
+        return False
     tipo = _CAJAS.get(tipo, tipo)
     if tipo in _ENTEROS:
         minimo, maximo = _ENTEROS[tipo]
@@ -234,6 +241,8 @@ class ReglasPlanificacionJava:
                 else ""
             )
             + "Devuelve solo JSON [{objetivo,casos}], sin Markdown.\n"
+            + reglas_colecciones()
+            + "\n"
             + f"{MARCA_MODULO} {modulo['ruta']}\n"
             + f"{MARCA_OBJETIVOS} {json.dumps(objetivos, ensure_ascii=False)}"
         )
@@ -250,7 +259,32 @@ class ReglasPlanificacionJava:
     @staticmethod
     def es_caso_trivial(funcion: dict[str, Any], caso: dict[str, Any]) -> bool:
         """Detecta invocaciones con nombres, aridad o tipos claramente incompatibles."""
+        parametros = funcion.get("parametros")
+        if parametros is None:
+            parametros = _parametros_de_firma(funcion.get("firma")) or []
+        if any(
+            p["tipo"].endswith("...") and es_tipo_coleccion(p["tipo"][:-3])
+            for p in parametros
+        ):
+            return True
+        if "(" in funcion.get("nombre", "") and any(
+            (m := tipo_coleccion(p["tipo"])) is not None
+            and m.nombre in {"Collection", "Iterable"}
+            for p in parametros
+        ):
+            return True
+        if re.search(r"(?:\(|,)(?:List|Set)(?:,|\))", funcion.get("nombre", "")):
+            return True  # ADR-019 conserva firmas con imports comodín sin calificarlas.
         ligados = _argumentos(funcion, caso.get("entrada"))
+        if "(" in funcion.get("nombre", "") and any(
+            (m := tipo_coleccion(t)) is not None
+            and m.nombre == "Set"
+            and isinstance(v, list)
+            and len(v) > 1
+            and None in v
+            for t, v in (ligados or [])
+        ):
+            return True  # HashSet literal no prueba despacho a la sobrecarga Set.
         return ligados is None or any(not _compatible(t, v) for t, v in ligados)
 
     @staticmethod
@@ -279,6 +313,32 @@ class ReglasPlanificacionJava:
         comprueban que la fuente exista y no contradiga tipos o excepciones.
         No constituyen una demostración automática de toda descripción natural.
         """
+        if funcion.get("colecciones_no_resueltas"):
+            return (
+                "tipo de colección incompatible: " + funcion["colecciones_no_resueltas"]
+            )
+        modelo = tipo_coleccion(funcion.get("retorno") or "")
+        esperado_coleccion = caso.get("valor_esperado")
+        if (
+            modelo is not None
+            and modelo.nombre in {"Collection", "Iterable"}
+            and isinstance(esperado_coleccion, list)
+            and len(esperado_coleccion) > 1
+        ):
+            doc = _documentacion(funcion)
+            declaracion = (
+                (doc.get("descripcion") or "") + " " + (doc.get("retorno") or "")
+            )
+            if re.search(
+                r"sin orden|unordered|no.*garant.*orden|unspecified order",
+                declaracion,
+                re.IGNORECASE,
+            ) or not re.search(
+                r"orden|order|secuencia|sequence|primero|first|iteraci[oó]n|iteration",
+                declaracion,
+                re.IGNORECASE,
+            ):
+                return "Collection/Iterable requiere orden de iteración documentado; no se inventa orden para el esperado"
         if caso.get("origen") == "inferido":
             motivo = ReglasPlanificacionJava._motivo_inferido(funcion, caso)
             if motivo:

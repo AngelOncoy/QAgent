@@ -15,12 +15,15 @@ from typing import Any
 
 from tree_sitter import Node
 
+from qagent.lenguajes.java_colecciones import ConjuntoLiteral
+from qagent.lenguajes.java_colecciones_ast import nombre_import, origen_util
 from qagent.lenguajes.treesitter import obtener_parser
 
 NO_LITERAL = object()
 _ASERCIONES = {
     "assertEquals",
     "assertArrayEquals",
+    "assertIterableEquals",
     "assertNotEquals",
     "assertTrue",
     "assertFalse",
@@ -125,8 +128,35 @@ def literal(
             return json.loads(valor)
         except (ValueError, json.JSONDecodeError):
             return NO_LITERAL
-    if nodo.type == "character_literal" and len(valor) == 3:
-        return valor[1]
+    if nodo.type == "character_literal":
+        interior = valor[1:-1]
+        escapes = {
+            r"\n": "\n",
+            r"\r": "\r",
+            r"\t": "\t",
+            r"\b": "\b",
+            r"\f": "\f",
+            r"\'": "'",
+            r"\\": "\\",
+            r"\"": '"',
+        }
+        if re.fullmatch(r"\\u[0-9a-fA-F]{4}", interior):
+            digitos = interior.removeprefix(r"\u")
+            caracter = chr(int(digitos, 16))
+            return caracter if caracter not in {"\n", "\r", "'", "\\"} else NO_LITERAL
+        return interior if len(interior) == 1 else escapes.get(interior, NO_LITERAL)
+    if nodo.type == "cast_expression":
+        tipo = texto(nodo.child_by_field_name("type"))
+        numero = literal(nodo.child_by_field_name("value"), alias, profundidad + 1)
+        limites = {"byte": (-128, 127), "short": (-32768, 32767)}
+        if (
+            tipo in limites
+            and isinstance(numero, Decimal)
+            and numero == numero.to_integral_value()
+        ):
+            minimo, maximo = limites[tipo]
+            return numero if minimo <= numero <= maximo else NO_LITERAL
+        return NO_LITERAL
     if nodo.type == "unary_expression":
         operando = nodo.child_by_field_name("operand")
         signo = valor[:1]
@@ -161,7 +191,7 @@ def literal(
     if nodo.type == "method_invocation":
         receptor = texto(nodo.child_by_field_name("object"))
         nombre = texto(nodo.child_by_field_name("name"))
-        if receptor in alias:
+        if receptor.split(".", 1)[0] in alias:
             return NO_LITERAL
         if (receptor, nombre) in {
             ("List", "of"),
@@ -170,11 +200,60 @@ def literal(
             ("java.util.Arrays", "asList"),
         }:
             elementos = argumentos(nodo)
+            if (
+                nombre == "asList"
+                and len(elementos) == 1
+                and literal(elementos[0], alias, profundidad + 1) is None
+            ):
+                return NO_LITERAL
+            if nombre == "of" and any(
+                literal(e, alias, profundidad + 1) is None for e in elementos
+            ):
+                return NO_LITERAL
+        elif (receptor, nombre) in {("Set", "of"), ("java.util.Set", "of")}:
+            valores = [literal(e, alias, profundidad + 1) for e in argumentos(nodo)]
+            if any(v is None or v is NO_LITERAL for v in valores):
+                return NO_LITERAL
+            claves = [_valor_canon(v) for v in valores]
+            return (
+                ConjuntoLiteral(tuple(valores))
+                if len(claves) == len(set(claves))
+                else NO_LITERAL
+            )
         elif (receptor, nombre) in {
             ("Collections", "emptyList"),
             ("java.util.Collections", "emptyList"),
         } and not argumentos(nodo):
             return []
+        elif receptor in {"Collections", "java.util.Collections"}:
+            args = argumentos(nodo)
+            if nombre == "emptySet" and not args:
+                return ConjuntoLiteral(())
+            if nombre in {"singleton", "singletonList"} and len(args) == 1:
+                v = literal(args[0], alias, profundidad + 1)
+                if v is not NO_LITERAL:
+                    return ConjuntoLiteral((v,)) if nombre == "singleton" else [v]
+    if nodo.type == "object_creation_expression":
+        tipo = re.sub(r"<.*>", "", texto(nodo.child_by_field_name("type")))
+        args = argumentos(nodo)
+        if (
+            tipo
+            in {
+                "HashSet",
+                "java.util.HashSet",
+                "LinkedHashSet",
+                "java.util.LinkedHashSet",
+            }
+            and len(args) == 1
+        ):
+            elementos_set = literal(args[0], alias, profundidad + 1)
+            if isinstance(elementos_set, list):
+                claves = [_valor_canon(v) for v in elementos_set]
+                return (
+                    ConjuntoLiteral(tuple(elementos_set))
+                    if len(claves) == len(set(claves))
+                    else NO_LITERAL
+                )
     if nodo.type == "array_creation_expression":
         inicializador = next(
             (h for h in nodo.named_children if h.type == "array_initializer"), None
@@ -222,6 +301,8 @@ def _valor_canon(valor: Any) -> str:
         return f"numero:{signo}:{''.join(map(str, digitos))}:{exponente}"
     if isinstance(valor, list):
         return "lista:" + repr([_valor_canon(v) for v in valor])
+    if isinstance(valor, ConjuntoLiteral):
+        return "conjunto:" + repr(sorted(_valor_canon(v) for v in valor.elementos))
     return type(valor).__name__ + ":" + repr(valor)
 
 
@@ -264,7 +345,7 @@ def analizar_junit(codigo: str) -> AnalisisJUnit:
         raise SyntaxError("La prueba Java no se puede parsear.")
     todos = nodos(raiz)
     imports = [
-        texto(n).replace(" ", "").removeprefix("import").removesuffix(";")
+        nombre_import(texto(n))
         for n in raiz.named_children
         if n.type == "import_declaration"
     ]
@@ -408,13 +489,33 @@ def analizar_junit(codigo: str) -> AnalisisJUnit:
             if n.child_by_field_name("value") is not None
             and repetidos[texto(n.child_by_field_name("name"))] == 1
         }
+        for creacion in (
+            n for n in interiores if n.type == "object_creation_expression"
+        ):
+            tipo = re.sub(r"<.*>", "", texto(creacion.child_by_field_name("type")))
+            if tipo in {"HashSet", "LinkedHashSet"} and not origen_util(
+                tipo,
+                [
+                    texto(n)
+                    for n in raiz.named_children
+                    if n.type == "import_declaration"
+                ],
+            ):
+                evasiones.append(
+                    "Los constructores de conjuntos deben proceder de java.util."
+                )
         for invocacion in interiores:
             if invocacion.type != "method_invocation":
                 continue
             nombre = texto(invocacion.child_by_field_name("name"))
             receptor = texto(invocacion.child_by_field_name("object"))
-            if receptor in {"List", "Arrays", "Collections"} and not any(
-                i in {"java.util." + receptor, "java.util.*"} for i in imports
+            if receptor in {"List", "Set", "Arrays", "Collections"} and not origen_util(
+                receptor,
+                [
+                    texto(n)
+                    for n in raiz.named_children
+                    if n.type == "import_declaration"
+                ],
             ):
                 evasiones.append(
                     "Las fábricas de colecciones deben proceder de java.util."
@@ -468,6 +569,7 @@ def analizar_junit(codigo: str) -> AnalisisJUnit:
             if nombre in {
                 "assertEquals",
                 "assertArrayEquals",
+                "assertIterableEquals",
                 "assertNotEquals",
                 "assertThrows",
                 "assertThrowsExactly",
@@ -491,6 +593,7 @@ def analizar_junit(codigo: str) -> AnalisisJUnit:
             tipo = {
                 "assertEquals": "igualdad",
                 "assertArrayEquals": "array",
+                "assertIterableEquals": "iterable",
                 "assertNotEquals": "distinto",
                 "assertTrue": "booleano",
                 "assertFalse": "booleano",

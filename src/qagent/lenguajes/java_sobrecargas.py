@@ -8,6 +8,7 @@ from typing import Any
 from tree_sitter import Node
 
 from qagent.lenguajes.java_aserciones import NO_LITERAL, literal, resolver, texto
+from qagent.lenguajes.java_colecciones import FAMILIAS
 from qagent.lenguajes.java_firmas import tipo_borrado
 
 
@@ -40,6 +41,7 @@ def entradas_exactas(
             if declaracion is None or declaracion.type != "local_variable_declaration":
                 return False
             declarado = tipo_borrado(texto(declaracion.child_by_field_name("type")))
+            declarado = FAMILIAS.get(declarado, declarado)
             dimensiones = declarador.child_by_field_name("dimensions")
             if dimensiones is not None:
                 declarado += texto(dimensiones).replace(" ", "")
@@ -107,6 +109,12 @@ def entradas_exactas(
             actual = tipo_borrado(cabecera.removeprefix("new").strip())
             if actual.startswith("String["):
                 actual = "java.lang." + actual
+        if nodo.type in {"method_invocation", "object_creation_expression"}:
+            from qagent.lenguajes.java_colecciones_ast import fabrica
+
+            forma = fabrica(nodo, alias)
+            if forma is not None and nodo.type == "method_invocation":
+                actual = FAMILIAS[forma[0]]
         if actual != tipo:
             return False
     return True

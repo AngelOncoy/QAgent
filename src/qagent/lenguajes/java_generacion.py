@@ -12,6 +12,12 @@ from pathlib import Path, PurePosixPath
 from typing import Any
 
 from qagent.lenguajes.base import Clasificacion, NoImplementado
+from qagent.lenguajes.java_colecciones import (
+    es_tipo_coleccion,
+    expresion_coleccion,
+    reglas_colecciones,
+    tipo_coleccion,
+)
 from qagent.lenguajes.java_sesion import analizar_fuente
 from qagent.llm.fake import MARCA_CONTRATO
 
@@ -134,6 +140,48 @@ def contexto_java(
             if n.type == "import_declaration"
         ],
     }
+    if contrato.get("tipo") != "endpoint":
+        from qagent.lenguajes.java_colecciones_ast import problema_origen
+        from qagent.lenguajes.java_planificacion import _argumentos
+
+        for tipo in [funcion["retorno"], *[p["tipo"] for p in funcion["parametros"]]]:
+            if problema := problema_origen(
+                tipo, contexto["imports"], clases, fuente.parent
+            ):
+                raise ValueError("Tipo de colección no verificable: " + problema)
+
+        representaciones = []
+        for caso in contrato["casos"]:
+            entradas = _argumentos(funcion, caso.get("entrada"))
+            literales = [
+                expresion_coleccion(t, v)
+                if es_tipo_coleccion(t) and v is not None
+                else None
+                for t, v in (entradas or [])
+            ]
+            if es_tipo_coleccion(funcion["retorno"]) and "valor_esperado" in caso:
+                esperado = caso["valor_esperado"]
+                modelo = tipo_coleccion(funcion["retorno"])
+                representaciones.append(
+                    {
+                        "id": caso["id"],
+                        "esperado_java": "null"
+                        if esperado is None
+                        else expresion_coleccion(funcion["retorno"], esperado),
+                        "asercion": "assertNull"
+                        if esperado is None
+                        else "assertIterableEquals"
+                        if modelo and modelo.nombre in {"Collection", "Iterable"}
+                        else "assertEquals",
+                        "argumentos_java_colecciones": literales,
+                    }
+                )
+            elif any(l is not None for l in literales):
+                representaciones.append(
+                    {"id": caso["id"], "argumentos_java_colecciones": literales}
+                )
+        if representaciones:
+            contexto["colecciones_verificables"] = representaciones
     if clase.get("hereda") and "(" not in contexto["identidad_metodo"]:
         from qagent.lenguajes.java_firmas import calificar_tipo, sufijo_firma
 
@@ -225,7 +273,10 @@ def prompt_java(
         "Para esperado null usa assertNull(resultado) sin conversión. Conserva cadenas vacías "
         'y distingue null del texto "null". No uses trim, cambios de mayúsculas, substring, '
         "casts ni conversiones de tipos no textuales para hacer coincidir el resultado.\n"
-        "- Para arrays usa assertArrayEquals con un array literal; para List usa assertEquals con List.of. "
+        "- "
+        + reglas_colecciones()
+        + " Usa colecciones_verificables del contexto como representación del mismo JSON, sin cambiarlo.\n"
+        "- Para arrays usa assertArrayEquals con un array literal. "
         "En enteros no uses literales de punto flotante ni delta. Para float/double, una delta literal "
         "no negativa y como máximo 1e-6 * max(1, abs(esperado)); no la aumentes en reparaciones.\n"
         "- Mockito se permite únicamente para objetos de dependencia que recibe el constructor. "
