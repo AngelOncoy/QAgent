@@ -911,6 +911,26 @@ class Orquestador:
                 raise FalloControlado(
                     "La spec reutilizada no coincide con el módulo analizado"
                 )
+        # #301: un objetivo no ejecutable se omite con su motivo, aunque una spec
+        # anterior a esta regla traiga su contrato; nunca llega al Generator.
+        adaptador = getattr(self.planner, "adaptador", None)
+        if adaptador is not None:
+            for funcion in modulo.get("funciones") or []:
+                motivo = adaptador.motivo_funcion_no_planificable(funcion)
+                if motivo:
+                    self._motivos_omision[funcion["nombre"]] = motivo
+                    self._emitir(
+                        "planner",
+                        funcion["nombre"],
+                        f"Función omitida: {motivo}",
+                        datos={"omitida": True},
+                    )
+            copia = [
+                c
+                for c in copia
+                if c.get("tipo", "funcion") != "funcion"
+                or c["objetivo"] not in self._motivos_omision
+            ]
         # HU-06 y #74: la marca Profundizar es la de esta corrida, no la que se guardó.
         # Los objetivos que no vienen en el módulo conservan su marca guardada.
         marcas = {

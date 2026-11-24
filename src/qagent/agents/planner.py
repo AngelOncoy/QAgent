@@ -160,8 +160,17 @@ class PlannerAgent:
         self._casos_invalidos = 0
         self._triviales = {}
         funciones = {f["nombre"]: f for f in modulo.get("funciones", [])}
+        # #301: lo que el adaptador demuestra no ejecutable no llega a la IA; el resto
+        # del módulo se planifica igual.
+        for nombre, funcion in list(funciones.items()):
+            motivo = self.adaptador.motivo_funcion_no_planificable(funcion)
+            if motivo:
+                self.omitidas[nombre] = motivo
+                del funciones[nombre]
         if not funciones:
             return []
+        if self.omitidas:
+            modulo = {**modulo, "funciones": list(funciones.values())}
 
         prompt = self.reglas.prompt_funciones(modulo, self.es_humo)
         respuesta = self.cliente.generar(prompt, rol="planner")
