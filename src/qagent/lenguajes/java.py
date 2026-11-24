@@ -50,6 +50,8 @@ if TYPE_CHECKING:
 
 #: Herramientas que trae ``qagent-sandbox:java`` (``sandbox/Dockerfile.java``).
 PAQUETES_JAVA = ("maven", "gradle", "junit-jupiter", "jacoco", "pitest", "archunit")
+#: Modificadores de una clase que deciden si sus métodos se pueden probar (#301).
+_MODIFICADORES_CLASE = {"public", "protected", "private", "static", "abstract", "final"}
 
 
 def _texto(nodo: Node | None) -> str | None:
@@ -113,7 +115,9 @@ def _declaraciones(raiz: Node) -> tuple[list[dict[str, Any]], list[dict[str, Any
     clases: list[dict[str, Any]] = []
     funciones: list[dict[str, Any]] = []
 
-    def visitar(contenedor: Node, prefijo: str = "") -> None:
+    def visitar(
+        contenedor: Node, prefijo: str = "", tipo_contenedor: str | None = None
+    ) -> None:
         for nodo in contenedor.named_children:
             if nodo.type not in {
                 "class_declaration",
@@ -123,12 +127,26 @@ def _declaraciones(raiz: Node) -> tuple[list[dict[str, Any]], list[dict[str, Any
             }:
                 continue
             nombre = prefijo + (_texto(nodo.child_by_field_name("name")) or "")
+            modificadores_clase = next(
+                (h for h in nodo.named_children if h.type == "modifiers"), None
+            )
             clases.append(
                 {
                     "nombre": nombre,
                     "hereda": nodo.child_by_field_name("superclass") is not None
                     or nodo.child_by_field_name("interfaces") is not None,
                     "tipo": nodo.type,
+                    # #301: lo necesario para saber si un método se puede alcanzar.
+                    "modificadores": sorted(
+                        h.type
+                        for h in (
+                            modificadores_clase.children
+                            if modificadores_clase is not None
+                            else []
+                        )
+                        if h.type in _MODIFICADORES_CLASE
+                    ),
+                    "contenedor_tipo": tipo_contenedor,
                     "linea": nodo.start_point.row + 1,
                     "docstring": _javadoc(nodo),
                     "javadoc": desglosar_javadoc(_javadoc(nodo)),
@@ -138,7 +156,7 @@ def _declaraciones(raiz: Node) -> tuple[list[dict[str, Any]], list[dict[str, Any
             cuerpo = nodo.child_by_field_name("body")
             if cuerpo is None:
                 continue
-            visitar(cuerpo, nombre + ".")
+            visitar(cuerpo, nombre + ".", nodo.type)
             for metodo in cuerpo.named_children:
                 if metodo.type != "method_declaration":
                     continue
@@ -185,6 +203,7 @@ def _declaraciones(raiz: Node) -> tuple[list[dict[str, Any]], list[dict[str, Any
                         "ramas": ramas,
                         "critical": ramas > 0,
                         "es_static": "static" in tokens,
+                        "abstracto": cuerpo_metodo is None,
                         "tipada": retorno is not None
                         and all(p["tipo"] for p in parametros),
                         "es_async": False,
@@ -210,7 +229,39 @@ def _declaraciones(raiz: Node) -> tuple[list[dict[str, Any]], list[dict[str, Any
             continue
         funcion["nombre"] = por_inicio[inicio]
         admitidas.append(funcion)
+    from qagent.lenguajes.java_ejecutabilidad import clasificar_local
+
+    por_nombre = {c["nombre"]: c for c in clases}
+    for funcion in admitidas:
+        funcion["ejecutabilidad"] = clasificar_local(funcion, por_nombre)
     return clases, admitidas
+
+
+def _clasificar_dependencias(raiz: Path, modulos: list[dict[str, Any]]) -> None:
+    """Completa la ejecutabilidad con las dependencias del constructor (#301).
+
+    Solo revisa los métodos que las reglas del archivo dejaron como ejecutables; si
+    Mockito está declarado lo decide el ``pom.xml`` del módulo o de sus padres.
+    """
+    from qagent.lenguajes.java_ejecutabilidad import (
+        EJECUTABLE,
+        clasificar_dependencias,
+        declara_mockito,
+    )
+
+    mockito: dict[str, bool | None] = {}
+    for modulo in modulos:
+        clases = {c["nombre"]: c for c in modulo["clases"]}
+        for funcion in modulo["funciones"]:
+            if funcion["ejecutabilidad"]["estado"] != EJECUTABLE:
+                continue
+            ruta = modulo["ruta"]
+            carpeta = ruta.split("src/main/java/", 1)[0]
+            if carpeta not in mockito:
+                mockito[carpeta] = declara_mockito(raiz, ruta)
+            funcion["ejecutabilidad"] = clasificar_dependencias(
+                funcion, clases[funcion["clase"]], mockito[carpeta]
+            )
 
 
 def _constructores(clase: Node, nombre: str) -> list[dict[str, Any]]:
@@ -552,6 +603,12 @@ class JavaAdapter(AdaptadorEnDesarrollo):
         )
         return encontrados
 
+    def motivo_funcion_no_planificable(self, funcion: dict[str, Any]) -> str | None:
+        """Omite métodos no ejecutables o pendientes de contexto antes de la IA (#301)."""
+        from qagent.lenguajes.java_ejecutabilidad import motivo_no_planificable
+
+        return motivo_no_planificable(funcion)
+
     def motivo_endpoint_no_planificable(self, endpoint: dict[str, Any]) -> str | None:
         """Omite endpoints Spring sin estado o validación declarativa verificable."""
         from qagent.lenguajes.java_spring_planificacion import motivo_no_planificable
@@ -712,6 +769,7 @@ class JavaAdapter(AdaptadorEnDesarrollo):
             )
             arboles[relativa] = arbol.root_node
         agregar_llamadas(modulos, arboles)
+        _clasificar_dependencias(carpeta, modulos)
         for modulo in modulos:
             manejadores = {e["manejador"] for e in modulo["endpoints"]}
             por_nombre = {f["nombre"]: f for f in modulo["funciones"]}
