@@ -97,6 +97,36 @@ clase y el paquete con la fuente, sin añadir condiciones Java al Reviewer.
 Python conserva sus reglas actuales. Se comprueban imports que intenten cambiar
 el objetivo o una dependencia por un homónimo de otro paquete.
 
+### Ejecutabilidad antes de la IA (#301)
+
+El análisis clasifica cada método público como `ejecutable`, `no_ejecutable` o
+`pendiente_contexto` (`java_ejecutabilidad.py`), con un motivo legible. Solo lee
+el árbol de tree-sitter y los `pom.xml`; no compila ni ejecuta nada en el host. Lo
+que no es `ejecutable` no llega al Planner ni al Generator: queda omitido con su
+motivo en `results.json` y los demás métodos del archivo siguen su curso.
+
+| Caso | Estado | Por qué |
+|---|---|---|
+| Método abstracto o de interfaz sin cuerpo | `no_ejecutable` | No hay implementación que probar. |
+| Clase contenedora `private` | `no_ejecutable` | La prueba no puede acceder a ella. |
+| Clase interna no estática | `no_ejecutable` | Necesita una instancia de la clase externa. |
+| Solo constructores `private` | `no_ejecutable` | No hay forma de construir el objetivo. |
+| Método `default` de interfaz | `pendiente_contexto` | Hace falta una implementación concreta y QAgent no la inventa. |
+| Método de instancia de una clase abstracta | `pendiente_contexto` | Hace falta una subclase y QAgent no la inventa. |
+| Método de instancia de un enum | `pendiente_contexto` | Habría que elegir una constante que el contrato no declara (hoy el análisis no extrae métodos de enum). |
+| Constructor con dependencias de tipo objeto sin Mockito en el POM | `pendiente_contexto` | El sandbox solo añade JUnit; sin Mockito no se pueden simular. |
+| Constructor que recibe la propia clase | `pendiente_contexto` | Simularla sustituiría al objetivo, lo que prohíbe el guardrail. |
+| Métodos `static` con cuerpo | `ejecutable` | Se llaman con `Clase.metodo`, sin construir nada. |
+
+Los valores simples (primitivos, envoltorios, `String`, `BigDecimal`/`BigInteger`
+y colecciones de ellos) los aporta el caso y no son dependencias. Mockito se
+detecta en las dependencias efectivas del POM del módulo o de un POM padre dentro
+del proyecto (`mockito-*` o `spring-boot-starter-test`); `dependencyManagement`
+no cuenta. Sin ningún POM no se bloquea por Mockito, porque la corrida ya rechaza
+antes un proyecto que no es Maven. `contexto_java` aplica la misma regla, así que
+una spec guardada antes de este cambio tampoco puede llevar esos objetivos al
+Generator.
+
 Mockito solo se admite para dependencias de constructores accesibles de la clase
 real, en el orden de parámetros declarado. Incluye constructores protected desde
 el mismo paquete. Se rechazan mocks/spy del objetivo, mockStatic, mockConstruction,
