@@ -371,6 +371,15 @@ class LanguageAdapter(ABC):
                     )
         return encontrados
 
+    def motivo_funcion_no_planificable(self, funcion: dict[str, Any]) -> str | None:
+        """Filtro estático anterior al LLM para funciones; None las deja planificar.
+
+        El adaptador explica por qué un objetivo no se puede ejecutar (por ejemplo,
+        un método abstracto). El Planner lo omite con ese motivo sin llamar a la IA y
+        la corrida no lo envía al Generator (#301).
+        """
+        return None
+
     def motivo_endpoint_no_planificable(self, endpoint: dict[str, Any]) -> str | None:
         """Filtro estático opcional anterior al LLM; None conserva la planificación.
 

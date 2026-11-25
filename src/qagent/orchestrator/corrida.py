@@ -524,7 +524,7 @@ def ejecutar_corrida(
             faltan: set[str] = set()
             de_humo: set[str] = set()
             if plan_guardado is not None:
-                objetivos = _objetivos_de(modulo)
+                objetivos = _objetivos_de(modulo, adaptador)
                 elegidos = [
                     c for c in plan_guardado["contratos"] if c["objetivo"] in objetivos
                 ]
@@ -1455,16 +1455,18 @@ def _spec_de_modulo(
     }
 
 
-def _objetivos_de(modulo: dict[str, Any]) -> set[str]:
+def _objetivos_de(modulo: dict[str, Any], adaptador: Any = None) -> set[str]:
     """Funciones y endpoints planificables que la selección dejó en el módulo.
 
     Un endpoint sin ruta resuelta no se planifica (el Planner lo omite), así que no
-    cuenta como faltante en la spec.
+    cuenta como faltante en la spec. Tampoco una función que el adaptador declara no
+    ejecutable (#301): no fuerza replanificar y una spec antigua no la reutiliza.
     """
     funciones = {
         f["nombre"]
         for f in modulo.get("funciones") or []
         if not f.get("solo_integracion")  # #245: solo sirve para derivar la integración
+        and not (adaptador and adaptador.motivo_funcion_no_planificable(f))
     }
     endpoints = {
         e["objetivo"]

@@ -111,15 +111,25 @@ def contexto_java(
         archivo = PurePosixPath(carpeta_maven, archivo).as_posix()
     # También valida nombres reservados del anfitrión antes de pedir código al LLM.
     ruta_de_prueba(ruta_proyecto, archivo)
+    from qagent.lenguajes.java_ejecutabilidad import (
+        EJECUTABLE,
+        clasificar_dependencias,
+        constructores_accesibles,
+        declara_mockito,
+    )
+
+    # #301: la misma clasificación que usó el Planner; una spec antigua no la elude.
+    ejecutabilidad = funcion["ejecutabilidad"]
+    if ejecutabilidad["estado"] == EJECUTABLE and contrato.get("tipo") != "endpoint":
+        ejecutabilidad = clasificar_dependencias(
+            funcion, clase, declara_mockito(ruta_proyecto, modulo)
+        )
+    if ejecutabilidad["estado"] != EJECUTABLE:
+        raise ValueError(f"Objetivo Java no ejecutable: {ejecutabilidad['motivo']}.")
     constructores = [
         {k: c[k] for k in ("firma", "parametros", "visibilidad")}
-        for c in clase["constructores"]
-        if c["visibilidad"] in {"public", "protected", "package"}
+        for c in constructores_accesibles(clase)
     ]
-    if not funcion["es_static"] and clase["constructores"] and not constructores:
-        raise ValueError(
-            "La clase no tiene constructor accesible para una prueba en su paquete."
-        )
     contexto = {
         "paquete": paquete,
         "clase": funcion["clase"],

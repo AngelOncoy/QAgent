@@ -85,6 +85,7 @@ contracts.normalizar_planner(contrato_v2)  # copia en v3 (python + pytest)
 | `archivo_de_prueba(objetivo)` | nombre o ruta relativa del archivo | Valor de `archivo` en `generated_test.v2`; Java admite `src/test/java/paquete/ClaseTest.java` (#184). Python y JS/TS conservan nombres sin carpetas. |
 | `archivo_para_contrato(contrato, ruta_proyecto)` | ruta o `None` | Java obtiene el paquete del AST de la fuente. `None` conserva el nombre predeterminado de los adaptadores existentes. |
 | `validar_oraculo(contrato, codigo, ruta_proyecto)` | motivo de rechazo o `None` | Por defecto delega a las reglas existentes. Java contrasta también paquete, clase e imports y limita Mockito a dependencias del constructor (#184). |
+| `motivo_funcion_no_planificable(funcion)` | motivo o `None` | #301: filtro estático anterior a la IA. El Planner omite la función con ese motivo sin llamar al modelo, y la corrida no la toma de una spec antigua. Java lo deriva de `ejecutabilidad`; los demás lenguajes devuelven `None`. |
 | `comando_mutacion(modulo, funciones)` | `ComandoSandbox` (comando y variables de entorno) | Solo sobre funciones `critical: true`: mutmut, Stryker o PIT. |
 | `traducir_reglas_arquitectura(reglas, raiz)` | lista de `PlanArquitectura` | #185: configuración y comando fijo de import-linter, dependency-cruiser o ArchUnit. Las reglas son datos validados, nunca fragmentos de shell. |
 | `rutas_web(raiz)` | rutas, comando estructurado y framework | #186: detección estática conservadora para humo E2E. Solo JS/TS con Express o Vite; no ejecuta el proyecto ni inventa parámetros. |
@@ -146,6 +147,9 @@ No ejecuta ni compila las fuentes. Utiliza `tree-sitter-java==0.23.5`.
 - Cada función pública contiene `nombre` como `Clase.metodo`, `clase`, `linea`,
   `firma`, `parametros`, `retorno`, `docstring`, `tipada` y `es_async: false`.
   #181 añade `javadoc`, `ramas`, `critical`, `es_static` y `llama_a`.
+  #301 añade `abstracto` (sin cuerpo) y `ejecutabilidad` (`estado` y `motivo`), y
+  cada clase lleva `modificadores` y `contenedor_tipo`. La regla está en
+  `java_ejecutabilidad.py` y se explica en `docs/java/generacion-guardrail.md`.
 - Cada parámetro conserva `nombre`, `tipo` escrito y `por_defecto: null`.
   Se incluyen genéricos, arrays y varargs; no se resuelven imports ni tipos.
 - `objetivos(estructura)` produce `modulo`, `tipo: funcion`, `objetivo` y `critical`,
