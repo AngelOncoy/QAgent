@@ -22,6 +22,9 @@ def ejemplo() -> dict:
         "PreciosTest.java",
         "src/test/java/PreciosTest.java",
         "src/test/java/org/ejemplo/PreciosTest.java",
+        # #309: módulo de un reactor Maven (spring-guides/gs-multi-module).
+        "library/src/test/java/com/example/PreciosTest.java",
+        "app/core-api/src/test/java/PreciosTest.java",
     ],
 )
 def test_java_admite_ruta_nueva_y_nombre_anterior(archivo: str) -> None:
@@ -42,6 +45,10 @@ def test_java_admite_ruta_nueva_y_nombre_anterior(archivo: str) -> None:
         "carpeta/PreciosTest.java",
         "src/test/java/Precios.py",
         "src/test/java/Precios.java",
+        "library/src/main/java/PreciosTest.java",
+        "../library/src/test/java/PreciosTest.java",
+        ".qagent-maven/src/test/java/PreciosTest.java",
+        "library//src/test/java/PreciosTest.java",
     ],
 )
 def test_java_rechaza_rutas_que_no_corresponden(archivo: str) -> None:
