@@ -85,12 +85,14 @@ def test_corrida_spring_real_detecta_bug_y_omite_sin_declaracion(
         lambda *a, **kw: ClienteSpringGrabado(),
     )
     contenedores = []
+    comandos = []
     ejecutar_real = ContainerCollection.run
 
     def observar(self, *args, **kwargs):
         """Registra restricciones sin cambiar la creación o ejecución del contenedor."""
         contenedor = ejecutar_real(self, *args, **kwargs)
         contenedores.append((contenedor.id, kwargs))
+        comandos.append(args[1])
         return contenedor
 
     monkeypatch.setattr(ContainerCollection, "run", observar)
@@ -134,7 +136,10 @@ def test_corrida_spring_real_detecta_bug_y_omite_sin_declaracion(
     )
     caso_fallido = defectuoso["intentos"][0]["ejecucion"]["casos"][0]
     assert (caso_fallido["esperado"], caso_fallido["obtenido"]) == ("201", "200")
-    assert len(contenedores) == 2
+    # #305: una construcción previa a la IA y una prueba por endpoint planificado.
+    assert len(contenedores) == 3
+    assert comandos[0][-2:] == ["clean", "compile"]
+    assert sum(c[-2:] == ["clean", "compile"] for c in comandos) == 1
     for identidad, opciones in contenedores:
         assert opciones["network_mode"] == "none"
         assert opciones["read_only"] is True

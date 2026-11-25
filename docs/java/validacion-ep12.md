@@ -119,6 +119,9 @@ La prueba de DesktopAPI tampoco sustituye la comprobación visual de toda una
 corrida en la interfaz. Las capturas y resultados observados se registran en
 el informe local de #174 en `docs/evidencias/`.
 
+La compatibilidad con proyectos externos de commit fijo se comprueba aparte en la
+[matriz de compatibilidad](matriz-compatibilidad.md) (#309).
+
 Referencias: [ejecución Java](ejecucion-revision.md),
 [generación y guardrail](generacion-guardrail.md), [PIT](mutacion-pit.md) y
 [Spring MVC](spring-mockmvc.md).

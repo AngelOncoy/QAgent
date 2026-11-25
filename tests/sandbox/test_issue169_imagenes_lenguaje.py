@@ -282,6 +282,19 @@ def test_maven_usa_dependency_go_offline(proyecto_maven):
         "org.junit.platform:junit-platform-launcher:$version"
         in construccion["dockerfile"]
     )
+    # #309: con JUnit 4 en el proyecto, Surefire pide junit-vintage-engine con la
+    # versión de Jupiter de la prueba (la del proyecto o la que agrega QAgent).
+    assert "grep -q 'junit:junit:jar:'" in construccion["dockerfile"]
+    # En un reactor cada módulo escribe su lista: -DappendOutput la sobrescribía.
+    assert "-DappendOutput" not in construccion["dockerfile"]
+    assert (
+        "find . -name qagent-junit-platform.txt -exec cat {} +"
+        in construccion["dockerfile"]
+    )
+    assert "for version in 5.14.4 $(awk" in construccion["dockerfile"]
+    assert (
+        "org.junit.vintage:junit-vintage-engine:$version" in construccion["dockerfile"]
+    )
     assert "mvn test" not in construccion["dockerfile"]
     assert "mvn verify" not in construccion["dockerfile"]
 

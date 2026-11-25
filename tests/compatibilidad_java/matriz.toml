@@ -1,0 +1,263 @@
+# Matriz de compatibilidad Java con proyectos externos (#309).
+#
+# Cada fila fija QUÉ se comprueba y QUÉ se espera antes de ejecutarla:
+# - `externo`: proyecto público con URL, licencia y commit inmutable (nunca una rama).
+# - `fixture`: un fixture del repositorio y la prueba `docker` que ya lo ejecuta.
+# - `soporte`: `declarado` (QAgent dice soportarlo: debe aprobar) o `no_admitido`
+#   (escenario fuera del alcance aprobado: debe omitirse o bloquearse con su motivo).
+# - `nivel`: `pr` entra en la comprobación de cada PR (presupuesto de tiempo acotado);
+#   `ampliada` solo corre a mano o cada lunes. `pr` también corre en la ampliada.
+#
+# Los esperados de los casos salen del Javadoc del commit fijado o, si el método no
+# tiene Javadoc, de la lectura estática de su cuerpo (origen `inferido`, ADR-018).
+# Nunca de ejecutar el proyecto. El ejecutor está en `ejecutar.py` y el comando en
+# `scripts/matriz_java.py`; la guía en `docs/java/matriz-compatibilidad.md`.
+
+version = 1
+
+# --- Externos ---------------------------------------------------------------------
+
+[[fila]]
+id = "gs-maven"
+tipo = "externo"
+nivel = "pr"
+soporte = "declarado"
+configuraciones = ["maven_simple", "inferencia"]
+descripcion = "Proyecto Maven de un módulo sin padre, con JUnit 4 propio y fuentes Java 8; método sin Javadoc."
+url = "https://github.com/spring-guides/gs-maven"
+licencia = "Apache-2.0"
+archivo_licencia = "LICENSE.txt"
+commit = "c65883f80b35bac86bb2580944de9146e2c6a55a"
+subdirectorio = "complete"
+perfil = "std"
+inferir = true
+
+[[fila.objetivo]]
+modulo = "src/main/java/hello/Greeter.java"
+objetivo = "Greeter.sayHello"
+tipo = "funcion"
+esperado = "aprobado"
+imports = ["static org.junit.jupiter.api.Assertions.assertEquals"]
+
+[[fila.objetivo.caso]]
+id = "saludo_normal"
+entrada = {}
+valor_esperado = "Hello world!"
+origen = "inferido"
+evidencia = ["cuerpo"]
+categoria = "normal"
+junit = 'assertEquals("Hello world!", new Greeter().sayHello());'
+
+[[fila]]
+id = "gs-maven-defecto"
+tipo = "externo"
+nivel = "pr"
+soporte = "declarado"
+configuraciones = ["maven_simple", "inferencia", "defecto_sembrado"]
+descripcion = "Mismo commit que gs-maven con un defecto sembrado: un fallo inferido es un hallazgo a revisar, no un bug confirmado."
+base = "gs-maven"
+defecto_sembrado = true
+
+[[fila.parche]]
+archivo = "src/main/java/hello/Greeter.java"
+buscar = 'return "Hello world!";'
+reemplazar = 'return "Hello World";'
+
+[[fila.objetivo]]
+modulo = "src/main/java/hello/Greeter.java"
+objetivo = "Greeter.sayHello"
+tipo = "funcion"
+esperado = "hallazgo_inferido"
+
+[[fila]]
+id = "gs-multi-module"
+tipo = "externo"
+nivel = "pr"
+soporte = "declarado"
+configuraciones = ["reactor", "padre_publico", "inferencia", "spring"]
+descripcion = "Reactor de dos módulos con padre spring-boot-starter-parent 3.5.11; la aplicación depende de la biblioteca."
+url = "https://github.com/spring-guides/gs-multi-module"
+licencia = "Apache-2.0"
+archivo_licencia = "LICENSE.txt"
+commit = "d88a2b721bda3798a6a934987157498e66da06c5"
+subdirectorio = "complete"
+perfil = "std"
+inferir = true
+
+[[fila.objetivo]]
+modulo = "library/src/main/java/com/example/multimodule/service/ServiceProperties.java"
+objetivo = "ServiceProperties.getMessage"
+tipo = "funcion"
+esperado = "aprobado"
+imports = ["static org.junit.jupiter.api.Assertions.assertNull"]
+
+[[fila.objetivo.caso]]
+id = "mensaje_sin_configurar"
+entrada = {}
+valor_esperado = "__null__"
+origen = "inferido"
+evidencia = ["cuerpo"]
+categoria = "normal"
+junit = "assertNull(new ServiceProperties().getMessage());"
+
+[[fila.objetivo]]
+modulo = "application/src/main/java/com/example/multimodule/application/DemoApplication.java"
+objetivo = "GET /"
+tipo = "endpoint"
+esperado = "omitido"
+motivo = "sin resultado esperado verificable"
+
+[[fila]]
+id = "gs-rest-service"
+tipo = "externo"
+nivel = "ampliada"
+soporte = "no_admitido"
+configuraciones = ["padre_publico", "spring"]
+descripcion = "Spring Boot 4.0.9 por padre: el endpoint no declara @ResponseStatus ni parámetros requeridos."
+motivo_no_admitido = "Un endpoint sin estado declarado ni binding requerido no tiene oráculo verificable (#183); Spring Boot 4 tampoco está validado para la plantilla MockMvc."
+url = "https://github.com/spring-guides/gs-rest-service"
+licencia = "Apache-2.0"
+archivo_licencia = "LICENSE.txt"
+commit = "e15fec6773dc1eb6028055630e3e68cbd8653240"
+subdirectorio = "complete"
+perfil = "std"
+
+[[fila.objetivo]]
+modulo = "src/main/java/com/example/restservice/GreetingController.java"
+objetivo = "GET /greeting"
+tipo = "endpoint"
+esperado = "omitido"
+motivo = "sin resultado esperado verificable"
+
+[[fila]]
+id = "thealgorithms-java"
+tipo = "externo"
+nivel = "ampliada"
+soporte = "declarado"
+configuraciones = ["maven_simple", "tipos_aserciones", "proyecto_grande"]
+descripcion = "Proyecto de un módulo con unas 850 fuentes, BOM de JUnit 6, -Werror y métodos con Javadoc: arrays, long y excepciones documentadas."
+url = "https://github.com/TheAlgorithms/Java"
+licencia = "MIT"
+archivo_licencia = "LICENSE"
+commit = "15a4a9d36387782eb324416984b6e465d1c3f7cc"
+perfil = "std"
+
+[[fila.objetivo]]
+modulo = "src/main/java/com/thealgorithms/maths/FindMax.java"
+objetivo = "FindMax.findMax"
+tipo = "funcion"
+esperado = "aprobado"
+imports = [
+    "static org.junit.jupiter.api.Assertions.assertEquals",
+    "static org.junit.jupiter.api.Assertions.assertThrows",
+]
+
+[[fila.objetivo.caso]]
+id = "maximo_normal"
+entrada = { array = [3, 9, 1] }
+valor_esperado = 9
+origen = "docstring"
+categoria = "normal"
+junit = "assertEquals(9, FindMax.findMax(new int[]{3, 9, 1}));"
+
+[[fila.objetivo.caso]]
+id = "arreglo_vacio"
+entrada = { array = [] }
+excepcion = "IllegalArgumentException"
+origen = "docstring"
+categoria = "error"
+junit = "assertThrows(IllegalArgumentException.class, () -> FindMax.findMax(new int[]{}));"
+
+[[fila.objetivo]]
+modulo = "src/main/java/com/thealgorithms/maths/AbsoluteValue.java"
+objetivo = "AbsoluteValue.getAbsValue"
+tipo = "funcion"
+esperado = "aprobado"
+imports = ["static org.junit.jupiter.api.Assertions.assertEquals"]
+
+[[fila.objetivo.caso]]
+id = "valor_negativo"
+entrada = { number = -7 }
+valor_esperado = 7
+origen = "docstring"
+categoria = "normal"
+junit = "assertEquals(7L, AbsoluteValue.getAbsValue(-7L));"
+
+[[fila]]
+id = "thealgorithms-java-defecto"
+tipo = "externo"
+nivel = "ampliada"
+soporte = "declarado"
+configuraciones = ["tipos_aserciones", "defecto_sembrado"]
+descripcion = "Mismo commit con la comparación de FindMax invertida: el contrato del Javadoc debe detectar el bug."
+base = "thealgorithms-java"
+defecto_sembrado = true
+
+[[fila.parche]]
+archivo = "src/main/java/com/thealgorithms/maths/FindMax.java"
+buscar = "if (array[i] > max) {"
+reemplazar = "if (array[i] < max) {"
+
+[[fila.objetivo]]
+modulo = "src/main/java/com/thealgorithms/maths/FindMax.java"
+objetivo = "FindMax.findMax"
+tipo = "funcion"
+esperado = "bug_detectado"
+
+[[fila.objetivo]]
+modulo = "src/main/java/com/thealgorithms/maths/AbsoluteValue.java"
+objetivo = "AbsoluteValue.getAbsValue"
+tipo = "funcion"
+esperado = "aprobado"
+
+# --- Fixtures del repositorio (base existente, no una matriz completa) ---------------
+
+[[fila]]
+id = "banco-java"
+tipo = "fixture"
+nivel = "ampliada"
+soporte = "declarado"
+configuraciones = ["maven_simple", "tipos_aserciones", "defecto_sembrado"]
+descripcion = "Banco TA-01 con POM original: 3 aprobados y 3 defectos sembrados detectados, más la regresión."
+ruta = "bench_java"
+prueba = "tests/sandbox/test_ep174_java_integrado_docker.py"
+
+[[fila]]
+id = "banco-spring"
+tipo = "fixture"
+nivel = "pr"
+soporte = "declarado"
+configuraciones = ["spring", "defecto_sembrado"]
+descripcion = "Controlador Spring con estado 201 declarado, defecto 201/200 sembrado y un endpoint sin oráculo omitido."
+ruta = "bench_java/src/test/resources/spring"
+prueba = "tests/sandbox/test_spring_corrida_docker.py"
+
+[[fila]]
+id = "perfiles-java"
+tipo = "fixture"
+nivel = "ampliada"
+soporte = "declarado"
+configuraciones = ["perfiles"]
+descripcion = "Humo, Estándar, Regresión y Profundo sobre el banco Java."
+ruta = "bench_java"
+prueba = "tests/sandbox/test_issue262_perfiles_java_docker.py"
+
+[[fila]]
+id = "maven-padre-perfil-reactor"
+tipo = "fixture"
+nivel = "ampliada"
+soporte = "declarado"
+configuraciones = ["padre_publico", "perfiles", "reactor"]
+descripcion = "Padre Apache 35, perfil -Pcompat con release 17 y reactor con dependencia pública (#290)."
+ruta = "tests/sandbox/test_issue290_dependencias_docker.py"
+prueba = "tests/sandbox/test_issue290_dependencias_docker.py"
+
+[[fila]]
+id = "inferencia-java"
+tipo = "fixture"
+nivel = "ampliada"
+soporte = "declarado"
+configuraciones = ["inferencia", "defecto_sembrado"]
+descripcion = "Inferencia sin Javadoc: el esperado equivocado queda como hallazgo a revisar en los tres perfiles."
+ruta = "tests/sandbox/test_issue292_java_inferencia_docker.py"
+prueba = "tests/sandbox/test_issue292_java_inferencia_docker.py"

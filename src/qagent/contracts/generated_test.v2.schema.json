@@ -26,7 +26,7 @@
       "type": "string",
       "maxLength": 512,
       "pattern": "^[A-Za-z0-9_$][A-Za-z0-9_.$-]*(?:/[A-Za-z0-9_$][A-Za-z0-9_.$-]*)*$",
-      "description": "Nombre del test; Java admite src/test/java/paquete/ClaseTest.java (#184). Los nombres Java anteriores sin carpetas siguen válidos. Python y JS/TS conservan nombres sin carpetas. El escritor valida además contención y nombres reservados."
+      "description": "Nombre del test; Java admite src/test/java/paquete/ClaseTest.java (#184), también dentro de un módulo de un reactor Maven: modulo/src/test/java/... (#290, #309). Los nombres Java anteriores sin carpetas siguen válidos. Python y JS/TS conservan nombres sin carpetas. El escritor valida además contención y nombres reservados."
     },
     "casos_cubiertos": {
       "type": "array",
@@ -50,7 +50,7 @@
       "then": { "properties": {
         "framework_pruebas": { "const": "junit5" },
         "archivo": { "anyOf": [
-          { "pattern": "^src/test/java/(?:[A-Za-z_$][A-Za-z0-9_$]*/)*[A-Za-z_$][A-Za-z0-9_$]*Test\\.java$" },
+          { "pattern": "^(?:[A-Za-z0-9_][A-Za-z0-9_.-]*/)*src/test/java/(?:[A-Za-z_$][A-Za-z0-9_$]*/)*[A-Za-z_$][A-Za-z0-9_$]*Test\\.java$" },
           { "pattern": "^[A-Za-z0-9_][A-Za-z0-9_.-]*$" }
         ] }
       } },
