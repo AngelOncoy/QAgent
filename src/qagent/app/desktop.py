@@ -131,15 +131,17 @@ class DesktopAPI:
         threading.Thread(target=trabajo, name="clonado-git", daemon=True).start()
         return {"iniciado": True}
 
-    def inspeccionar_carpeta(self, ruta: str) -> dict:
+    def inspeccionar_carpeta(
+        self, ruta: str, subcarpetas: list[str] | None = None
+    ) -> dict:
         """Valida la carpeta y cuenta las fuentes del adaptador elegido (HU-01).
 
         Returns:
-            dict: lenguaje, cantidad de fuentes, ruta, rama y motivo si no se puede abrir.
+            dict: lenguaje, cantidad de fuentes, ruta, rama, metadatos de exploración y motivo si no se puede abrir.
         """
-        return proyecto_local.inspeccionar_carpeta(ruta)
+        return proyecto_local.inspeccionar_carpeta(ruta, subcarpetas=subcarpetas)
 
-    def abrir_proyecto(self, ruta: str) -> dict:
+    def abrir_proyecto(self, ruta: str, subcarpetas: list[str] | None = None) -> dict:
         """Revalida la carpeta y, si tiene fuentes soportadas, registra el proyecto.
 
         Una carpeta sin fuentes analizables nunca se registra.
@@ -148,7 +150,7 @@ class DesktopAPI:
             dict: El resultado de ``inspeccionar_carpeta``; si no se pudo
             guardar en recientes, ``ok`` es False con el motivo en ``error``.
         """
-        proyecto = proyecto_local.inspeccionar_carpeta(ruta)
+        proyecto = proyecto_local.inspeccionar_carpeta(ruta, subcarpetas=subcarpetas)
         if not proyecto["ok"]:
             return proyecto
         try:
@@ -221,20 +223,28 @@ class DesktopAPI:
         except OSError:
             return False
 
-    def obtener_vista_previa(self, ruta: str) -> dict:
+    def obtener_vista_previa(
+        self, ruta: str, subcarpetas: list[str] | None = None
+    ) -> dict:
         """Obtiene la vista previa del proyecto analizado por AST (HU-04).
 
         Devuelve los módulos priorizados (primero los que tienen más funciones
-        con ramas), los errores de sintaxis y el resumen de métricas e
-        inconsistencias según el JSON de EN-02.
+        con ramas), los errores de sintaxis, el resumen de métricas e
+        inconsistencias según el JSON de EN-02 y el estado de la exploración.
         """
         from qagent.proyectos import vista_previa
 
-        return vista_previa.generar_vista_previa(ruta)
+        return vista_previa.generar_vista_previa(ruta, subcarpetas=subcarpetas)
 
-    def analizar_proyecto(self, ruta: str) -> dict:
+    def analizar_proyecto(
+        self, ruta: str, subcarpetas: list[str] | None = None
+    ) -> dict:
         """Alias de obtener_vista_previa para la interfaz JavaScript (HU-04)."""
-        return self.obtener_vista_previa(ruta)
+        return self.obtener_vista_previa(ruta, subcarpetas=subcarpetas)
+
+    def continuar_exploracion(self, ruta: str, subcarpetas: list[str]) -> dict:
+        """Continúa la exploración del proyecto para las carpetas o módulos seleccionados."""
+        return self.obtener_vista_previa(ruta, subcarpetas=subcarpetas)
 
     def obtener_seleccion_objetivos(self, ruta: str) -> dict:
         """Recupera la selección de Explorar guardada para este proyecto."""
