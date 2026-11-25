@@ -121,11 +121,29 @@ function renderAbrir(){
     const n = e.cantidad_fuentes ?? e.cantidad_py ?? 0;
     const lenguaje = e.nombre_lenguaje || 'Python';
     const extensiones = (e.extensiones || ['.py']).join(', ');
+    const esIncompleto = !!e.exploracion_incompleta;
+    const limiteFmt = (e.limite_archivos || 20000).toLocaleString('es-ES');
+    const metaLectura = esIncompleto
+      ? `· exploración parcial (límite de ${limiteFmt} archivos)`
+      : '· lectura completada';
+    const chipLectura = esIncompleto
+      ? `<span class="np-chip np-chip-aviso" title="Exploración parcial: se alcanzó el límite de archivos">${ICO_INFO}Exploración parcial</span>`
+      : `<span class="np-chip np-chip-exito">${ICO_OK}Listo para analizar</span>`;
+
+    let avisoParcial = '';
+    if (esIncompleto && e.aviso_exploracion) {
+      const pendientes = (e.carpetas_pendientes && e.carpetas_pendientes.length)
+        ? `<div class="np-mono" style="margin-top:4px;font-size:12px;">Pendientes: ${escHtml(e.carpetas_pendientes.slice(0, 4).join(', '))}${e.carpetas_pendientes.length > 4 ? '…' : ''}</div>`
+        : '';
+      avisoParcial = `<div class="np-aviso np-aviso-aviso" style="margin-top:10px;">${ICO_INFO}<div><b>Exploración incompleta</b><span>${escHtml(e.aviso_exploracion)}</span>${pendientes}</div></div>`;
+    }
+
     $('openReconocido').innerHTML = `<h2>Proyecto reconocido</h2>
-      <span class="np-chip np-chip-exito">${ICO_OK}Listo para analizar</span>
+      ${chipLectura}
       <p class="np-proyecto">${escHtml(nombreCarpeta(e.ruta))}</p>
       <p class="np-lenguaje">${ICO_CODIGO}${escHtml(lenguaje)}</p>
-      <p class="np-meta">${n} ${n === 1 ? 'archivo' : 'archivos'} ${escHtml(extensiones)} · lectura completada</p>`;
+      <p class="np-meta">${n} ${n === 1 ? 'archivo' : 'archivos'} ${escHtml(extensiones)} ${metaLectura}</p>
+      ${avisoParcial}`;
   } else {
     $('openReconocido').innerHTML = `<h2>Proyecto no compatible</h2>
       <span class="np-chip np-chip-bug">${ICO_ERROR}No se puede analizar</span>

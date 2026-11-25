@@ -15,20 +15,23 @@ from pathlib import Path
 from typing import Any
 
 from qagent import contracts
-from qagent.analysis.analyzer import DIRECTORIOS_IGNORADOS
 from qagent.lenguajes.base import Deteccion, LanguageAdapter
+from qagent.lenguajes.exploracion import (
+    CARPETAS_IGNORADAS,
+    MAX_ARCHIVOS_DETECCION,
+    ResultadoExploracion,
+    explorar_archivos,
+)
 
-#: Carpetas que no se recorren al detectar: las del analizador de Python más las
-#: de compilación de JS/TS y Java.
-CARPETAS_IGNORADAS = DIRECTORIOS_IGNORADOS | {
-    "target",
-    "build",
-    "dist",
-    "out",
-    "coverage",
-}
-#: Tope de archivos que se miran al detectar, para no recorrer repositorios enormes.
-MAX_ARCHIVOS_DETECCION = 20_000
+__all__ = [
+    "CARPETAS_IGNORADAS",
+    "MAX_ARCHIVOS_DETECCION",
+    "LenguajeNoSoportado",
+    "Registro",
+    "ResultadoExploracion",
+    "explorar_archivos",
+    "listar_archivos",
+]
 
 
 def listar_archivos(raiz: str | os.PathLike[str]) -> list[str]:
@@ -39,24 +42,7 @@ def listar_archivos(raiz: str | os.PathLike[str]) -> list[str]:
     Raises:
         NotADirectoryError: si ``raiz`` no es una carpeta.
     """
-    carpeta = Path(raiz)
-    if not carpeta.is_dir():
-        raise NotADirectoryError(f"No es una carpeta: {carpeta}")
-    encontrados: list[str] = []
-    for directorio, subdirectorios, archivos in os.walk(carpeta):
-        subdirectorios[:] = [
-            d
-            for d in subdirectorios
-            if not d.startswith(".")
-            and d not in CARPETAS_IGNORADAS
-            and not d.endswith(".egg-info")
-        ]
-        base = Path(directorio).relative_to(carpeta)
-        for nombre in archivos:
-            encontrados.append((base / nombre).as_posix())
-            if len(encontrados) >= MAX_ARCHIVOS_DETECCION:
-                return sorted(encontrados)
-    return sorted(encontrados)
+    return list(explorar_archivos(raiz).archivos)
 
 
 class LenguajeNoSoportado(RuntimeError):
@@ -145,28 +131,52 @@ class Registro:
         """Detecta los lenguajes de un proyecto en disco (ver :meth:`detectar_en`)."""
         return self.detectar_en(listar_archivos(raiz))
 
+    def explorar_y_detectar(
+        self,
+        raiz: str | os.PathLike[str],
+        *,
+        limite: int = MAX_ARCHIVOS_DETECCION,
+        subcarpetas: Sequence[str] | None = None,
+        archivos_previos: Sequence[str] | None = None,
+    ) -> tuple[list[Deteccion], ResultadoExploracion]:
+        """Explora el proyecto informando si quedó incompleto y detecta sus lenguajes."""
+        exploracion = explorar_archivos(
+            raiz,
+            limite=limite,
+            subcarpetas=subcarpetas,
+            archivos_previos=archivos_previos,
+        )
+        return self.detectar_en(exploracion.archivos), exploracion
+
     def lenguaje_principal(self, raiz: str | os.PathLike[str]) -> str | None:
         """Lenguaje con más archivos fuente del proyecto, o ``None`` si no hay."""
         detecciones = [d for d in self.detectar(raiz) if d.archivos]
         return detecciones[0].lenguaje if detecciones else None
 
     def adaptador_del_proyecto(
-        self, raiz: str | os.PathLike[str], predeterminado: str
+        self,
+        raiz: str | os.PathLike[str],
+        predeterminado: str,
+        archivos: Sequence[str] | None = None,
     ) -> LanguageAdapter:
         """Adaptador con el que se corre el proyecto en ``raiz`` (#168).
 
         Es el del lenguaje con más archivos fuente entre los que tienen adaptador
-        completo. Si hay más de uno, un adaptador con ``marcadores_si_mixto``
-        (JavaScript y TypeScript) solo se elige con uno de ellos en la raíz: un
-        proyecto de Python con algo de JavaScript (una carpeta ``static/``) se sigue
-        probando como Python. Sin archivos fuente de ningún lenguaje se usa
-        ``predeterminado``.
+        completo. Si se proporcionan ``archivos``, la selección se basa directamente
+        en esa lista respetando el alcance explorado. Si hay más de uno, un adaptador
+        con ``marcadores_si_mixto`` (JavaScript y TypeScript) solo se elige con uno
+        de ellos en la raíz: un proyecto de Python con algo de JavaScript (una carpeta
+        ``static/``) se sigue probando como Python. Sin archivos fuente de ningún
+        lenguaje se usa ``predeterminado``.
 
         Raises:
             LenguajeNoSoportado: si el proyecto solo tiene lenguajes cuyo adaptador
                 todavía no permite corridas.
         """
-        detecciones = [d for d in self.detectar(raiz) if d.archivos]
+        if archivos is not None:
+            detecciones = [d for d in self.detectar_en(archivos) if d.archivos]
+        else:
+            detecciones = [d for d in self.detectar(raiz) if d.archivos]
         completos = [
             a for d in detecciones if (a := self.adaptador_para(d.lenguaje)).completo
         ]

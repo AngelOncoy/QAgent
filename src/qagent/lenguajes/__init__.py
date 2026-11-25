@@ -10,6 +10,7 @@ Ver ``src/qagent/lenguajes/README.md`` y ``docs/decisiones/ADR-007-adaptadores-p
 from __future__ import annotations
 
 import os
+from collections.abc import Sequence
 from typing import Any
 
 from qagent import contracts
@@ -21,6 +22,16 @@ from qagent.lenguajes.base import (
     EntornoSandbox,
     LanguageAdapter,
     NoImplementado,
+)
+from qagent.lenguajes.exploracion import (
+    CARPETAS_IGNORADAS,
+    ESTADO_CANCELADO,
+    ESTADO_COMPLETO,
+    ESTADO_PARCIAL_ERROR,
+    ESTADO_TRUNCADO,
+    MAX_ARCHIVOS_DETECCION,
+    ResultadoExploracion,
+    explorar_archivos,
 )
 from qagent.lenguajes.java import JavaAdapter
 from qagent.lenguajes.javascript import JavaScriptAdapter, TypeScriptAdapter
@@ -55,7 +66,9 @@ def detectar_lenguaje(raiz: str | os.PathLike[str]) -> list[Deteccion]:
     return REGISTRO.detectar(raiz)
 
 
-def adaptador_del_proyecto(raiz: str | os.PathLike[str]) -> LanguageAdapter:
+def adaptador_del_proyecto(
+    raiz: str | os.PathLike[str], archivos: Sequence[str] | None = None
+) -> LanguageAdapter:
     """Adaptador con el que se corre el proyecto (ver ``Registro.adaptador_del_proyecto``).
 
     Sin archivos fuente reconocibles se usa el de los contratos anteriores a EN-17.
@@ -64,7 +77,7 @@ def adaptador_del_proyecto(raiz: str | os.PathLike[str]) -> LanguageAdapter:
         LenguajeNoSoportado: si el lenguaje del proyecto aún no permite corridas.
     """
     return REGISTRO.adaptador_del_proyecto(
-        raiz, contracts.LENGUAJE_CONTRATOS_ANTERIORES
+        raiz, contracts.LENGUAJE_CONTRATOS_ANTERIORES, archivos=archivos
     )
 
 
@@ -81,6 +94,12 @@ def adaptador_e2e_del_proyecto(raiz: str | os.PathLike[str]) -> LanguageAdapter:
 
 
 __all__ = [
+    "CARPETAS_IGNORADAS",
+    "ESTADO_CANCELADO",
+    "ESTADO_COMPLETO",
+    "ESTADO_PARCIAL_ERROR",
+    "ESTADO_TRUNCADO",
+    "MAX_ARCHIVOS_DETECCION",
     "REGISTRO",
     "AdaptadorEnDesarrollo",
     "ComandoSandbox",
@@ -94,6 +113,7 @@ __all__ = [
     "NoImplementado",
     "PythonAdapter",
     "Registro",
+    "ResultadoExploracion",
     "TypeScriptAdapter",
     "VersionPythonNoSoportada",
     "adaptador_de_contrato",
@@ -104,6 +124,7 @@ __all__ = [
     "detectar_declaracion_version",
     "detectar_lenguaje",
     "elegir_version_python",
+    "explorar_archivos",
     "fuera_de_la_corrida",
     "listar_archivos",
     "resolver_version_python_proyecto",
