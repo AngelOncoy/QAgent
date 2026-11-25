@@ -95,7 +95,7 @@ python -m pytest tests/compatibilidad_java -q
 
 ## Qué encontró la matriz
 
-La primera ejecución detectó tres incompatibilidades reales y una prueba
+La primera ejecución detectó cuatro incompatibilidades reales y una prueba
 desactualizada, corregidas en #309:
 
 1. **JUnit 4 en el proyecto** (`gs-maven`). Surefire añade `junit-vintage-engine`
@@ -111,6 +111,13 @@ desactualizada, corregidas en #309:
    Cada módulo escribe ahora su lista y se juntan (huella `v9`).
 4. `test_spring_corrida_docker.py` esperaba 2 contenedores; desde #305 hay una
    construcción previa a la IA. Ahora exige 3 y que el primero sea `clean compile`.
+5. **Permisos en Linux** (primera ejecución en GitHub Actions): el contenedor corre
+   como `sandbox` (uid 1000) y la copia temporal del proyecto es del usuario que
+   lanza QAgent, así que Maven no podía crear `target/` y pytest no podía leer
+   `/work/tests`. Docker Desktop en Windows lo ocultaba; es también la causa de que
+   el trabajo semanal `pytest --docker` fallara en `develop`. `abrir_permisos`
+   deja la copia escribible y los tests legibles, solo en POSIX y sin tocar el
+   proyecto original ni seguir enlaces.
 
 ## Resultados de referencia
 

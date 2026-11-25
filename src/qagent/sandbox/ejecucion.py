@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import re
 import shutil
 import tempfile
@@ -95,6 +96,29 @@ def copiar_proyecto(ruta_proyecto: str | Path, destino: str | Path) -> Path:
     return destino.resolve()
 
 
+def abrir_permisos(raiz: Path, *, escritura: bool) -> None:
+    """Deja una carpeta montada legible (y escribible) para el usuario del contenedor.
+
+    En Linux el contenedor corre como `sandbox` (uid 1000) y la copia temporal es del
+    usuario que lanza QAgent: sin esto Maven no puede crear `target/` ni pytest leer
+    `/work/tests` (#309, detectado en GitHub Actions). Solo se toca la copia y los
+    tests temporales, nunca el proyecto original; los enlaces simbólicos no se
+    siguen. En Windows y macOS Docker Desktop ya traduce los permisos.
+    """
+    if os.name != "posix":
+        return
+    directorio, archivo = (0o777, 0o666) if escritura else (0o755, 0o644)
+    for actual, carpetas, archivos in os.walk(raiz):
+        for nombre in [*carpetas, *archivos]:
+            ruta = os.path.join(actual, nombre)
+            if os.path.islink(ruta):
+                continue
+            modo = os.stat(ruta).st_mode
+            extra = directorio if nombre in carpetas else archivo
+            os.chmod(ruta, modo | extra)
+    os.chmod(raiz, os.stat(raiz).st_mode | directorio)
+
+
 def ejecutar_en_sandbox(
     imagen: str,
     comando: list[str],
@@ -157,6 +181,8 @@ def ejecutar_en_sandbox(
                 return ResultadoSandbox(
                     2, "", str(error), comando=list(comando), limites=limites
                 )
+        abrir_permisos(copia, escritura=True)
+        abrir_permisos(tests, escritura=False)
 
         variables = {"PYTHONPATH": DIR_PROYECTO, "HOME": "/tmp", **(entorno or {})}
         limites = ajustar_cpus_a_docker(limites, cliente)
