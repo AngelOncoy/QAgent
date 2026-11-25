@@ -57,6 +57,73 @@ El JSON ilegible sigue siendo un error recuperable del Planner (#127); una
 declaración sin oráculo se omite con su motivo antes de llamar a IA. No se
 amplían oráculos, inferencia, endpoints admitidos ni guardrails de MockMvc.
 
+## DTO con Bean Validation (#306, ADR-024)
+
+Un `@RequestBody` con `@Valid` (Jakarta o Javax) o `@Validated` sin grupos marca
+el endpoint como validado. `java_spring_validacion.py` busca su DTO, una clase o
+record del **mismo módulo Maven** que el controlador, y lee con tree-sitter sus
+campos escalares y estas restricciones: `NotNull`, `NotBlank`, `NotEmpty`,
+`Size`, `Min`, `Max`, `Positive`, `PositiveOrZero`, `Negative` y
+`NegativeOrZero`, con valores enteros literales.
+
+El Planner recibe solo esas declaraciones (`validacion` en el objetivo). El
+adaptador acepta dos clases de caso, comprobadas sin ejecutar Java:
+
+| Caso | Cuerpo | Esperado | Origen y evidencia |
+|---|---|---|---|
+| Válido | Exactamente los campos del DTO, de su tipo JSON, cumpliendo todo | `@ResponseStatus` declarado | `status_code`, sin evidencia |
+| Violación | Igual, pero incumpliendo **una** restricción | 400 | `bean_validation`, `evidencia: ["Dto.campo@Restriccion"]` |
+
+Se rechazan las evidencias que no coinciden con la restricción incumplida, los
+cuerpos que incumplen varias o ninguna, los campos desconocidos o ausentes, los
+valores de otro tipo (Jackson los convertiría o fallaría por otra razón) y
+cualquier estado distinto de 400. Nunca se afirma el JSON de error de Spring ni
+el mensaje de la restricción. La semántica es la de Hibernate Validator: `Size`,
+`Min`, `Max` y los signos aceptan `null`; `NotBlank` usa `String.trim()`; las
+longitudes cuentan unidades UTF-16 como `String.length()`.
+
+No se planifican violaciones, y el motivo queda en `validacion.motivo`, si el DTO
+usa grupos, `@Pattern`, `@Email` u otras restricciones aún no admitidas,
+anotaciones de Jackson, `@Valid` anidado, campos compuestos, herencia o un
+constructor sin la forma que Jackson asigna; si el POM del módulo o el raíz no
+declara `spring-boot-starter-validation` ni `hibernate-validator`; o si el
+controlador tiene `@ExceptionHandler` o el proyecto un `@ControllerAdvice`, que
+pueden cambiar el 400 y que `@WebMvcTest` no carga con el controlador aislado.
+El caso válido sigue disponible en esos escenarios.
+
+El guardrail vuelve a leer el DTO de la fuente actual y busca consejos globales
+con la misma regla antes de ejecutar y entre intentos: un contrato guardado no
+puede imponer restricciones que el código ya no declara. La plantilla MockMvc no
+cambia.
+
+**Seguridad, CSRF y autenticación no están admitidos.** Con Spring Security en
+el classpath, `@WebMvcTest` aplica la seguridad por defecto de Spring Boot y no la
+configuración del proyecto, así que un 401/403 no describe a la aplicación. QAgent
+no desactiva filtros ni crea usuarios simulados para forzar un 2xx. Tampoco se
+admiten aún el JSON mal formado, `consumes`/`produces` (415/406) ni la validación
+de parámetros de ruta o query.
+
+### Banco y verificación
+
+El banco Spring añade `PedidosController` y `PedidoDto` (`@NotBlank cliente`,
+`@Min(1) @Max(10) cantidad`, `@Size(max = 20) nota`) y declara
+`spring-boot-starter-validation`. `POST /api/pedidos` debe aceptar los tres casos.
+`POST /api/pedidos-defecto` lleva el defecto D-Spring-02: con un pedido válido
+devuelve 200 en vez del 201 declarado.
+
+```powershell
+python -m pytest tests/agents/test_issue306_spring_dto.py -q
+python -u -c "from qagent.sandbox.imagen import preparar_imagen; print(preparar_imagen('bench_java/src/test/resources/spring', imagen='qagent-sandbox:java', avanzar=print))"
+python -m pytest tests/sandbox/test_issue306_spring_dto_docker.py --docker -q -s
+```
+
+La primera usa el parser, el Planner y los contratos productivos con IA grabada,
+sin Docker. La segunda ejecuta Spring MVC y Hibernate Validator reales en Docker
+sin red, con la corrida productiva. Resultado del 25/11/2026: **1 passed en
+55 s**. `POST /api/pedidos` dio accept (201 válido, 400 por `NotBlank` y por
+`Max`) y `POST /api/pedidos-defecto` dio `bug_detectado` con 201 esperado y 200
+obtenido. Todos los contenedores corrieron sin red y se eliminaron.
+
 ## Verificación de este bloque
 
 ```powershell

@@ -22,6 +22,7 @@ from qagent.sandbox.imagen import (
     etiqueta_para_dependencias,
     receta_de,
 )
+from qagent.sandbox.informe_pytest import PASO
 from qagent.sandbox.modelos import IMAGEN_JAVA
 
 pytestmark = pytest.mark.docker
@@ -192,9 +193,9 @@ def test_dto_valido_y_violaciones_en_docker_detectan_el_defecto(
     ]
     assert contrato["casos"][2]["evidencia"] == ["PedidoDto.cantidad@Max"]
     casos = funciones["POST /api/pedidos"]["intentos"][-1]["ejecucion"]["casos"]
-    assert len(casos) == 3 and all(c["estado"] == "paso" for c in casos), casos
+    assert len(casos) == 3 and all(c["resultado"] == PASO for c in casos), casos
     defectuoso = funciones["POST /api/pedidos-defecto"]["intentos"][0]["ejecucion"]
-    fallidos = [c for c in defectuoso["casos"] if c["estado"] != "paso"]
+    fallidos = [c for c in defectuoso["casos"] if c["resultado"] != PASO]
     assert [(c["esperado"], c["obtenido"]) for c in fallidos] == [("201", "200")]
     for identidad, opciones in contenedores:
         assert opciones["network_mode"] == "none"

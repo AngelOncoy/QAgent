@@ -73,8 +73,19 @@ def test_spring_llega_a_seleccion_como_endpoints(
     shutil.copytree(BANCO / "src/test/resources/spring", proyecto)
     assert api.abrir_proyecto(str(proyecto))["ok"] is True
     vista = api.obtener_vista_previa(str(proyecto))
-    assert vista["resumen"]["total_endpoints"] == 3
-    controlador = next(m for m in vista["modulos"] if m["endpoints"])
+    # #306: el banco añade PedidosController con dos endpoints de DTO validado.
+    assert vista["resumen"]["total_endpoints"] == 5
+    pedidos = next(
+        m for m in vista["modulos"] if m["ruta"].endswith("PedidosController.java")
+    )
+    assert pedidos["funciones"] == []
+    assert {e["objetivo"] for e in pedidos["endpoints"]} == {
+        "POST /api/pedidos",
+        "POST /api/pedidos-defecto",
+    }
+    controlador = next(
+        m for m in vista["modulos"] if m["ruta"].endswith("ArticulosController.java")
+    )
     assert controlador["funciones"] == []
     objetivos = [e["objetivo"] for e in controlador["endpoints"]]
     assert set(objetivos) == {
