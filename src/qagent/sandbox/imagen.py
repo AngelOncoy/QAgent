@@ -198,6 +198,11 @@ def _dockerfile_maven(base: str, archivos: Mapping[str, bytes]) -> str:
     cuenta `junit-vintage-engine` con la versión de Jupiter de la prueba: la del
     proyecto o la que agrega QAgent. Sin él, Maven offline falla antes de ejecutar
     la prueba generada (#309, `spring-guides/gs-maven`).
+
+    Cada módulo escribe su lista en su carpeta y luego se juntan: en un reactor,
+    `-DappendOutput` con un archivo común lo dejaba con la lista del último módulo
+    (el agregador, sin dependencias) y el launcher de la versión del proyecto no
+    se descargaba (#309, `spring-guides/gs-multi-module`).
     """
     copias = "".join(
         "COPY " + json.dumps([nombre, f"{_CARPETA_DEPENDENCIAS}/{nombre}"]) + "\n"
@@ -212,12 +217,14 @@ def _dockerfile_maven(base: str, archivos: Mapping[str, bytes]) -> str:
         "    && MAVEN_OPTS= mvn org.apache.maven.plugins:maven-help-plugin:3.5.1:effective-pom -Doutput=/tmp/qagent-effective.xml \\\n"
         "    && java /tmp/qagent-resolver/ResolverRecursosMaven.java /tmp/qagent-effective.xml \\\n"
         "    && MAVEN_OPTS= mvn dependency:list -DincludeGroupIds=org.junit.platform \\\n"
-        "       -DincludeArtifactIds=junit-platform-engine -DappendOutput=true -DoutputFile=/tmp/qagent-junit-platform.txt \\\n"
+        "       -DincludeArtifactIds=junit-platform-engine -DoutputFile=qagent-junit-platform.txt \\\n"
+        "    && find . -name qagent-junit-platform.txt -exec cat {} + > /tmp/qagent-junit-platform.txt \\\n"
         "    && for version in $(awk -F: '/org.junit.platform:junit-platform-engine:jar:/ {print $4}' /tmp/qagent-junit-platform.txt); do \\\n"
         '         MAVEN_OPTS= mvn dependency:get "-Dartifact=org.junit.platform:junit-platform-launcher:$version" || exit 1; \\\n'
         "       done \\\n"
         "    && MAVEN_OPTS= mvn dependency:list -DincludeGroupIds=junit,org.junit.jupiter \\\n"
-        "       -DincludeArtifactIds=junit,junit-jupiter-api -DappendOutput=true -DoutputFile=/tmp/qagent-junit4.txt \\\n"
+        "       -DincludeArtifactIds=junit,junit-jupiter-api -DoutputFile=qagent-junit4.txt \\\n"
+        "    && find . -name qagent-junit4.txt -exec cat {} + > /tmp/qagent-junit4.txt \\\n"
         "    && if grep -q 'junit:junit:jar:' /tmp/qagent-junit4.txt; then \\\n"
         f"         for version in {_JUNIT_QAGENT} $(awk -F: '/org.junit.jupiter:junit-jupiter-api:jar:/ {{print $4}}' /tmp/qagent-junit4.txt | sort -u); do \\\n"
         '           MAVEN_OPTS= mvn dependency:get "-Dartifact=org.junit.vintage:junit-vintage-engine:$version" || exit 1; \\\n'
@@ -488,8 +495,9 @@ def etiqueta_para_dependencias(
     if prefijo == "java-" and "pom.xml" in archivos:
         # #174: Surefire necesita el launcher de la versión del engine resuelto.
         # No reutilizar derivadas anteriores que solo usaban go-offline/resolve.
-        # #309: v8 añade junit-vintage-engine si el proyecto trae JUnit 4.
-        huella.update(b"maven-reactor-terceros-v8\0")
+        # #309: v9 añade junit-vintage-engine si el proyecto trae JUnit 4 y junta
+        # las listas de JUnit de todos los módulos de un reactor.
+        huella.update(b"maven-reactor-terceros-v9\0")
         huella.update(_RESOLVER_MAVEN.read_bytes())
     if prefijo == "browser-":
         # Invalida la primera receta de #186, que heredaba por error USER sandbox.
