@@ -126,6 +126,7 @@ declaraciones, copias, compilaciones observadas y veredictos. Para comparar con
 con `PYTHONPATH` apuntando a su `src`, usando un directorio de salida nuevo para
 cada muestra. Conserva la misma imagen, selección y límites. Una pareja de
 muestras no es una matriz de compatibilidad externa ni una garantía de latencia.
+La matriz externa está en [matriz-compatibilidad.md](matriz-compatibilidad.md) (#309).
 
 Con el entorno virtual activo y Docker Desktop abierto:
 

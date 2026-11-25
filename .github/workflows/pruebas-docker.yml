@@ -1,23 +1,51 @@
-# Corre las pruebas con Docker real (marcador `docker`) en un runner efímero (#250).
+# Corre las pruebas con Docker real (marcador `docker`) en un runner efímero (#250) y la
+# matriz de compatibilidad Java con proyectos externos (#309).
 #
 # Esas pruebas no corren con `python test.py` (tardan unos 15 minutos y construyen cerca
 # de 10 GB de imágenes), así que este workflow las vigila sin gastar el disco de nadie:
-# - A mano: Actions > Pruebas con Docker real > Run workflow (elige la rama).
-# - Cada lunes sobre `develop`.
-# El runner se descarta al terminar: no hace falta borrar las imágenes.
+# - A mano: Actions > Pruebas con Docker real > Run workflow (elige la rama y el nivel).
+# - Cada lunes sobre `develop`: todas las pruebas docker y la matriz ampliada.
+# - En cada PR a `develop` que toca Java, el sandbox, los agentes o la matriz: solo la
+#   matriz de nivel `pr` (pocas filas, presupuesto de 25 min). Ver
+#   docs/java/matriz-compatibilidad.md.
+# El runner se descarta al terminar: no hace falta borrar las imágenes. La IA es la
+# grabada de tests/compatibilidad_java (0 tokens): no se usan claves ni secretos.
 name: Pruebas con Docker real
 
 on:
   workflow_dispatch:
+    inputs:
+      nivel:
+        description: "Nivel de la matriz Java"
+        type: choice
+        options: [ampliada, pr]
+        default: ampliada
   schedule:
     - cron: "0 9 * * 1"  # lunes, 09:00 UTC
+  pull_request:
+    branches: [develop]
+    paths:
+      - "src/qagent/lenguajes/java*.py"
+      - "src/qagent/sandbox/**"
+      - "src/qagent/orchestrator/**"
+      - "src/qagent/agents/**"
+      - "src/qagent/contracts/**"
+      - "bench_java/**"
+      - "tests/compatibilidad_java/**"
+      - "scripts/matriz_java.py"
+      - ".github/workflows/pruebas-docker.yml"
 
 permissions:
   contents: read
 
+concurrency:
+  group: docker-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   docker:
     name: pytest --docker
+    if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:
@@ -33,3 +61,43 @@ jobs:
         run: docker version
       - name: Pruebas con Docker real
         run: python test.py --sin-lint --docker --conservar-imagenes -m docker -rs
+
+  matriz-java:
+    name: matriz Java (${{ github.event_name == 'pull_request' && 'pr' || inputs.nivel || 'ampliada' }})
+    runs-on: ubuntu-latest
+    timeout-minutes: ${{ github.event_name == 'pull_request' && 40 || 120 }}
+    env:
+      NIVEL: ${{ github.event_name == 'pull_request' && 'pr' || inputs.nivel || 'ampliada' }}
+      PRESUPUESTO: ${{ github.event_name == 'pull_request' && '25' || '100' }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'schedule' && 'develop' || github.ref }}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13.17"
+      - name: Dependencias
+        run: python -m pip install -e ".[dev]"
+      - name: Docker
+        run: docker version
+      - name: Filas de la matriz
+        run: python scripts/matriz_java.py --listar --nivel "$NIVEL"
+      - name: Matriz Java
+        run: >-
+          python scripts/matriz_java.py --nivel "$NIVEL"
+          --presupuesto-min "$PRESUPUESTO" --conservar-imagenes
+          --salida matriz-java
+      - name: Resumen
+        if: always()
+        run: |
+          if [ -f matriz-java/matriz.md ]; then cat matriz-java/matriz.md >> "$GITHUB_STEP_SUMMARY"; fi
+      - name: Evidencia (logs, JUnit y resultados saneados)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: matriz-java-${{ env.NIVEL }}-${{ github.run_id }}
+          path: |
+            matriz-java/
+            !matriz-java/_fuentes/
+          retention-days: 14
+          if-no-files-found: warn
