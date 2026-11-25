@@ -103,6 +103,9 @@ registrarComponente('vista-previa/vista-previa', `<!-- ===== 2. EXPLORAR ===== -
     <!-- EP-11: archivos de JS o TS que no prueba esta corrida -->
     <div class="np-aviso np-aviso-aviso exp-errores hide" id="expFuera">${ICO_AVISO_EXP}<div><b id="expFueraTitulo"></b><div id="expFueraLista"></div></div></div>
 
+    <!-- Aviso de exploración incompleta por límite de archivos -->
+    <div class="np-aviso np-aviso-aviso exp-errores hide" id="expIncompleto">${ICO_AVISO_EXP}<div><b id="expIncompletoTitulo">Exploración parcial: repositorio grande</b><div id="expIncompletoDesc"></div><div id="expIncompletoCarpetas" style="margin-top:4px"></div><div id="expIncompletoAccion" style="margin-top:8px"></div></div></div>
+
     <!-- Archivos que no se pudieron leer -->
     <div class="np-aviso np-aviso-aviso exp-errores hide" id="expErrores">${ICO_AVISO_EXP}<div><b id="expErroresTitulo"></b><div id="expErroresLista"></div></div></div>
 
@@ -114,6 +117,7 @@ registrarComponente('vista-previa/vista-previa', `<!-- ===== 2. EXPLORAR ===== -
 let PROYECTO_RESUMEN = null;
 let PROYECTO_PREPARACION = null;
 let PROYECTO_ERRORES = [];
+let ULTIMA_RESPUESTA_VISTA = null;
 // issue 197: recomendación que llega con la vista previa ({recomendacion, proximamente}); null = no hay.
 let RECOMENDACION = null;
 // Nombre de cada tipo de recomendation.v1, igual que en Preparar.
@@ -194,12 +198,14 @@ function mostrarLenguajeProyecto(res = {}) {
 
 function cargarDatosVistaPrevia(res) {
   if (!res || !res.ok) return;
+  ULTIMA_RESPUESTA_VISTA = res;
   mostrarLenguajeProyecto(res);
   reiniciarVistaExplorar();
   PROYECTO_RESUMEN = res.resumen;
   PROYECTO_PREPARACION = res.preparacion_proyecto || null;
   PROYECTO_ERRORES = res.errores || [];
   renderFueraDeLaCorrida(res.fuera_de_la_corrida || []);
+  renderExploracionIncompleta(res);
   RECOMENDACION = res.recomendacion ? {recomendacion: res.recomendacion, proximamente: res.proximamente || []} : null;
   renderRecomendacion();
 
@@ -440,8 +446,10 @@ function vaciarVistaPrevia() {
   PROYECTO_RESUMEN = null;
   PROYECTO_PREPARACION = null;
   PROYECTO_ERRORES = [];
+  ULTIMA_RESPUESTA_VISTA = null;
   RECOMENDACION = null;
   renderRecomendacion();
+  renderExploracionIncompleta(null);
   actualizarResumenUI({ total_modulos: 0, total_funciones_publicas: 0, total_errores: 0 });
 }
 
@@ -678,6 +686,50 @@ function renderErroresLectura(){
   $('expErroresLista').innerHTML = conError.map(m =>
     `<span><span class="mono">${escHtml(m.path)}</span> no se pudo analizar: Error de sintaxis${m.error.linea ? ' en la línea ' + m.error.linea : ''} (${escHtml(m.error.mensaje || m.error.tipo || 'SyntaxError')}). Corrígelo o exclúyelo; el resto del proyecto se puede probar igual.</span>`
   ).join('');
+}
+
+// FIX: Aviso de exploración parcial en repositorios grandes (> 20.000 archivos)
+function renderExploracionIncompleta(res){
+  const caja = $('expIncompleto');
+  if(!caja) return;
+  const esIncompleto = !!(res && res.exploracion_incompleta);
+  caja.classList.toggle('hide', !esIncompleto);
+  if(!esIncompleto){
+    $('expIncompletoDesc').textContent = '';
+    $('expIncompletoCarpetas').innerHTML = '';
+    $('expIncompletoAccion').innerHTML = '';
+    return;
+  }
+  const limiteFmt = (res.limite_archivos || 20000).toLocaleString('es-ES');
+  $('expIncompletoTitulo').textContent = `Exploración parcial: se alcanzó el límite de ${limiteFmt} archivos`;
+  $('expIncompletoDesc').textContent = res.aviso_exploracion || 'El análisis del repositorio quedó incompleto y algunos módulos o tecnologías podrían no haberse identificado.';
+  const pendientes = res.carpetas_pendientes || [];
+  if(pendientes.length > 0){
+    $('expIncompletoCarpetas').innerHTML = `<span>Carpetas pendientes de análisis (${pendientes.length}): </span><span class="mono">${escHtml(pendientes.slice(0, 6).join(', '))}${pendientes.length > 6 ? '…' : ''}</span>`;
+    $('expIncompletoAccion').innerHTML = `<button type="button" class="ini-btn" onclick="continuarExploracionPendientes()">${ICO_FLECHA}Continuar análisis por módulos</button>`;
+  } else {
+    $('expIncompletoCarpetas').innerHTML = '';
+    $('expIncompletoAccion').innerHTML = '';
+  }
+}
+
+async function continuarExploracionPendientes(){
+  const api = window.pywebview && window.pywebview.api;
+  const fn = api && (api.continuar_exploracion || api.obtener_vista_previa || api.analizar_proyecto);
+  if(!fn || !projectPath) return;
+  toast('Continuando exploración de carpetas pendientes…');
+  try {
+    const pendientes = (ULTIMA_RESPUESTA_VISTA && ULTIMA_RESPUESTA_VISTA.carpetas_pendientes) || [];
+    const res = await (api.continuar_exploracion ? api.continuar_exploracion(projectPath, pendientes) : fn(projectPath));
+    if(res && res.ok){
+      cargarDatosVistaPrevia(res);
+      renderTree();
+      toast('Exploración continuada correctamente.');
+    }
+  } catch(err) {
+    console.error('Error al continuar exploración:', err);
+    toastError('No se pudo continuar la exploración.');
+  }
 }
 
 /* ---------------- Búsqueda y columnas ---------------- */
