@@ -36,6 +36,7 @@ from __future__ import annotations
 
 import logging
 import os
+from collections.abc import Sequence
 from pathlib import Path
 from typing import Any
 
@@ -43,9 +44,11 @@ from qagent.agents.recomendador import AGENTE as AGENTE_RECOMENDADOR
 from qagent.agents.recomendador import RecomendadorConIA, recomendar_para_vista
 from qagent.agents.recomendador_ia import crear_recomendador_ia
 from qagent.lenguajes import (
+    MAX_ARCHIVOS_DETECCION,
     LenguajeNoSoportado,
     adaptador_del_proyecto,
     adaptador_e2e_del_proyecto,
+    explorar_archivos,
     fuera_de_la_corrida,
 )
 from qagent.llm.tracker import TokenTracker
@@ -158,7 +161,11 @@ def _recomendar(
 
 
 def generar_vista_previa(
-    raiz: str | os.PathLike[str], *, recomendador: RecomendadorConIA | None = None
+    raiz: str | os.PathLike[str],
+    *,
+    recomendador: RecomendadorConIA | None = None,
+    subcarpetas: Sequence[str] | None = None,
+    archivos_previos: Sequence[str] | None = None,
 ) -> dict[str, Any]:
     """Genera los datos de la Vista previa para un proyecto dado (HU-04).
 
@@ -170,11 +177,13 @@ def generar_vista_previa(
         raiz: carpeta del proyecto.
         recomendador: Recomendador con IA (#200); si es None se crea el de
             ``[agentes.recomendador]`` cuando su modo es ``ia``.
+        subcarpetas: subcarpetas específicas a explorar para continuar el recorrido.
+        archivos_previos: archivos de una exploración anterior para consolidar.
 
     Returns:
         dict con ``ok``, ``ruta``, ``nombre``, ``modulos`` (priorizados),
         ``errores`` (archivos no analizables), ``resumen`` (métricas e
-        inconsistencias EN-02) y ``avisos``.
+        inconsistencias EN-02), ``avisos`` y metadatos de exploración.
     """
     carpeta = Path(raiz)
     if not carpeta.is_dir():
@@ -204,11 +213,22 @@ def generar_vista_previa(
                 "recomendaciones": [],
             },
             "proximamente": [],
+            "estado_exploracion": "completo",
+            "exploracion_incompleta": False,
+            "total_procesados": 0,
+            "limite_archivos": MAX_ARCHIVOS_DETECCION,
+            "carpetas_pendientes": [],
+            "aviso_exploracion": None,
         }
 
+    exploracion = explorar_archivos(
+        carpeta,
+        subcarpetas=subcarpetas,
+        archivos_previos=archivos_previos,
+    )
     solo_e2e = False
     try:
-        adaptador = adaptador_del_proyecto(carpeta)
+        adaptador = adaptador_del_proyecto(carpeta, archivos=exploracion.archivos)
     except LenguajeNoSoportado as error:
         try:
             adaptador = adaptador_e2e_del_proyecto(carpeta)
@@ -305,6 +325,25 @@ def generar_vista_previa(
             "no_analizable": ETIQUETA_NO_ANALIZABLE,
             "contrato_inferido": AVISO_CONTRATO_INFERIDO,
         },
+        # Metadatos de exploración (FIX - Exploración de repositorios grandes)
+        "estado_exploracion": exploracion.estado,
+        "exploracion_incompleta": exploracion.incompleto,
+        "total_procesados": exploracion.total_procesados,
+        "limite_archivos": exploracion.limite,
+        "carpetas_pendientes": list(exploracion.carpetas_pendientes),
+        "aviso_exploracion": (
+            f"Exploración parcial: se alcanzó el límite de {exploracion.limite:,}".replace(
+                ",", "."
+            )
+            + f" archivos. Existen carpetas pendientes ({', '.join(exploracion.carpetas_pendientes[:3])}...). "
+            "La detección del lenguaje y módulos se basa en la muestra analizada."
+            if exploracion.truncado
+            else (
+                f"Exploración con incidencias: {len(exploracion.errores)} rutas no pudieron analizarse."
+                if exploracion.estado == "parcial_error"
+                else None
+            )
+        ),
     }
     # #197/#200: recomendación (reglas o IA). Solo informa; no cambia la selección.
     if not preparacion_proyecto["compatible"]:
