@@ -229,6 +229,10 @@ def contexto_java(
             raise ValueError(
                 "Los servicios del contrato no coinciden con las dependencias inyectadas."
             )
+        # #306: las restricciones del DTO se vuelven a leer de la fuente actual.
+        from qagent.lenguajes.java_spring_validacion import revalidar_endpoint
+
+        revalidar_endpoint(Path(ruta_proyecto), modulo, raiz, endpoint)
         contexto["endpoint"] = endpoint
     return contexto
 

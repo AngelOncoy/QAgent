@@ -121,6 +121,7 @@ def extraer_endpoints(
 
     por_nombre = {f["nombre"]: f for f in funciones}
     from qagent.lenguajes.java_firmas import indexar_metodos
+    from qagent.lenguajes.java_spring_validacion import parametro_validado
 
     por_inicio = {n.start_byte: nombre for nombre, n in indexar_metodos(raiz).items()}
     resultado = []
@@ -192,6 +193,8 @@ def extraer_endpoints(
                             for h in parametro.named_children
                             if h.type == "modifiers"
                         ],
+                        # #306: @Valid/@Validated activa Bean Validation del DTO.
+                        "validado": parametro_validado(parametro, imports),
                     }
                 )
             resuelta = (
