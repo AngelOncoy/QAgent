@@ -770,6 +770,10 @@ class JavaAdapter(AdaptadorEnDesarrollo):
             arboles[relativa] = arbol.root_node
         agregar_llamadas(modulos, arboles)
         _clasificar_dependencias(carpeta, modulos)
+        # #306: restricciones del DTO @Valid, aunque esté en otro archivo.
+        from qagent.lenguajes.java_spring_validacion import enlazar_validacion
+
+        enlazar_validacion(carpeta, modulos, arboles)
         for modulo in modulos:
             manejadores = {e["manejador"] for e in modulo["endpoints"]}
             por_nombre = {f["nombre"]: f for f in modulo["funciones"]}

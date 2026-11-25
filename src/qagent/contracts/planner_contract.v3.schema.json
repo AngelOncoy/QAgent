@@ -353,7 +353,7 @@
           }
         },
         {
-          "if": { "properties": { "origen": { "const": "inferido" } }, "required": ["origen"] },
+          "if": { "properties": { "origen": { "enum": ["inferido", "bean_validation"] } }, "required": ["origen"] },
           "then": { "required": ["evidencia"] },
           "else": { "not": { "required": ["evidencia"] } }
         }
@@ -377,14 +377,14 @@
           "description": "Excepción esperada (ValueError, TypeError, IllegalArgumentException)."
         },
         "origen": {
-          "enum": ["firma", "tipo", "docstring", "response_model", "status_code", "modelo_pydantic", "inferido"],
-          "description": "De dónde sale el valor esperado. `docstring` incluye JSDoc y Javadoc. `inferido` (ADR-016, #275) es una lectura estática del código y su contexto cuando no hay contrato documentado: exige `evidencia`. No existe la opción 'ejecucion' a propósito."
+          "enum": ["firma", "tipo", "docstring", "response_model", "status_code", "modelo_pydantic", "inferido", "bean_validation"],
+          "description": "De dónde sale el valor esperado. `docstring` incluye JSDoc y Javadoc. `inferido` (ADR-016, #275) es una lectura estática del código y su contexto cuando no hay contrato documentado: exige `evidencia`. `bean_validation` (ADR-024, #306) es el 400 de una restricción declarada en el DTO `@Valid` de un endpoint Spring: exige `evidencia` con esa restricción. No existe la opción 'ejecucion' a propósito."
         },
         "evidencia": {
           "type": "array",
           "minItems": 1,
           "items": { "type": "string", "minLength": 1 },
-          "description": "Solo con origen `inferido`: fuentes estáticas que respaldan el caso (`cuerpo`, `dependencia:<símbolo>`, `llamador:<ruta>::<función>`, `test_existente:<ruta>::<test>`)."
+          "description": "Solo con origen `inferido` o `bean_validation`. Inferido: fuentes estáticas que respaldan el caso (`cuerpo`, `dependencia:<símbolo>`, `llamador:<ruta>::<función>`, `test_existente:<ruta>::<test>`). Bean Validation: la restricción incumplida, `Dto.campo@Restriccion`."
         },
         "categoria": { "enum": ["normal", "limite", "error"] }
       }
